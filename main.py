@@ -4,7 +4,7 @@ Trading Pipeline - SSI to Supabase
 
 Cách dùng:
     python main.py init          # Lấy danh sách mã (chạy 1 lần)
-    python main.py backfill      # Lấy lịch sử 3 năm (chạy 1 lần)
+    python main.py backfill [from_date] [to_date]  # Mặc định: 2023-01-01 -> hôm nay
     python main.py daily         # Lấy dữ liệu hôm qua (chạy mỗi ngày)
     python main.py test          # Test thử với mã SSI
 """
@@ -26,7 +26,9 @@ def main():
     
     elif cmd == 'backfill':
         print("🚀 Bắt đầu backfill lịch sử...")
-        backfill("2023-01-01", "2026-04-22")
+        from_date = sys.argv[2] if len(sys.argv) > 2 else "2023-01-01"
+        to_date = sys.argv[3] if len(sys.argv) > 3 else datetime.now().strftime("%Y-%m-%d")
+        backfill(from_date, to_date)
     
     elif cmd == 'daily':
         daily_run()
