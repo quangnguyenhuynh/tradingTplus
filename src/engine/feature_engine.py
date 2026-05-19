@@ -1,6 +1,5 @@
 # src/engine/feature_engine.py
 import pandas as pd
-import numpy as np
 from src.database.client import SupabaseClient
 from datetime import datetime
 

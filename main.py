@@ -10,8 +10,18 @@ Cách dùng:
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
+
+VN_TZ = timezone(timedelta(hours=7))
+
+
+def _validate_date_yyyy_mm_dd(value: str) -> bool:
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
 
 
 def main():
@@ -27,7 +37,16 @@ def main():
     elif cmd == 'backfill':
         print("🚀 Bắt đầu backfill lịch sử...")
         from_date = sys.argv[2] if len(sys.argv) > 2 else "2023-01-01"
-        to_date = sys.argv[3] if len(sys.argv) > 3 else datetime.now().strftime("%Y-%m-%d")
+        to_date = sys.argv[3] if len(sys.argv) > 3 else datetime.now(VN_TZ).strftime("%Y-%m-%d")
+
+        if not _validate_date_yyyy_mm_dd(from_date) or not _validate_date_yyyy_mm_dd(to_date):
+            print("❌ Sai định dạng ngày. Dùng YYYY-MM-DD, ví dụ: python main.py backfill 2024-01-01 2024-12-31")
+            return
+
+        if from_date > to_date:
+            print("❌ from_date phải nhỏ hơn hoặc bằng to_date")
+            return
+
         backfill(from_date, to_date)
     
     elif cmd == 'daily':
@@ -35,7 +54,7 @@ def main():
     
     elif cmd == 'test':
         print("🧪 Test với mã SSI...")
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%d/%m/%Y")
+        yesterday = (datetime.now(VN_TZ) - timedelta(days=1)).strftime("%d/%m/%Y")
         #print(f"yesterday la {yesterday}")
         count = fetch_one_day('SSI', yesterday)
         print(f"✅ Đã lưu {count} candles cho SSI")
