@@ -1,9 +1,4 @@
 # src/engine/signal_engine.py
-from src.engine.signal import ReversalStrategy, BreakoutStrategy, TrendStrategy
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 import pandas as pd
 from datetime import datetime, time
 from src.database.client import SupabaseClient
@@ -33,15 +28,15 @@ def run_signal_engine(target_date=None):
     df['time'] = pd.to_datetime(df['time'])
     strategies = [ReversalStrategy(), BreakoutStrategy(), TrendStrategy()]
     signals = []
+    grouped = {symbol: g.sort_values('time') for symbol, g in df.groupby('symbol')}
 
     for check_time in CHECK_TIMES:
         bucket_dt = datetime.strptime(f"{target_date} {check_time.strftime('%H:%M')}:00", "%Y-%m-%d %H:%M:%S")
-        for symbol in df['symbol'].unique():
-            symbol_df = df[df['symbol'] == symbol].copy()
-            candidate = symbol_df[symbol_df['time'] <= bucket_dt].sort_values('time', ascending=False)
+        for symbol, symbol_df in grouped.items():
+            candidate = symbol_df[symbol_df['time'] <= bucket_dt]
             if candidate.empty:
                 continue
-            row = candidate.iloc[0]
+            row = candidate.iloc[-1]
             for strategy in strategies:
                 res = strategy.evaluate(row)
                 if res:
@@ -57,8 +52,10 @@ def run_signal_engine(target_date=None):
                     })
 
     if signals:
-        for s in signals:
-            db.get().table('trading_signals').upsert(s, on_conflict='symbol,signal_type,bucket_time').execute()
+        BATCH_SIZE = 500
+        for i in range(0, len(signals), BATCH_SIZE):
+            chunk = signals[i:i+BATCH_SIZE]
+            db.get().table('trading_signals').upsert(chunk, on_conflict='symbol,signal_type,bucket_time').execute()
         print(f"   ✅ Đã lưu {len(signals)} signals")
     else:
         print("   ⚪ Không có signal")
