@@ -20,7 +20,7 @@ class BreakoutStrategy(SignalStrategy):
             score += 1 if close > bb_upper else 0
             score += 1 if close > row.get('ema_20', 0) else 0
             
-            if score >= 5:
+            if score >= 4:
                 return {
                     'type': self.get_signal_type(),
                     'score': score,

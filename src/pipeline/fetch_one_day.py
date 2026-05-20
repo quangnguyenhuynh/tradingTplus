@@ -19,8 +19,8 @@ def parse_time(date_str, time_str):
             day, month, year = date_str.split('/')
             dt = datetime(int(year), int(month), int(day))
             return dt.isoformat()
-        except:
-            return datetime.now().isoformat()
+        except Exception:
+            return None
 #########################     
 
 
@@ -60,6 +60,9 @@ def fetch_one_day(symbol: str, date: str) -> int:
         time_str = c.get('Time', '')
         #print(f"lay thoi gian intraday {time_str}")
         time_iso = parse_time(date, time_str)
+        if time_iso is None:
+            print(f"  ⚠️ {symbol}: bỏ qua candle lỗi timestamp: {time_str}")
+            continue
         #print(f"lay thoi gian time iso {time_iso}")
         
         # Tính volume_delta

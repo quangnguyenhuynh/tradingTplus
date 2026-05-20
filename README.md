@@ -1,0 +1,56 @@
+# tradingTplus
+
+Pipeline thu thập dữ liệu SSI -> Supabase, sau đó tính feature kỹ thuật và sinh trading signal.
+
+## Cấu trúc repo
+
+- `main.py`: CLI entrypoint cho các tác vụ ingest.
+- `src/ssi/`: client gọi SSI API.
+- `src/pipeline/`: luồng `init`, `daily`, `backfill`, `fetch_one_day`.
+- `src/database/`: Supabase client + các hàm insert/upsert.
+- `src/engine/feature_engine.py`: tính indicator/features.
+- `src/engine/signal_engine.py`: sinh signal từ features.
+- `scripts/`: script hỗ trợ kiểm tra kết nối API/DB và chạy sample backfill.
+
+## Quick start
+
+1. Cài dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Tạo `.env` với các biến:
+
+```bash
+SUPABASE_URL=
+SUPABASE_KEY=
+SUPABASE_SERVICE_KEY=
+SSI_CONSUMER_ID=
+SSI_CONSUMER_SECRET=
+```
+
+3. Chạy pipeline:
+
+```bash
+python main.py init
+python main.py backfill 2024-01-01 2024-12-31
+python main.py daily
+python main.py daily 20/05/2026
+python main.py test SSI 20/05/2026
+```
+
+## Scripts hỗ trợ
+
+```bash
+python scripts/check_ssi_api.py
+python scripts/check_supabase.py
+python scripts/check_symbols.py
+python scripts/backfill_sample.py
+```
+
+## Ghi chú vận hành
+
+- `daily` và `backfill` mặc định theo múi giờ VN (UTC+7).
+- `backfill` yêu cầu format `YYYY-MM-DD`.
+- Khi parse timestamp intraday lỗi, hệ thống sẽ bỏ qua candle lỗi thay vì ghi dữ liệu sai thời gian.

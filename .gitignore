@@ -1,3 +1,18 @@
-venv/
+# Python
 __pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Env
 .env
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
+
+# OS
+.DS_Store
