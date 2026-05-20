@@ -3,10 +3,10 @@
 Trading Pipeline - SSI to Supabase
 
 Cách dùng:
-    python main.py init          # Lấy danh sách mã (chạy 1 lần)
-    python main.py backfill [from_date] [to_date]  # Mặc định: 2023-01-01 -> hôm nay
-    python main.py daily         # Lấy dữ liệu hôm qua (chạy mỗi ngày)
-    python main.py test          # Test thử với mã SSI
+    python main.py init
+    python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
+    python main.py daily [DD/MM/YYYY]               # mặc định: hôm qua (UTC+7)
+    python main.py test [SYMBOL] [DD/MM/YYYY]       # mặc định: SSI + hôm qua
 """
 
 import sys
@@ -16,7 +16,11 @@ from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
 VN_TZ = timezone(timedelta(hours=7))
 
 
-def _validate_date_yyyy_mm_dd(value: str) -> bool:
+def _today_vn() -> datetime:
+    return datetime.now(VN_TZ)
+
+
+def _is_yyyy_mm_dd(value: str) -> bool:
     try:
         datetime.strptime(value, "%Y-%m-%d")
         return True
@@ -24,45 +28,59 @@ def _validate_date_yyyy_mm_dd(value: str) -> bool:
         return False
 
 
-def main():
+def _print_usage_error(message: str) -> None:
+    print(f"❌ {message}")
+    print(__doc__)
+
+
+def run_backfill(args: list[str]) -> None:
+    from_date = args[0] if len(args) >= 1 else "2023-01-01"
+    to_date = args[1] if len(args) >= 2 else _today_vn().strftime("%Y-%m-%d")
+
+    if not _is_yyyy_mm_dd(from_date) or not _is_yyyy_mm_dd(to_date):
+        _print_usage_error("backfill yêu cầu format YYYY-MM-DD")
+        return
+
+    if from_date > to_date:
+        _print_usage_error("from_date phải nhỏ hơn hoặc bằng to_date")
+        return
+
+    print(f"🚀 Backfill từ {from_date} -> {to_date}")
+    backfill(from_date, to_date)
+
+
+def run_daily(args: list[str]) -> None:
+    date = args[0] if args else None
+    daily_run(date)
+
+
+def run_test(args: list[str]) -> None:
+    symbol = args[0] if len(args) >= 1 else "SSI"
+    date = args[1] if len(args) >= 2 else (_today_vn() - timedelta(days=1)).strftime("%d/%m/%Y")
+
+    print(f"🧪 Test fetch: symbol={symbol}, date={date}")
+    count = fetch_one_day(symbol, date)
+    print(f"✅ Đã lưu {count} candles cho {symbol}")
+
+
+def main() -> None:
     if len(sys.argv) < 2:
         print(__doc__)
         return
-    
+
     cmd = sys.argv[1]
-    
-    if cmd == 'init':
+    args = sys.argv[2:]
+
+    if cmd == "init":
         init_symbols()
-    
-    elif cmd == 'backfill':
-        print("🚀 Bắt đầu backfill lịch sử...")
-        from_date = sys.argv[2] if len(sys.argv) > 2 else "2023-01-01"
-        to_date = sys.argv[3] if len(sys.argv) > 3 else datetime.now(VN_TZ).strftime("%Y-%m-%d")
-
-        if not _validate_date_yyyy_mm_dd(from_date) or not _validate_date_yyyy_mm_dd(to_date):
-            print("❌ Sai định dạng ngày. Dùng YYYY-MM-DD, ví dụ: python main.py backfill 2024-01-01 2024-12-31")
-            return
-
-        if from_date > to_date:
-            print("❌ from_date phải nhỏ hơn hoặc bằng to_date")
-            return
-
-        backfill(from_date, to_date)
-    
-    elif cmd == 'daily':
-        daily_run()
-    
-    elif cmd == 'test':
-        print("🧪 Test với mã SSI...")
-        yesterday = (datetime.now(VN_TZ) - timedelta(days=1)).strftime("%d/%m/%Y")
-        #print(f"yesterday la {yesterday}")
-        count = fetch_one_day('SSI', yesterday)
-        print(f"✅ Đã lưu {count} candles cho SSI")
-        print("💡 Kiểm tra database để xác nhận dữ liệu đã được lưu")
-    
+    elif cmd == "backfill":
+        run_backfill(args)
+    elif cmd == "daily":
+        run_daily(args)
+    elif cmd == "test":
+        run_test(args)
     else:
-        print(f"❌ Không biết lệnh: {cmd}")
-        print(__doc__)
+        _print_usage_error(f"Không biết lệnh: {cmd}")
 
 
 if __name__ == "__main__":

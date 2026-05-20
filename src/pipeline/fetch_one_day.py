@@ -104,7 +104,7 @@ def fetch_one_day(symbol: str, date: str) -> int:
     
     # Bước 3: Lưu vào database
     if raw_records:
-        db.insert_raw(raw_records)
+        db.upsert_raw(raw_records)
     
     if clean_records:
         db.upsert_intraday(clean_records)

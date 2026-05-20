@@ -36,6 +36,8 @@ SSI_CONSUMER_SECRET=
 python main.py init
 python main.py backfill 2024-01-01 2024-12-31
 python main.py daily
+python main.py daily 20/05/2026
+python main.py test SSI 20/05/2026
 ```
 
 ## Scripts hỗ trợ
@@ -52,3 +54,10 @@ python scripts/backfill_sample.py
 - `daily` và `backfill` mặc định theo múi giờ VN (UTC+7).
 - `backfill` yêu cầu format `YYYY-MM-DD`.
 - Khi parse timestamp intraday lỗi, hệ thống sẽ bỏ qua candle lỗi thay vì ghi dữ liệu sai thời gian.
+
+## Trạng thái flow hiện tại
+
+- ✅ Ingest: `init`, `backfill`, `daily`, `test` đã chạy được qua `main.py`.
+- ✅ Feature: có engine tính indicator và lưu vào bảng `features`.
+- ✅ Signal: có engine sinh tín hiệu rule-based và lưu `trading_signals`.
+- ⚠️ Backtest: chưa có engine backtest chính thức (file `backtest_engine.py` đang để placeholder).
