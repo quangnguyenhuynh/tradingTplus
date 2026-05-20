@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 class SupabaseClient:
     _instance = None
 
+    # cache tables whose explicit on_conflict is incompatible with DB constraints
+    _disabled_on_conflict: dict[str, str] = {}
+    _force_insert_tables: set[str] = set()
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -71,11 +75,62 @@ class SupabaseClient:
         for i in range(0, len(records), batch_size):
             chunk = records[i:i + batch_size]
 
-            def _do_upsert():
-                query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if on_conflict else self.client.table(table_name).upsert(chunk)
-                return query.execute()
+            if table_name in self._force_insert_tables:
+                self._with_retry(
+                    lambda: self.client.table(table_name).insert(chunk).execute(),
+                    action_name=f"insert {table_name} [{i}:{i + len(chunk)}]",
+                )
+                continue
 
-            self._with_retry(_do_upsert, action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]")
+            active_on_conflict = on_conflict
+            if self._disabled_on_conflict.get(table_name) == on_conflict:
+                active_on_conflict = None
+
+            def _do_upsert(current_on_conflict):
+                if current_on_conflict:
+                    return self.client.table(table_name).upsert(chunk, on_conflict=current_on_conflict).execute()
+                return self.client.table(table_name).upsert(chunk).execute()
+
+            def _do_insert():
+                return self.client.table(table_name).insert(chunk).execute()
+
+            try:
+                self._with_retry(
+                    lambda: _do_upsert(active_on_conflict),
+                    action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]",
+                )
+            except Exception as exc:
+                # 42P10: no unique/exclusion constraint matching ON CONFLICT specification
+                message = str(exc)
+                if "42P10" not in message:
+                    raise
+
+                if active_on_conflict:
+                    logger.warning(
+                        "Disable on_conflict='%s' for table=%s due to 42P10; fallback to default upsert",
+                        active_on_conflict,
+                        table_name,
+                    )
+                    self._disabled_on_conflict[table_name] = active_on_conflict
+                    try:
+                        self._with_retry(
+                            lambda: _do_upsert(None),
+                            action_name=f"upsert {table_name} fallback [{i}:{i + len(chunk)}]",
+                        )
+                        continue
+                    except Exception as fallback_exc:
+                        if "42P10" not in str(fallback_exc):
+                            raise
+
+                logger.warning(
+                    "Table %s has no usable ON CONFLICT constraint. Switch to insert mode for remaining batches.",
+                    table_name,
+                )
+                self._force_insert_tables.add(table_name)
+                self._with_retry(
+                    _do_insert,
+                    action_name=f"insert {table_name} fallback [{i}:{i + len(chunk)}]",
+                )
 
         logger.info("Upserted %s records into %s", len(records), table_name)
 
