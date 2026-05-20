@@ -1,235 +1,184 @@
-from supabase import create_client
-from src.config import config
-import pandas as pd
-from collections import defaultdict
+import logging
+import random
 import time
+from collections import defaultdict
 from datetime import datetime
+
+import pandas as pd
+from supabase import create_client
+
+from src.config import config
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseClient:
     _instance = None
-    
+
+    # cache tables whose explicit on_conflict is incompatible with DB constraints
+    _disabled_on_conflict: dict[str, str] = {}
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._connect()
         return cls._instance
-    
+
     def _connect(self):
-        self.client = create_client(
-            config.SUPABASE_URL,
-            config.SUPABASE_SERVICE_KEY
-        )
-        print("✅ Kết nối Supabase thành công")
-    
+        self.client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
+        logger.info("Supabase connected")
+
+    def reconnect(self):
+        logger.warning("Reconnecting Supabase client")
+        self._connect()
+
     def get(self):
         return self.client
 
-    # =========================================
-    # ========== RAW LAYER =====================
-    # =========================================
-    def upsert_raw(self, records):
-        if not records:
-            return
-        
-        BATCH_SIZE = 200
-        
-        for i in range(0, len(records), BATCH_SIZE):
-            chunk = records[i:i+BATCH_SIZE]
-            self.client.table('raw_intraday').upsert(
-                chunk,
-                on_conflict='symbol,time,data_hash'
-            ).execute()
-        
-        print(f"📦 Đã upsert {len(records)} raw records")
-
-    # =========================================
-    # ========== SYMBOLS =======================
-    # =========================================
-    def upsert_symbols(self, symbols):
-        if not symbols:
-            return
-        
-        BATCH_SIZE = 500
-        
-        for i in range(0, len(symbols), BATCH_SIZE):
-            chunk = symbols[i:i+BATCH_SIZE]
-            self.client.table('symbols').upsert(chunk).execute()
-        
-        print(f"📋 Đã lưu {len(symbols)} symbols")
-
-    # =========================================
-    # ========== INTRADAY ======================
-    # =========================================
-    def upsert_intraday(self, records):
-        """
-        Production version:
-        - Normalize UTC
-        - Group theo tháng
-        - Ensure partition 1 lần / tháng
-        - Bulk upsert + retry
-        """
-        if not records:
-            return
-        
-        print(f"🚀 Start ingest {len(records)} records")
-
-        # -----------------------------
-        # 1. Normalize UTC
-        # -----------------------------
-        for r in records:
-            r['time'] = pd.to_datetime(r['time'], utc=True).isoformat()
-
-        # -----------------------------
-        # 2. Group theo tháng (cách an toàn hơn)
-        # -----------------------------
-        buckets = defaultdict(list)
-        for r in records:
-            # Lấy YYYY-MM từ time đã normalize
-            dt = datetime.fromisoformat(r['time'].replace('Z', '+00:00'))
-            month = dt.strftime('%Y-%m')
-            buckets[month].append(r)
-
-        # -----------------------------
-        # 3. Ensure partition (1 lần/tháng)
-        # -----------------------------
-        for month in buckets.keys():
+    def _with_retry(self, action, action_name: str, max_retry: int = 3, base_sleep: float = 0.5):
+        for attempt in range(1, max_retry + 1):
             try:
-                self.client.rpc(
-                    'create_partition_if_not_exists',
-                    {
-                        'p_table': 'stock_intraday',
-                        'p_time': f"{month}-01T00:00:00Z"
-                    }
-                ).execute()
-                print(f"📁 Partition OK: {month}")
-            except Exception as e:
-                print(f"❌ Partition error {month}: {e}")
-                raise
+                return action()
+            except Exception as exc:
+                error_message = str(exc).lower()
+                retriable = any(k in error_message for k in ["timeout", "connection", "network", "503", "502", "429", "jwt", "auth"])
+                if retriable and ("jwt" in error_message or "auth" in error_message):
+                    self.reconnect()
 
-        # -----------------------------
-        # 4. Bulk upsert
-        # -----------------------------
-        BATCH_SIZE = 500
+                if attempt >= max_retry or not retriable:
+                    logger.exception("%s failed at attempt %s/%s", action_name, attempt, max_retry)
+                    raise
+
+                sleep_sec = base_sleep * (2 ** (attempt - 1)) + random.uniform(0, 0.3)
+                logger.warning("%s retry %s/%s after %.2fs due to: %s", action_name, attempt, max_retry, sleep_sec, exc)
+                time.sleep(sleep_sec)
+
+    def health_check(self) -> bool:
+        try:
+            self._with_retry(
+                lambda: self.client.table('symbols').select('symbol').limit(1).execute(),
+                action_name="health_check",
+                max_retry=2,
+                base_sleep=0.2,
+            )
+            logger.info("Supabase health-check OK")
+            return True
+        except Exception:
+            logger.exception("Supabase health-check failed")
+            return False
+
+    def _upsert_in_batches(self, table_name: str, records, on_conflict: str | None = None, batch_size: int = 500):
+        if not records:
+            return
+
+        for i in range(0, len(records), batch_size):
+            chunk = records[i:i + batch_size]
+
+            active_on_conflict = on_conflict
+            if self._disabled_on_conflict.get(table_name) == on_conflict:
+                active_on_conflict = None
+
+            def _do_upsert(current_on_conflict):
+                if current_on_conflict:
+                    return self.client.table(table_name).upsert(chunk, on_conflict=current_on_conflict).execute()
+                return self.client.table(table_name).upsert(chunk).execute()
+
+            try:
+                self._with_retry(
+                    lambda: _do_upsert(active_on_conflict),
+                    action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]",
+                )
+            except Exception as exc:
+                # 42P10: no unique/exclusion constraint matching ON CONFLICT specification
+                message = str(exc)
+                if active_on_conflict and "42P10" in message:
+                    logger.warning(
+                        "Disable on_conflict='%s' for table=%s due to 42P10; fallback to default upsert",
+                        active_on_conflict,
+                        table_name,
+                    )
+                    self._disabled_on_conflict[table_name] = active_on_conflict
+                    self._with_retry(
+                        lambda: _do_upsert(None),
+                        action_name=f"upsert {table_name} fallback [{i}:{i + len(chunk)}]",
+                    )
+                else:
+                    raise
+
+        logger.info("Upserted %s records into %s", len(records), table_name)
+
+    def upsert_raw(self, records):
+        self._upsert_in_batches('raw_intraday', records, on_conflict='symbol,time,data_hash', batch_size=200)
+
+    def upsert_symbols(self, symbols):
+        self._upsert_in_batches('symbols', symbols)
+
+    def upsert_intraday(self, records):
+        if not records:
+            return
+
+        logger.info("Start ingest %s intraday records", len(records))
+
+        for record in records:
+            record['time'] = pd.to_datetime(record['time'], utc=True).isoformat()
+
+        buckets = defaultdict(list)
+        for record in records:
+            dt = datetime.fromisoformat(record['time'].replace('Z', '+00:00'))
+            buckets[dt.strftime('%Y-%m')].append(record)
+
+        for month in buckets:
+            self._with_retry(
+                lambda: self.client.rpc(
+                    'create_partition_if_not_exists',
+                    {'p_table': 'stock_intraday', 'p_time': f"{month}-01T00:00:00Z"},
+                ).execute(),
+                action_name=f"create partition {month}",
+            )
 
         for month, recs in buckets.items():
-            print(f"\n📦 Processing {month} ({len(recs)} records)")
+            logger.info("Processing month %s with %s records", month, len(recs))
+            self._upsert_in_batches('stock_intraday', recs, on_conflict='symbol,timeframe,time')
 
-            for i in range(0, len(recs), BATCH_SIZE):
-                chunk = recs[i:i+BATCH_SIZE]
-
-                retry = 0
-                while retry < 3:
-                    try:
-                        self.client.table('stock_intraday').upsert(
-                            chunk,
-                            on_conflict='symbol,timeframe,time'
-                        ).execute()
-                        print(f"✅ Upsert {i} → {i+len(chunk)}")
-                        break
-                    except Exception as e:
-                        retry += 1
-                        print(f"⚠️ Retry {retry}: {e}")
-                        time.sleep(1)
-                        if retry == 3:
-                            raise
-
-        print(f"\n🎉 DONE intraday: {len(records)} records")
-
-    # =========================================
-    # ========== ORDERBOOK =====================
-    # =========================================
     def upsert_orderbook(self, records):
         if not records:
             return
-        
-        for r in records:
-            total_bid = r.get('total_bid_depth_10', 0)
-            total_ask = r.get('total_ask_depth_10', 0)
+
+        for record in records:
+            total_bid = record.get('total_bid_depth_10', 0)
+            total_ask = record.get('total_ask_depth_10', 0)
             total = total_bid + total_ask
-            
             if total > 0:
-                r['orderbook_imbalance'] = total_bid / total
-                r['pressure_score'] = (total_bid - total_ask) / total
+                record['orderbook_imbalance'] = total_bid / total
+                record['pressure_score'] = (total_bid - total_ask) / total
             else:
-                r['orderbook_imbalance'] = 0.5
-                r['pressure_score'] = 0
+                record['orderbook_imbalance'] = 0.5
+                record['pressure_score'] = 0
 
-        BATCH_SIZE = 500
-        
-        for i in range(0, len(records), BATCH_SIZE):
-            chunk = records[i:i+BATCH_SIZE]
-            self.client.table('orderbook_snapshot').upsert(
-                chunk,
-                on_conflict='symbol,time'
-            ).execute()
-        
-        print(f"📖 Đã upsert {len(records)} orderbook snapshots")
+        self._upsert_in_batches('orderbook_snapshot', records, on_conflict='symbol,time')
 
-    # =========================================
-    # ========== FOREIGN =======================
-    # =========================================
     def upsert_foreign(self, records):
         if not records:
             return
-        
-        for r in records:
-            r['net_vol'] = r.get('buy_vol', 0) - r.get('sell_vol', 0)
 
-        BATCH_SIZE = 500
-        
-        for i in range(0, len(records), BATCH_SIZE):
-            chunk = records[i:i+BATCH_SIZE]
-            self.client.table('foreign_trading').upsert(
-                chunk,
-                on_conflict='symbol,time'
-            ).execute()
-        
-        print(f"🌏 Đã lưu {len(records)} foreign trading records")
+        for record in records:
+            record['net_vol'] = record.get('buy_vol', 0) - record.get('sell_vol', 0)
 
-    # =========================================
-    # ========== FEATURES ======================
-    # =========================================
+        self._upsert_in_batches('foreign_trading', records, on_conflict='symbol,time')
+
     def upsert_features(self, records):
-        if not records:
-            return
-        
-        BATCH_SIZE = 500
-        
-        for i in range(0, len(records), BATCH_SIZE):
-            chunk = records[i:i+BATCH_SIZE]
-            self.client.table('features').upsert(
-                chunk,
-                on_conflict='symbol,timeframe,time'
-            ).execute()
-        
-        print(f"🔧 Đã lưu {len(records)} feature records")
+        self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')
 
-    # =========================================
-    # ========== BACKTEST ======================
-    # =========================================
     def upsert_backtest(self, records):
-        if not records:
-            return
-        
-        BATCH_SIZE = 500
-        
-        for i in range(0, len(records), BATCH_SIZE):
-            chunk = records[i:i+BATCH_SIZE]
-            self.client.table('backtest_data').upsert(
-                chunk,
-                on_conflict='symbol,timeframe,time'
-            ).execute()
-        
-        print(f"⚡ Đã lưu {len(records)} backtest records")
+        self._upsert_in_batches('backtest_data', records, on_conflict='symbol,timeframe,time')
 
-    # =========================================
-    # ========== QUERY =========================
-    # =========================================
     def get_symbols(self):
-        result = self.client.table('symbols').select('symbol').execute()
+        result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")
         return [row['symbol'] for row in result.data]
 
     def get_symbol_count(self):
-        result = self.client.table('symbols').select('*', count='exact').execute()
+        result = self._with_retry(
+            lambda: self.client.table('symbols').select('*', count='exact').execute(),
+            action_name="get_symbol_count",
+        )
         return result.count
