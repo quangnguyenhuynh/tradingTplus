@@ -1,4 +1,4 @@
-# backfill_few.py
+# scripts/backfill_sample.py
 import sys
 sys.path.append('.')
 

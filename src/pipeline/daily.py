@@ -1,6 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.database.client import SupabaseClient
 from src.pipeline.fetch_one_day import fetch_one_day
+
+VN_TZ = timezone(timedelta(hours=7))
+
 
 def daily_run(date: str = None):
     """
@@ -10,7 +13,7 @@ def daily_run(date: str = None):
         date: DD/MM/YYYY (None = hôm qua)
     """
     if date is None:
-        date = (datetime.now() - timedelta(days=1)).strftime("%d/%m/%Y")
+        date = (datetime.now(VN_TZ) - timedelta(days=1)).strftime("%d/%m/%Y")
     
     print(f"📆 Daily fetch: {date}")
     

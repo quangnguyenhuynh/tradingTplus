@@ -28,7 +28,7 @@ class SupabaseClient:
     # =========================================
     # ========== RAW LAYER =====================
     # =========================================
-    def insert_raw(self, records):
+    def upsert_raw(self, records):
         if not records:
             return
         
@@ -36,9 +36,12 @@ class SupabaseClient:
         
         for i in range(0, len(records), BATCH_SIZE):
             chunk = records[i:i+BATCH_SIZE]
-            self.client.table('raw_intraday').insert(chunk).execute()
+            self.client.table('raw_intraday').upsert(
+                chunk,
+                on_conflict='symbol,time,data_hash'
+            ).execute()
         
-        print(f"📦 Đã lưu {len(records)} raw records")
+        print(f"📦 Đã upsert {len(records)} raw records")
 
     # =========================================
     # ========== SYMBOLS =======================
@@ -156,9 +159,12 @@ class SupabaseClient:
         
         for i in range(0, len(records), BATCH_SIZE):
             chunk = records[i:i+BATCH_SIZE]
-            self.client.table('orderbook_snapshot').insert(chunk).execute()
+            self.client.table('orderbook_snapshot').upsert(
+                chunk,
+                on_conflict='symbol,time'
+            ).execute()
         
-        print(f"📖 Đã lưu {len(records)} orderbook snapshots")
+        print(f"📖 Đã upsert {len(records)} orderbook snapshots")
 
     # =========================================
     # ========== FOREIGN =======================
