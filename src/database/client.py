@@ -15,9 +15,6 @@ logger = logging.getLogger(__name__)
 class SupabaseClient:
     _instance = None
 
-    # cache tables whose explicit on_conflict is incompatible with DB constraints
-    _disabled_on_conflict: dict[str, str] = {}
-
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -74,36 +71,11 @@ class SupabaseClient:
         for i in range(0, len(records), batch_size):
             chunk = records[i:i + batch_size]
 
-            active_on_conflict = on_conflict
-            if self._disabled_on_conflict.get(table_name) == on_conflict:
-                active_on_conflict = None
+            def _do_upsert():
+                query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if on_conflict else self.client.table(table_name).upsert(chunk)
+                return query.execute()
 
-            def _do_upsert(current_on_conflict):
-                if current_on_conflict:
-                    return self.client.table(table_name).upsert(chunk, on_conflict=current_on_conflict).execute()
-                return self.client.table(table_name).upsert(chunk).execute()
-
-            try:
-                self._with_retry(
-                    lambda: _do_upsert(active_on_conflict),
-                    action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]",
-                )
-            except Exception as exc:
-                # 42P10: no unique/exclusion constraint matching ON CONFLICT specification
-                message = str(exc)
-                if active_on_conflict and "42P10" in message:
-                    logger.warning(
-                        "Disable on_conflict='%s' for table=%s due to 42P10; fallback to default upsert",
-                        active_on_conflict,
-                        table_name,
-                    )
-                    self._disabled_on_conflict[table_name] = active_on_conflict
-                    self._with_retry(
-                        lambda: _do_upsert(None),
-                        action_name=f"upsert {table_name} fallback [{i}:{i + len(chunk)}]",
-                    )
-                else:
-                    raise
+            self._with_retry(_do_upsert, action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]")
 
         logger.info("Upserted %s records into %s", len(records), table_name)
 
