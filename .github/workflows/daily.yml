@@ -11,6 +11,7 @@ jobs:
   run-python:
     runs-on: ubuntu-latest
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       SUPABASE_URL: ${{secrets.SUPABASE_URL}}
       SUPABASE_KEY: ${{secrets.SUPABASE_KEY}}
       SUPABASE_SERVICE_KEY: ${{secrets.SUPABASE_SERVICE_KEY}}
