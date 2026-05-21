@@ -1,6 +1,7 @@
 import logging
 import random
 import time
+import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -32,18 +33,29 @@ class SupabaseClient:
     def get(self):
         return self.client
 
+    @staticmethod
+    def _is_missing_on_conflict_constraint(exc: Exception) -> bool:
+        message = str(exc)
+        return ("42P10" in message) or bool(re.search(r"no unique|no exclusion|on conflict", message, flags=re.IGNORECASE))
+
+    @staticmethod
+    def _is_retryable_error(exc: Exception) -> bool:
+        error_message = str(exc).lower()
+        retry_keys = ["timeout", "connection", "network", "503", "502", "429", "jwt", "auth", "temporarily unavailable"]
+        return any(key in error_message for key in retry_keys)
+
     def _with_retry(self, action, action_name: str, max_retry: int = 3, base_sleep: float = 0.5):
         for attempt in range(1, max_retry + 1):
             try:
                 return action()
             except Exception as exc:
+                retriable = self._is_retryable_error(exc)
                 error_message = str(exc).lower()
-                retriable = any(k in error_message for k in ["timeout", "connection", "network", "503", "502", "429", "jwt", "auth"])
                 if retriable and ("jwt" in error_message or "auth" in error_message):
                     self.reconnect()
 
                 if attempt >= max_retry or not retriable:
-                    logger.error("%s failed at attempt %s/%s: %s", action_name, attempt, max_retry, exc)
+                    logger.exception("%s failed at attempt %s/%s", action_name, attempt, max_retry)
                     raise
 
                 sleep_sec = base_sleep * (2 ** (attempt - 1)) + random.uniform(0, 0.3)
@@ -68,29 +80,30 @@ class SupabaseClient:
         if not records:
             return
 
-        use_on_conflict = on_conflict
+        use_on_conflict = bool(on_conflict)
 
         for i in range(0, len(records), batch_size):
             chunk = records[i:i + batch_size]
-            action_name = f"upsert {table_name} [{i}:{i + len(chunk)}]"
 
-            def _do_upsert(conflict_value):
-                if conflict_value:
-                    return self.client.table(table_name).upsert(chunk, on_conflict=conflict_value).execute()
-                return self.client.table(table_name).upsert(chunk).execute()
+            def _do_upsert():
+                query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if use_on_conflict else self.client.table(table_name).upsert(chunk)
+                return query.execute()
 
             try:
-                self._with_retry(lambda: _do_upsert(use_on_conflict), action_name=action_name)
+                self._with_retry(_do_upsert, action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]")
             except Exception as exc:
-                err = str(exc)
-                if use_on_conflict and "42P10" in err:
+                if use_on_conflict and self._is_missing_on_conflict_constraint(exc):
                     logger.warning(
-                        "Table %s chưa có unique constraint khớp on_conflict='%s' (42P10). Fallback insert/upsert mặc định.",
+                        "Table %s does not have a unique/exclusion constraint matching on_conflict='%s' (42P10). "
+                        "Fallback to upsert without on_conflict for this run.",
                         table_name,
-                        use_on_conflict,
+                        on_conflict,
                     )
-                    use_on_conflict = None
-                    self._with_retry(lambda: _do_upsert(use_on_conflict), action_name=f"{action_name} fallback")
+                    use_on_conflict = False
+                    self._with_retry(
+                        lambda: self.client.table(table_name).upsert(chunk).execute(),
+                        action_name=f"upsert {table_name} [{i}:{i + len(chunk)}] fallback",
+                    )
                 else:
                     raise
 
