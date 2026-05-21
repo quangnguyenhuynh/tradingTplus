@@ -10,6 +10,12 @@ on:
 jobs:
   run-python:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{secrets.SUPABASE_URL}}
+      SUPABASE_KEY: ${{secrets.SUPABASE_KEY}}
+      SUPABASE_SERVICE_KEY: ${{secrets.SUPABASE_SERVICE_KEY}}
+      SSI_CONSUMER_ID: ${{secrets.SSI_CONSUMER_ID}}
+      SSI_CONSUMER_SECRET: ${{secrets.SSI_CONSUMER_SECRET}}
 
     steps:
       - name: Checkout repo
