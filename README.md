@@ -72,3 +72,12 @@ on public.raw_intraday(symbol, time, data_hash);
 ```
 
 Code hiện tại đã có fallback tự động bỏ `on_conflict` để job không bị dừng, nhưng để hết lỗi hẳn và đảm bảo idempotent đúng nghĩa, bạn nên tạo unique index như trên.
+
+
+## Schema DB hiện repo đang dùng
+
+Đã bổ sung tài liệu chi tiết ở file `docs_db_schema.md` gồm:
+- danh sách bảng code đang đọc/ghi,
+- cột tối thiểu cần có theo từng bảng,
+- unique index khuyến nghị theo `on_conflict`,
+- SQL kiểm tra schema/index hiện tại.
