@@ -40,7 +40,15 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 - Upsert theo conflict key: `symbol,time`.
 
 ### features
-- Ghi: `symbol`, `timeframe`, `time`, `close`, `rsi`, `macd`, `atr`, `volume_spike`, `ema_20`, `ema_50`, `vwap`, `bb_upper`, `bb_lower`, `last_updated_at`.
+- Key: `symbol`, `timeframe`, `time`, `last_updated_at`.
+- Price: `open`, `high`, `low`, `close`, `volume`, `value`.
+- Return: `return_1m`, `return_5m`, `return_15m`, `return_from_open`, `return_from_prev_close`.
+- Trend: `ema9`, `ema20`, `ema50`, `ema9_above_ema20`, `ema20_above_ema50`.
+- Momentum: `rsi14`, `macd`, `macd_signal`, `macd_histogram`.
+- Volume: `volume_ma20`, `volume_ratio`, `value_ma20`, `value_ratio`.
+- Breakout: `high_20_bars`, `low_20_bars`, `close_above_high_20`, `close_below_low_20`.
+- VWAP: `vwap_intraday`, `close_above_vwap`, `distance_to_vwap_pct`.
+- Candle: `candle_range`, `candle_body`, `candle_body_pct`, `close_position_in_candle`.
 - Upsert theo conflict key: `symbol,timeframe,time`.
 
 ### trading_signals
@@ -109,3 +117,7 @@ where schemaname = 'public'
   )
 order by tablename, indexname;
 ```
+
+## 5) Migration tương ứng trong repo
+
+- File migration mở rộng bảng `features`: `migrations/20260525_expand_features.sql`.
