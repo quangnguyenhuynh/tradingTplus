@@ -36,6 +36,7 @@ def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> lis
         'candle_range', 'candle_body', 'candle_body_pct', 'close_position_in_candle',
     ]
     out[numeric_cols] = out[numeric_cols].round(6)
+    out[numeric_cols] = out[numeric_cols].replace([float('inf'), float('-inf')], pd.NA)
     out['last_updated_at'] = last_updated_at
     out = out.where(pd.notna(out), None)
     return out.to_dict('records')

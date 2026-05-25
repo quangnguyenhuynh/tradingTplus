@@ -1,4 +1,5 @@
 import logging
+import math
 import random
 import time
 import re
@@ -76,10 +77,29 @@ class SupabaseClient:
             logger.exception("Supabase health-check failed")
             return False
 
+
+    @staticmethod
+    def _sanitize_for_json(records):
+        """Replace non-JSON-compliant float values (inf/-inf/nan) recursively."""
+
+        def _sanitize_value(value):
+            if isinstance(value, float):
+                if math.isinf(value) or math.isnan(value):
+                    return None
+                return value
+            if isinstance(value, dict):
+                return {k: _sanitize_value(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [_sanitize_value(v) for v in value]
+            return value
+
+        return [_sanitize_value(record) for record in records]
+
     def _upsert_in_batches(self, table_name: str, records, on_conflict: str | None = None, batch_size: int = 500):
         if not records:
             return
 
+        records = self._sanitize_for_json(records)
         use_on_conflict = bool(on_conflict)
 
         for i in range(0, len(records), batch_size):
