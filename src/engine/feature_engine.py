@@ -4,99 +4,39 @@ from datetime import datetime
 import pandas as pd
 
 from src.database.client import SupabaseClient
+from src.engine.feature_calculator import compute_feature_dataframe
 
 logger = logging.getLogger(__name__)
 
-
-def calculate_rsi_wilder(prices, period=14):
-    delta = prices.diff()
-    gain = delta.where(delta > 0, 0)
-    loss = (-delta.where(delta < 0, 0))
-    avg_gain = gain.ewm(alpha=1 / period, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=1 / period, adjust=False).mean()
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-
-def calculate_macd(prices, fast=12, slow=26, signal=9):
-    exp_fast = prices.ewm(span=fast, adjust=False).mean()
-    exp_slow = prices.ewm(span=slow, adjust=False).mean()
-    macd_line = exp_fast - exp_slow
-    macd_signal = macd_line.ewm(span=signal, adjust=False).mean()
-    macd_histogram = macd_line - macd_signal
-    return macd_line, macd_signal, macd_histogram
-
-
-def calculate_atr(df, period=14):
-    high_low = df['high'] - df['low']
-    high_close = (df['high'] - df['close'].shift()).abs()
-    low_close = (df['low'] - df['close'].shift()).abs()
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    return tr.rolling(window=period).mean()
-
-
-def calculate_volume_spike(volume, window=20, std_mult=2.0):
-    mean = volume.rolling(window=window).mean()
-    std = volume.rolling(window=window).std()
-    return (volume > (mean + std_mult * std)).fillna(False)
-
-
-def calculate_ema(prices, period=20):
-    return prices.ewm(span=period, adjust=False).mean()
-
-
-def calculate_vwap(df):
-    price_vol = df['close'] * df['volume']
-    return price_vol.cumsum() / df['volume'].cumsum()
-
-
-def calculate_bollinger_bands(prices, period=20, std_dev=2):
-    middle = prices.rolling(window=period).mean()
-    std = prices.rolling(window=period).std()
-    upper = middle + (std * std_dev)
-    lower = middle - (std * std_dev)
-    return middle, upper, lower
-
-
-def add_feature_lags(df, columns, lags=(1, 2, 5)):
-    for col in columns:
-        for lag in lags:
-            df[f'{col}_lag{lag}'] = df[col].shift(lag)
-    return df
-
-
-def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values('time').copy()
-    df['rsi'] = calculate_rsi_wilder(df['close'])
-    df['macd'], df['macd_signal'], df['macd_histogram'] = calculate_macd(df['close'])
-    df['atr'] = calculate_atr(df)
-    df['volume_spike'] = calculate_volume_spike(df['volume'])
-    df['ema_20'] = calculate_ema(df['close'], 20)
-    df['ema_50'] = calculate_ema(df['close'], 50)
-    df['vwap'] = calculate_vwap(df)
-    df['bb_middle'], df['bb_upper'], df['bb_lower'] = calculate_bollinger_bands(df['close'])
-    feature_cols = ['rsi', 'macd', 'atr', 'volume_spike', 'ema_20', 'vwap']
-    return add_feature_lags(df, feature_cols, lags=(1, 2, 5))
+FEATURE_COLUMNS = [
+    'open', 'high', 'low', 'close', 'volume', 'value',
+    'return_1m', 'return_5m', 'return_15m', 'return_from_open', 'return_from_prev_close',
+    'ema9', 'ema20', 'ema50', 'ema9_above_ema20', 'ema20_above_ema50',
+    'rsi14', 'macd', 'macd_signal', 'macd_histogram',
+    'volume_ma20', 'volume_ratio', 'value_ma20', 'value_ratio',
+    'high_20_bars', 'low_20_bars', 'close_above_high_20', 'close_below_low_20',
+    'vwap_intraday', 'close_above_vwap', 'distance_to_vwap_pct',
+    'candle_range', 'candle_body', 'candle_body_pct', 'close_position_in_candle',
+]
 
 
 def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> list[dict]:
     last_updated_at = datetime.now().isoformat()
-    out = pd.DataFrame({
-        'symbol': symbol,
-        'timeframe': timeframe,
-        'time': df['time'].dt.strftime('%Y-%m-%dT%H:%M:%S%z'),
-        'close': df['close'].round(2),
-        'rsi': df['rsi'].round(2),
-        'macd': df['macd'].round(2),
-        'atr': df['atr'].round(2),
-        'volume_spike': df['volume_spike'].fillna(False).astype(bool),
-        'ema_20': df['ema_20'].round(2),
-        'ema_50': df['ema_50'].round(2),
-        'vwap': df['vwap'].round(2),
-        'bb_upper': df['bb_upper'].round(2),
-        'bb_lower': df['bb_lower'].round(2),
-        'last_updated_at': last_updated_at,
-    })
+    out = df[['time'] + FEATURE_COLUMNS].copy()
+    out.insert(0, 'symbol', symbol)
+    out.insert(1, 'timeframe', timeframe)
+    out['time'] = out['time'].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
+
+    numeric_cols = [
+        'open', 'high', 'low', 'close', 'volume', 'value',
+        'return_1m', 'return_5m', 'return_15m', 'return_from_open', 'return_from_prev_close',
+        'ema9', 'ema20', 'ema50', 'rsi14', 'macd', 'macd_signal', 'macd_histogram',
+        'volume_ma20', 'volume_ratio', 'value_ma20', 'value_ratio',
+        'high_20_bars', 'low_20_bars', 'vwap_intraday', 'distance_to_vwap_pct',
+        'candle_range', 'candle_body', 'candle_body_pct', 'close_position_in_candle',
+    ]
+    out[numeric_cols] = out[numeric_cols].round(6)
+    out['last_updated_at'] = last_updated_at
     out = out.where(pd.notna(out), None)
     return out.to_dict('records')
 
@@ -112,7 +52,7 @@ def calculate_features_for_symbol(symbol, timeframe='1m', fetch_batch_size=1000)
     while True:
         result = db._with_retry(
             lambda: db.get().table('stock_intraday')
-            .select('time, open, high, low, close, volume')
+            .select('time, open, high, low, close, volume, value')
             .eq('symbol', symbol)
             .eq('timeframe', timeframe)
             .order('time', desc=False)
@@ -128,9 +68,10 @@ def calculate_features_for_symbol(symbol, timeframe='1m', fetch_batch_size=1000)
         batch_df['time'] = pd.to_datetime(batch_df['time'])
 
         window_df = pd.concat([window_df, batch_df], ignore_index=True)
-        window_df = _compute_features(window_df)
+        window_df = compute_feature_dataframe(window_df)
 
-        upsert_df = window_df.iloc[:-100] if len(rows) == fetch_batch_size and len(window_df) > 120 else window_df
+        warmup = 80
+        upsert_df = window_df.iloc[:-warmup] if len(rows) == fetch_batch_size and len(window_df) > warmup else window_df
         records = _build_feature_records(upsert_df, symbol, timeframe)
 
         if records:
@@ -138,11 +79,7 @@ def calculate_features_for_symbol(symbol, timeframe='1m', fetch_batch_size=1000)
             total_records += len(records)
             logger.info("Upserted %s features for %s (offset=%s)", len(records), symbol, offset)
 
-        if len(upsert_df) < len(window_df):
-            window_df = window_df.iloc[-100:].copy()
-        else:
-            window_df = pd.DataFrame()
-
+        window_df = window_df.iloc[-warmup:].copy() if len(upsert_df) < len(window_df) else pd.DataFrame()
         offset += fetch_batch_size
 
     logger.info("Done symbol=%s total_feature_records=%s", symbol, total_records)

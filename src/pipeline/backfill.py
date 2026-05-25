@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from src.database.client import SupabaseClient
 from src.pipeline.fetch_one_day import fetch_one_day
+from src.engine.feature_engine import run_feature_engine
 
 def backfill(from_date: str, to_date: str, symbols: list = None):
     """
@@ -43,4 +44,8 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
         
         current += timedelta(days=1)
     
-    print(f"\n🎉 Hoàn thành! Tổng số candles: {total_candles}")
+    print(f"\n🎉 Hoàn thành ingest! Tổng số candles: {total_candles}")
+
+    print("🧮 Bắt đầu tính features sau backfill...")
+    feature_count = run_feature_engine(symbols)
+    print(f"✅ Hoàn thành features sau backfill: {feature_count} records")
