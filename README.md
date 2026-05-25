@@ -61,3 +61,23 @@ python scripts/backfill_sample.py
 - ✅ Feature: có engine tính indicator và lưu vào bảng `features`.
 - ✅ Signal: có engine sinh tín hiệu rule-based và lưu `trading_signals`.
 - ⚠️ Backtest: chưa có engine backtest chính thức (file `backtest_engine.py` đang để placeholder).
+
+## Lỗi 42P10 khi upsert `raw_intraday`
+
+Nếu log báo `there is no unique or exclusion constraint matching the ON CONFLICT specification (42P10)` với `on_conflict=symbol,time,data_hash`, cần tạo unique index tương ứng trong Postgres/Supabase:
+
+```sql
+create unique index if not exists raw_intraday_symbol_time_data_hash_uidx
+on public.raw_intraday(symbol, time, data_hash);
+```
+
+Code hiện tại đã có fallback tự động bỏ `on_conflict` để job không bị dừng, nhưng để hết lỗi hẳn và đảm bảo idempotent đúng nghĩa, bạn nên tạo unique index như trên.
+
+
+## Schema DB hiện repo đang dùng
+
+Đã bổ sung tài liệu chi tiết ở file `docs_db_schema.md` gồm:
+- danh sách bảng code đang đọc/ghi,
+- cột tối thiểu cần có theo từng bảng,
+- unique index khuyến nghị theo `on_conflict`,
+- SQL kiểm tra schema/index hiện tại.
