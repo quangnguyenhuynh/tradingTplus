@@ -81,3 +81,7 @@ Code hiện tại đã có fallback tự động bỏ `on_conflict` để job kh
 - cột tối thiểu cần có theo từng bảng,
 - unique index khuyến nghị theo `on_conflict`,
 - SQL kiểm tra schema/index hiện tại.
+
+## Snapshot cập nhật gần nhất
+
+- Xem tài liệu tổng hợp mới nhất: `REPO_STATUS_2026-05-26.md`.
