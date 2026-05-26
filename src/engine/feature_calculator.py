@@ -21,11 +21,15 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
 
 
 def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.sort_values('time').copy()
-    out['time'] = pd.to_datetime(out['time'])
+    if df.empty:
+        return df.copy()
 
-    # price
-    out['value'] = pd.to_numeric(out['value'], errors='coerce')
+    out = df.sort_values('time').copy()
+    out['time'] = pd.to_datetime(out['time'], errors='coerce')
+
+    numeric_price_cols = ['open', 'high', 'low', 'close', 'volume', 'value']
+    for col in numeric_price_cols:
+        out[col] = pd.to_numeric(out[col], errors='coerce')
 
     # return
     out['return_1m'] = out['close'].pct_change(1)
@@ -63,7 +67,7 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     date_key = out['time'].dt.date
     cum_value = out.groupby(date_key)['value'].cumsum()
     cum_volume = out.groupby(date_key)['volume'].cumsum()
-    out['vwap_intraday'] = cum_value / cum_volume
+    out['vwap_intraday'] = cum_value / cum_volume.replace(0, float('nan'))
     out['close_above_vwap'] = out['close'] > out['vwap_intraday']
     out['distance_to_vwap_pct'] = (out['close'] - out['vwap_intraday']) / out['vwap_intraday']
 
