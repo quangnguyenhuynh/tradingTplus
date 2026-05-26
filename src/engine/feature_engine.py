@@ -21,11 +21,14 @@ FEATURE_COLUMNS = [
 
 
 def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> list[dict]:
+    if df.empty:
+        return []
+
     last_updated_at = datetime.now().isoformat()
     out = df[['time'] + FEATURE_COLUMNS].copy()
     out.insert(0, 'symbol', symbol)
     out.insert(1, 'timeframe', timeframe)
-    out['time'] = out['time'].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
+    out['time'] = pd.to_datetime(out['time'], utc=True, errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     numeric_cols = [
         'open', 'high', 'low', 'close', 'volume', 'value',
