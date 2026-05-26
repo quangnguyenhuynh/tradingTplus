@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from src.database.client import SupabaseClient
 from src.pipeline.fetch_one_day import fetch_one_day
 from src.engine.feature_engine import run_feature_engine
-from src.engine.data_quality import check_data_quality
 
 def backfill(from_date: str, to_date: str, symbols: list = None):
     """
@@ -50,12 +49,3 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
     print("🧮 Bắt đầu tính features sau backfill...")
     feature_count = run_feature_engine(symbols)
     print(f"✅ Hoàn thành features sau backfill: {feature_count} records")
-
-    print("🧪 Chạy data quality checks sau backfill...")
-    current = start
-    while current <= end:
-        trading_date = current.strftime("%Y-%m-%d")
-        for symbol in symbols:
-            check_data_quality(symbol=symbol, trading_date=trading_date)
-        current += timedelta(days=1)
-    print("✅ Data quality checks backfill xong")

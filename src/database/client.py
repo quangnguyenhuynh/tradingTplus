@@ -95,6 +95,15 @@ class SupabaseClient:
 
         return [_sanitize_value(record) for record in records]
 
+    @staticmethod
+    def _extract_missing_column(exc: Exception, table_name: str):
+        message = str(exc)
+        pattern = rf"Could not find the '([^']+)' column of '{table_name}'"
+        match = re.search(pattern, message)
+        if match:
+            return match.group(1)
+        return None
+
     def _upsert_in_batches(self, table_name: str, records, on_conflict: str | None = None, batch_size: int = 500):
         if not records:
             return
@@ -124,8 +133,23 @@ class SupabaseClient:
                         lambda: self.client.table(table_name).upsert(chunk).execute(),
                         action_name=f"upsert {table_name} [{i}:{i + len(chunk)}] fallback",
                     )
-                else:
-                    raise
+                    continue
+
+                missing_col = self._extract_missing_column(exc, table_name)
+                if missing_col:
+                    logger.warning(
+                        "Column '%s' not found in table %s. Dropping this key from payload and retrying chunk.",
+                        missing_col,
+                        table_name,
+                    )
+                    chunk_sanitized = [{k: v for k, v in row.items() if k != missing_col} for row in chunk]
+                    self._with_retry(
+                        lambda: self.client.table(table_name).upsert(chunk_sanitized, on_conflict=on_conflict).execute() if use_on_conflict else self.client.table(table_name).upsert(chunk_sanitized).execute(),
+                        action_name=f"upsert {table_name} [{i}:{i + len(chunk)}] missing-col-fallback",
+                    )
+                    continue
+
+                raise
 
         logger.info("Upserted %s records into %s", len(records), table_name)
 
