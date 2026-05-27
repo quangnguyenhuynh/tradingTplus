@@ -94,7 +94,7 @@ def test_full_mode_paginates_over_1000_rows(monkeypatch):
     db = _DB(rows)
     monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
 
-    upserted = fe.calculate_features_for_symbol_full('SSI')
+    upserted = fe.calculate_features_for_symbol_full_chunked('SSI')
     assert upserted == 1205
     assert len(db.upsert_calls) == 1
     assert len(db.upsert_calls[0][1]) == 1205
@@ -124,7 +124,7 @@ def test_incremental_mode_uses_today_and_warmup(monkeypatch):
 def test_no_rows_returns_zero(monkeypatch):
     db = _DB([])
     monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
-    assert fe.calculate_features_for_symbol_full('SSI') == 0
+    assert fe.calculate_features_for_symbol_full_chunked('SSI') == 0
     assert fe.calculate_features_for_symbol_incremental('SSI') == 0
 
 

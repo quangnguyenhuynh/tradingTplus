@@ -143,7 +143,7 @@ def _get_intraday_time_bounds(db: SupabaseClient, symbol: str, timeframe: str) -
     max_rows = max_result.data or []
     if not min_rows or not max_rows:
         return None, None
-    return pd.Timestamp(min_rows[0]['time'], tz='UTC'), pd.Timestamp(max_rows[0]['time'], tz='UTC')
+    return pd.to_datetime(min_rows[0]['time'], utc=True), pd.to_datetime(max_rows[0]['time'], utc=True)
 
 
 def _month_start(ts: pd.Timestamp) -> pd.Timestamp:
@@ -170,27 +170,6 @@ def _log_feature_run(symbol: str, timeframe: str, mode: str, raw_rows: int, comp
         "Feature calc symbol=%s timeframe=%s mode=%s fetched_raw_rows=%s computed_rows=%s upserted_rows=%s min_time=%s max_time=%s",
         symbol, timeframe, mode, raw_rows, computed_rows, upserted_rows, min_time, max_time
     )
-
-
-def calculate_features_for_symbol_full(symbol, timeframe='1m', upsert_batch_size: int = 1000):
-    db = SupabaseClient()
-    rows = _fetch_stock_intraday_paginated(
-        db=db,
-        symbol=symbol,
-        timeframe=timeframe,
-        order_desc=False,
-    )
-    if not rows:
-        _log_feature_run(symbol, timeframe, "full", 0, 0, 0, None)
-        return 0
-
-    raw_df = pd.DataFrame(rows)
-    computed_df = compute_feature_dataframe(raw_df)
-    records = _build_feature_records(computed_df, symbol, timeframe)
-    if records:
-        db._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time', batch_size=upsert_batch_size)
-    _log_feature_run(symbol, timeframe, "full", len(raw_df), len(computed_df), len(records), computed_df)
-    return len(records)
 
 
 def calculate_features_for_symbol_full_chunked(symbol, timeframe='1m', warmup_bars=300, upsert_batch_size=1000):
