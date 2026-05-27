@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -11,6 +11,7 @@ from src.engine.feature_calculator import compute_feature_dataframe
 
 logger = logging.getLogger(__name__)
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+UTC_TZ = ZoneInfo("UTC")
 
 FEATURE_COLUMNS = [
     'open', 'high', 'low', 'close', 'volume', 'value',
@@ -28,7 +29,7 @@ def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> lis
     if df.empty:
         return []
 
-    last_updated_at = datetime.now().isoformat()
+    last_updated_at = datetime.now(timezone.utc).isoformat()
     out = df[['time'] + FEATURE_COLUMNS].copy()
     out.insert(0, 'symbol', symbol)
     out.insert(1, 'timeframe', timeframe)
@@ -74,6 +75,49 @@ def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> lis
     return records
 
 
+def _fetch_stock_intraday_paginated(
+    db: SupabaseClient,
+    symbol: str,
+    timeframe: str,
+    gte_time: str | None = None,
+    lt_time: str | None = None,
+    order_desc: bool = False,
+    page_size: int = 1000,
+    limit_total: int | None = None,
+) -> list[dict]:
+    offset = 0
+    rows_all: list[dict] = []
+
+    while True:
+        query = (
+            db.get().table('stock_intraday')
+            .select('time, open, high, low, close, volume, value')
+            .eq('symbol', symbol)
+            .eq('timeframe', timeframe)
+        )
+        if gte_time is not None:
+            query = query.gte('time', gte_time)
+        if lt_time is not None:
+            query = query.lt('time', lt_time)
+        query = query.order('time', desc=order_desc).range(offset, offset + page_size - 1)
+        result = db._with_retry(
+            lambda q=query: q.execute(),
+            action_name=f"fetch stock_intraday paginated {symbol} offset={offset}",
+        )
+        page_rows = result.data or []
+        if not page_rows:
+            break
+
+        rows_all.extend(page_rows)
+        if limit_total is not None and len(rows_all) >= limit_total:
+            return rows_all[:limit_total]
+        if len(page_rows) < page_size:
+            break
+        offset += page_size
+
+    return rows_all
+
+
 def _log_feature_run(symbol: str, timeframe: str, mode: str, raw_rows: int, computed_rows: int, upserted_rows: int, df: pd.DataFrame | None) -> None:
     min_time = None
     max_time = None
@@ -88,16 +132,12 @@ def _log_feature_run(symbol: str, timeframe: str, mode: str, raw_rows: int, comp
 
 def calculate_features_for_symbol_full(symbol, timeframe='1m', upsert_batch_size: int = 1000):
     db = SupabaseClient()
-    result = db._with_retry(
-        lambda: db.get().table('stock_intraday')
-        .select('time, open, high, low, close, volume, value')
-        .eq('symbol', symbol)
-        .eq('timeframe', timeframe)
-        .order('time', desc=False)
-        .execute(),
-        action_name=f"fetch full stock_intraday {symbol}",
+    rows = _fetch_stock_intraday_paginated(
+        db=db,
+        symbol=symbol,
+        timeframe=timeframe,
+        order_desc=False,
     )
-    rows = result.data or []
     if not rows:
         _log_feature_run(symbol, timeframe, "full", 0, 0, 0, None)
         return 0
@@ -115,35 +155,28 @@ def calculate_features_for_symbol_incremental(symbol, timeframe='1m', warmup_bar
     db = SupabaseClient()
     now_vn = datetime.now(VN_TZ)
     today_start_vn = now_vn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_start_utc = today_start_vn.astimezone(ZoneInfo("UTC"))
+    today_start_utc = today_start_vn.astimezone(UTC_TZ)
 
-    today_result = db._with_retry(
-        lambda: db.get().table('stock_intraday')
-        .select('time, open, high, low, close, volume, value')
-        .eq('symbol', symbol)
-        .eq('timeframe', timeframe)
-        .gte('time', today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
-        .order('time', desc=False)
-        .execute(),
-        action_name=f"fetch today stock_intraday {symbol}",
+    today_rows = _fetch_stock_intraday_paginated(
+        db=db,
+        symbol=symbol,
+        timeframe=timeframe,
+        gte_time=today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        order_desc=False,
     )
-    today_rows = today_result.data or []
     if not today_rows:
         _log_feature_run(symbol, timeframe, "incremental", 0, 0, 0, None)
         return 0
 
-    warmup_result = db._with_retry(
-        lambda: db.get().table('stock_intraday')
-        .select('time, open, high, low, close, volume, value')
-        .eq('symbol', symbol)
-        .eq('timeframe', timeframe)
-        .lt('time', today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
-        .order('time', desc=True)
-        .limit(warmup_bars)
-        .execute(),
-        action_name=f"fetch warmup stock_intraday {symbol}",
+    warmup_rows = _fetch_stock_intraday_paginated(
+        db=db,
+        symbol=symbol,
+        timeframe=timeframe,
+        lt_time=today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        order_desc=True,
+        limit_total=warmup_bars,
     )
-    warmup_rows = list(reversed(warmup_result.data or []))
+    warmup_rows = list(reversed(warmup_rows))
 
     combined_df = pd.DataFrame(warmup_rows + today_rows)
     computed_df = compute_feature_dataframe(combined_df)
