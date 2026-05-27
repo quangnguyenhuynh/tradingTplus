@@ -5,17 +5,17 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     delta = prices.diff()
     gain = delta.where(delta > 0, 0.0)
     loss = (-delta.where(delta < 0, 0.0))
-    avg_gain = gain.ewm(alpha=1 / period, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=1 / period, adjust=False).mean()
+    avg_gain = gain.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+    avg_loss = loss.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
 
 def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
-    ema_fast = prices.ewm(span=fast, adjust=False).mean()
-    ema_slow = prices.ewm(span=slow, adjust=False).mean()
+    ema_fast = prices.ewm(span=fast, adjust=False, min_periods=fast).mean()
+    ema_slow = prices.ewm(span=slow, adjust=False, min_periods=slow).mean()
     macd_line = ema_fast - ema_slow
-    macd_signal = macd_line.ewm(span=signal, adjust=False).mean()
+    macd_signal = macd_line.ewm(span=signal, adjust=False, min_periods=signal).mean()
     macd_hist = macd_line - macd_signal
     return macd_line, macd_signal, macd_hist
 
@@ -44,12 +44,15 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_price_cols:
         out[col] = pd.to_numeric(out[col], errors='coerce')
 
-    def _safe_div(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-        denom = denominator.replace(0, pd.NA)
-        result = numerator / denom
+    def _safe_div(numerator, denominator) -> pd.Series:
+        numerator_s = numerator if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)
+        denominator_s = denominator if isinstance(denominator, pd.Series) else pd.Series(denominator, index=out.index)
+        denominator_s = denominator_s.replace(0, pd.NA)
+        result = numerator_s / denominator_s
         return result.replace([float('inf'), float('-inf')], pd.NA)
 
-    date_key = out['time'].dt.date
+    trading_time = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh')
+    date_key = trading_time.dt.date
 
     # Session-reset returns (computed independently per trading date).
     out['return_1m'] = out.groupby(date_key)['close'].pct_change(1)
@@ -66,9 +69,9 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     out['return_from_prev_close'] = _safe_div(out['close'], pd.Series(prev_session_close, index=out.index)) - 1
 
     # Continuous intraday trend features (do not reset by session).
-    out['ema9'] = out['close'].ewm(span=9, adjust=False).mean()
-    out['ema20'] = out['close'].ewm(span=20, adjust=False).mean()
-    out['ema50'] = out['close'].ewm(span=50, adjust=False).mean()
+    out['ema9'] = out['close'].ewm(span=9, adjust=False, min_periods=9).mean()
+    out['ema20'] = out['close'].ewm(span=20, adjust=False, min_periods=20).mean()
+    out['ema50'] = out['close'].ewm(span=50, adjust=False, min_periods=50).mean()
     out['ema9_above_ema20'] = out['ema9'] > out['ema20']
     out['ema20_above_ema50'] = out['ema20'] > out['ema50']
 
