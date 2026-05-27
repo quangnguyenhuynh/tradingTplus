@@ -118,6 +118,48 @@ def _fetch_stock_intraday_paginated(
     return rows_all
 
 
+def _get_intraday_time_bounds(db: SupabaseClient, symbol: str, timeframe: str) -> tuple[pd.Timestamp | None, pd.Timestamp | None]:
+    min_result = db._with_retry(
+        lambda: db.get().table('stock_intraday')
+        .select('time')
+        .eq('symbol', symbol)
+        .eq('timeframe', timeframe)
+        .order('time', desc=False)
+        .range(0, 0)
+        .execute(),
+        action_name=f"fetch min time stock_intraday {symbol}",
+    )
+    max_result = db._with_retry(
+        lambda: db.get().table('stock_intraday')
+        .select('time')
+        .eq('symbol', symbol)
+        .eq('timeframe', timeframe)
+        .order('time', desc=True)
+        .range(0, 0)
+        .execute(),
+        action_name=f"fetch max time stock_intraday {symbol}",
+    )
+    min_rows = min_result.data or []
+    max_rows = max_result.data or []
+    if not min_rows or not max_rows:
+        return None, None
+    return pd.Timestamp(min_rows[0]['time'], tz='UTC'), pd.Timestamp(max_rows[0]['time'], tz='UTC')
+
+
+def _month_start(ts: pd.Timestamp) -> pd.Timestamp:
+    utc_ts = pd.Timestamp(ts).tz_convert('UTC') if pd.Timestamp(ts).tzinfo else pd.Timestamp(ts).tz_localize('UTC')
+    return utc_ts.replace(day=1, hour=0, minute=0, second=0, microsecond=0, nanosecond=0)
+
+
+def _iter_month_ranges(start_time: pd.Timestamp, end_time: pd.Timestamp):
+    current = _month_start(start_time)
+    end_bound = pd.Timestamp(end_time).tz_convert('UTC') if pd.Timestamp(end_time).tzinfo else pd.Timestamp(end_time).tz_localize('UTC')
+    while current <= end_bound:
+        nxt = current + pd.offsets.MonthBegin(1)
+        yield current, nxt
+        current = nxt
+
+
 def _log_feature_run(symbol: str, timeframe: str, mode: str, raw_rows: int, computed_rows: int, upserted_rows: int, df: pd.DataFrame | None) -> None:
     min_time = None
     max_time = None
@@ -149,6 +191,52 @@ def calculate_features_for_symbol_full(symbol, timeframe='1m', upsert_batch_size
         db._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time', batch_size=upsert_batch_size)
     _log_feature_run(symbol, timeframe, "full", len(raw_df), len(computed_df), len(records), computed_df)
     return len(records)
+
+
+def calculate_features_for_symbol_full_chunked(symbol, timeframe='1m', warmup_bars=300, upsert_batch_size=1000):
+    db = SupabaseClient()
+    min_time, max_time = _get_intraday_time_bounds(db, symbol, timeframe)
+    if min_time is None or max_time is None:
+        _log_feature_run(symbol, timeframe, "full", 0, 0, 0, None)
+        return 0
+
+    total_upserted = 0
+    for chunk_start, chunk_end in _iter_month_ranges(min_time, max_time):
+        chunk_start_s = chunk_start.strftime('%Y-%m-%dT%H:%M:%SZ')
+        chunk_end_s = chunk_end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        chunk_rows = _fetch_stock_intraday_paginated(
+            db=db,
+            symbol=symbol,
+            timeframe=timeframe,
+            gte_time=chunk_start_s,
+            lt_time=chunk_end_s,
+            order_desc=False,
+        )
+        if not chunk_rows:
+            continue
+
+        warmup_rows = _fetch_stock_intraday_paginated(
+            db=db,
+            symbol=symbol,
+            timeframe=timeframe,
+            lt_time=chunk_start_s,
+            order_desc=True,
+            limit_total=warmup_bars,
+        )
+        warmup_rows = list(reversed(warmup_rows))
+
+        combined_df = pd.DataFrame(warmup_rows + chunk_rows)
+        computed_df = compute_feature_dataframe(combined_df)
+        computed_time = pd.to_datetime(computed_df['time'], utc=True, errors='coerce')
+        chunk_df = computed_df.loc[(computed_time >= chunk_start) & (computed_time < chunk_end)].copy()
+
+        records = _build_feature_records(chunk_df, symbol, timeframe)
+        if records:
+            db._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time', batch_size=upsert_batch_size)
+        total_upserted += len(records)
+        _log_feature_run(symbol, timeframe, "full_chunked", len(combined_df), len(computed_df), len(records), chunk_df)
+
+    return total_upserted
 
 
 def calculate_features_for_symbol_incremental(symbol, timeframe='1m', warmup_bars: int = 200, upsert_batch_size: int = 1000):
@@ -210,7 +298,7 @@ def run_feature_engine(symbols=None, mode='full'):
     for symbol in symbols:
         try:
             if mode == 'full':
-                total += calculate_features_for_symbol_full(symbol)
+                total += calculate_features_for_symbol_full_chunked(symbol)
             else:
                 total += calculate_features_for_symbol_incremental(symbol)
         except Exception:
@@ -221,11 +309,13 @@ def run_feature_engine(symbols=None, mode='full'):
 
 
 if __name__ == "__main__":
+    import argparse
     import logging
-    import sys
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(name)s | %(message)s')
-
-    symbols = sys.argv[1:] if len(sys.argv) > 1 else ['SSI', 'SHB', 'HPG', 'FPT']
-    logger.info("Symbols: %s", symbols)
-    run_feature_engine(symbols)
+    parser = argparse.ArgumentParser(description="Run feature engine")
+    parser.add_argument("--mode", choices=["full", "incremental"], default="full")
+    parser.add_argument("--symbols", nargs="*", default=['SSI', 'SHB', 'HPG', 'FPT'])
+    args = parser.parse_args()
+    logger.info("Symbols: %s mode=%s", args.symbols, args.mode)
+    run_feature_engine(args.symbols, mode=args.mode)
