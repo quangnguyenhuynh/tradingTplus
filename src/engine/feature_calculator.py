@@ -8,7 +8,11 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     avg_gain = gain.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
     avg_loss = loss.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    rsi = rsi.mask((avg_loss == 0) & (avg_gain > 0), 100.0)
+    rsi = rsi.mask((avg_gain == 0) & (avg_loss > 0), 0.0)
+    rsi = rsi.mask((avg_gain == 0) & (avg_loss == 0), pd.NA)
+    return rsi
 
 
 def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
@@ -45,9 +49,9 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         out[col] = pd.to_numeric(out[col], errors='coerce')
 
     def _safe_div(numerator, denominator) -> pd.Series:
-        numerator_s = numerator if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)
-        denominator_s = denominator if isinstance(denominator, pd.Series) else pd.Series(denominator, index=out.index)
-        denominator_s = denominator_s.replace(0, pd.NA)
+        numerator_s = numerator.reindex(out.index) if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)
+        denominator_s = denominator.reindex(out.index) if isinstance(denominator, pd.Series) else pd.Series(denominator, index=out.index)
+        denominator_s = denominator_s.mask(denominator_s == 0)
         result = numerator_s / denominator_s
         return result.replace([float('inf'), float('-inf')], pd.NA)
 
