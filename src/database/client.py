@@ -94,6 +94,10 @@ class SupabaseClient:
         def _sanitize_value(value):
             if value is pd.NA or value is pd.NaT:
                 return None
+            if isinstance(value, dict):
+                return {k: _sanitize_value(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [_sanitize_value(v) for v in value]
             if isinstance(value, datetime):
                 return value.isoformat()
             if isinstance(value, pd.Timestamp):
@@ -111,12 +115,11 @@ class SupabaseClient:
                 if math.isinf(value) or math.isnan(value):
                     return None
                 return value
-            if pd.isna(value):
-                return None
-            if isinstance(value, dict):
-                return {k: _sanitize_value(v) for k, v in value.items()}
-            if isinstance(value, list):
-                return [_sanitize_value(v) for v in value]
+            try:
+                if pd.isna(value):
+                    return None
+            except Exception:
+                pass
             return value
 
         return [_sanitize_value(record) for record in records]
