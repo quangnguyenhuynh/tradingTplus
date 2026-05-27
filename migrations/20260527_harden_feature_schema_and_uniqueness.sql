@@ -49,12 +49,14 @@ alter table public.features
   add column if not exists last_updated_at timestamptz default now();
 
 -- 2) Defensive type alignment for raw fields.
--- Convert volume/value from double precision to bigint only when safe (no non-integer finite values).
+-- Convert volume/value from double precision to bigint only when safe.
 do $$
 declare
   volume_type text;
   value_type text;
+  volume_has_special boolean;
   volume_has_non_integer boolean;
+  value_has_special boolean;
   value_has_non_integer boolean;
 begin
   select data_type into volume_type
@@ -66,7 +68,18 @@ begin
       select 1
       from public.features
       where volume is not null
-        and isfinite(volume)
+        and volume::text in ('Infinity', '-Infinity', 'NaN')
+    ) into volume_has_special;
+
+    if volume_has_special then
+      raise exception 'Unsafe conversion: public.features.volume has Infinity/-Infinity/NaN; aborting bigint conversion.';
+    end if;
+
+    select exists (
+      select 1
+      from public.features
+      where volume is not null
+        and volume::text not in ('Infinity', '-Infinity', 'NaN')
         and volume <> trunc(volume)
     ) into volume_has_non_integer;
 
@@ -87,7 +100,18 @@ begin
       select 1
       from public.features
       where value is not null
-        and isfinite(value)
+        and value::text in ('Infinity', '-Infinity', 'NaN')
+    ) into value_has_special;
+
+    if value_has_special then
+      raise exception 'Unsafe conversion: public.features.value has Infinity/-Infinity/NaN; aborting bigint conversion.';
+    end if;
+
+    select exists (
+      select 1
+      from public.features
+      where value is not null
+        and value::text not in ('Infinity', '-Infinity', 'NaN')
         and value <> trunc(value)
     ) into value_has_non_integer;
 
@@ -100,15 +124,34 @@ begin
   end if;
 end $$;
 
--- 3) Preserve legacy columns and annotate their status.
-comment on column public.features.rsi is 'Legacy column. New feature pipeline uses rsi14.';
-comment on column public.features.ema_20 is 'Legacy column. New feature pipeline uses ema20.';
-comment on column public.features.ema_50 is 'Legacy column. New feature pipeline uses ema50.';
-comment on column public.features.vwap is 'Legacy column. New feature pipeline uses vwap_intraday.';
-comment on column public.features.atr is 'Legacy column. Not currently written by new feature pipeline.';
-comment on column public.features.volume_spike is 'Legacy column. Not currently written by new feature pipeline.';
-comment on column public.features.bb_upper is 'Legacy column. Not currently written by new feature pipeline.';
-comment on column public.features.bb_lower is 'Legacy column. Not currently written by new feature pipeline.';
+-- 3) Preserve legacy columns and annotate their status (idempotent with existence checks).
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='rsi') then
+    comment on column public.features.rsi is 'Legacy column. New feature pipeline uses rsi14.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='ema_20') then
+    comment on column public.features.ema_20 is 'Legacy column. New feature pipeline uses ema20.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='ema_50') then
+    comment on column public.features.ema_50 is 'Legacy column. New feature pipeline uses ema50.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='vwap') then
+    comment on column public.features.vwap is 'Legacy column. New feature pipeline uses vwap_intraday.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='atr') then
+    comment on column public.features.atr is 'Legacy column. Not currently written by new feature pipeline.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='volume_spike') then
+    comment on column public.features.volume_spike is 'Legacy column. Not currently written by new feature pipeline.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='bb_upper') then
+    comment on column public.features.bb_upper is 'Legacy column. Not currently written by new feature pipeline.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='features' and column_name='bb_lower') then
+    comment on column public.features.bb_lower is 'Legacy column. Not currently written by new feature pipeline.';
+  end if;
+end $$;
 
 -- 4) Ensure features PK and indexes.
 do $$
