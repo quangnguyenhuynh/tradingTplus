@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 from supabase import create_client
 
@@ -16,6 +17,14 @@ logger = logging.getLogger(__name__)
 
 class SupabaseClient:
     _instance = None
+    _CRITICAL_ON_CONFLICT_TABLES = {
+        "stock_intraday",
+        "features",
+        "backtest_data",
+        "foreign_trading",
+        "orderbook_snapshot",
+        "trading_signals",
+    }
 
     def __new__(cls):
         if cls._instance is None:
@@ -80,13 +89,30 @@ class SupabaseClient:
 
     @staticmethod
     def _sanitize_for_json(records):
-        """Replace non-JSON-compliant float values (inf/-inf/nan) recursively."""
+        """Normalize values to JSON-safe Python primitives recursively."""
 
         def _sanitize_value(value):
+            if value is pd.NA or value is pd.NaT:
+                return None
+            if isinstance(value, datetime):
+                return value.isoformat()
+            if isinstance(value, pd.Timestamp):
+                if pd.isna(value):
+                    return None
+                return value.isoformat()
+            if isinstance(value, np.integer):
+                return int(value)
+            if isinstance(value, np.floating):
+                val = float(value)
+                if math.isinf(val) or math.isnan(val):
+                    return None
+                return val
             if isinstance(value, float):
                 if math.isinf(value) or math.isnan(value):
                     return None
                 return value
+            if pd.isna(value):
+                return None
             if isinstance(value, dict):
                 return {k: _sanitize_value(v) for k, v in value.items()}
             if isinstance(value, list):
@@ -113,6 +139,22 @@ class SupabaseClient:
 
         for i in range(0, len(records), batch_size):
             chunk = records[i:i + batch_size]
+            first_symbol = chunk[0].get("symbol") if chunk and isinstance(chunk[0], dict) else None
+            times = [
+                row.get("time")
+                for row in chunk
+                if isinstance(row, dict) and row.get("time") is not None
+            ]
+            min_time = min(times) if times else None
+            max_time = max(times) if times else None
+            logger.info(
+                "Batch upsert table=%s size=%s first_symbol=%s min_time=%s max_time=%s",
+                table_name,
+                len(chunk),
+                first_symbol,
+                min_time,
+                max_time,
+            )
 
             def _do_upsert():
                 query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if use_on_conflict else self.client.table(table_name).upsert(chunk)
@@ -122,6 +164,14 @@ class SupabaseClient:
                 self._with_retry(_do_upsert, action_name=f"upsert {table_name} [{i}:{i + len(chunk)}]")
             except Exception as exc:
                 if use_on_conflict and self._is_missing_on_conflict_constraint(exc):
+                    if table_name in self._CRITICAL_ON_CONFLICT_TABLES:
+                        logger.error(
+                            "Missing unique/exclusion constraint for critical table=%s on_conflict=%s. Failing fast.",
+                            table_name,
+                            on_conflict,
+                        )
+                        raise
+
                     logger.warning(
                         "Table %s does not have a unique/exclusion constraint matching on_conflict='%s' (42P10). "
                         "Fallback to upsert without on_conflict for this run.",
@@ -137,17 +187,12 @@ class SupabaseClient:
 
                 missing_col = self._extract_missing_column(exc, table_name)
                 if missing_col:
-                    logger.warning(
-                        "Column '%s' not found in table %s. Dropping this key from payload and retrying chunk.",
+                    logger.error(
+                        "Column '%s' not found in table %s. Schema and code are incompatible; failing fast.",
                         missing_col,
                         table_name,
                     )
-                    chunk_sanitized = [{k: v for k, v in row.items() if k != missing_col} for row in chunk]
-                    self._with_retry(
-                        lambda: self.client.table(table_name).upsert(chunk_sanitized, on_conflict=on_conflict).execute() if use_on_conflict else self.client.table(table_name).upsert(chunk_sanitized).execute(),
-                        action_name=f"upsert {table_name} [{i}:{i + len(chunk)}] missing-col-fallback",
-                    )
-                    continue
+                    raise
 
                 raise
 

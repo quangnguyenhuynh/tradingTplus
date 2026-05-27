@@ -53,7 +53,7 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 
 ### trading_signals
 - Ghi: `symbol`, `timeframe`, `time`, `signal_type`, `score`, `reason`, `suggestion`, `bucket_time`.
-- Upsert theo conflict key: `symbol,signal_type,bucket_time`.
+- Upsert theo conflict key: `symbol,timeframe,time,signal_type`.
 
 ### backtest_data
 - Chưa có engine backtest chính thức, nhưng client hỗ trợ upsert theo: `symbol,timeframe,time`.
@@ -81,8 +81,8 @@ on public.foreign_trading(symbol, time);
 create unique index if not exists features_symbol_timeframe_time_uidx
 on public.features(symbol, timeframe, time);
 
-create unique index if not exists trading_signals_symbol_signal_type_bucket_time_uidx
-on public.trading_signals(symbol, signal_type, bucket_time);
+create unique index if not exists trading_signals_symbol_timeframe_time_signal_type_uidx
+on public.trading_signals(symbol, timeframe, time, signal_type);
 
 create unique index if not exists backtest_data_symbol_timeframe_time_uidx
 on public.backtest_data(symbol, timeframe, time);
