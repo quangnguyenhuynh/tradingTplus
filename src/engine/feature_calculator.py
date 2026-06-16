@@ -1,5 +1,87 @@
 import pandas as pd
 
+SUPPORTED_TIMEFRAMES = {'1m', '5m', '15m', '60m', '1d'}
+
+
+def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    """Aggregate 1m OHLCV rows into a requested feature timeframe.
+
+    `stock_intraday` remains the single source of truth and only stores 1m rows.
+    Higher timeframes are derived in memory before feature calculation.
+    """
+    if timeframe not in SUPPORTED_TIMEFRAMES:
+        raise ValueError(f"Unsupported timeframe: {timeframe}. Supported: {sorted(SUPPORTED_TIMEFRAMES)}")
+    if df.empty:
+        return df.copy()
+
+    required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
+    missing_cols = [c for c in required_cols if c not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns for aggregation: {missing_cols}")
+
+    out = df[required_cols].copy()
+    out['time'] = pd.to_datetime(out['time'], errors='coerce', utc=True)
+    invalid_time_mask = out['time'].isna()
+    if invalid_time_mask.any():
+        raise ValueError(f"Invalid time values found: {int(invalid_time_mask.sum())} rows")
+
+    for col in ['open', 'high', 'low', 'close', 'volume', 'value']:
+        out[col] = pd.to_numeric(out[col], errors='coerce')
+
+    out = out.sort_values('time').drop_duplicates(subset=['time'], keep='last')
+    if timeframe == '1m':
+        return out.reset_index(drop=True)
+
+    rule_by_timeframe = {
+        '5m': '5min',
+        '15m': '15min',
+        '60m': '60min',
+        '1d': '1D',
+    }
+    rule = rule_by_timeframe[timeframe]
+
+    # Resample on Vietnam trading dates so intraday buckets and daily bars do
+    # not cross local-session boundaries. Convert back to UTC for storage.
+    local = out.copy()
+    local['time'] = local['time'].dt.tz_convert('Asia/Ho_Chi_Minh')
+    local = local.set_index('time')
+    pieces = []
+
+    for _trading_date, day_df in local.groupby(local.index.date):
+        if timeframe == '1d':
+            aggregated = pd.DataFrame([{
+                'time': day_df.index[0].normalize(),
+                'open': day_df['open'].iloc[0],
+                'high': day_df['high'].max(),
+                'low': day_df['low'].min(),
+                'close': day_df['close'].iloc[-1],
+                'volume': day_df['volume'].sum(),
+                'value': day_df['value'].sum(),
+            }])
+        else:
+            aggregated = (
+                day_df
+                .resample(rule, label='left', closed='left')
+                .agg({
+                    'open': 'first',
+                    'high': 'max',
+                    'low': 'min',
+                    'close': 'last',
+                    'volume': 'sum',
+                    'value': 'sum',
+                })
+                .dropna(subset=['open', 'high', 'low', 'close'])
+                .reset_index()
+            )
+        pieces.append(aggregated)
+
+    if not pieces:
+        return out.iloc[0:0].reset_index(drop=True)
+
+    result = pd.concat(pieces, ignore_index=True)
+    result['time'] = pd.to_datetime(result['time']).dt.tz_convert('UTC')
+    return result.sort_values('time').reset_index(drop=True)
+
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     delta = prices.diff()

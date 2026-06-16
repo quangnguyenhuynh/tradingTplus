@@ -28,6 +28,7 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 ### stock_intraday
 - Ghi: `symbol`, `timeframe`, `time`, `open`, `high`, `low`, `close`, `volume`, `value`, `volume_delta`, `reference_price`, `ceiling_price`, `floor_price`.
 - Upsert theo conflict key: `symbol,timeframe,time`.
+- Quy ước hiện tại: chỉ lưu `timeframe = '1m'`. Đây là single source of truth; `5m`, `15m`, `60m`, `1d` được aggregate trong feature engine và không ghi ngược vào `stock_intraday`.
 
 ### orderbook_snapshot
 - Ghi tối thiểu: `symbol`, `time`, `total_bid_depth_10`, `total_ask_depth_10`.
@@ -41,6 +42,7 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 
 ### features
 - Key: `symbol`, `timeframe`, `time`, `last_updated_at`.
+- Timeframe đang được tính từ 1m: `1m`, `5m`, `15m`, `60m`, `1d`.
 - Price: `open`, `high`, `low`, `close`, `volume`, `value`.
 - Return: `return_1m`, `return_5m`, `return_15m`, `return_from_open`, `return_from_prev_close`.
 - Trend: `ema9`, `ema20`, `ema50`, `ema9_above_ema20`, `ema20_above_ema50`.

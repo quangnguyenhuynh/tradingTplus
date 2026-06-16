@@ -211,6 +211,17 @@ class SupabaseClient:
         if not records:
             return
 
+        invalid_timeframes = sorted({
+            record.get('timeframe')
+            for record in records
+            if record.get('timeframe') != '1m'
+        })
+        if invalid_timeframes:
+            raise ValueError(
+                "stock_intraday is the 1m single source of truth; "
+                f"refusing to persist derived timeframes: {invalid_timeframes}"
+            )
+
         logger.info("Start ingest %s intraday records", len(records))
 
         for record in records:
