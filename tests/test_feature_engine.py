@@ -94,7 +94,7 @@ def test_full_mode_paginates_over_1000_rows(monkeypatch):
     db = _DB(rows)
     monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
 
-    upserted = fe.calculate_features_for_symbol_full_chunked('SSI')
+    upserted = fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m'])
     assert upserted == 1205
     assert len(db.upsert_calls) == 1
     assert len(db.upsert_calls[0][1]) == 1205
@@ -115,7 +115,7 @@ def test_incremental_mode_uses_today_and_warmup(monkeypatch):
     monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
     monkeypatch.setattr(fe, 'datetime', _FixedDatetime)
 
-    upserted = fe.calculate_features_for_symbol_incremental('SSI', warmup_bars=2)
+    upserted = fe.calculate_features_for_symbol_incremental('SSI', timeframes=['1m'], warmup_bars=2)
     assert upserted == 2
     recs = db.upsert_calls[0][1]
     assert all(r['time'].startswith('2026-05-26T17:0') for r in recs)
@@ -124,8 +124,8 @@ def test_incremental_mode_uses_today_and_warmup(monkeypatch):
 def test_no_rows_returns_zero(monkeypatch):
     db = _DB([])
     monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
-    assert fe.calculate_features_for_symbol_full_chunked('SSI') == 0
-    assert fe.calculate_features_for_symbol_incremental('SSI') == 0
+    assert fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m']) == 0
+    assert fe.calculate_features_for_symbol_incremental('SSI', timeframes=['1m']) == 0
 
 
 def test_timestamp_conversion_utc_in_records():
@@ -133,3 +133,37 @@ def test_timestamp_conversion_utc_in_records():
     feats = fe.compute_feature_dataframe(df)
     recs = fe._build_feature_records(feats, 'SSI', '1m')
     assert recs[0]['time'].endswith('Z')
+
+
+def test_aggregate_timeframe_builds_5m_bars_from_1m_source():
+    rows = []
+    base = pd.Timestamp('2026-05-20T02:00:00Z')
+    for i in range(7):
+        rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
+
+    agg = fe.aggregate_timeframe(pd.DataFrame(rows), '5m')
+
+    assert len(agg) == 2
+    assert agg.iloc[0]['open'] == 10
+    assert agg.iloc[0]['high'] == 15
+    assert agg.iloc[0]['low'] == 9
+    assert agg.iloc[0]['close'] == 14.5
+    assert agg.iloc[0]['volume'] == sum(100 + i for i in range(5))
+    assert agg.iloc[0]['value'] == sum(1000 + i for i in range(5))
+
+
+def test_full_mode_derives_higher_timeframe_features_without_writing_stock_intraday(monkeypatch):
+    rows = []
+    base = pd.Timestamp('2026-05-20T02:00:00Z')
+    for i in range(10):
+        rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
+
+    db = _DB(rows)
+    monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
+
+    upserted = fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m', '5m'])
+
+    assert upserted == 12
+    assert [call[0] for call in db.upsert_calls] == ['features', 'features']
+    assert {call[2] for call in db.upsert_calls} == {'symbol,timeframe,time'}
+    assert {record['timeframe'] for _, records, _, _ in db.upsert_calls for record in records} == {'1m', '5m'}
