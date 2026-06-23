@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from src.database.client import SupabaseClient
-from src.pipeline.fetch_one_day import fetch_one_day
+from src.ssi.api import SSIApi
+from src.pipeline.fetch_one_day import fetch_one_day_with_clients
 from src.engine.feature_engine import run_feature_engine
 
 def backfill(from_date: str, to_date: str, symbols: list = None):
@@ -25,6 +26,7 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
     start = datetime.strptime(from_date, "%Y-%m-%d")
     end = datetime.strptime(to_date, "%Y-%m-%d")
     
+    ssi = SSIApi()
     total_candles = 0
     current = start
     
@@ -37,7 +39,7 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
         
         for symbol in symbols:
             try:
-                count = fetch_one_day(symbol, date_str)
+                count = fetch_one_day_with_clients(ssi, db, symbol, date_str)
                 total_candles += count
             except Exception as e:
                 print(f"    ❌ {symbol}: {e}")

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from src.database.client import SupabaseClient
-from src.pipeline.fetch_one_day import fetch_one_day
+from src.ssi.api import SSIApi
+from src.pipeline.fetch_one_day import fetch_one_day_with_clients
 from src.engine.feature_engine import run_feature_engine
 
 VN_TZ = timezone(timedelta(hours=7))
@@ -25,10 +26,11 @@ def daily_run(date: str = None):
         print("❌ Chưa có dữ liệu symbols. Chạy 'python main.py init' trước!")
         return
     
+    ssi = SSIApi()
     total_candles = 0
     for symbol in symbols:
         try:
-            count = fetch_one_day(symbol, date)
+            count = fetch_one_day_with_clients(ssi, db, symbol, date)
             total_candles += count
         except Exception as e:
             print(f"    ❌ {symbol}: {e}")
