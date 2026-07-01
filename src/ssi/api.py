@@ -129,7 +129,7 @@ class SSIApi:
 
         print(f"✅ Tổng cộng: {len(all_symbols)} symbols")
         return all_symbols
-
+# mục 4.9 
     def get_daily_price(self, symbol: str, date: str) -> dict | None:
         url = config.SSI_DAILY_STOCK_PRICE_URL
         params = {
@@ -161,7 +161,7 @@ class SSIApi:
         except ValueError as e:
             print(f"⚠️ JSON daily price không hợp lệ {symbol}: {e}")
             return None
-
+# mục 4.7
     def get_intraday(self, symbol: str, date: str) -> list[dict]:
         url = config.SSI_INTRADAY_OHLC_URL
         params = {
