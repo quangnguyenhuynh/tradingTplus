@@ -1,147 +1,195 @@
-import requests
 import time
+from typing import Any
+
+import requests
+
 from src.config import config
 
+
 class SSIApi:
-    def __init__(self):
-        self.token = None
+    def __init__(self) -> None:
+        self.token: str | None = None
         self._login()
-    
-    def _login(self):
+
+    def _login(self) -> None:
         url = config.SSI_AUTH_URL
         payload = {
-            'consumerID': config.SSI_CONSUMER_ID,
-            'consumerSecret': config.SSI_CONSUMER_SECRET
+            "consumerID": config.SSI_CONSUMER_ID,
+            "consumerSecret": config.SSI_CONSUMER_SECRET,
         }
-        
-        print(f"🔐 Đang đăng nhập SSI...")
-        
+
+        print("🔐 Đang đăng nhập SSI...")
+
         try:
             resp = requests.post(url, json=payload, timeout=30)
             resp.raise_for_status()
-            
             data = resp.json()
-            
-            if 'data' in data and 'accessToken' in data['data']:
-                self.token = data['data']['accessToken']
-                print("✅ Đã đăng nhập SSI thành công")
-            else:
-                print(f"❌ Response không có accessToken: {data}")
-                raise Exception("Không tìm thấy accessToken")
-            
-        except Exception as e:
-            print(f"❌ Lỗi đăng nhập: {e}")
+
+        except requests.RequestException as e:
+            print(f"❌ Lỗi kết nối khi đăng nhập SSI: {e}")
             raise
-    
-    def _headers(self):
+
+        except ValueError as e:
+            print(f"❌ SSI trả JSON không hợp lệ khi đăng nhập: {e}")
+            raise
+
+        token = data.get("data", {}).get("accessToken")
+
+        if not token:
+            print(f"❌ Response không có accessToken: {data}")
+            raise RuntimeError("Không tìm thấy accessToken")
+
+        self.token = token
+        print("✅ Đã đăng nhập SSI thành công")
+
+    def _headers(self) -> dict[str, str]:
+        if not self.token:
+            raise RuntimeError("SSI token chưa được khởi tạo")
+
         return {
-            'Authorization': f'Bearer {self.token}',
-            'Accept': 'application/json'
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/json",
         }
-    
-    # ✅ SỬA: Lấy symbols theo từng market riêng
-    def get_symbols(self):
+
+    def _get_with_retry(
+        self,
+        url: str,
+        params: dict[str, Any],
+        timeout: int = 30,
+    ) -> requests.Response:
+        resp = requests.get(
+            url,
+            headers=self._headers(),
+            params=params,
+            timeout=timeout,
+        )
+
+        if resp.status_code == 401:
+            print("🔄 SSI token hết hạn, đang đăng nhập lại...")
+            self._login()
+
+            resp = requests.get(
+                url,
+                headers=self._headers(),
+                params=params,
+                timeout=timeout,
+            )
+
+        resp.raise_for_status()
+        return resp
+
+    def _extract_items(self, data: dict[str, Any]) -> list[dict]:
+        if "dataList" in data:
+            return data.get("dataList") or []
+
+        if "data" in data:
+            return data.get("data") or []
+
+        return []
+
+    def get_symbols(self) -> list[dict]:
         url = config.SSI_SECURITIES_URL
-        all_symbols = []
-        
-        # Các market cần lấy (gọi riêng từng cái)
-        markets = ['HNX', 'HOSE', 'UPCOM', 'DER']
-        
+        all_symbols: list[dict] = []
+        markets = ["HNX", "HOSE", "UPCOM", "DER"]
+
         print("📋 Đang lấy danh sách mã từ SSI...")
-        
+
         for idx, market in enumerate(markets):
-            print(f"\n lan lap {idx+1}:market={market}")
+            print(f"\nLần lặp {idx + 1}: market={market}")
+
             try:
                 time.sleep(2)
-                self._login()
+
                 params = {
-                    'market': market,
-                    'pageSize': 1000
+                    "market": market,
+                    "pageSize": 1000,
                 }
-                print(f"       -> dang goi API voi params={params} ")
-                resp = requests.get(
-                    url, 
-                    headers=self._headers(), 
-                    params=params,
-                    timeout=30
-                )
-                print(f"    -> status code:{resp.status_code}")
-                if resp.status_code != 200:
-                    print(f"   ⚠️ {market}: lỗi {resp.status_code}")
-                    continue
-                
+
+                print(f"       -> Đang gọi API với params={params}")
+
+                resp = self._get_with_retry(url, params)
                 data = resp.json()
-                symbols = data.get('data', [])
-                
+                symbols = self._extract_items(data)
+
                 if symbols:
                     all_symbols.extend(symbols)
                     print(f"   ✅ {market}: {len(symbols)} symbols")
                 else:
                     print(f"   ⚪ {market}: 0 symbols")
-                    
-            except Exception as e:
-                print(f"   ❌ {market}: {e}")
-        
+
+            except requests.HTTPError as e:
+                status_code = e.response.status_code if e.response else "unknown"
+                print(f"   ⚠️ {market}: HTTP lỗi {status_code}")
+
+            except requests.RequestException as e:
+                print(f"   ❌ {market}: lỗi kết nối SSI: {e}")
+
+            except ValueError as e:
+                print(f"   ❌ {market}: JSON không hợp lệ: {e}")
+
         print(f"✅ Tổng cộng: {len(all_symbols)} symbols")
         return all_symbols
-    
 
-
-    # mục 4.9 trong tài liệu SSI
-    def get_daily_price(self, symbol, date):
+    def get_daily_price(self, symbol: str, date: str) -> dict | None:
         url = config.SSI_DAILY_STOCK_PRICE_URL
-        params = {'Symbol': symbol, 'FromDate': date, 'ToDate': date}
-        
+        params = {
+            "Symbol": symbol,
+            "FromDate": date,
+            "ToDate": date,
+        }
+
         try:
-            resp = requests.get(url, headers=self._headers(), params=params, timeout=30)
-            resp.raise_for_status()
-            
+            resp = self._get_with_retry(url, params)
+
             if not resp.text:
                 return None
-            
+
             data = resp.json()
+            items = self._extract_items(data)
 
-            if 'dataList' in data:
-                items = data.get('dataList', [])
-                #print(f"du lieu item 0 datalist là{items[0]}")
+            return items[0] if items else None
 
-                return items[0] if items else None
-            elif 'data' in data:
-                items = data.get('data', [])
-                #print(f"du lieu item 0 data là{items[0]}")
-                return items[0] if items else None
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response else "unknown"
+            print(f"⚠️ Lỗi HTTP daily price {symbol}: {status_code}")
             return None
 
-        except Exception as e:
-            print(f"⚠️ Lỗi daily price {symbol}: {e}")
+        except requests.RequestException as e:
+            print(f"⚠️ Lỗi kết nối daily price {symbol}: {e}")
             return None
-    
 
+        except ValueError as e:
+            print(f"⚠️ JSON daily price không hợp lệ {symbol}: {e}")
+            return None
 
-    # mục 4.7 trong tài liệu SSI API
-    def get_intraday(self, symbol, date):
+    def get_intraday(self, symbol: str, date: str) -> list[dict]:
         url = config.SSI_INTRADAY_OHLC_URL
         params = {
-            'Symbol': symbol,
-            'FromDate': date,
-            'ToDate': date,
-            'resolution': '1',
-            'pageSize': 1000
+            "Symbol": symbol,
+            "FromDate": date,
+            "ToDate": date,
+            "resolution": "1",
+            "pageSize": 1000,
         }
-        
+
         try:
-            resp = requests.get(url, headers=self._headers(), params=params, timeout=30)
-            resp.raise_for_status()
-            
+            resp = self._get_with_retry(url, params)
+
             if not resp.text:
                 return []
-            
+
             data = resp.json()
-            if 'dataList' in data:
-                return data.get('dataList', [])
-            elif 'data' in data:
-                return data.get('data', [])
+            return self._extract_items(data)
+
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response else "unknown"
+            print(f"⚠️ Lỗi HTTP intraday {symbol}: {status_code}")
             return []
-        except Exception as e:
-            print(f"⚠️ Lỗi intraday {symbol}: {e}")
+
+        except requests.RequestException as e:
+            print(f"⚠️ Lỗi kết nối intraday {symbol}: {e}")
+            return []
+
+        except ValueError as e:
+            print(f"⚠️ JSON intraday không hợp lệ {symbol}: {e}")
             return []
