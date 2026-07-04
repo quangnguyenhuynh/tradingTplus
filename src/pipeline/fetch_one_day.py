@@ -93,7 +93,10 @@ def build_intraday_records(
         high_price = _to_float(candle.get('High', 0))
         low_price = _to_float(candle.get('Low', 0))
         close_price = _to_float(candle.get('Close', 0))
-        value = _to_int(candle.get('Value', 0))
+        # SSI intraday Value is last price / same as Close, not trading turnover.
+        # Clean value is estimated trading value, derived from typical price and volume delta.
+        typical_price = (high_price + low_price + close_price) / 3
+        estimated_value = int(typical_price * volume_delta)
         time_iso = dt.isoformat()
 
         base_record = {
@@ -116,7 +119,7 @@ def build_intraday_records(
         clean_records.append({
             **base_record,
             'timeframe': '1m',
-            'value': value,
+            'value': estimated_value,
             'volume_delta': volume_delta,
             'reference_price': reference_price,
             'ceiling_price': ceiling_price,

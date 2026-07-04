@@ -14,6 +14,7 @@ def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
+    # `value` is estimated trading value from the clean intraday pipeline, not SSI candle Value.
     required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
@@ -110,6 +111,7 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
+    # `value` is estimated trading value from the clean intraday pipeline, not SSI candle Value.
     required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:

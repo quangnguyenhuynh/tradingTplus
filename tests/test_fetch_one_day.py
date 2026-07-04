@@ -41,13 +41,21 @@ def _daily():
     }
 
 
-def _candle(time='09:15:00', volume='100', value='1000'):
+def _candle(
+    time='09:15:00',
+    volume='100',
+    value='1000',
+    open_price='10',
+    high='11',
+    low='9',
+    close='10.5',
+):
     return {
         'Time': time,
-        'Open': '10',
-        'High': '11',
-        'Low': '9',
-        'Close': '10.5',
+        'Open': open_price,
+        'High': high,
+        'Low': low,
+        'Close': close,
         'Volume': volume,
         'Value': value,
     }
@@ -71,10 +79,25 @@ def test_build_intraday_records_skips_bad_time_and_never_negative_delta():
     assert len(raw_records) == 3
     assert len(clean_records) == 3
     assert [record['volume_delta'] for record in clean_records] == [0, 0, 40]
+    assert [record['value'] for record in clean_records] == [0, 0, int(((11 + 9 + 10.5) / 3) * 40)]
     assert raw_records[0]['time'] == '2026-06-18T09:15:00'
     assert clean_records[0]['timeframe'] == '1m'
     assert clean_records[0]['reference_price'] == 10.1
     assert 'data_hash' in raw_records[0]
+
+
+def test_build_intraday_records_estimates_value_from_ohlc_and_volume_delta():
+    candles = [
+        _candle('09:15:00', volume='100', value='10.5', high='12', low='9', close='10.5'),
+        _candle('09:16:00', volume='150', value='11', high='13', low='10', close='12'),
+    ]
+
+    raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', _daily(), candles)
+
+    assert raw_records[1]['close'] == 12
+    assert clean_records[1]['volume_delta'] == 50
+    assert clean_records[1]['value'] == int(((13 + 10 + 12) / 3) * 50)
+    assert clean_records[1]['value'] != int(candles[1]['Value'])
 
 
 def test_save_intraday_records_returns_clean_record_count():
