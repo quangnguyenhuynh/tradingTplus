@@ -14,7 +14,7 @@ def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
-    # `value` is estimated trading value from the clean intraday pipeline, not SSI candle Value.
+    # Prefer `value` persisted in stock_intraday; fill legacy nulls from close * volume.
     required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
@@ -28,6 +28,7 @@ def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
 
     for col in ['open', 'high', 'low', 'close', 'volume', 'value']:
         out[col] = pd.to_numeric(out[col], errors='coerce')
+    out['value'] = out['value'].fillna(out['close'] * out['volume'])
 
     out = out.sort_values('time').drop_duplicates(subset=['time'], keep='last')
     if timeframe == '1m':
@@ -111,7 +112,7 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
-    # `value` is estimated trading value from the clean intraday pipeline, not SSI candle Value.
+    # Prefer `value` persisted in stock_intraday; fill legacy nulls from close * volume.
     required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
@@ -131,6 +132,7 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     numeric_price_cols = ['open', 'high', 'low', 'close', 'volume', 'value']
     for col in numeric_price_cols:
         out[col] = pd.to_numeric(out[col], errors='coerce')
+    out['value'] = out['value'].fillna(out['close'] * out['volume'])
 
     def _safe_div(numerator, denominator) -> pd.Series:
         numerator_s = numerator.reindex(out.index) if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)

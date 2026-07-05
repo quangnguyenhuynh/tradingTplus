@@ -66,7 +66,7 @@ def test_parse_time_returns_datetime_or_none():
     assert fod.parse_time('18/06/2026', 'bad') is None
 
 
-def test_build_intraday_records_skips_bad_time_and_never_negative_delta():
+def test_build_intraday_records_skips_bad_time_and_uses_candle_volume_for_value():
     candles = [
         _candle('09:15:00', '100'),
         _candle('bad', '120'),
@@ -78,15 +78,15 @@ def test_build_intraday_records_skips_bad_time_and_never_negative_delta():
 
     assert len(raw_records) == 3
     assert len(clean_records) == 3
-    assert [record['volume_delta'] for record in clean_records] == [0, 0, 40]
-    assert [record['value'] for record in clean_records] == [0, 0, int(((11 + 9 + 10.5) / 3) * 40)]
+    assert [record['volume_delta'] for record in clean_records] == [100, 90, 130]
+    assert [record['value'] for record in clean_records] == [10.5 * 100, 10.5 * 90, 10.5 * 130]
     assert raw_records[0]['time'] == '2026-06-18T09:15:00'
     assert clean_records[0]['timeframe'] == '1m'
     assert clean_records[0]['reference_price'] == 10.1
     assert 'data_hash' in raw_records[0]
 
 
-def test_build_intraday_records_estimates_value_from_ohlc_and_volume_delta():
+def test_build_intraday_records_ignores_api_value_and_uses_close_times_volume():
     candles = [
         _candle('09:15:00', volume='100', value='10.5', high='12', low='9', close='10.5'),
         _candle('09:16:00', volume='150', value='11', high='13', low='10', close='12'),
@@ -95,9 +95,31 @@ def test_build_intraday_records_estimates_value_from_ohlc_and_volume_delta():
     raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', _daily(), candles)
 
     assert raw_records[1]['close'] == 12
-    assert clean_records[1]['volume_delta'] == 50
-    assert clean_records[1]['value'] == int(((13 + 10 + 12) / 3) * 50)
+    assert clean_records[1]['volume_delta'] == 150
+    assert clean_records[1]['value'] == 12 * 150
     assert clean_records[1]['value'] != int(candles[1]['Value'])
+
+
+def test_build_intraday_records_sets_value_null_when_close_or_volume_missing():
+    candles = [
+        _candle('09:15:00', volume='', close='10.5'),
+        _candle('09:16:00', volume='100', close=''),
+        _candle('09:17:00', volume='0', close='10.5'),
+    ]
+
+    _raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', _daily(), candles)
+
+    assert [record['value'] for record in clean_records] == [None, None, 0.0]
+    assert [record['volume'] for record in clean_records] == [None, 100, 0]
+
+
+def test_build_intraday_records_logs_normalized_debug_sample(caplog):
+    caplog.set_level('DEBUG', logger='src.pipeline.fetch_one_day')
+
+    fod.build_intraday_records('SSI', '18/06/2026', _daily(), [_candle('09:15:00', volume='100', close='10.5')])
+
+    assert 'Normalized intraday sample rows for SSI 18/06/2026' in caplog.text
+    assert "'value': 1050.0" in caplog.text
 
 
 def test_save_intraday_records_returns_clean_record_count():

@@ -15,6 +15,34 @@ from src.config import config
 logger = logging.getLogger(__name__)
 
 
+_STOCK_INTRADAY_FORBIDDEN_FEATURE_COLUMNS = {
+    "value_ma20",
+    "value_ratio",
+    "cum_value_15m",
+    "vwap",
+    "vwap_intraday",
+    "rsi",
+    "rsi14",
+    "ema_9",
+    "ema_20",
+    "ema_50",
+    "ema9",
+    "ema20",
+    "ema50",
+}
+
+
+def _stock_intraday_value(record: dict):
+    close = record.get("close")
+    volume = record.get("volume")
+    if close is None or volume is None:
+        return None
+    try:
+        return float(close) * int(volume)
+    except (TypeError, ValueError):
+        return None
+
+
 class SupabaseClient:
     _instance = None
     _CRITICAL_ON_CONFLICT_TABLES = {
@@ -222,10 +250,22 @@ class SupabaseClient:
                 f"refusing to persist derived timeframes: {invalid_timeframes}"
             )
 
+        forbidden_columns = sorted(
+            {column for record in records for column in record}
+            & _STOCK_INTRADAY_FORBIDDEN_FEATURE_COLUMNS
+        )
+        if forbidden_columns:
+            raise ValueError(
+                "stock_intraday payload contains feature columns that belong in features: "
+                f"{forbidden_columns}"
+            )
+
         logger.info("Start ingest %s intraday records", len(records))
 
         for record in records:
             record['time'] = pd.to_datetime(record['time'], utc=True).isoformat()
+            if 'value' not in record or record.get('value') is None:
+                record['value'] = _stock_intraday_value(record)
 
         buckets = defaultdict(list)
         for record in records:
