@@ -10,6 +10,7 @@ Pipeline thu thập dữ liệu SSI -> Supabase, sau đó tính feature kỹ thu
 - `src/database/`: Supabase client + các hàm insert/upsert.
 - `src/engine/feature_engine.py`: load dữ liệu 1m, aggregate timeframe và tính indicator/features.
 - `src/engine/signal_engine.py`: sinh signal từ features.
+- `src/engine/backtest_engine.py`: backtest MVP từ `features` + `trading_signals`.
 - `scripts/`: script hỗ trợ kiểm tra kết nối API/DB và chạy sample backfill.
 
 ## Quick start
@@ -61,7 +62,7 @@ python scripts/backfill_sample.py
 - ✅ Feature: có engine tính indicator cho `1m`, `5m`, `15m`, `60m`, `1d` và lưu vào bảng `features`.
 - ✅ Timeframe: `stock_intraday` chỉ lưu 1m; các timeframe cao hơn được aggregate trong bộ nhớ từ 1m trước khi tính feature.
 - ✅ Signal: có engine sinh tín hiệu rule-based và lưu `trading_signals`.
-- ⚠️ Backtest: chưa có engine backtest chính thức (file `backtest_engine.py` đang để placeholder).
+- ✅ Backtest: có MVP tính PnL, winrate, max drawdown và Sharpe đơn giản từ `features` + `trading_signals`.
 
 ## Lỗi 42P10 khi upsert `raw_intraday`
 
@@ -86,3 +87,4 @@ Code hiện tại đã có fallback tự động bỏ `on_conflict` để job kh
 ## Snapshot cập nhật gần nhất
 
 - Xem tài liệu tổng hợp mới nhất: `REPO_STATUS_2026-05-26.md`.
+- Backtest MVP đã được bổ sung trong `src/engine/backtest_engine.py`; có thể gọi `run_backtest_engine(target_date)` hoặc test bằng dữ liệu in-memory qua `run_backtest(...)`.
