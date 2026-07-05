@@ -167,3 +167,20 @@ def test_full_mode_derives_higher_timeframe_features_without_writing_stock_intra
     assert [call[0] for call in db.upsert_calls] == ['features', 'features']
     assert {call[2] for call in db.upsert_calls} == {'symbol,timeframe,time'}
     assert {record['timeframe'] for _, records, _, _ in db.upsert_calls for record in records} == {'1m', '5m'}
+
+
+def test_feature_engine_falls_back_to_close_times_volume_when_value_null():
+    df = pd.DataFrame([
+        _mk_row('2026-05-26T17:01:00Z', 1),
+        _mk_row('2026-05-26T17:02:00Z', 2),
+    ])
+    df.loc[0, 'value'] = None
+    df.loc[1, 'value'] = 7777
+
+    agg = fe.aggregate_timeframe(df, '1m')
+    feats = fe.compute_feature_dataframe(df)
+
+    assert agg.iloc[0]['value'] == agg.iloc[0]['close'] * agg.iloc[0]['volume']
+    assert agg.iloc[1]['value'] == 7777
+    assert feats.iloc[0]['value'] == feats.iloc[0]['close'] * feats.iloc[0]['volume']
+    assert feats.iloc[1]['value'] == 7777

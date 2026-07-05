@@ -11,7 +11,7 @@ Repo hiện tập trung vào pipeline:
 3. Tính feature kỹ thuật.
 4. Sinh trading signal rule-based.
 
-Backtest engine vẫn chưa triển khai logic chính thức.
+Backtest engine đã có MVP để ghép `trading_signals` với `features`, mô phỏng giữ lệnh theo số nến cấu hình và tính metric cơ bản.
 
 ## 2) Entrypoint & luồng chạy
 
@@ -36,7 +36,7 @@ Backtest engine vẫn chưa triển khai logic chính thức.
 - `src/engine/feature_engine.py`: tính feature và ghi bảng `features`.
 - `src/engine/signal_engine.py`: sinh và ghi signal.
 - `src/engine/data_quality.py`: kiểm tra chất lượng dữ liệu và log.
-- `src/engine/backtest_engine.py`: placeholder, chưa có backtest production.
+- `src/engine/backtest_engine.py`: backtest MVP, hỗ trợ cấu hình vốn, tỷ trọng vị thế, số nến nắm giữ, phí và lọc điểm signal.
 
 ## 4) Cập nhật DB/migration gần nhất
 
@@ -52,9 +52,9 @@ Backtest engine vẫn chưa triển khai logic chính thức.
 
 ## 5) Gợi ý task tiếp theo (để dễ giao việc)
 
-1. **Backtest MVP**
-   - Chuẩn hóa input từ bảng `features` + `trading_signals`.
-   - Định nghĩa metric cơ bản (PnL, winrate, max drawdown, Sharpe đơn giản).
+1. **Backtest refinement**
+   - Bổ sung take-profit/stop-loss, multi-position sizing và xuất báo cáo theo symbol/timeframe.
+   - Lưu kết quả backtest vào DB để so sánh nhiều cấu hình.
 
 2. **Data quality gate trước signal**
    - Chặn/đánh dấu symbol-date có dữ liệu thiếu nến nghiêm trọng trước khi sinh signal.

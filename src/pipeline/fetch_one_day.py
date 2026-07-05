@@ -1,10 +1,14 @@
 import hashlib
 import json
+import logging
 from datetime import date as Date, datetime, time
 from typing import Any
 
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
+
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_daily_price(ssi: SSIApi, symbol: str, date: str) -> dict | None:
@@ -43,18 +47,39 @@ def _parse_candle_time(base_date: Date, time_str: Any) -> datetime | None:
         return None
 
 
+def _is_missing(value: Any) -> bool:
+    return value is None or value == ""
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
-        return float(value or default)
+        return float(default if _is_missing(value) else value)
     except (ValueError, TypeError):
         return default
 
 
-def _to_int(value: Any, default: int = 0) -> int:
+def _to_nullable_float(value: Any) -> float | None:
+    if _is_missing(value):
+        return None
     try:
-        return int(value or default)
+        return float(value)
     except (ValueError, TypeError):
-        return default
+        return None
+
+
+def _to_nullable_int(value: Any) -> int | None:
+    if _is_missing(value):
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _calculate_intraday_value(close: float | None, volume: int | None) -> float | None:
+    if close is None or volume is None:
+        return None
+    return close * volume
 
 
 def build_intraday_records(
@@ -74,8 +99,7 @@ def build_intraday_records(
     reference_price = _to_float(daily.get('RefPrice', 0))
     ceiling_price = _to_float(daily.get('CeilingPrice', 0))
     floor_price = _to_float(daily.get('FloorPrice', 0))
-    prev_volume = 0
-    is_first_valid_candle = True
+    debug_samples: list[dict] = []
 
     for candle in candles:
         time_str = candle.get('Time', '')
@@ -84,19 +108,12 @@ def build_intraday_records(
             print(f"  ⚠️ {symbol}: bỏ qua candle lỗi timestamp: {time_str}")
             continue
 
-        current_volume = _to_int(candle.get('Volume', 0))
-        volume_delta = 0 if is_first_valid_candle else max(current_volume - prev_volume, 0)
-        prev_volume = current_volume
-        is_first_valid_candle = False
-
-        open_price = _to_float(candle.get('Open', 0))
-        high_price = _to_float(candle.get('High', 0))
-        low_price = _to_float(candle.get('Low', 0))
-        close_price = _to_float(candle.get('Close', 0))
-        # SSI intraday Value is last price / same as Close, not trading turnover.
-        # Clean value is estimated trading value, derived from typical price and volume delta.
-        typical_price = (high_price + low_price + close_price) / 3
-        estimated_value = int(typical_price * volume_delta)
+        current_volume = _to_nullable_int(candle.get('Volume'))
+        open_price = _to_nullable_float(candle.get('Open'))
+        high_price = _to_nullable_float(candle.get('High'))
+        low_price = _to_nullable_float(candle.get('Low'))
+        close_price = _to_nullable_float(candle.get('Close'))
+        intraday_value = _calculate_intraday_value(close_price, current_volume)
         time_iso = dt.isoformat()
 
         base_record = {
@@ -109,6 +126,12 @@ def build_intraday_records(
             'volume': current_volume,
         }
 
+        if len(debug_samples) < 5:
+            debug_samples.append({
+                **base_record,
+                'value': intraday_value,
+            })
+
         raw_records.append({
             **base_record,
             'data_hash': hashlib.sha256(
@@ -119,12 +142,15 @@ def build_intraday_records(
         clean_records.append({
             **base_record,
             'timeframe': '1m',
-            'value': estimated_value,
-            'volume_delta': volume_delta,
+            'value': intraday_value,
+            'volume_delta': current_volume,
             'reference_price': reference_price,
             'ceiling_price': ceiling_price,
             'floor_price': floor_price,
         })
+
+    if debug_samples:
+        logger.debug("Normalized intraday sample rows for %s %s: %s", symbol, date, debug_samples)
 
     return raw_records, clean_records
 

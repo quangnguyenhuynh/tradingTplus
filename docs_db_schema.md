@@ -26,7 +26,7 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 - Upsert mong muốn theo conflict key: `symbol,time,data_hash`.
 
 ### stock_intraday
-- Ghi: `symbol`, `timeframe`, `time`, `open`, `high`, `low`, `close`, `volume`, `value`, `volume_delta`, `reference_price`, `ceiling_price`, `floor_price`.
+- Ghi: `symbol`, `timeframe`, `time`, `open`, `high`, `low`, `close`, `volume`, `value`, `volume_delta`, `reference_price`, `ceiling_price`, `floor_price`. `value` là `close * volume` tại thời điểm ingest; nếu `close` hoặc `volume` null thì `value` null.
 - Upsert theo conflict key: `symbol,timeframe,time`.
 - Quy ước hiện tại: chỉ lưu `timeframe = '1m'`. Đây là single source of truth; `5m`, `15m`, `60m`, `1d` được aggregate trong feature engine và không ghi ngược vào `stock_intraday`.
 
