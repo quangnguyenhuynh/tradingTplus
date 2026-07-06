@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.ssi.api import SSIApi
+from src.intraday_value import calculate_trade_value
 
 SYMBOL = "SSI"
 DATE = "18/06/2026"
@@ -50,11 +51,12 @@ def _is_non_decreasing(rows: list[dict[str, Any]], key: str) -> bool:
 
 
 def _print_candle_table(candles: list[dict[str, Any]]) -> None:
-    print("\nFULL INTRADAY TABLE")
-    print("Time | Open | High | Low | Close | Volume | Value")
-    print("-" * 80)
+    print("\nNORMALIZED INTRADAY SAMPLE")
+    print("Time | Open | High | Low | Close | Volume | Calculated value | type(value) | Raw SSI Value")
+    print("-" * 110)
 
     for candle in candles:
+        value = calculate_trade_value(candle.get('Close'), candle.get('Volume'))
         print(
             f"{candle.get('Time', '')} | "
             f"{candle.get('Open', '')} | "
@@ -62,33 +64,10 @@ def _print_candle_table(candles: list[dict[str, Any]]) -> None:
             f"{candle.get('Low', '')} | "
             f"{candle.get('Close', '')} | "
             f"{candle.get('Volume', '')} | "
+            f"{value} | "
+            f"{type(value).__name__} | "
             f"{candle.get('Value', '')}"
         )
-
-
-def _print_delta_table(candles: list[dict[str, Any]]) -> None:
-    print("\nDELTA TABLE")
-    print("Time | VolumeΔ | ValueΔ")
-    print("-" * 80)
-
-    previous_volume = None
-    previous_value = None
-
-    for candle in candles:
-        volume = _get_number(candle, "Volume")
-        value = _get_number(candle, "Value")
-        volume_delta = (
-            0 if previous_volume is None or volume is None
-            else volume - previous_volume
-        )
-        value_delta = (
-            0 if previous_value is None or value is None
-            else value - previous_value
-        )
-
-        print(f"{candle.get('Time', '')} | {volume_delta:g} | {value_delta:g}")
-        previous_volume = volume
-        previous_value = value
 
 
 def _parse_args() -> tuple[str, str]:
@@ -115,16 +94,11 @@ def main() -> None:
     _print_candle_table(candles)
 
     volume_cumulative = _is_non_decreasing(candles, "Volume")
-    value_cumulative = _is_non_decreasing(candles, "Value")
 
-    print("\nCUMULATIVE CHECK")
+    print("\nVOLUME CHECK")
     volume_status = "cumulative" if volume_cumulative else "per-candle or reset/error"
-    value_status = "cumulative" if value_cumulative else "per-candle or reset/error"
     print(f"Volume: {volume_status}")
-    print(f"Value : {value_status}")
-
-    if volume_cumulative and value_cumulative:
-        _print_delta_table(candles)
+    print("Calculated value uses close * volume via calculate_trade_value(); raw SSI Value is informational only.")
 
 
 if __name__ == "__main__":

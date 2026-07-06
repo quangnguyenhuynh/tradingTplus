@@ -11,8 +11,27 @@ import pandas as pd
 from supabase import create_client
 
 from src.config import config
+from src.intraday_value import calculate_trade_value
 
 logger = logging.getLogger(__name__)
+
+
+_STOCK_INTRADAY_FORBIDDEN_FEATURE_COLUMNS = {
+    "value_ma20",
+    "value_ratio",
+    "cum_value_15m",
+    "vwap",
+    "vwap_intraday",
+    "rsi",
+    "rsi14",
+    "ema_9",
+    "ema_20",
+    "ema_50",
+    "ema9",
+    "ema20",
+    "ema50",
+}
+
 
 
 class SupabaseClient:
@@ -222,10 +241,22 @@ class SupabaseClient:
                 f"refusing to persist derived timeframes: {invalid_timeframes}"
             )
 
+        forbidden_columns = sorted(
+            {column for record in records for column in record}
+            & _STOCK_INTRADAY_FORBIDDEN_FEATURE_COLUMNS
+        )
+        if forbidden_columns:
+            raise ValueError(
+                "stock_intraday payload contains feature columns that belong in features: "
+                f"{forbidden_columns}"
+            )
+
         logger.info("Start ingest %s intraday records", len(records))
 
         for record in records:
             record['time'] = pd.to_datetime(record['time'], utc=True).isoformat()
+            if 'value' not in record or record.get('value') is None:
+                record['value'] = calculate_trade_value(record.get('close'), record.get('volume'))
 
         buckets = defaultdict(list)
         for record in records:
