@@ -1,6 +1,19 @@
 import pandas as pd
 
+from src.intraday_value import calculate_trade_value
+
 SUPPORTED_TIMEFRAMES = {'1m', '5m', '15m', '60m', '1d'}
+
+
+def _fill_missing_value_from_ohlcv(df: pd.DataFrame) -> pd.Series:
+    values = df['value'].copy()
+    missing_mask = values.isna()
+    if missing_mask.any():
+        values.loc[missing_mask] = df.loc[missing_mask].apply(
+            lambda row: calculate_trade_value(row['close'], row['volume']),
+            axis=1,
+        )
+    return pd.to_numeric(values, errors='coerce')
 
 
 def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
@@ -28,7 +41,7 @@ def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
 
     for col in ['open', 'high', 'low', 'close', 'volume', 'value']:
         out[col] = pd.to_numeric(out[col], errors='coerce')
-    out['value'] = out['value'].fillna(out['close'] * out['volume'])
+    out['value'] = _fill_missing_value_from_ohlcv(out)
 
     out = out.sort_values('time').drop_duplicates(subset=['time'], keep='last')
     if timeframe == '1m':
@@ -132,7 +145,7 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     numeric_price_cols = ['open', 'high', 'low', 'close', 'volume', 'value']
     for col in numeric_price_cols:
         out[col] = pd.to_numeric(out[col], errors='coerce')
-    out['value'] = out['value'].fillna(out['close'] * out['volume'])
+    out['value'] = _fill_missing_value_from_ohlcv(out)
 
     def _safe_div(numerator, denominator) -> pd.Series:
         numerator_s = numerator.reindex(out.index) if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)

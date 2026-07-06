@@ -78,8 +78,8 @@ def test_build_intraday_records_skips_bad_time_and_uses_candle_volume_for_value(
 
     assert len(raw_records) == 3
     assert len(clean_records) == 3
-    assert [record['volume_delta'] for record in clean_records] == [100, 90, 130]
-    assert [record['value'] for record in clean_records] == [10.5 * 100, 10.5 * 90, 10.5 * 130]
+    assert [record['value'] for record in clean_records] == [1050, 945, 1365]
+    assert all(type(record['value']) is int for record in clean_records)
     assert raw_records[0]['time'] == '2026-06-18T09:15:00'
     assert clean_records[0]['timeframe'] == '1m'
     assert clean_records[0]['reference_price'] == 10.1
@@ -95,8 +95,8 @@ def test_build_intraday_records_ignores_api_value_and_uses_close_times_volume():
     raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', _daily(), candles)
 
     assert raw_records[1]['close'] == 12
-    assert clean_records[1]['volume_delta'] == 150
-    assert clean_records[1]['value'] == 12 * 150
+    assert clean_records[1]['value'] == 1800
+    assert type(clean_records[1]['value']) is int
     assert clean_records[1]['value'] != int(candles[1]['Value'])
 
 
@@ -109,7 +109,8 @@ def test_build_intraday_records_sets_value_null_when_close_or_volume_missing():
 
     _raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', _daily(), candles)
 
-    assert [record['value'] for record in clean_records] == [None, None, 0.0]
+    assert [record['value'] for record in clean_records] == [None, None, 0]
+    assert type(clean_records[2]['value']) is int
     assert [record['volume'] for record in clean_records] == [None, 100, 0]
 
 
@@ -119,7 +120,8 @@ def test_build_intraday_records_logs_normalized_debug_sample(caplog):
     fod.build_intraday_records('SSI', '18/06/2026', _daily(), [_candle('09:15:00', volume='100', close='10.5')])
 
     assert 'Normalized intraday sample rows for SSI 18/06/2026' in caplog.text
-    assert "'value': 1050.0" in caplog.text
+    assert "'value': 1050" in caplog.text
+    assert "'value_type': 'int'" in caplog.text
 
 
 def test_save_intraday_records_returns_clean_record_count():

@@ -11,6 +11,7 @@ import pandas as pd
 from supabase import create_client
 
 from src.config import config
+from src.intraday_value import calculate_trade_value
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +32,6 @@ _STOCK_INTRADAY_FORBIDDEN_FEATURE_COLUMNS = {
     "ema50",
 }
 
-
-def _stock_intraday_value(record: dict):
-    close = record.get("close")
-    volume = record.get("volume")
-    if close is None or volume is None:
-        return None
-    try:
-        return float(close) * int(volume)
-    except (TypeError, ValueError):
-        return None
 
 
 class SupabaseClient:
@@ -265,7 +256,7 @@ class SupabaseClient:
         for record in records:
             record['time'] = pd.to_datetime(record['time'], utc=True).isoformat()
             if 'value' not in record or record.get('value') is None:
-                record['value'] = _stock_intraday_value(record)
+                record['value'] = calculate_trade_value(record.get('close'), record.get('volume'))
 
         buckets = defaultdict(list)
         for record in records:

@@ -180,7 +180,7 @@ def test_feature_engine_falls_back_to_close_times_volume_when_value_null():
     agg = fe.aggregate_timeframe(df, '1m')
     feats = fe.compute_feature_dataframe(df)
 
-    assert agg.iloc[0]['value'] == agg.iloc[0]['close'] * agg.iloc[0]['volume']
+    assert agg.iloc[0]['value'] == 1162
     assert agg.iloc[1]['value'] == 7777
-    assert feats.iloc[0]['value'] == feats.iloc[0]['close'] * feats.iloc[0]['volume']
+    assert feats.iloc[0]['value'] == 1162
     assert feats.iloc[1]['value'] == 7777

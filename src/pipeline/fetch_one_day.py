@@ -6,6 +6,10 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
+from src.intraday_value import calculate_trade_value
+
+
+logger = logging.getLogger(__name__)
 
 
 logger = logging.getLogger(__name__)
@@ -76,11 +80,6 @@ def _to_nullable_int(value: Any) -> int | None:
         return None
 
 
-def _calculate_intraday_value(close: float | None, volume: int | None) -> float | None:
-    if close is None or volume is None:
-        return None
-    return close * volume
-
 
 def build_intraday_records(
     symbol: str,
@@ -113,7 +112,7 @@ def build_intraday_records(
         high_price = _to_nullable_float(candle.get('High'))
         low_price = _to_nullable_float(candle.get('Low'))
         close_price = _to_nullable_float(candle.get('Close'))
-        intraday_value = _calculate_intraday_value(close_price, current_volume)
+        intraday_value = calculate_trade_value(close_price, current_volume)
         time_iso = dt.isoformat()
 
         base_record = {
@@ -130,6 +129,7 @@ def build_intraday_records(
             debug_samples.append({
                 **base_record,
                 'value': intraday_value,
+                'value_type': type(intraday_value).__name__,
             })
 
         raw_records.append({
@@ -143,7 +143,6 @@ def build_intraday_records(
             **base_record,
             'timeframe': '1m',
             'value': intraday_value,
-            'volume_delta': current_volume,
             'reference_price': reference_price,
             'ceiling_price': ceiling_price,
             'floor_price': floor_price,
