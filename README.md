@@ -88,3 +88,13 @@ Code hiện tại đã có fallback tự động bỏ `on_conflict` để job kh
 
 - Xem tài liệu tổng hợp mới nhất: `REPO_STATUS_2026-05-26.md`.
 - Backtest MVP đã được bổ sung trong `src/engine/backtest_engine.py`; có thể gọi `run_backtest_engine(target_date)` hoặc test bằng dữ liệu in-memory qua `run_backtest(...)`.
+
+### Complete SSI ingest layer
+
+The ingest layer now persists SSI daily fundamentals before signal/backtest work:
+
+- `python main.py init` keeps syncing legacy `symbols` and also fills full `securities` metadata from `SecuritiesDetails`.
+- `python main.py daily DD/MM/YYYY` writes `raw_daily`, full `stock_daily`, `raw_intraday`, `stock_intraday` (`timeframe='1m'` only), and `index_daily`.
+- `stock_daily` is the canonical daily source for T+ / swing features; `stock_intraday` is only for 1m timing. `DailyOHLC` should be used only for cross-checking.
+- Later feature work should split `daily_features` and `intraday_features` instead of deriving 1d technical features from intraday bars.
+- Smoke check without DB writes: `python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY`.
