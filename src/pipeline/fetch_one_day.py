@@ -12,6 +12,9 @@ from src.intraday_value import calculate_trade_value
 logger = logging.getLogger(__name__)
 
 
+logger = logging.getLogger(__name__)
+
+
 def fetch_daily_price(ssi: SSIApi, symbol: str, date: str) -> dict | None:
     """Fetch daily reference prices from SSI without transforming data."""
     return ssi.get_daily_price(symbol, date)
