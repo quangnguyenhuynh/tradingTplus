@@ -43,6 +43,12 @@ class SupabaseClient:
         "foreign_trading",
         "orderbook_snapshot",
         "trading_signals",
+        "securities",
+        "stock_daily",
+        "raw_daily",
+        "indexes",
+        "index_components",
+        "index_daily",
     }
 
     def __new__(cls):
@@ -225,6 +231,24 @@ class SupabaseClient:
 
     def upsert_symbols(self, symbols):
         self._upsert_in_batches('symbols', symbols)
+
+    def upsert_securities(self, records):
+        self._upsert_in_batches('securities', records, on_conflict='symbol')
+
+    def upsert_stock_daily(self, records):
+        self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
+
+    def upsert_raw_daily(self, records):
+        self._upsert_in_batches('raw_daily', records, on_conflict='symbol,trading_date,data_hash')
+
+    def upsert_indexes(self, records):
+        self._upsert_in_batches('indexes', records, on_conflict='index_code')
+
+    def upsert_index_components(self, records):
+        self._upsert_in_batches('index_components', records, on_conflict='index_code,symbol')
+
+    def upsert_index_daily(self, records):
+        self._upsert_in_batches('index_daily', records, on_conflict='index_code,trading_date')
 
     def upsert_intraday(self, records):
         if not records:

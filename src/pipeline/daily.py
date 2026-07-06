@@ -3,6 +3,7 @@ from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
 from src.engine.feature_engine import run_feature_engine
+from src.pipeline.index_data import fetch_daily_indexes
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -35,8 +36,10 @@ def daily_run(date: str = None):
         except Exception as e:
             print(f"    ❌ {symbol}: {e}")
     
-    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}")
+    index_count = fetch_daily_indexes(date, ssi=ssi, db=db)
+    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}; index_daily: {index_count}")
 
     print("🧮 Bắt đầu tính features sau daily...")
+    print("⚠️ TODO: daily technical features sẽ chuyển sang stock_daily trong task sau; hiện giữ feature_engine cũ để tương thích.")
     feature_count = run_feature_engine(symbols)
     print(f"✅ Hoàn thành features sau daily: {feature_count} records")
