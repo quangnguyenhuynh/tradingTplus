@@ -133,3 +133,9 @@ order by tablename, indexname;
 - `stock_intraday` remains the 1m timing source only (`timeframe='1m'`).
 - Future feature work should split `daily_features` from `intraday_features`; this ingest task does not add feature calculations.
 - `DailyOHLC` is only a secondary cross-check source. `DailyStockPrice` remains the canonical daily source.
+
+## Safe SSI ingest verification and cleanup
+
+- Run `python scripts/check_ssi_ingest_schema.py` after applying migrations to verify required SSI ingest tables/columns through read-only Supabase selects.
+- The smoke script `scripts/check_complete_ssi_ingest.py` is read-only by default. `--write` requires an explicit `--date` and refuses weekend/future dates unless `--force` is supplied.
+- Accidental smoke-test rows can be removed with the editable SQL helper `sql/cleanup_accidental_ssi_smoke_records.sql`.

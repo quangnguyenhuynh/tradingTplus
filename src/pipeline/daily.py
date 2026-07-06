@@ -4,6 +4,7 @@ from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
 from src.engine.feature_engine import run_feature_engine
 from src.pipeline.index_data import fetch_daily_indexes
+from src.pipeline.date_utils import latest_previous_weekday
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -16,9 +17,10 @@ def daily_run(date: str = None):
         date: DD/MM/YYYY (None = hôm qua)
     """
     if date is None:
-        date = (datetime.now(VN_TZ) - timedelta(days=1)).strftime("%d/%m/%Y")
-    
-    print(f"📆 Daily fetch: {date}")
+        date = latest_previous_weekday().strftime("%d/%m/%Y")
+        print(f"📆 Daily fetch defaulted to latest previous weekday: {date}")
+    else:
+        print(f"📆 Daily fetch: {date}")
     
     db = SupabaseClient()
     symbols = db.get_symbols()
