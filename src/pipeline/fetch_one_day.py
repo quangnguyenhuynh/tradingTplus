@@ -81,6 +81,70 @@ def _to_nullable_int(value: Any) -> int | None:
 
 
 
+def _get_any(data: dict, *keys: str) -> Any:
+    lower = {str(k).lower(): v for k, v in (data or {}).items()}
+    for key in keys:
+        if key in data:
+            return data.get(key)
+        value = lower.get(key.lower())
+        if value is not None:
+            return value
+    return None
+
+def _parse_trading_date(date_str: str) -> str | None:
+    base_date = _parse_base_date(date_str)
+    return base_date.isoformat() if base_date else None
+
+def build_stock_daily_record(symbol: str, date: str, daily: dict) -> dict | None:
+    trading_date = _parse_trading_date(date)
+    if not trading_date:
+        return None
+    mapping = {
+        'price_change': ('PriceChange', 'Change'),
+        'per_price_change': ('PerPriceChange', 'RatioChange'),
+        'ceiling_price': ('CeilingPrice',),
+        'floor_price': ('FloorPrice',),
+        'ref_price': ('RefPrice',),
+        'open_price': ('OpenPrice', 'Open'),
+        'highest_price': ('HighestPrice', 'High', 'Highest'),
+        'lowest_price': ('LowestPrice', 'Low', 'Lowest'),
+        'close_price': ('ClosePrice', 'Close'),
+        'average_price': ('AveragePrice', 'AvgPrice'),
+        'close_price_adjusted': ('ClosePriceAdjusted', 'AdjustedClose', 'CloseAdjusted'),
+        'total_match_vol': ('TotalMatchVol',),
+        'total_match_val': ('TotalMatchVal',),
+        'total_deal_vol': ('TotalDealVol',),
+        'total_deal_val': ('TotalDealVal',),
+        'total_traded_vol': ('TotalTradedVol', 'TotalVol'),
+        'total_traded_value': ('TotalTradedValue', 'TotalVal'),
+        'foreign_buy_vol_total': ('ForeignBuyVolTotal',),
+        'foreign_sell_vol_total': ('ForeignSellVolTotal',),
+        'foreign_buy_val_total': ('ForeignBuyValTotal',),
+        'foreign_sell_val_total': ('ForeignSellValTotal',),
+        'foreign_current_room': ('ForeignCurrentRoom',),
+        'net_foreign_vol': ('Netforeivol', 'NetForeignVol', 'netbuysellvol'),
+        'net_foreign_val': ('Netforeignval', 'NetForeignVal', 'netbuysellval'),
+        'total_buy_trade': ('TotalBuyTrade',),
+        'total_buy_trade_vol': ('TotalBuyTradeVol',),
+        'total_sell_trade': ('TotalSellTrade',),
+        'total_sell_trade_vol': ('TotalSellTradeVol',),
+    }
+    record = {'symbol': symbol, 'trading_date': trading_date, 'raw': daily}
+    for out_key, keys in mapping.items():
+        record[out_key] = _to_nullable_float(_get_any(daily, *keys))
+    return record
+
+def build_raw_daily_record(symbol: str, date: str, daily: dict) -> dict | None:
+    trading_date = _parse_trading_date(date)
+    if not trading_date:
+        return None
+    return {
+        'symbol': symbol,
+        'trading_date': trading_date,
+        'data_hash': hashlib.sha256(json.dumps(daily, sort_keys=True).encode()).hexdigest(),
+        'payload': daily,
+    }
+
 def build_intraday_records(
     symbol: str,
     date: str,
@@ -180,6 +244,14 @@ def fetch_one_day_with_clients(
     if not daily:
         print(f"  ⚠️ {symbol}: không có dữ liệu ngày {date}")
         return 0
+
+    raw_daily_record = build_raw_daily_record(symbol, date, daily)
+    if raw_daily_record:
+        db.upsert_raw_daily([raw_daily_record])
+
+    stock_daily_record = build_stock_daily_record(symbol, date, daily)
+    if stock_daily_record:
+        db.upsert_stock_daily([stock_daily_record])
 
     candles = fetch_intraday_candles(ssi, symbol, date)
     if not candles:

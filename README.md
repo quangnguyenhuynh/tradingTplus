@@ -88,3 +88,41 @@ Code hiện tại đã có fallback tự động bỏ `on_conflict` để job kh
 
 - Xem tài liệu tổng hợp mới nhất: `REPO_STATUS_2026-05-26.md`.
 - Backtest MVP đã được bổ sung trong `src/engine/backtest_engine.py`; có thể gọi `run_backtest_engine(target_date)` hoặc test bằng dữ liệu in-memory qua `run_backtest(...)`.
+
+### Complete SSI ingest layer
+
+The ingest layer now persists SSI daily fundamentals before signal/backtest work:
+
+- `python main.py init` keeps syncing legacy `symbols` and also fills full `securities` metadata from `SecuritiesDetails`.
+- `python main.py daily DD/MM/YYYY` writes `raw_daily`, full `stock_daily`, `raw_intraday`, `stock_intraday` (`timeframe='1m'` only), and `index_daily`.
+- `stock_daily` is the canonical daily source for T+ / swing features; `stock_intraday` is only for 1m timing. `DailyOHLC` should be used only for cross-checking.
+- Later feature work should split `daily_features` and `intraday_features` instead of deriving 1d technical features from intraday bars.
+- Smoke check without DB writes: `python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY`.
+
+### Safe SSI smoke/backfill workflow
+
+Use this guarded flow before any real SSI backfill:
+
+1. Apply migrations in Supabase SQL Editor, including `migrations/20260706_complete_ssi_ingest_schema.sql`.
+2. Verify the applied schema without writes:
+   ```bash
+   python scripts/check_ssi_ingest_schema.py
+   ```
+3. Run the complete SSI ingest smoke test in read-only mode. If `--date` is omitted, it uses the latest previous weekday and prints that choice clearly:
+   ```bash
+   python scripts/check_complete_ssi_ingest.py --symbol SSI
+   ```
+4. Run a write smoke test only with an explicit date. `--write` refuses weekend/future dates unless `--force` is passed and writes `raw_daily`, `stock_daily`, `securities`, `indexes`, and `index_daily` by default:
+   ```bash
+   python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY --write
+   ```
+5. Only write intraday smoke-test rows when explicitly requested:
+   ```bash
+   python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY --write --write-intraday
+   ```
+6. Run real backfills only after the smoke checks pass. The sample runner has no hardcoded defaults and requires explicit symbols/date range:
+   ```bash
+   python scripts/backfill_sample.py --from-date YYYY-MM-DD --to-date YYYY-MM-DD --symbols SSI FPT
+   ```
+
+If an accidental smoke-test write must be removed, edit and run `sql/cleanup_accidental_ssi_smoke_records.sql` for the exact symbol/date.
