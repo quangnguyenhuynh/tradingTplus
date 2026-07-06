@@ -123,3 +123,19 @@ order by tablename, indexname;
 ## 5) Migration tương ứng trong repo
 
 - File migration mở rộng bảng `features`: `migrations/20260525_expand_features.sql`.
+
+## Complete SSI ingest additions (2026-07-06)
+
+- `securities` stores full SSI `SecuritiesDetails` metadata. The legacy `symbols` table remains for compatibility and init syncs both tables.
+- `stock_daily` is the primary daily source for T+ / swing research. It stores the full `DailyStockPrice` payload including OHLC, reference/ceiling/floor, adjusted close, match/deal/traded volume and value, foreign buy/sell/net fields, current room, and trade counts.
+- `raw_daily` stores hashed raw `DailyStockPrice` JSON for debugging and backfills.
+- `indexes`, `index_components`, and `index_daily` store SSI index metadata, constituents, and `DailyIndex` market context.
+- `stock_intraday` remains the 1m timing source only (`timeframe='1m'`).
+- Future feature work should split `daily_features` from `intraday_features`; this ingest task does not add feature calculations.
+- `DailyOHLC` is only a secondary cross-check source. `DailyStockPrice` remains the canonical daily source.
+
+## Safe SSI ingest verification and cleanup
+
+- Run `python scripts/check_ssi_ingest_schema.py` after applying migrations to verify required SSI ingest tables/columns through read-only Supabase selects.
+- The smoke script `scripts/check_complete_ssi_ingest.py` is read-only by default. `--write` requires an explicit `--date` and refuses weekend/future dates unless `--force` is supplied.
+- Accidental smoke-test rows can be removed with the editable SQL helper `sql/cleanup_accidental_ssi_smoke_records.sql`.
