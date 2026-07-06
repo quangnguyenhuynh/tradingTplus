@@ -129,14 +129,21 @@ class SSIApi:
             print(f"⚠️ Lỗi IndexComponents {index_code}: {e}")
             return []
 
-    def get_daily_index(self, index_code: str, date: str) -> dict | None:
-        params = {"IndexCode": index_code, "FromDate": date, "ToDate": date}
+    def get_daily_index_raw(self, index_code: str, date: str) -> dict | None:
+        params = {"IndexCode": index_code, "FromDate": date, "ToDate": date, "pageIndex": 1, "pageSize": 1000}
         try:
-            items = self._get_all_pages(config.SSI_DAILY_INDEX_URL, params, page_size=1000)
-            return items[0] if items else None
+            resp = self._get_with_retry(config.SSI_DAILY_INDEX_URL, params)
+            return resp.json() if resp.text else {}
         except (requests.RequestException, ValueError) as e:
-            print(f"⚠️ Lỗi DailyIndex {index_code}: {e}")
+            print(f"⚠️ Lỗi DailyIndex raw {index_code}: {e}")
             return None
+
+    def get_daily_index(self, index_code: str, date: str) -> dict | None:
+        raw = self.get_daily_index_raw(index_code, date)
+        if raw is None:
+            return None
+        items = self._extract_items(raw)
+        return items[0] if items else None
 
     def get_daily_price(self, symbol: str, date: str) -> dict | None:
         try:

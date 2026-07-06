@@ -37,7 +37,7 @@ def _to_date(value):
     return None
 
 
-def _security_record(item: dict) -> dict | None:
+def map_security_record(item: dict) -> dict | None:
     symbol = _get_any(item, 'Symbol', 'symbol')
     if not symbol:
         return None
@@ -78,11 +78,11 @@ def init_symbols():
     details = []
     for market in ["HOSE", "HNX", "UPCOM", "DER"]:
         details.extend(ssi.get_security_details(market=market))
-    by_symbol = {rec['symbol']: rec for rec in (_security_record(item) for item in details) if rec}
+    by_symbol = {rec['symbol']: rec for rec in (map_security_record(item) for item in details) if rec}
     for item in data:
         symbol = item.get('Symbol')
         if symbol and symbol not in by_symbol:
-            by_symbol[symbol] = _security_record(item) or {'symbol': symbol, 'market': item.get('Market'), 'raw': item}
+            by_symbol[symbol] = map_security_record(item) or {'symbol': symbol, 'market': item.get('Market'), 'raw': item}
     securities = list(by_symbol.values())
     db.upsert_securities(securities)
     print(f"✅ Đã lưu {len(symbols)} mã vào symbols và {len(securities)} mã vào securities")

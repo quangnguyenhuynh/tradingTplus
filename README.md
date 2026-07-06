@@ -112,7 +112,7 @@ Use this guarded flow before any real SSI backfill:
    ```bash
    python scripts/check_complete_ssi_ingest.py --symbol SSI
    ```
-4. Run a write smoke test only with an explicit date. `--write` refuses weekend/future dates unless `--force` is passed and writes only `raw_daily`, `stock_daily`, and `index_daily` by default:
+4. Run a write smoke test only with an explicit date. `--write` refuses weekend/future dates unless `--force` is passed and writes `raw_daily`, `stock_daily`, `securities`, `indexes`, and `index_daily` by default:
    ```bash
    python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY --write
    ```

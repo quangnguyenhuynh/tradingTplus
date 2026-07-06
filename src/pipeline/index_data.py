@@ -16,7 +16,7 @@ def _get_any(data: dict, *keys: str) -> Any:
     return None
 
 
-def _index_record(item: dict) -> dict | None:
+def map_index_record(item: dict) -> dict | None:
     code = _get_any(item, "IndexCode", "indexCode", "Code")
     if not code:
         return None
@@ -29,7 +29,7 @@ def sync_indexes(ssi: SSIApi | None = None, db: SupabaseClient | None = None) ->
     rows = []
     for exchange in ("HOSE", "HNX", "UPCOM"):
         rows.extend(ssi.get_index_list(exchange=exchange))
-    records = [rec for rec in (_index_record(row) for row in rows) if rec]
+    records = [rec for rec in (map_index_record(row) for row in rows) if rec]
     if records:
         db.upsert_indexes(records)
     return [rec["index_code"] for rec in records]
