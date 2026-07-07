@@ -165,28 +165,31 @@ class SSIApi:
 
 
     def get_foreign_trading(self, symbol: str | None = None, date: str | None = None, market: str | None = None) -> list[dict]:
-        params: dict[str, Any] = {}
+        """Return foreign trading fields from official DailyStockPrice data.
+
+        SSI FastConnect Data REST docs do not list a standalone ForeignTrading endpoint.
+        DailyStockPrice contains the foreign buy/sell/net/room fields, so this method
+        intentionally derives foreign rows from the official DailyStockPrice endpoint.
+        """
+        if not date:
+            print("⚠️ Foreign trading requires date because it is derived from DailyStockPrice")
+            return []
         if symbol:
-            params["Symbol"] = symbol
-        if date:
-            params["FromDate"] = date
-            params["ToDate"] = date
-        if market:
-            params["Market"] = market
-        try:
-            return self._get_all_pages(config.SSI_FOREIGN_TRADING_URL, params, page_size=1000)
-        except requests.HTTPError as e:
-            status_code = e.response.status_code if e.response else "unknown"
-            if status_code in (400, 404):
-                print(f"⚠️ ForeignTrading unsupported/missing endpoint or unavailable params: HTTP {status_code}")
-                return []
-            print(f"⚠️ Lỗi HTTP ForeignTrading: {status_code}")
-            return []
-        except (requests.RequestException, ValueError) as e:
-            print(f"⚠️ Lỗi ForeignTrading: {e}")
-            return []
+            item = self.get_daily_price(symbol, date)
+            return [item] if item else []
+        return self.get_daily_prices_for_date(date, market=market)
 
     def get_orderbook_snapshot(self, symbol: str) -> dict | None:
+        """Fetch orderbook from an optional/private endpoint if configured.
+
+        The public FastConnect Data REST spec lists Securities, SecuritiesDetails,
+        IndexComponents, IndexList, DailyOhlc, IntradayOhlc, DailyIndex, and
+        DailyStockPrice. It does not list a REST orderbook endpoint, so by default
+        this returns None and lets the pipeline log unsupported/missing endpoint.
+        """
+        if not config.SSI_ORDERBOOK_URL:
+            print("⚠️ Orderbook unsupported/missing endpoint: SSI_ORDERBOOK_URL is not configured in official REST docs")
+            return None
         params = {"Symbol": symbol}
         try:
             items = self._get_all_pages(config.SSI_ORDERBOOK_URL, params, page_size=1000)

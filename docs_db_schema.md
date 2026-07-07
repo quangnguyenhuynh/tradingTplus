@@ -145,3 +145,9 @@ order by tablename, indexname;
 - `foreign_trading` is the dedicated research-friendly daily foreign flow table keyed by `(symbol, trading_date)` and stores buy/sell/net volume/value, foreign room/current room, and raw SSI JSON.
 - `orderbook_snapshot` stores point-in-time 10-level bid/ask snapshots keyed by `(symbol, time)` with total depth, imbalance, pressure score, and raw SSI JSON.
 - Run `migrations/20260707_complete_foreign_orderbook_ingest.sql` after the complete SSI ingest schema migration to add missing compatibility columns and indexes if the existing tables are older.
+
+## SSI endpoint source correction
+
+- Public SSI FastConnect Data REST docs list the market endpoints used for this repo: `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`.
+- There is no hardcoded public REST `ForeignTrading` endpoint. The `foreign_trading` ingest maps foreign fields from `DailyStockPrice` into a research-friendly table.
+- There is no hardcoded public REST orderbook endpoint. `orderbook_snapshot` remains optional and logs unsupported unless an account-specific `SSI_ORDERBOOK_URL` is configured.
