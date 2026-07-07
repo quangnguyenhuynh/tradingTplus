@@ -2,9 +2,9 @@ from datetime import datetime, timedelta
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
-from src.engine.feature_engine import run_feature_engine
+from src.pipeline.date_utils import parse_iso_date, validate_not_future
 
-def backfill(from_date: str, to_date: str, symbols: list = None):
+def backfill(from_date: str, to_date: str, symbols: list = None, allow_future: bool = False):
     """
     Lấy dữ liệu lịch sử cho nhiều ngày
     
@@ -12,6 +12,7 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
         from_date: YYYY-MM-DD
         to_date: YYYY-MM-DD
         symbols: Danh sách mã (None = lấy tất cả)
+        allow_future: Cho phép future dates (mặc định False)
     """
     db = SupabaseClient()
     
@@ -22,9 +23,16 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
             print("❌ Chưa có dữ liệu symbols. Chạy 'python main.py init' trước!")
             return
     
-    # Chuyển đổi ngày tháng
-    start = datetime.strptime(from_date, "%Y-%m-%d")
-    end = datetime.strptime(to_date, "%Y-%m-%d")
+    # Chuyển đổi ngày tháng và chặn future-date backfill ngoài ý muốn.
+    start_validated = parse_iso_date(from_date)
+    end_validated = parse_iso_date(to_date)
+    if not allow_future:
+        validate_not_future(start_validated)
+        validate_not_future(end_validated)
+    if start_validated.date > end_validated.date:
+        raise ValueError("from_date must be <= to_date")
+    start = datetime.combine(start_validated.date, datetime.min.time())
+    end = datetime.combine(end_validated.date, datetime.min.time())
     
     ssi = SSIApi()
     total_candles = 0
@@ -35,6 +43,10 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
     
     while current <= end:
         date_str = current.strftime("%d/%m/%Y")
+        if current.weekday() >= 5:
+            print(f"\n📅 {date_str} - bỏ qua weekend")
+            current += timedelta(days=1)
+            continue
         print(f"\n📅 {date_str}")
         
         for symbol in symbols:
@@ -48,6 +60,4 @@ def backfill(from_date: str, to_date: str, symbols: list = None):
     
     print(f"\n🎉 Hoàn thành ingest! Tổng số candles: {total_candles}")
 
-    print("🧮 Bắt đầu tính features sau backfill...")
-    feature_count = run_feature_engine(symbols)
-    print(f"✅ Hoàn thành features sau backfill: {feature_count} records")
+    print("ℹ️ Feature engine disabled in ingest task; no technical indicators were calculated.")

@@ -14,9 +14,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.ssi.api import SSIApi
+from src.pipeline.date_utils import latest_previous_weekday
 
 SYMBOL = "SSI"
-DATE = "18/06/2026"
+DATE = latest_previous_weekday().strftime("%d/%m/%Y")
 FOREIGN_METHODS = (
     "get_foreign_trading",
     "get_foreign",
