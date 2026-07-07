@@ -3,15 +3,19 @@
 Trading Pipeline - SSI to Supabase
 
 Cách dùng:
-    python main.py init
+    python main.py init | sync-master-data
     python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
-    python main.py daily [DD/MM/YYYY]               # mặc định: hôm qua (UTC+7)
-    python main.py test [SYMBOL] [DD/MM/YYYY]       # mặc định: SSI + hôm qua
+    python main.py daily [DD/MM/YYYY]               # mặc định: latest previous weekday
+    python main.py snapshot-orderbook [SYMBOL ...]
+    python main.py check-ingest DD/MM/YYYY
+    python main.py test [SYMBOL] [DD/MM/YYYY]
 """
 
 import sys
 from datetime import datetime, timedelta, timezone
 from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
+from src.pipeline.orderbook_snapshot import snapshot_orderbook
+from src.pipeline.ingest_check import check_ingest
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -54,6 +58,19 @@ def run_daily(args: list[str]) -> None:
     daily_run(date)
 
 
+def run_snapshot_orderbook(args: list[str]) -> None:
+    symbols = [arg.upper() for arg in args] if args else None
+    count = snapshot_orderbook(symbols=symbols)
+    print(f"✅ Snapshot orderbook complete: {count} records")
+
+
+def run_check_ingest(args: list[str]) -> None:
+    if not args:
+        _print_usage_error("check-ingest yêu cầu DD/MM/YYYY")
+        return
+    check_ingest(args[0])
+
+
 def run_test(args: list[str]) -> None:
     symbol = args[0] if len(args) >= 1 else "SSI"
     date = args[1] if len(args) >= 2 else (_today_vn() - timedelta(days=1)).strftime("%d/%m/%Y")
@@ -71,12 +88,16 @@ def main() -> None:
     cmd = sys.argv[1]
     args = sys.argv[2:]
 
-    if cmd == "init":
+    if cmd in ("init", "sync-master-data"):
         init_symbols()
     elif cmd == "backfill":
         run_backfill(args)
     elif cmd == "daily":
         run_daily(args)
+    elif cmd == "snapshot-orderbook":
+        run_snapshot_orderbook(args)
+    elif cmd == "check-ingest":
+        run_check_ingest(args)
     elif cmd == "test":
         run_test(args)
     else:

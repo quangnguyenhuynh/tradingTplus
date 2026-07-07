@@ -163,6 +163,47 @@ class SSIApi:
             print(f"⚠️ Lỗi daily prices date={date}: {e}")
             return []
 
+
+    def get_foreign_trading(self, symbol: str | None = None, date: str | None = None, market: str | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if symbol:
+            params["Symbol"] = symbol
+        if date:
+            params["FromDate"] = date
+            params["ToDate"] = date
+        if market:
+            params["Market"] = market
+        try:
+            return self._get_all_pages(config.SSI_FOREIGN_TRADING_URL, params, page_size=1000)
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response else "unknown"
+            if status_code in (400, 404):
+                print(f"⚠️ ForeignTrading unsupported/missing endpoint or unavailable params: HTTP {status_code}")
+                return []
+            print(f"⚠️ Lỗi HTTP ForeignTrading: {status_code}")
+            return []
+        except (requests.RequestException, ValueError) as e:
+            print(f"⚠️ Lỗi ForeignTrading: {e}")
+            return []
+
+    def get_orderbook_snapshot(self, symbol: str) -> dict | None:
+        params = {"Symbol": symbol}
+        try:
+            items = self._get_all_pages(config.SSI_ORDERBOOK_URL, params, page_size=1000)
+            if items:
+                return items[0] if len(items) == 1 else {"Symbol": symbol, "dataList": items}
+            return None
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response else "unknown"
+            if status_code in (400, 404):
+                print(f"⚠️ Orderbook unsupported/missing endpoint for {symbol}: HTTP {status_code}")
+                return None
+            print(f"⚠️ Lỗi HTTP Orderbook {symbol}: {status_code}")
+            return None
+        except (requests.RequestException, ValueError) as e:
+            print(f"⚠️ Lỗi Orderbook {symbol}: {e}")
+            return None
+
     def get_intraday(self, symbol: str, date: str) -> list[dict]:
         params = {"Symbol": symbol, "FromDate": date, "ToDate": date, "resolution": "1"}
         try:

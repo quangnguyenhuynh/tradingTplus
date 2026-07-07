@@ -146,6 +146,9 @@ def main() -> None:
         print("\n✅ Read-only smoke test completed; no Supabase writes were attempted.")
         return
 
+    if not args.force and daily_record is None and index_record is None:
+        raise SystemExit("❌ Refusing smoke-test write: no stock_daily or index_daily data for this date (holiday/no trading data). Pass --force only if master-data-only write is intentional.")
+
     try:
         validate_safe_write_date(selected, force=args.force)
     except ValueError as exc:

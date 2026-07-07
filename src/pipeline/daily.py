@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
-from src.engine.feature_engine import run_feature_engine
-from src.pipeline.index_data import fetch_daily_indexes
+from src.pipeline.index_data import fetch_daily_indexes, sync_indexes, sync_index_components
+from src.pipeline.foreign_trading import fetch_foreign_for_symbol
 from src.pipeline.date_utils import latest_previous_weekday
 
 VN_TZ = timezone(timedelta(hours=7))
@@ -30,18 +30,21 @@ def daily_run(date: str = None):
         return
     
     ssi = SSIApi()
+    index_codes = sync_indexes(ssi=ssi, db=db)
+    sync_index_components(None, ssi=ssi, db=db)
     total_candles = 0
+    total_foreign = 0
     for symbol in symbols:
         try:
             count = fetch_one_day_with_clients(ssi, db, symbol, date)
             total_candles += count
+            foreign_record = fetch_foreign_for_symbol(ssi, symbol, date)
+            if foreign_record:
+                db.upsert_foreign([foreign_record])
+                total_foreign += 1
         except Exception as e:
             print(f"    ❌ {symbol}: {e}")
     
     index_count = fetch_daily_indexes(date, ssi=ssi, db=db)
-    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}; index_daily: {index_count}")
-
-    print("🧮 Bắt đầu tính features sau daily...")
-    print("⚠️ TODO: daily technical features sẽ chuyển sang stock_daily trong task sau; hiện giữ feature_engine cũ để tương thích.")
-    feature_count = run_feature_engine(symbols)
-    print(f"✅ Hoàn thành features sau daily: {feature_count} records")
+    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}; foreign_trading: {total_foreign}; index_daily: {index_count}")
+    print("ℹ️ Feature engine disabled in ingest task; no technical indicators were calculated.")

@@ -24,6 +24,8 @@ class Config:
     SSI_INDEX_COMPONENTS_URL = 'https://fc-data.ssi.com.vn/api/v2/Market/IndexComponents'
     SSI_DAILY_INDEX_URL = 'https://fc-data.ssi.com.vn/api/v2/Market/DailyIndex'
     SSI_DAILY_OHLC_URL = 'https://fc-data.ssi.com.vn/api/v2/Market/DailyOhlc'
+    SSI_FOREIGN_TRADING_URL = 'https://fc-data.ssi.com.vn/api/v2/Market/ForeignTrading'
+    SSI_ORDERBOOK_URL = 'https://fc-data.ssi.com.vn/api/v2/Market/MarketDepth'
 
 
 config = Config()

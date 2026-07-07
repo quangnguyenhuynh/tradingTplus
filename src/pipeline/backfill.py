@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
-from src.engine.feature_engine import run_feature_engine
 from src.pipeline.date_utils import parse_iso_date, validate_not_future
 
 def backfill(from_date: str, to_date: str, symbols: list = None, allow_future: bool = False):
@@ -61,6 +60,4 @@ def backfill(from_date: str, to_date: str, symbols: list = None, allow_future: b
     
     print(f"\n🎉 Hoàn thành ingest! Tổng số candles: {total_candles}")
 
-    print("🧮 Bắt đầu tính features sau backfill...")
-    feature_count = run_feature_engine(symbols)
-    print(f"✅ Hoàn thành features sau backfill: {feature_count} records")
+    print("ℹ️ Feature engine disabled in ingest task; no technical indicators were calculated.")

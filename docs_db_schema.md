@@ -139,3 +139,9 @@ order by tablename, indexname;
 - Run `python scripts/check_ssi_ingest_schema.py` after applying migrations to verify required SSI ingest tables/columns through read-only Supabase selects.
 - The smoke script `scripts/check_complete_ssi_ingest.py` is read-only by default. `--write` requires an explicit `--date` and refuses weekend/future dates unless `--force` is supplied.
 - Accidental smoke-test rows can be removed with the editable SQL helper `sql/cleanup_accidental_ssi_smoke_records.sql`.
+
+## Foreign trading and orderbook ingest additions
+
+- `foreign_trading` is the dedicated research-friendly daily foreign flow table keyed by `(symbol, trading_date)` and stores buy/sell/net volume/value, foreign room/current room, and raw SSI JSON.
+- `orderbook_snapshot` stores point-in-time 10-level bid/ask snapshots keyed by `(symbol, time)` with total depth, imbalance, pressure score, and raw SSI JSON.
+- Run `migrations/20260707_complete_foreign_orderbook_ingest.sql` after the complete SSI ingest schema migration to add missing compatibility columns and indexes if the existing tables are older.

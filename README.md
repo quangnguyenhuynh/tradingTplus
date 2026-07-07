@@ -126,3 +126,10 @@ Use this guarded flow before any real SSI backfill:
    ```
 
 If an accidental smoke-test write must be removed, edit and run `sql/cleanup_accidental_ssi_smoke_records.sql` for the exact symbol/date.
+
+### SSI ingest CLI additions
+
+- `python main.py sync-master-data` (alias of `init`) syncs symbols, securities, indexes, and index components.
+- `python main.py daily DD/MM/YYYY` ingests stock daily/raw daily, 1m intraday, foreign trading, and daily index data only; feature calculation is intentionally disabled in this ingest step.
+- `python main.py snapshot-orderbook SSI FPT` writes an orderbook/bid-ask snapshot for the provided symbols, or all DB symbols if no symbols are provided. If the SSI account/endpoint does not support orderbook data, the pipeline logs `unsupported/missing endpoint` and continues.
+- `python main.py check-ingest DD/MM/YYYY` prints symbol, securities, stock daily, intraday, index daily, foreign trading, and orderbook snapshot counts plus missing stock-daily symbols.
