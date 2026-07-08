@@ -43,6 +43,12 @@ class SupabaseClient:
         "foreign_trading",
         "orderbook_snapshot",
         "trading_signals",
+        "securities",
+        "stock_daily",
+        "raw_daily",
+        "indexes",
+        "index_components",
+        "index_daily",
     }
 
     def __new__(cls):
@@ -226,6 +232,24 @@ class SupabaseClient:
     def upsert_symbols(self, symbols):
         self._upsert_in_batches('symbols', symbols)
 
+    def upsert_securities(self, records):
+        self._upsert_in_batches('securities', records, on_conflict='symbol')
+
+    def upsert_stock_daily(self, records):
+        self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
+
+    def upsert_raw_daily(self, records):
+        self._upsert_in_batches('raw_daily', records, on_conflict='symbol,trading_date,data_hash')
+
+    def upsert_indexes(self, records):
+        self._upsert_in_batches('indexes', records, on_conflict='index_code')
+
+    def upsert_index_components(self, records):
+        self._upsert_in_batches('index_components', records, on_conflict='index_code,symbol')
+
+    def upsert_index_daily(self, records):
+        self._upsert_in_batches('index_daily', records, on_conflict='index_code,trading_date')
+
     def upsert_intraday(self, records):
         if not records:
             return
@@ -298,9 +322,17 @@ class SupabaseClient:
             return
 
         for record in records:
-            record['net_vol'] = record.get('buy_vol', 0) - record.get('sell_vol', 0)
+            if record.get('foreign_buy_vol') is not None and record.get('buy_vol') is None:
+                record['buy_vol'] = record.get('foreign_buy_vol')
+            if record.get('foreign_sell_vol') is not None and record.get('sell_vol') is None:
+                record['sell_vol'] = record.get('foreign_sell_vol')
+            if record.get('net_foreign_vol') is not None and record.get('net_vol') is None:
+                record['net_vol'] = record.get('net_foreign_vol')
+            if record.get('net_vol') is None and record.get('buy_vol') is not None and record.get('sell_vol') is not None:
+                record['net_vol'] = record.get('buy_vol', 0) - record.get('sell_vol', 0)
 
-        self._upsert_in_batches('foreign_trading', records, on_conflict='symbol,time')
+        on_conflict = 'symbol,trading_date' if any(record.get('trading_date') for record in records) else 'symbol,time'
+        self._upsert_in_batches('foreign_trading', records, on_conflict=on_conflict)
 
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')

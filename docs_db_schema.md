@@ -123,3 +123,31 @@ order by tablename, indexname;
 ## 5) Migration tương ứng trong repo
 
 - File migration mở rộng bảng `features`: `migrations/20260525_expand_features.sql`.
+
+## Complete SSI ingest additions (2026-07-06)
+
+- `securities` stores full SSI `SecuritiesDetails` metadata. The legacy `symbols` table remains for compatibility and init syncs both tables.
+- `stock_daily` is the primary daily source for T+ / swing research. It stores the full `DailyStockPrice` payload including OHLC, reference/ceiling/floor, adjusted close, match/deal/traded volume and value, foreign buy/sell/net fields, current room, and trade counts.
+- `raw_daily` stores hashed raw `DailyStockPrice` JSON for debugging and backfills.
+- `indexes`, `index_components`, and `index_daily` store SSI index metadata, constituents, and `DailyIndex` market context.
+- `stock_intraday` remains the 1m timing source only (`timeframe='1m'`).
+- Future feature work should split `daily_features` from `intraday_features`; this ingest task does not add feature calculations.
+- `DailyOHLC` is only a secondary cross-check source. `DailyStockPrice` remains the canonical daily source.
+
+## Safe SSI ingest verification and cleanup
+
+- Run `python scripts/check_ssi_ingest_schema.py` after applying migrations to verify required SSI ingest tables/columns through read-only Supabase selects.
+- The smoke script `scripts/check_complete_ssi_ingest.py` is read-only by default. `--write` requires an explicit `--date` and refuses weekend/future dates unless `--force` is supplied.
+- Accidental smoke-test rows can be removed with the editable SQL helper `sql/cleanup_accidental_ssi_smoke_records.sql`.
+
+## Foreign trading and orderbook ingest additions
+
+- `foreign_trading` is the dedicated research-friendly daily foreign flow table keyed by `(symbol, trading_date)` and stores buy/sell/net volume/value, foreign room/current room, and raw SSI JSON.
+- `orderbook_snapshot` stores point-in-time 10-level bid/ask snapshots keyed by `(symbol, time)` with total depth, imbalance, pressure score, and raw SSI JSON.
+- Run `migrations/20260707_complete_foreign_orderbook_ingest.sql` after the complete SSI ingest schema migration to add missing compatibility columns and indexes if the existing tables are older.
+
+## SSI endpoint source correction
+
+- Public SSI FastConnect Data REST docs list the market endpoints used for this repo: `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`.
+- There is no hardcoded public REST `ForeignTrading` endpoint. The `foreign_trading` ingest maps foreign fields from `DailyStockPrice` into a research-friendly table.
+- There is no hardcoded public REST orderbook endpoint. `orderbook_snapshot` remains optional and logs unsupported unless an account-specific `SSI_ORDERBOOK_URL` is configured.
