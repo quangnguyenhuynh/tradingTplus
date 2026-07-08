@@ -315,6 +315,10 @@ class SupabaseClient:
                 record['orderbook_imbalance'] = 0.5
                 record['pressure_score'] = 0
 
+        allowed = {'symbol', 'time', 'total_bid_depth_10', 'total_ask_depth_10', 'orderbook_imbalance', 'pressure_score', 'raw', 'created_at', 'updated_at'}
+        for i in range(1, 11):
+            allowed.update({f'bid_price_{i}', f'bid_vol_{i}', f'ask_price_{i}', f'ask_vol_{i}'})
+        records = [{key: value for key, value in record.items() if key in allowed} for record in records]
         self._upsert_in_batches('orderbook_snapshot', records, on_conflict='symbol,time')
 
     def upsert_foreign(self, records):

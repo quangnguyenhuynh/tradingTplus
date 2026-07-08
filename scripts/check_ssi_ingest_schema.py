@@ -25,7 +25,7 @@ REQUIRED_COLUMNS = {
     "index_components": ["index_code", "symbol", "exchange", "raw", "updated_at"],
     "index_daily": ["index_code", "trading_date", "index_value", "change", "ratio_change", "total_trade", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_vol", "total_val", "type_index", "index_name", "advances", "no_changes", "declines", "ceilings", "floors", "trading_session", "market", "exchange", "raw"],
     "foreign_trading": ["symbol", "trading_date", "foreign_buy_vol", "foreign_sell_vol", "foreign_buy_val", "foreign_sell_val", "net_foreign_vol", "net_foreign_val", "foreign_current_room", "raw"],
-    "orderbook_snapshot": ["symbol", "time", "bid_price_1", "bid_vol_1", "ask_price_1", "ask_vol_1", "bid_price_10", "bid_vol_10", "ask_price_10", "ask_vol_10", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw", "created_at"],
+    "orderbook_snapshot": ["symbol", "time", "bid_price_1", "bid_vol_1", "ask_price_1", "ask_vol_1", "bid_price_10", "bid_vol_10", "ask_price_10", "ask_vol_10", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw"],
 }
 
 REQUIRED_UNIQUE_INDEXES = {

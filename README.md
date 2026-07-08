@@ -159,22 +159,43 @@ python scripts/inspect_ssi_quote_payload.py --file quote_payload.json
 echo '{"Symbol":"SSI","BidPrice1":25000,"BidVol1":1000,"AskPrice1":25100,"AskVol1":900}' | python scripts/inspect_ssi_quote_payload.py
 ```
 
-### Streaming orderbook snapshot
+### SSI Streaming / Orderbook Snapshot
 
-Orderbook snapshots use SSI Streaming X-QUOTE data, not a public REST orderbook endpoint. Configure:
+Environment variables:
 
 ```bash
-SSI_STREAMING_URL=
 SSI_STREAMING_ENABLED=true
+SSI_STREAMING_URL=wss://fc-datahub.ssi.com.vn/v2.0
 ORDERBOOK_SNAPSHOT_TIMEOUT_SEC=10
 ```
 
-Then run:
+Test parser offline without SSI connection:
 
 ```bash
-python main.py snapshot-orderbook SSI HPG FPT
-python main.py snapshot-orderbook --debug SSI
-python scripts/debug_orderbook_stream.py SSI
+python scripts/test_ssi_streaming_parser.py
 ```
 
-`--debug` prints the raw quote payload received from streaming before mapping. The mapper writes DB columns `bid_vol_1..10` and `ask_vol_1..10` (not `bid_volume_*` / `ask_volume_*`) and stores raw quote JSON for debugging.
+Test real streaming in read-only mode:
+
+```bash
+python scripts/test_ssi_streaming.py SSI --timeout 20 --raw
+python scripts/test_ssi_streaming.py SSI HPG FPT --timeout 20
+```
+
+Write latest quote snapshot to `orderbook_snapshot` only when explicitly requested:
+
+```bash
+python scripts/test_ssi_streaming.py SSI --timeout 20 --write
+python main.py snapshot-orderbook --debug --timeout 20 SSI
+```
+
+Check DB:
+
+```sql
+select symbol, time, bid_price_1, bid_vol_1, ask_price_1, ask_vol_1,
+       total_bid_depth_10, total_ask_depth_10, orderbook_imbalance, pressure_score
+from orderbook_snapshot
+where symbol = 'SSI'
+order by time desc
+limit 5;
+```

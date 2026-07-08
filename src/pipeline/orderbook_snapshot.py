@@ -5,8 +5,8 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
-from src.ssi.streaming import SSIStreamingQuoteClient
 from src.config import config
+from src.ssi.streaming import SSIStreamingClient, normalize_quote
 
 
 def _get_any(data: dict, *keys: str) -> Any:
@@ -71,53 +71,74 @@ def build_orderbook_record(symbol: str, raw: dict | None, snapshot_time: datetim
     return record
 
 
-def snapshot_orderbook_from_stream(
-    symbols: list[str] | None = None,
-    timeout_sec: int | None = None,
-    db: SupabaseClient | None = None,
-    debug: bool = False,
-) -> int:
-    timeout_sec = timeout_sec or config.ORDERBOOK_SNAPSHOT_TIMEOUT_SEC
-    if not config.SSI_STREAMING_ENABLED:
-        print("⚠️ SSI_STREAMING_ENABLED=false; streaming quote snapshot is disabled")
-        return 0
-    if not config.SSI_STREAMING_URL:
-        print("⚠️ SSI_STREAMING_URL chưa cấu hình, không thể lấy orderbook snapshot từ official REST")
-        return 0
+def snapshot_orderbook(symbols: list[str] | None = None, ssi: SSIApi | None = None, db: SupabaseClient | None = None) -> int:
+    ssi = ssi or SSIApi()
     db = db or SupabaseClient()
-    symbols = [symbol.upper() for symbol in (symbols or db.get_symbols())]
-    if not symbols:
-        print("⚠️ No symbols available for orderbook snapshot")
-        return 0
-    client = SSIStreamingQuoteClient(timeout_sec=timeout_sec)
-    try:
-        client.connect()
-        client.subscribe_quote(symbols if symbols else "ALL")
-        latest = client.collect_latest_quotes(symbols, timeout_sec=timeout_sec, debug=debug)
-    except Exception as exc:
-        print(f"⚠️ {exc}")
-        return 0
-    finally:
-        client.close()
-
+    symbols = symbols or db.get_symbols()
     now = datetime.now(timezone.utc)
     records = []
+    unsupported = 0
     for symbol in symbols:
-        quote = latest.get(symbol)
-        if not quote:
-            print(f"  ⚠️ {symbol}: no streaming quote received within {timeout_sec}s")
+        raw = ssi.get_orderbook_snapshot(symbol)
+        if raw is None:
+            unsupported += 1
+            print(f"  ⚠️ {symbol}: unsupported/missing endpoint or no orderbook data")
             continue
-        record = build_orderbook_record(symbol, quote, now)
+        record = build_orderbook_record(symbol, raw, now)
         if record:
             records.append(record)
         else:
-            print(f"  ⚠️ {symbol}: streaming quote could not be mapped to orderbook_snapshot")
+            print(f"  ⚠️ {symbol}: orderbook response could not be mapped")
     if records:
         db.upsert_orderbook(records)
-    print(f"📚 streaming orderbook_snapshot upserted: {len(records)}")
+    print(f"📚 orderbook_snapshot upserted: {len(records)}; missing/unsupported: {unsupported}")
     return len(records)
 
 
-def snapshot_orderbook(symbols: list[str] | None = None, db: SupabaseClient | None = None, debug: bool = False, timeout_sec: int | None = None) -> int:
-    """Primary orderbook snapshot entrypoint: use SSI Streaming quote, not REST."""
-    return snapshot_orderbook_from_stream(symbols=symbols, timeout_sec=timeout_sec, db=db, debug=debug)
+def snapshot_orderbook_from_stream(
+    symbols: list[str],
+    timeout_sec: int | None = None,
+    write: bool = True,
+    debug: bool = False,
+) -> list[dict]:
+    timeout_sec = timeout_sec or config.ORDERBOOK_SNAPSHOT_TIMEOUT_SEC
+    symbols = [symbol.upper() for symbol in symbols]
+    latest_quotes: dict[str, dict] = {}
+    client = SSIStreamingClient()
+    try:
+        client.connect()
+        channels = [f"X-QUOTE:{symbol}" for symbol in symbols]
+        print(f"📡 Subscribing channels: {channels}")
+        client.subscribe_many(channels)
+        for parsed in client.listen(timeout_sec=timeout_sec):
+            if debug:
+                print("parsed streaming message:")
+                print(parsed)
+            quote = normalize_quote(parsed)
+            if not quote:
+                continue
+            symbol = str(quote.get("Symbol", "")).upper()
+            if symbol in symbols:
+                latest_quotes[symbol] = quote
+                print(f"✅ Quote received: {symbol} ({len(latest_quotes)}/{len(symbols)})")
+            if len(latest_quotes) >= len(symbols):
+                break
+    finally:
+        client.close()
+
+    records = []
+    for symbol in symbols:
+        record = build_orderbook_record(symbol, latest_quotes.get(symbol))
+        if record:
+            records.append(record)
+        else:
+            print(f"⚠️ No quote/orderbook record mapped for {symbol}")
+    if write and records:
+        db = SupabaseClient()
+        db.upsert_orderbook(records)
+        print(f"📚 orderbook_snapshot upserted from stream: {len(records)}")
+    elif not write:
+        print(f"ℹ️ Read-only stream snapshot mapped records: {len(records)}")
+    if not records:
+        print("No quote received. Check market hours, SSI_STREAMING_URL, token permission, or subscription format.")
+    return records
