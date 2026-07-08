@@ -7,6 +7,7 @@ Cách dùng:
     python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
     python main.py daily [DD/MM/YYYY]               # mặc định: latest previous weekday
     python main.py snapshot-orderbook [--debug] [--timeout SEC] [SYMBOL ...]
+    python main.py snapshot-stream [--debug] [--timeout SEC] [--indexes CSV] [--write|--no-write] [--limit N] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
     python main.py test [SYMBOL] [DD/MM/YYYY]
 """
@@ -84,6 +85,48 @@ def run_snapshot_orderbook(args: list[str]) -> None:
     print(f"✅ Snapshot orderbook complete: {count} records")
 
 
+def run_snapshot_stream(args: list[str]) -> None:
+    from src.database.client import SupabaseClient
+    from src.pipeline.streaming_snapshot import snapshot_market_stream
+
+    debug = False
+    timeout = 60
+    indexes = ["VNINDEX", "VN30"]
+    write = True
+    limit = 20
+    symbols: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--debug":
+            debug = True
+        elif arg == "--timeout":
+            if i + 1 >= len(args):
+                _print_usage_error("--timeout cần số giây")
+                return
+            timeout = int(args[i + 1]); i += 1
+        elif arg == "--indexes":
+            if i + 1 >= len(args):
+                _print_usage_error("--indexes cần CSV, ví dụ VNINDEX,VN30")
+                return
+            indexes = [x.strip().upper() for x in args[i + 1].split(",") if x.strip()]; i += 1
+        elif arg == "--write":
+            write = True
+        elif arg == "--no-write":
+            write = False
+        elif arg == "--limit":
+            if i + 1 >= len(args):
+                _print_usage_error("--limit cần số lượng")
+                return
+            limit = int(args[i + 1]); i += 1
+        else:
+            symbols.append(arg.upper())
+        i += 1
+    if not symbols:
+        symbols = [s.upper() for s in SupabaseClient().get_symbols()[:limit]]
+    summary = snapshot_market_stream(symbols=symbols[:limit] if limit else symbols, indexes=indexes, timeout_sec=timeout, write=write, debug=debug)
+    print(f"✅ Snapshot stream complete: {summary}")
+
 def run_check_ingest(args: list[str]) -> None:
     if not args:
         _print_usage_error("check-ingest yêu cầu DD/MM/YYYY")
@@ -116,6 +159,8 @@ def main() -> None:
         run_daily(args)
     elif cmd == "snapshot-orderbook":
         run_snapshot_orderbook(args)
+    elif cmd == "snapshot-stream":
+        run_snapshot_stream(args)
     elif cmd == "check-ingest":
         run_check_ingest(args)
     elif cmd == "test":

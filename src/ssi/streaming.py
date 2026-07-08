@@ -244,6 +244,52 @@ class SSIStreamingClient:
     def parse_message(self, raw: Any) -> dict[str, Any]:
         return parse_message(raw)
 
+    def collect_latest_by_channels(self, channels: list[str], timeout_sec: int, debug: bool = False) -> dict[str, dict[str, Any]]:
+        self.subscribe_many(channels)
+        latest: dict[str, dict[str, Any]] = {}
+        wanted = {channel.upper(): channel for channel in channels}
+        deadline = time.monotonic() + timeout_sec
+        first_raw_printed = False
+        while time.monotonic() < deadline:
+            for raw in self.listen(timeout_sec=1, max_messages=20):
+                if debug and not first_raw_printed:
+                    print("--- first raw websocket/Broadcast payload ---")
+                    print(json.dumps(raw, indent=2, ensure_ascii=False, default=str))
+                    first_raw_printed = True
+                parsed = self.parse_message(raw)
+                normalized = normalize_stream_payload(parsed)
+                content = normalized.get("raw") if isinstance(normalized.get("raw"), dict) else parsed
+                rtype = str(normalized.get("RType") or normalized.get("DataType") or "").upper()
+                symbol = normalized.get("Symbol")
+                index_code = normalized.get("IndexId")
+                rtype_aliases = {rtype}
+                if rtype == "QUOTE":
+                    rtype_aliases.add("X-QUOTE")
+                elif rtype == "TRADE":
+                    rtype_aliases.add("X-TRADE")
+                keys = []
+                if symbol:
+                    keys.extend([f"{alias}:{symbol}".upper() for alias in rtype_aliases])
+                    keys.append(str(symbol).upper())
+                if index_code:
+                    keys.extend([f"{alias}:{index_code}".upper() for alias in rtype_aliases])
+                    keys.append(str(index_code).upper())
+                matched = None
+                for key in keys:
+                    if key in wanted:
+                        matched = wanted[key]
+                        break
+                if matched is None and rtype in wanted:
+                    matched = wanted[rtype]
+                if matched:
+                    latest[matched] = content
+                    if debug:
+                        print("--- normalized stream payload ---")
+                        print(json.dumps(normalized, indent=2, ensure_ascii=False, default=str))
+                if all(channel in latest for channel in channels):
+                    return latest
+        return latest
+
     def collect_latest_quotes(self, symbols: list[str], timeout_sec: int, debug: bool = False) -> dict[str, dict[str, Any]]:
         channels = [f"X-QUOTE:{symbol.upper()}" for symbol in symbols]
         self.subscribe_many(channels)
@@ -340,3 +386,32 @@ def normalize_quote(parsed: dict[str, Any]) -> dict[str, Any]:
         quote[f"ask_price_{level}"] = _get_any(content, f"AskPrice{level}", f"askPrice{level}")
         quote[f"ask_vol_{level}"] = _get_any(content, f"AskVol{level}", f"AskVolume{level}", f"askVol{level}", f"askVolume{level}")
     return quote
+
+
+def normalize_stream_payload(parsed_message: Any) -> dict[str, Any]:
+    """Normalize any SSI market streaming payload without assuming X-QUOTE only."""
+    parsed = parsed_message if isinstance(parsed_message, dict) and "content" in parsed_message else parse_message(parsed_message)
+    content = parsed.get("content")
+    if not isinstance(content, dict):
+        return {"RType": parsed.get("data_type"), "DataType": parsed.get("data_type"), "raw": parsed}
+    rtype = _get_any(content, "RType", "DataType", "dataType", "type") or parsed.get("data_type")
+    symbol = _get_any(content, "Symbol", "symbol")
+    index_code = _get_any(content, "IndexId", "IndexID", "indexid", "IndexCode", "indexCode")
+    normalized = {
+        "RType": rtype,
+        "DataType": _get_any(content, "DataType", "dataType") or parsed.get("data_type"),
+        "Symbol": str(symbol).upper() if symbol else None,
+        "IndexId": str(index_code).upper() if index_code else None,
+        "TradingDate": _get_any(content, "TradingDate", "tradingDate"),
+        "Time": _get_any(content, "Time", "TradingTime", "time", "tradingTime"),
+        "Exchange": _get_any(content, "Exchange", "exchange"),
+        "MarketId": _get_any(content, "MarketId", "MarketID", "marketId", "marketid"),
+        "raw": content,
+    }
+    if not normalized["RType"]:
+        # Infer from fields as a fallback for SignalR payloads that omit RType.
+        if normalized["IndexId"]:
+            normalized["RType"] = "MI"
+        elif any(_get_any(content, f"BidPrice{i}", f"AskPrice{i}") is not None for i in range(1, 11)):
+            normalized["RType"] = "X-QUOTE"
+    return normalized

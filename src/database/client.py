@@ -42,6 +42,11 @@ class SupabaseClient:
         "backtest_data",
         "foreign_trading",
         "orderbook_snapshot",
+        "stream_raw_snapshot",
+        "stream_quote_snapshot",
+        "stream_trade_snapshot",
+        "stream_foreign_snapshot",
+        "stream_index_snapshot",
         "trading_signals",
         "securities",
         "stock_daily",
@@ -337,6 +342,21 @@ class SupabaseClient:
 
         on_conflict = 'symbol,trading_date' if any(record.get('trading_date') for record in records) else 'symbol,time'
         self._upsert_in_batches('foreign_trading', records, on_conflict=on_conflict)
+
+    def upsert_stream_raw(self, records):
+        self._upsert_in_batches('stream_raw_snapshot', records, on_conflict='channel,time')
+
+    def upsert_stream_quote(self, records):
+        self._upsert_in_batches('stream_quote_snapshot', records, on_conflict='symbol,time')
+
+    def upsert_stream_trade(self, records):
+        self._upsert_in_batches('stream_trade_snapshot', records, on_conflict='symbol,time')
+
+    def upsert_stream_foreign_snapshot(self, records):
+        self._upsert_in_batches('stream_foreign_snapshot', records, on_conflict='symbol,time')
+
+    def upsert_stream_index_snapshot(self, records):
+        self._upsert_in_batches('stream_index_snapshot', records, on_conflict='index_code,time')
 
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')
