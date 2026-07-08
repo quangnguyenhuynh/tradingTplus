@@ -137,3 +137,13 @@ If an accidental smoke-test write must be removed, edit and run `sql/cleanup_acc
 ### SSI API endpoint source note
 
 The hardcoded SSI REST URLs are limited to the endpoints listed in SSI FastConnect Data docs: `AccessToken`, `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`. Foreign trading is derived from `DailyStockPrice` foreign fields; no standalone public `ForeignTrading` REST URL is hardcoded. REST orderbook is not in the public FastConnect Data endpoint list, so `snapshot-orderbook` logs unsupported unless `SSI_ORDERBOOK_URL` is explicitly provided for a private/account-specific endpoint.
+
+### Read-only SSI API inspector
+
+To inspect what each SSI API call returns and how the ingest mapper will shape it before any DB write, run:
+
+```bash
+python scripts/inspect_ssi_ingest_api.py --symbol SSI --date DD/MM/YYYY --index-code VNINDEX
+```
+
+The script prints raw and mapped samples for symbols, securities details, DailyStockPrice (`raw_daily`/`stock_daily`), IntradayOhlc (`raw_intraday`/`stock_intraday` 1m), foreign trading derived from DailyStockPrice, IndexList (`indexes`), DailyIndex (`index_daily`), IndexComponents, and optional orderbook. It is read-only and never writes to Supabase.
