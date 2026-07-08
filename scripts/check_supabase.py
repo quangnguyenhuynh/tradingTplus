@@ -5,6 +5,7 @@ Chạy: python test_supabase.py
 """
 
 import os
+import argparse
 import sys
 from dotenv import load_dotenv
 
@@ -131,12 +132,15 @@ def test_insert_test_data():
         return False
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Read-only Supabase connection check by default.")
+    parser.add_argument("--write-test", action="store_true", help="Temporarily upsert/delete symbol TEST after connection succeeds.")
+    args = parser.parse_args()
+
     success = test_supabase_connection()
-    
-    if success:
-        print("\n👉 Bạn có muốn test insert dữ liệu không? (y/n): ", end="")
-        choice = input().lower()
-        if choice == 'y':
-            test_insert_test_data()
-    
+    if success and args.write_test:
+        print("\n⚠️ --write-test enabled: inserting then deleting temporary symbol TEST")
+        success = test_insert_test_data()
+    elif success:
+        print("\n✅ Read-only check completed. No test insert was attempted. Pass --write-test to exercise insert/delete.")
+
     sys.exit(0 if success else 1)
