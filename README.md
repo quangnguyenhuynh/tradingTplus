@@ -158,3 +158,23 @@ python scripts/inspect_ssi_quote_payload.py --file quote_payload.json
 # or
 echo '{"Symbol":"SSI","BidPrice1":25000,"BidVol1":1000,"AskPrice1":25100,"AskVol1":900}' | python scripts/inspect_ssi_quote_payload.py
 ```
+
+### Streaming orderbook snapshot
+
+Orderbook snapshots use SSI Streaming X-QUOTE data, not a public REST orderbook endpoint. Configure:
+
+```bash
+SSI_STREAMING_URL=
+SSI_STREAMING_ENABLED=true
+ORDERBOOK_SNAPSHOT_TIMEOUT_SEC=10
+```
+
+Then run:
+
+```bash
+python main.py snapshot-orderbook SSI HPG FPT
+python main.py snapshot-orderbook --debug SSI
+python scripts/debug_orderbook_stream.py SSI
+```
+
+`--debug` prints the raw quote payload received from streaming before mapping. The mapper writes DB columns `bid_vol_1..10` and `ask_vol_1..10` (not `bid_volume_*` / `ask_volume_*`) and stores raw quote JSON for debugging.

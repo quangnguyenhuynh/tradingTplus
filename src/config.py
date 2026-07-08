@@ -27,6 +27,9 @@ class Config:
     # Official FastConnect Data REST docs do not list a ForeignTrading REST endpoint; foreign fields come from DailyStockPrice.
     # Official docs also do not list a REST orderbook endpoint. Set this only if SSI enables a private/account-specific endpoint.
     SSI_ORDERBOOK_URL = os.getenv('SSI_ORDERBOOK_URL')
+    SSI_STREAMING_URL = os.getenv('SSI_STREAMING_URL')
+    SSI_STREAMING_ENABLED = os.getenv('SSI_STREAMING_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'y')
+    ORDERBOOK_SNAPSHOT_TIMEOUT_SEC = int(os.getenv('ORDERBOOK_SNAPSHOT_TIMEOUT_SEC', '10'))
 
 
 config = Config()

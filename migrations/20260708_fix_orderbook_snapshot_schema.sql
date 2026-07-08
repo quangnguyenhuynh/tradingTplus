@@ -1,64 +1,10 @@
--- Complete daily foreign trading and orderbook ingest compatibility.
--- Idempotent/additive: keeps existing tables and adds required research/debug columns.
-
--- Ensure tables exist on fresh/dev environments.
-create table if not exists public.foreign_trading (
-  symbol text not null,
-  trading_date date,
-  time timestamptz,
-  foreign_buy_vol numeric,
-  foreign_sell_vol numeric,
-  foreign_buy_val numeric,
-  foreign_sell_val numeric,
-  net_foreign_vol numeric,
-  net_foreign_val numeric,
-  foreign_room numeric,
-  foreign_current_room numeric,
-  buy_vol numeric,
-  sell_vol numeric,
-  net_vol numeric,
-  raw jsonb,
-  updated_at timestamptz default now()
-);
-
-create table if not exists public.orderbook_snapshot (
-  symbol text not null,
-  time timestamptz not null,
-  total_bid_depth_10 numeric,
-  total_ask_depth_10 numeric,
-  orderbook_imbalance numeric,
-  pressure_score numeric,
-  raw jsonb,
-  updated_at timestamptz default now()
-);
-
-alter table if exists public.foreign_trading
-  add column if not exists trading_date date,
-  add column if not exists foreign_buy_vol numeric,
-  add column if not exists foreign_sell_vol numeric,
-  add column if not exists foreign_buy_val numeric,
-  add column if not exists foreign_sell_val numeric,
-  add column if not exists net_foreign_vol numeric,
-  add column if not exists net_foreign_val numeric,
-  add column if not exists foreign_room numeric,
-  add column if not exists foreign_current_room numeric,
-  add column if not exists raw jsonb,
-  add column if not exists updated_at timestamptz default now();
-
--- Backward-compatible aliases for older code/query names.
-alter table if exists public.foreign_trading
-  add column if not exists buy_vol numeric,
-  add column if not exists sell_vol numeric,
-  add column if not exists net_vol numeric;
-
-create unique index if not exists foreign_trading_symbol_trading_date_uidx
-on public.foreign_trading(symbol, trading_date);
+-- Fix orderbook snapshot column names to match application/schema contract.
+-- SSI quote messages use BidVol/AskVol; DB columns should be bid_vol_N/ask_vol_N.
 
 alter table if exists public.orderbook_snapshot
   add column if not exists raw jsonb,
-  add column if not exists updated_at timestamptz default now();
+  add column if not exists created_at timestamptz default now();
 
--- Ensure 10-level depth columns exist for bid/ask snapshots.
 alter table if exists public.orderbook_snapshot
   add column if not exists bid_price_1 numeric,
   add column if not exists bid_vol_1 numeric,

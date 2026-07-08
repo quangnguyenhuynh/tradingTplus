@@ -59,8 +59,10 @@ def run_daily(args: list[str]) -> None:
 
 
 def run_snapshot_orderbook(args: list[str]) -> None:
-    symbols = [arg.upper() for arg in args] if args else None
-    count = snapshot_orderbook(symbols=symbols)
+    debug = "--debug" in args
+    clean_args = [arg for arg in args if arg != "--debug"]
+    symbols = [arg.upper() for arg in clean_args] if clean_args else None
+    count = snapshot_orderbook(symbols=symbols, debug=debug)
     print(f"✅ Snapshot orderbook complete: {count} records")
 
 
