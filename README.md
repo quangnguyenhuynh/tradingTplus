@@ -147,3 +147,14 @@ python scripts/inspect_ssi_ingest_api.py --symbol SSI --date DD/MM/YYYY --index-
 ```
 
 The script prints raw and mapped samples for symbols, securities details, DailyStockPrice (`raw_daily`/`stock_daily`), IntradayOhlc (`raw_intraday`/`stock_intraday` 1m), foreign trading derived from DailyStockPrice, IndexList (`indexes`), DailyIndex (`index_daily`), IndexComponents, and optional orderbook. It is read-only and never writes to Supabase.
+
+
+### SSI quote marketdata / orderbook note
+
+SSI FCData docs include bid/ask depth fields in quote marketdata messages, e.g. `BidPrice1`, `BidVol1`, `AskPrice1`, `AskVol1`. That is stream/message payload data, not the same thing as a documented public REST `MarketDepth` endpoint. The orderbook mapper supports those FCData quote fields. To verify a captured quote payload without DB writes:
+
+```bash
+python scripts/inspect_ssi_quote_payload.py --file quote_payload.json
+# or
+echo '{"Symbol":"SSI","BidPrice1":25000,"BidVol1":1000,"AskPrice1":25100,"AskVol1":900}' | python scripts/inspect_ssi_quote_payload.py
+```

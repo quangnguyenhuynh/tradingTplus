@@ -35,6 +35,11 @@ def _extract_level_list(raw: dict) -> list[dict]:
 
 
 def build_orderbook_record(symbol: str, raw: dict | None, snapshot_time: datetime | None = None) -> dict | None:
+    """Map SSI quote/marketdata depth payloads into orderbook_snapshot rows.
+
+    Supports FCData quote fields such as BidPrice1/BidVol1 and AskPrice1/AskVol1
+    from the market data stream, plus common REST/list-shaped variants.
+    """
     if not raw:
         return None
     snapshot_time = snapshot_time or datetime.now(timezone.utc)
