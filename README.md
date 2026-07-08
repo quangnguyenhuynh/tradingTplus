@@ -159,43 +159,34 @@ python scripts/inspect_ssi_quote_payload.py --file quote_payload.json
 echo '{"Symbol":"SSI","BidPrice1":25000,"BidVol1":1000,"AskPrice1":25100,"AskVol1":900}' | python scripts/inspect_ssi_quote_payload.py
 ```
 
-### SSI Streaming / Orderbook Snapshot
+### SSI SignalR streaming
 
-Environment variables:
+SSI FCData streaming uses SignalR, not a raw websocket endpoint such as `wss://fc-datahub.ssi.com.vn/v2.0`.
 
-```bash
+Default config:
+
+```env
 SSI_STREAMING_ENABLED=true
-SSI_STREAMING_URL=wss://fc-datahub.ssi.com.vn/v2.0
-ORDERBOOK_SNAPSHOT_TIMEOUT_SEC=10
+SSI_STREAMING_BASE_URL=https://fc-datahub.ssi.com.vn/
+SSI_SIGNALR_PATH=v2.0/signalr
+SSI_SIGNALR_HUB=FcMarketDataV2Hub
+SSI_SIGNALR_RECEIVE_METHOD=Broadcast
+SSI_SIGNALR_SWITCH_METHOD=SwitchChannels
+ORDERBOOK_SNAPSHOT_TIMEOUT_SEC=20
 ```
 
-Test parser offline without SSI connection:
+Test streaming quotes:
 
 ```bash
+python scripts/test_ssi_streaming.py SSI --timeout 30 --raw
+python scripts/test_ssi_streaming.py SSI --timeout 30 --write
+python scripts/test_ssi_streaming.py SSI HPG FPT --timeout 30 --raw
 python scripts/test_ssi_streaming_parser.py
 ```
 
-Test real streaming in read-only mode:
+Snapshot orderbook via SignalR:
 
 ```bash
-python scripts/test_ssi_streaming.py SSI --timeout 20 --raw
-python scripts/test_ssi_streaming.py SSI HPG FPT --timeout 20
-```
-
-Write latest quote snapshot to `orderbook_snapshot` only when explicitly requested:
-
-```bash
-python scripts/test_ssi_streaming.py SSI --timeout 20 --write
-python main.py snapshot-orderbook --debug --timeout 20 SSI
-```
-
-Check DB:
-
-```sql
-select symbol, time, bid_price_1, bid_vol_1, ask_price_1, ask_vol_1,
-       total_bid_depth_10, total_ask_depth_10, orderbook_imbalance, pressure_score
-from orderbook_snapshot
-where symbol = 'SSI'
-order by time desc
-limit 5;
+python main.py snapshot-orderbook SSI
+python main.py snapshot-orderbook --debug --timeout 30 SSI
 ```

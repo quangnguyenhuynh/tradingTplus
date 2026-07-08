@@ -6,7 +6,7 @@ Cách dùng:
     python main.py init | sync-master-data
     python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
     python main.py daily [DD/MM/YYYY]               # mặc định: latest previous weekday
-    python main.py snapshot-orderbook [--debug] [--timeout SEC] SYMBOL ...
+    python main.py snapshot-orderbook [--debug] [--timeout SEC] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
     python main.py test [SYMBOL] [DD/MM/YYYY]
 """
@@ -14,7 +14,7 @@ Cách dùng:
 import sys
 from datetime import datetime, timedelta, timezone
 from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
-from src.pipeline.orderbook_snapshot import snapshot_orderbook_from_stream
+from src.pipeline.orderbook_snapshot import snapshot_orderbook
 from src.pipeline.ingest_check import check_ingest
 
 VN_TZ = timezone(timedelta(hours=7))
@@ -59,9 +59,11 @@ def run_daily(args: list[str]) -> None:
 
 
 def run_snapshot_orderbook(args: list[str]) -> None:
+    from src.pipeline.orderbook_snapshot import snapshot_orderbook_from_stream
+
     debug = False
     timeout = None
-    symbols = []
+    symbols: list[str] = []
     i = 0
     while i < len(args):
         arg = args[i]
@@ -69,7 +71,7 @@ def run_snapshot_orderbook(args: list[str]) -> None:
             debug = True
         elif arg == "--timeout":
             if i + 1 >= len(args):
-                _print_usage_error("snapshot-orderbook --timeout cần số giây")
+                _print_usage_error("--timeout cần số giây")
                 return
             timeout = int(args[i + 1])
             i += 1
@@ -77,10 +79,9 @@ def run_snapshot_orderbook(args: list[str]) -> None:
             symbols.append(arg.upper())
         i += 1
     if not symbols:
-        _print_usage_error("snapshot-orderbook cần ít nhất 1 symbol")
-        return
-    records = snapshot_orderbook_from_stream(symbols=symbols, timeout_sec=timeout, write=True, debug=debug)
-    print(f"✅ Snapshot orderbook complete: {len(records)} records")
+        symbols = None
+    count = snapshot_orderbook_from_stream(symbols=symbols or [], timeout_sec=timeout, write=True, debug=debug) if symbols else snapshot_orderbook(symbols=None)
+    print(f"✅ Snapshot orderbook complete: {count} records")
 
 
 def run_check_ingest(args: list[str]) -> None:

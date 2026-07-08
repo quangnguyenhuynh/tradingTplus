@@ -27,9 +27,17 @@ class Config:
     # Official FastConnect Data REST docs do not list a ForeignTrading REST endpoint; foreign fields come from DailyStockPrice.
     # Official docs also do not list a REST orderbook endpoint. Set this only if SSI enables a private/account-specific endpoint.
     SSI_ORDERBOOK_URL = os.getenv('SSI_ORDERBOOK_URL')
-    SSI_STREAMING_URL = os.getenv('SSI_STREAMING_URL', 'wss://fc-datahub.ssi.com.vn/v2.0')
-    SSI_STREAMING_ENABLED = os.getenv('SSI_STREAMING_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'y')
-    ORDERBOOK_SNAPSHOT_TIMEOUT_SEC = int(os.getenv('ORDERBOOK_SNAPSHOT_TIMEOUT_SEC', '10'))
+
+    # SSI SignalR streaming (FCData market data)
+    SSI_STREAMING_BASE_URL = os.getenv("SSI_STREAMING_BASE_URL", "https://fc-datahub.ssi.com.vn/")
+    SSI_SIGNALR_PATH = os.getenv("SSI_SIGNALR_PATH", "v2.0/signalr")
+    SSI_SIGNALR_HUB = os.getenv("SSI_SIGNALR_HUB", "FcMarketDataV2Hub")
+    SSI_SIGNALR_RECEIVE_METHOD = os.getenv("SSI_SIGNALR_RECEIVE_METHOD", "Broadcast")
+    SSI_SIGNALR_SWITCH_METHOD = os.getenv("SSI_SIGNALR_SWITCH_METHOD", "SwitchChannels")
+    SSI_STREAMING_ENABLED = os.getenv("SSI_STREAMING_ENABLED", "true").lower() in ("1", "true", "yes", "y")
+    ORDERBOOK_SNAPSHOT_TIMEOUT_SEC = int(os.getenv("ORDERBOOK_SNAPSHOT_TIMEOUT_SEC", "20"))
+    # Backward-compatible placeholder only; do not use raw wss://... for SSI FCData SignalR.
+    SSI_STREAMING_URL = os.getenv("SSI_STREAMING_URL")
 
 
 config = Config()
