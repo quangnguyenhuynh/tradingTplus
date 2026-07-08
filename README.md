@@ -202,3 +202,14 @@ python scripts/debug_signalr_negotiate.py --no-auth
 ```
 
 The script prints the SignalR URL, each negotiate URL variant, request method/headers, status code, response headers, first 2000 response chars, parsed JSON if available, and warnings for non-integer `negotiateVersion` values.
+
+### SSI ASP.NET SignalR classic note
+
+SSI FCData negotiate returns `ProtocolVersion`/`ConnectionToken` (classic ASP.NET SignalR), not ASP.NET Core `negotiateVersion`. The streaming client therefore uses `requests` + `websocket-client` and does not use `signalrcore`.
+
+Classic SignalR test command:
+
+```bash
+python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --raw
+python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --write
+```

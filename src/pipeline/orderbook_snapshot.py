@@ -56,9 +56,9 @@ def build_orderbook_record(symbol: str, raw: dict | None, snapshot_time: datetim
         ask_price = _to_float(_get_any(level_row, f"AskPrice{i}", f"Ask{i}", f"askPrice{i}", "AskPrice", "askPrice", "Ask"))
         ask_volume = _to_float(_get_any(level_row, f"AskVolume{i}", f"AskVol{i}", f"askVolume{i}", "AskVolume", "askVolume", "AskVol"))
         record[f"bid_price_{i}"] = bid_price
-        record[f"bid_volume_{i}"] = bid_volume
+        record[f"bid_vol_{i}"] = bid_volume
         record[f"ask_price_{i}"] = ask_price
-        record[f"ask_volume_{i}"] = ask_volume
+        record[f"ask_vol_{i}"] = ask_volume
         total_bid += bid_volume or 0
         total_ask += ask_volume or 0
     if total_bid == 0 and total_ask == 0:
