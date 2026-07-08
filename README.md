@@ -190,3 +190,15 @@ Snapshot orderbook via SignalR:
 python main.py snapshot-orderbook SSI
 python main.py snapshot-orderbook --debug --timeout 30 SSI
 ```
+
+### Debug SignalR negotiate
+
+To inspect raw SSI SignalR negotiate responses without `signalrcore`, websocket, Supabase, or DB writes:
+
+```bash
+python scripts/debug_signalr_negotiate.py
+python scripts/debug_signalr_negotiate.py --method GET
+python scripts/debug_signalr_negotiate.py --no-auth
+```
+
+The script prints the SignalR URL, each negotiate URL variant, request method/headers, status code, response headers, first 2000 response chars, parsed JSON if available, and warnings for non-integer `negotiateVersion` values.
