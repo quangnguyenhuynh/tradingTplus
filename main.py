@@ -6,15 +6,17 @@ Cách dùng:
     python main.py init | sync-master-data
     python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
     python main.py daily [DD/MM/YYYY]               # mặc định: latest previous weekday
+    python main.py eod [DD/MM/YYYY]
     python main.py snapshot-orderbook [--debug] [--timeout SEC] [SYMBOL ...]
     python main.py snapshot-stream [--debug] [--timeout SEC] [--indexes CSV] [--write|--no-write] [--limit N] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
+    python main.py features [full|incremental] [--timeframes 1m 5m 15m] [--symbols SSI HPG FPT]
     python main.py test [SYMBOL] [DD/MM/YYYY]
 """
 
 import sys
 from datetime import datetime, timedelta, timezone
-from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
+from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day, run_eod_pipeline
 from src.pipeline.orderbook_snapshot import snapshot_orderbook
 from src.pipeline.ingest_check import check_ingest
 
@@ -127,6 +129,70 @@ def run_snapshot_stream(args: list[str]) -> None:
     summary = snapshot_market_stream(symbols=symbols[:limit] if limit else symbols, indexes=indexes, timeout_sec=timeout, write=write, debug=debug)
     print(f"✅ Snapshot stream complete: {summary}")
 
+def _parse_timeframes_symbols(args: list[str], *, start_index: int = 0, default_timeframes=None):
+    timeframes = list(default_timeframes) if default_timeframes is not None else None
+    symbols = None
+    i = start_index
+    while i < len(args):
+        arg = args[i]
+        if arg == "--timeframes":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i])
+                i += 1
+            if not values:
+                _print_usage_error("--timeframes cần ít nhất một timeframe")
+                return None, None, False
+            timeframes = values
+            continue
+        if arg == "--symbols":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i].upper())
+                i += 1
+            if not values:
+                _print_usage_error("--symbols cần ít nhất một mã")
+                return None, None, False
+            symbols = values
+            continue
+        _print_usage_error(f"Không biết tham số: {arg}")
+        return None, None, False
+    return timeframes, symbols, True
+
+
+def run_eod(args: list[str]) -> None:
+    date = None
+    start_index = 0
+    if args and not args[0].startswith("--"):
+        date = args[0]
+        start_index = 1
+
+    timeframes, symbols, ok = _parse_timeframes_symbols(args, start_index=start_index, default_timeframes=["1m", "5m", "15m"])
+    if not ok:
+        return
+    result = run_eod_pipeline(date=date, timeframes=timeframes, symbols=symbols)
+    print(f"✅ EOD pipeline result: {result}")
+
+
+def run_features(args: list[str]) -> None:
+    from src.engine.feature_engine import run_feature_engine
+
+    mode = "incremental"
+    start_index = 0
+    if args and args[0] in {"full", "incremental"}:
+        mode = args[0]
+        start_index = 1
+
+    timeframes, symbols, ok = _parse_timeframes_symbols(args, start_index=start_index, default_timeframes=["1m", "5m", "15m"])
+    if not ok:
+        return
+
+    total = run_feature_engine(symbols=symbols, mode=mode, timeframes=timeframes)
+    print(f"✅ Feature engine complete: {total} records")
+
+
 def run_check_ingest(args: list[str]) -> None:
     if not args:
         _print_usage_error("check-ingest yêu cầu DD/MM/YYYY")
@@ -157,12 +223,16 @@ def main() -> None:
         run_backfill(args)
     elif cmd == "daily":
         run_daily(args)
+    elif cmd == "eod":
+        run_eod(args)
     elif cmd == "snapshot-orderbook":
         run_snapshot_orderbook(args)
     elif cmd == "snapshot-stream":
         run_snapshot_stream(args)
     elif cmd == "check-ingest":
         run_check_ingest(args)
+    elif cmd == "features":
+        run_features(args)
     elif cmd == "test":
         run_test(args)
     else:
