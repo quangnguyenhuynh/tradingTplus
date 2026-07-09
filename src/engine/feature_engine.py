@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -77,6 +77,40 @@ def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> lis
     return records
 
 
+def _fetch_stock_daily_rows(
+    db: SupabaseClient,
+    symbol: str,
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+) -> list[dict]:
+    query = (
+        db.get().table('stock_daily')
+        .select('trading_date, close_price')
+        .eq('symbol', symbol)
+        .order('trading_date', desc=False)
+    )
+    if start_date is not None:
+        query = query.gte('trading_date', str(start_date))
+    if end_date is not None:
+        query = query.lte('trading_date', str(end_date))
+    result = db._with_retry(
+        lambda q=query: q.execute(),
+        action_name=f"fetch stock_daily {symbol}",
+    )
+    return result.data or []
+
+
+def _date_bounds_for_daily_context(rows: list[dict]) -> tuple[date, date] | None:
+    if not rows:
+        return None
+    times = pd.to_datetime([row.get('time') for row in rows], errors='coerce', utc=True)
+    times = pd.Series(times).dropna()
+    if times.empty:
+        return None
+    local_dates = times.dt.tz_convert(VN_TZ).dt.date
+    return local_dates.min() - pd.Timedelta(days=14), local_dates.max()
+
+
 def _fetch_stock_intraday_paginated(
     db: SupabaseClient,
     symbol: str,
@@ -152,6 +186,7 @@ def _compute_and_upsert_timeframes(
     upsert_batch_size: int = 1000,
     filter_start_utc: pd.Timestamp | None = None,
     filter_end_utc: pd.Timestamp | None = None,
+    daily_rows: list[dict] | None = None,
 ) -> int:
     if not source_rows:
         for timeframe in _normalize_timeframes(timeframes):
@@ -166,7 +201,7 @@ def _compute_and_upsert_timeframes(
             _log_feature_run(symbol, timeframe, mode, len(source_df), 0, 0, aggregated_df)
             continue
 
-        computed_df = compute_feature_dataframe(aggregated_df)
+        computed_df = compute_feature_dataframe(aggregated_df, daily_df=pd.DataFrame(daily_rows or []))
         output_df = computed_df
         if filter_start_utc is not None:
             computed_time = pd.to_datetime(output_df['time'], utc=True, errors='coerce')
@@ -187,6 +222,8 @@ def _compute_and_upsert_timeframes(
 def calculate_features_for_symbol_full_chunked(symbol, timeframes=None, upsert_batch_size=1000):
     db = SupabaseClient()
     rows = _fetch_stock_intraday_paginated(db=db, symbol=symbol, order_desc=False)
+    bounds = _date_bounds_for_daily_context(rows)
+    daily_rows = _fetch_stock_daily_rows(db, symbol, bounds[0], bounds[1]) if bounds else []
     return _compute_and_upsert_timeframes(
         db=db,
         symbol=symbol,
@@ -194,6 +231,7 @@ def calculate_features_for_symbol_full_chunked(symbol, timeframes=None, upsert_b
         timeframes=timeframes,
         mode='full',
         upsert_batch_size=upsert_batch_size,
+        daily_rows=daily_rows,
     )
 
 
@@ -225,6 +263,8 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
         limit_total=warmup_bars,
     )
     warmup_rows = list(reversed(warmup_rows))
+    daily_start_vn = (today_start_vn.date() - pd.Timedelta(days=14))
+    daily_rows = _fetch_stock_daily_rows(db, symbol, daily_start_vn, today_start_vn.date())
 
     return _compute_and_upsert_timeframes(
         db=db,
@@ -235,6 +275,7 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
         upsert_batch_size=upsert_batch_size,
         filter_start_utc=pd.Timestamp(today_start_utc),
         filter_end_utc=pd.Timestamp(tomorrow_start_utc),
+        daily_rows=daily_rows,
     )
 
 

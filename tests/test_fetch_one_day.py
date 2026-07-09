@@ -25,6 +25,14 @@ class _DB:
     def __init__(self):
         self.raw_records = None
         self.clean_records = None
+        self.raw_daily_records = None
+        self.stock_daily_records = None
+
+    def upsert_raw_daily(self, records):
+        self.raw_daily_records = records
+
+    def upsert_stock_daily(self, records):
+        self.stock_daily_records = records
 
     def upsert_raw(self, records):
         self.raw_records = records
@@ -146,6 +154,8 @@ def test_fetch_one_day_with_clients_returns_zero_without_intraday():
     assert fod.fetch_one_day_with_clients(_SSI(daily=_daily(), candles=[]), db, 'SSI', '18/06/2026') == 0
     assert db.raw_records is None
     assert db.clean_records is None
+    assert db.raw_daily_records is not None
+    assert db.stock_daily_records is not None
 
 
 def test_fetch_one_day_with_clients_saves_and_returns_int():
