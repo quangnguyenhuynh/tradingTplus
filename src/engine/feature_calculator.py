@@ -121,7 +121,25 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
     return macd_line, macd_signal, macd_hist
 
 
-def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def _build_daily_prev_close_map(daily_df: pd.DataFrame | None) -> dict:
+    if daily_df is None or daily_df.empty:
+        return {}
+
+    required_cols = {'trading_date', 'close_price'}
+    missing_cols = required_cols - set(daily_df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing required columns for daily previous close: {sorted(missing_cols)}")
+
+    daily = daily_df[['trading_date', 'close_price']].copy()
+    daily['trading_date'] = pd.to_datetime(daily['trading_date'], errors='coerce').dt.date
+    daily['close_price'] = pd.to_numeric(daily['close_price'], errors='coerce')
+    daily = daily.dropna(subset=['trading_date', 'close_price'])
+    daily = daily.sort_values('trading_date').drop_duplicates(subset=['trading_date'], keep='last')
+    daily['prev_close'] = daily['close_price'].shift(1)
+    return daily.set_index('trading_date')['prev_close'].dropna().to_dict()
+
+
+def compute_feature_dataframe(df: pd.DataFrame, daily_df: pd.DataFrame | None = None) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
@@ -165,11 +183,18 @@ def compute_feature_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     session_open = out.groupby(date_key)['open'].transform('first')
     out['return_from_open'] = _safe_div(out['close'], session_open) - 1
 
-    # Previous-session close return (same previous daily close for all bars in session).
-    session_close = out.groupby(date_key)['close'].transform('last')
-    prev_session_close_map = session_close.groupby(date_key).first().shift(1)
-    prev_session_close = date_key.map(prev_session_close_map)
-    out['return_from_prev_close'] = _safe_div(out['close'], pd.Series(prev_session_close, index=out.index)) - 1
+    # Previous-close return: prefer stock_daily previous available trading-day
+    # close, then fall back to the previous intraday session close. Both maps are
+    # keyed by Vietnam trading date and only use dates before the current bar's
+    # session, so same-day future closes cannot leak into intraday features.
+    session_close_by_date = out.groupby(date_key)['close'].last()
+    prev_intraday_close_map = session_close_by_date.shift(1).to_dict()
+    daily_prev_close_map = _build_daily_prev_close_map(daily_df)
+    prev_close_values = [
+        daily_prev_close_map.get(trading_date, prev_intraday_close_map.get(trading_date))
+        for trading_date in date_key
+    ]
+    out['return_from_prev_close'] = _safe_div(out['close'], pd.Series(prev_close_values, index=out.index)) - 1
 
     # Continuous intraday trend features (do not reset by session).
     out['ema9'] = out['close'].ewm(span=9, adjust=False, min_periods=9).mean()

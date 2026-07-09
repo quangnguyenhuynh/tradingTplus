@@ -18,6 +18,7 @@ class _Query:
         self.rows = rows
         self._gte = None
         self._lt = None
+        self._lte = None
         self._desc = False
         self._start = 0
         self._end = 999
@@ -36,6 +37,10 @@ class _Query:
         self._lt = val
         return self
 
+    def lte(self, _col, val):
+        self._lte = val
+        return self
+
     def order(self, _col, desc=False):
         self._desc = desc
         return self
@@ -48,22 +53,28 @@ class _Query:
     def execute(self):
         rows = list(self.rows)
         if self._gte is not None:
-            rows = [r for r in rows if r['time'] >= self._gte]
+            rows = [r for r in rows if r.get('time', r.get('trading_date')) >= self._gte]
         if self._lt is not None:
-            rows = [r for r in rows if r['time'] < self._lt]
-        rows = sorted(rows, key=lambda r: r['time'], reverse=self._desc)
+            rows = [r for r in rows if r.get('time', r.get('trading_date')) < self._lt]
+        if self._lte is not None:
+            rows = [r for r in rows if r.get('time', r.get('trading_date')) <= self._lte]
+        sort_key = 'time' if rows and 'time' in rows[0] else 'trading_date'
+        rows = sorted(rows, key=lambda r: r[sort_key], reverse=self._desc) if rows else rows
         return _Result(rows[self._start:self._end + 1])
 
 
 class _DB:
-    def __init__(self, rows):
+    def __init__(self, rows, daily_rows=None):
         self.rows = rows
+        self.daily_rows = daily_rows or []
         self.upsert_calls = []
 
     def get(self):
         return self
 
-    def table(self, _name):
+    def table(self, name):
+        if name == 'stock_daily':
+            return _Query(self.daily_rows)
         return _Query(self.rows)
 
     def _with_retry(self, action, action_name=None):
@@ -184,3 +195,56 @@ def test_feature_engine_falls_back_to_close_times_volume_when_value_null():
     assert agg.iloc[1]['value'] == 7777
     assert feats.iloc[0]['value'] == 1162
     assert feats.iloc[1]['value'] == 7777
+
+
+def test_compute_feature_dataframe_phase1_columns_and_no_legacy_columns():
+    rows = [_mk_row((pd.Timestamp('2026-05-20T02:00:00Z') + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i) for i in range(30)]
+    feats = fe.compute_feature_dataframe(pd.DataFrame(rows))
+
+    assert set(fe.FEATURE_COLUMNS).issubset(feats.columns)
+    assert {'rsi', 'atr', 'ema_20', 'ema_50', 'vwap', 'bb_upper', 'bb_lower', 'volume_spike'}.isdisjoint(fe.FEATURE_COLUMNS)
+    assert {'rsi', 'atr', 'ema_20', 'ema_50', 'vwap', 'bb_upper', 'bb_lower', 'volume_spike'}.isdisjoint(feats.columns)
+
+
+def test_return_from_prev_close_prefers_stock_daily_previous_close():
+    rows = [
+        _mk_row('2026-05-19T02:00:00Z', 0),
+        _mk_row('2026-05-20T02:00:00Z', 10),
+    ]
+    daily = pd.DataFrame([
+        {'trading_date': '2026-05-19', 'close_price': 99},
+        {'trading_date': '2026-05-20', 'close_price': 120},
+    ])
+
+    feats = fe.compute_feature_dataframe(pd.DataFrame(rows), daily_df=daily)
+
+    assert feats.iloc[1]['return_from_prev_close'] == ((20.5 / 99) - 1)
+
+
+def test_return_from_prev_close_falls_back_to_previous_intraday_session():
+    rows = [
+        _mk_row('2026-05-19T02:00:00Z', 0),
+        _mk_row('2026-05-19T02:01:00Z', 1),
+        _mk_row('2026-05-20T02:00:00Z', 10),
+    ]
+
+    feats = fe.compute_feature_dataframe(pd.DataFrame(rows))
+
+    assert feats.iloc[2]['return_from_prev_close'] == ((20.5 / 11.5) - 1)
+
+
+def test_aggregate_timeframe_does_not_cross_vietnam_trading_date_boundary():
+    rows = [
+        _mk_row('2026-05-20T16:58:00Z', 0),  # 2026-05-20 23:58 VN
+        _mk_row('2026-05-20T16:59:00Z', 1),
+        _mk_row('2026-05-20T17:00:00Z', 2),  # 2026-05-21 00:00 VN
+        _mk_row('2026-05-20T17:01:00Z', 3),
+    ]
+
+    agg = fe.aggregate_timeframe(pd.DataFrame(rows), '5m')
+
+    assert len(agg) == 2
+    assert agg.iloc[0]['time'] == pd.Timestamp('2026-05-20T16:55:00Z')
+    assert agg.iloc[0]['close'] == 11.5
+    assert agg.iloc[1]['time'] == pd.Timestamp('2026-05-20T17:00:00Z')
+    assert agg.iloc[1]['close'] == 13.5

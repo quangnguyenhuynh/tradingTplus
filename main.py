@@ -9,6 +9,7 @@ Cách dùng:
     python main.py snapshot-orderbook [--debug] [--timeout SEC] [SYMBOL ...]
     python main.py snapshot-stream [--debug] [--timeout SEC] [--indexes CSV] [--write|--no-write] [--limit N] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
+    python main.py features [full|incremental] [--timeframes 1m 5m 15m] [--symbols SSI HPG FPT]
     python main.py test [SYMBOL] [DD/MM/YYYY]
 """
 
@@ -127,6 +128,49 @@ def run_snapshot_stream(args: list[str]) -> None:
     summary = snapshot_market_stream(symbols=symbols[:limit] if limit else symbols, indexes=indexes, timeout_sec=timeout, write=write, debug=debug)
     print(f"✅ Snapshot stream complete: {summary}")
 
+def run_features(args: list[str]) -> None:
+    from src.engine.feature_engine import run_feature_engine
+
+    mode = "incremental"
+    timeframes = ["1m", "5m", "15m"]
+    symbols = None
+
+    i = 0
+    if args and args[0] in {"full", "incremental"}:
+        mode = args[0]
+        i = 1
+
+    while i < len(args):
+        arg = args[i]
+        if arg == "--timeframes":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i])
+                i += 1
+            if not values:
+                _print_usage_error("--timeframes cần ít nhất một timeframe")
+                return
+            timeframes = values
+            continue
+        if arg == "--symbols":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i].upper())
+                i += 1
+            if not values:
+                _print_usage_error("--symbols cần ít nhất một mã")
+                return
+            symbols = values
+            continue
+        _print_usage_error(f"Không biết tham số features: {arg}")
+        return
+
+    total = run_feature_engine(symbols=symbols, mode=mode, timeframes=timeframes)
+    print(f"✅ Feature engine complete: {total} records")
+
+
 def run_check_ingest(args: list[str]) -> None:
     if not args:
         _print_usage_error("check-ingest yêu cầu DD/MM/YYYY")
@@ -163,6 +207,8 @@ def main() -> None:
         run_snapshot_stream(args)
     elif cmd == "check-ingest":
         run_check_ingest(args)
+    elif cmd == "features":
+        run_features(args)
     elif cmd == "test":
         run_test(args)
     else:
