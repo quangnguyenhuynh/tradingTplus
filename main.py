@@ -11,6 +11,7 @@ Cách dùng:
     python main.py snapshot-stream [--debug] [--timeout SEC] [--indexes CSV] [--write|--no-write] [--limit N] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
     python main.py features [full|incremental] [--timeframes 1m 5m 15m] [--symbols SSI HPG FPT]
+    python main.py eod-dry-run [DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m] [--json]
     python main.py test [SYMBOL] [DD/MM/YYYY]
 """
 
@@ -129,10 +130,18 @@ def run_snapshot_stream(args: list[str]) -> None:
     summary = snapshot_market_stream(symbols=symbols[:limit] if limit else symbols, indexes=indexes, timeout_sec=timeout, write=write, debug=debug)
     print(f"✅ Snapshot stream complete: {summary}")
 
-def _parse_timeframes_symbols(args: list[str], *, start_index: int = 0, default_timeframes=None):
-    timeframes = list(default_timeframes) if default_timeframes is not None else None
+def run_features(args: list[str]) -> None:
+    from src.engine.feature_engine import run_feature_engine
+
+    mode = "incremental"
+    timeframes = ["1m", "5m", "15m"]
     symbols = None
-    i = start_index
+
+    i = 0
+    if args and args[0] in {"full", "incremental"}:
+        mode = args[0]
+        i = 1
+
     while i < len(args):
         arg = args[i]
         if arg == "--timeframes":
@@ -143,7 +152,7 @@ def _parse_timeframes_symbols(args: list[str], *, start_index: int = 0, default_
                 i += 1
             if not values:
                 _print_usage_error("--timeframes cần ít nhất một timeframe")
-                return None, None, False
+                return
             timeframes = values
             continue
         if arg == "--symbols":
@@ -154,43 +163,61 @@ def _parse_timeframes_symbols(args: list[str], *, start_index: int = 0, default_
                 i += 1
             if not values:
                 _print_usage_error("--symbols cần ít nhất một mã")
-                return None, None, False
+                return
             symbols = values
             continue
-        _print_usage_error(f"Không biết tham số: {arg}")
-        return None, None, False
-    return timeframes, symbols, True
-
-
-def run_eod(args: list[str]) -> None:
-    date = None
-    start_index = 0
-    if args and not args[0].startswith("--"):
-        date = args[0]
-        start_index = 1
-
-    timeframes, symbols, ok = _parse_timeframes_symbols(args, start_index=start_index, default_timeframes=["1m", "5m", "15m"])
-    if not ok:
-        return
-    result = run_eod_pipeline(date=date, timeframes=timeframes, symbols=symbols)
-    print(f"✅ EOD pipeline result: {result}")
-
-
-def run_features(args: list[str]) -> None:
-    from src.engine.feature_engine import run_feature_engine
-
-    mode = "incremental"
-    start_index = 0
-    if args and args[0] in {"full", "incremental"}:
-        mode = args[0]
-        start_index = 1
-
-    timeframes, symbols, ok = _parse_timeframes_symbols(args, start_index=start_index, default_timeframes=["1m", "5m", "15m"])
-    if not ok:
+        _print_usage_error(f"Không biết tham số features: {arg}")
         return
 
     total = run_feature_engine(symbols=symbols, mode=mode, timeframes=timeframes)
     print(f"✅ Feature engine complete: {total} records")
+
+
+def run_eod_dry_run_command(args: list[str]) -> None:
+    from src.pipeline.eod_dry_run import DEFAULT_SYMBOLS, DEFAULT_TIMEFRAMES, run_eod_dry_run
+
+    date = None
+    symbols = DEFAULT_SYMBOLS
+    timeframes = DEFAULT_TIMEFRAMES
+    json_output = False
+
+    i = 0
+    if args and not args[0].startswith("--"):
+        date = args[0]
+        i = 1
+
+    while i < len(args):
+        arg = args[i]
+        if arg == "--symbols":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i].upper())
+                i += 1
+            if not values:
+                _print_usage_error("--symbols cần ít nhất một mã")
+                return
+            symbols = values
+            continue
+        if arg == "--timeframes":
+            i += 1
+            values = []
+            while i < len(args) and not args[i].startswith("--"):
+                values.append(args[i])
+                i += 1
+            if not values:
+                _print_usage_error("--timeframes cần ít nhất một timeframe")
+                return
+            timeframes = values
+            continue
+        if arg == "--json":
+            json_output = True
+            i += 1
+            continue
+        _print_usage_error(f"Không biết tham số eod-dry-run: {arg}")
+        return
+
+    run_eod_dry_run(date=date, symbols=symbols, timeframes=timeframes, json_output=json_output)
 
 
 def run_check_ingest(args: list[str]) -> None:
@@ -233,6 +260,8 @@ def main() -> None:
         run_check_ingest(args)
     elif cmd == "features":
         run_features(args)
+    elif cmd == "eod-dry-run":
+        run_eod_dry_run_command(args)
     elif cmd == "test":
         run_test(args)
     else:
