@@ -6,6 +6,7 @@ Cách dùng:
     python main.py init | sync-master-data
     python main.py backfill [from_date] [to_date]   # YYYY-MM-DD
     python main.py daily [DD/MM/YYYY]               # mặc định: latest previous weekday
+    python main.py eod [DD/MM/YYYY]
     python main.py snapshot-orderbook [--debug] [--timeout SEC] [SYMBOL ...]
     python main.py snapshot-stream [--debug] [--timeout SEC] [--indexes CSV] [--write|--no-write] [--limit N] [SYMBOL ...]
     python main.py check-ingest DD/MM/YYYY
@@ -16,7 +17,7 @@ Cách dùng:
 
 import sys
 from datetime import datetime, timedelta, timezone
-from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day
+from src.pipeline import init_symbols, backfill, daily_run, fetch_one_day, run_eod_pipeline
 from src.pipeline.orderbook_snapshot import snapshot_orderbook
 from src.pipeline.ingest_check import check_ingest
 
@@ -249,6 +250,8 @@ def main() -> None:
         run_backfill(args)
     elif cmd == "daily":
         run_daily(args)
+    elif cmd == "eod":
+        run_eod(args)
     elif cmd == "snapshot-orderbook":
         run_snapshot_orderbook(args)
     elif cmd == "snapshot-stream":

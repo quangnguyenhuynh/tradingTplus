@@ -27,13 +27,23 @@ def daily_run(date: str = None):
     
     if not symbols:
         print("❌ Chưa có dữ liệu symbols. Chạy 'python main.py init' trước!")
-        return
+        return {
+            'date': date,
+            'symbol_count': 0,
+            'total_candles': 0,
+            'total_foreign': 0,
+            'index_daily_count': 0,
+            'error_count': 0,
+            'errors': [],
+            'status': 'FAILED',
+        }
     
     ssi = SSIApi()
     index_codes = sync_indexes(ssi=ssi, db=db)
     sync_index_components(None, ssi=ssi, db=db)
     total_candles = 0
     total_foreign = 0
+    errors = []
     for symbol in symbols:
         try:
             count = fetch_one_day_with_clients(ssi, db, symbol, date)
@@ -43,8 +53,20 @@ def daily_run(date: str = None):
                 db.upsert_foreign([foreign_record])
                 total_foreign += 1
         except Exception as e:
+            errors.append({'symbol': symbol, 'error': str(e)})
             print(f"    ❌ {symbol}: {e}")
     
     index_count = fetch_daily_indexes(date, ssi=ssi, db=db)
-    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}; foreign_trading: {total_foreign}; index_daily: {index_count}")
+    status = 'OK' if not errors else 'PARTIAL'
+    print(f"\n✅ Hoàn thành ingest! Tổng số candles: {total_candles}; foreign_trading: {total_foreign}; index_daily: {index_count}; errors: {len(errors)}")
     print("ℹ️ Feature engine disabled in ingest task; no technical indicators were calculated.")
+    return {
+        'date': date,
+        'symbol_count': len(symbols),
+        'total_candles': total_candles,
+        'total_foreign': total_foreign,
+        'index_daily_count': index_count,
+        'error_count': len(errors),
+        'errors': errors,
+        'status': status,
+    }
