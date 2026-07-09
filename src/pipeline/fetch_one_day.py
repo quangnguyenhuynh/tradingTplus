@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 from datetime import date as Date, datetime, time
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from src.database.client import SupabaseClient
@@ -10,9 +11,8 @@ from src.intraday_value import calculate_trade_value
 
 
 logger = logging.getLogger(__name__)
-
-
-logger = logging.getLogger(__name__)
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+UTC_TZ = ZoneInfo("UTC")
 
 
 def fetch_daily_price(ssi: SSIApi, symbol: str, date: str) -> dict | None:
@@ -26,14 +26,16 @@ def fetch_intraday_candles(ssi: SSIApi, symbol: str, date: str) -> list[dict]:
     return candles or []
 
 
+def _to_utc_iso_z(dt: datetime) -> str:
+    return dt.astimezone(UTC_TZ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def parse_time(date_str: str, time_str: str) -> datetime | None:
-    """Convert DD/MM/YYYY and HH:MM:SS into a datetime object."""
-    try:
-        base_date = datetime.strptime(date_str, "%d/%m/%Y").date()
-        hour, minute, second = map(int, str(time_str).split(":"))
-        return datetime.combine(base_date, time(hour, minute, second))
-    except (ValueError, TypeError):
+    """Parse SSI local Vietnam candle time and return an aware UTC datetime."""
+    base_date = _parse_base_date(date_str)
+    if base_date is None:
         return None
+    return _parse_candle_time(base_date, time_str)
 
 
 def _parse_base_date(date_str: str) -> Date | None:
@@ -44,9 +46,11 @@ def _parse_base_date(date_str: str) -> Date | None:
 
 
 def _parse_candle_time(base_date: Date, time_str: Any) -> datetime | None:
+    """Treat SSI IntradayOhlc Time as Asia/Ho_Chi_Minh and convert to UTC."""
     try:
         hour, minute, second = map(int, str(time_str).split(":"))
-        return datetime.combine(base_date, time(hour, minute, second))
+        local_dt = datetime.combine(base_date, time(hour, minute, second), tzinfo=VN_TZ)
+        return local_dt.astimezone(UTC_TZ)
     except (ValueError, TypeError):
         return None
 
@@ -177,7 +181,7 @@ def build_intraday_records(
         low_price = _to_nullable_float(candle.get('Low'))
         close_price = _to_nullable_float(candle.get('Close'))
         intraday_value = calculate_trade_value(close_price, current_volume)
-        time_iso = dt.isoformat()
+        time_iso = _to_utc_iso_z(dt)
 
         base_record = {
             'symbol': symbol,
