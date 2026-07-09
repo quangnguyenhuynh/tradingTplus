@@ -1,0 +1,35 @@
+name: TradingTPlus EOD Pipeline
+
+on:
+  schedule:
+    # 16:30 Vietnam time (UTC+7) on weekdays = 09:30 UTC Monday-Friday.
+    - cron: "30 9 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional trading date in DD/MM/YYYY format"
+        required: false
+        type: string
+
+jobs:
+  eod:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SSI_CONSUMER_ID: ${{ secrets.SSI_CONSUMER_ID }}
+      SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run EOD pipeline
+        run: python main.py eod "${{ inputs.date }}"
