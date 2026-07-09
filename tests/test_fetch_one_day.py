@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import sys
 from pathlib import Path
 
@@ -70,7 +71,7 @@ def _candle(
 
 
 def test_parse_time_returns_datetime_or_none():
-    assert fod.parse_time('18/06/2026', '09:15:00') == datetime(2026, 6, 18, 9, 15)
+    assert fod.parse_time('18/06/2026', '09:15:00') == datetime(2026, 6, 18, 2, 15, tzinfo=ZoneInfo('UTC'))
     assert fod.parse_time('18/06/2026', 'bad') is None
 
 
@@ -88,10 +89,19 @@ def test_build_intraday_records_skips_bad_time_and_uses_candle_volume_for_value(
     assert len(clean_records) == 3
     assert [record['value'] for record in clean_records] == [1050, 945, 1365]
     assert all(type(record['value']) is int for record in clean_records)
-    assert raw_records[0]['time'] == '2026-06-18T09:15:00'
+    assert raw_records[0]['time'] == '2026-06-18T02:15:00Z'
     assert clean_records[0]['timeframe'] == '1m'
     assert clean_records[0]['reference_price'] == 10.1
     assert 'data_hash' in raw_records[0]
+
+
+
+def test_build_intraday_records_converts_vietnam_time_to_utc_z():
+    raw_records, clean_records = fod.build_intraday_records('SSI', '05/07/2024', _daily(), [_candle('14:45:01')])
+
+    assert raw_records[0]['time'] == '2024-07-05T07:45:01Z'
+    assert clean_records[0]['time'] == '2024-07-05T07:45:01Z'
+    assert fod.parse_time('05/07/2024', '14:45:01') == datetime(2024, 7, 5, 7, 45, 1, tzinfo=ZoneInfo('UTC'))
 
 
 def test_build_intraday_records_ignores_api_value_and_uses_close_times_volume():
