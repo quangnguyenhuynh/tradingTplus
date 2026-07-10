@@ -7,7 +7,14 @@ import numpy as np
 import pandas as pd
 
 from src.database.client import SupabaseClient
-from src.engine.feature_calculator import SUPPORTED_TIMEFRAMES, aggregate_timeframe, compute_feature_dataframe
+from src.engine.feature_calculator import (
+    INTRADAY_TIMEFRAMES,
+    SUPPORTED_TIMEFRAMES,
+    aggregate_timeframe,
+    compute_daily_features,
+    compute_intraday_features,
+    compute_feature_dataframe,
+)
 
 logger = logging.getLogger(__name__)
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -82,22 +89,29 @@ def _fetch_stock_daily_rows(
     symbol: str,
     start_date: date | str | None = None,
     end_date: date | str | None = None,
+    order_desc: bool = False,
+    limit_total: int | None = None,
 ) -> list[dict]:
     query = (
         db.get().table('stock_daily')
-        .select('trading_date, close_price')
+        .select('trading_date, open_price, highest_price, lowest_price, close_price, total_traded_vol, total_traded_value, total_match_vol, total_match_val')
         .eq('symbol', symbol)
-        .order('trading_date', desc=False)
+        .order('trading_date', desc=order_desc)
     )
     if start_date is not None:
         query = query.gte('trading_date', str(start_date))
     if end_date is not None:
         query = query.lte('trading_date', str(end_date))
+    if limit_total is not None:
+        query = query.range(0, limit_total - 1)
     result = db._with_retry(
         lambda q=query: q.execute(),
         action_name=f"fetch stock_daily {symbol}",
     )
-    return result.data or []
+    rows = result.data or []
+    if order_desc:
+        rows = list(reversed(rows))
+    return rows
 
 
 def _date_bounds_for_daily_context(rows: list[dict]) -> tuple[date, date] | None:
@@ -177,6 +191,25 @@ def _normalize_timeframes(timeframes=None) -> tuple[str, ...]:
     return normalized
 
 
+def _filter_output_by_time(output_df: pd.DataFrame, filter_start_utc: pd.Timestamp | None, filter_end_utc: pd.Timestamp | None) -> pd.DataFrame:
+    if output_df.empty:
+        return output_df
+    if filter_start_utc is not None:
+        computed_time = pd.to_datetime(output_df['time'], utc=True, errors='coerce')
+        output_df = output_df.loc[computed_time >= filter_start_utc].copy()
+    if filter_end_utc is not None:
+        computed_time = pd.to_datetime(output_df['time'], utc=True, errors='coerce')
+        output_df = output_df.loc[computed_time < filter_end_utc].copy()
+    return output_df
+
+
+def _upsert_feature_frame(db: SupabaseClient, symbol: str, timeframe: str, output_df: pd.DataFrame, upsert_batch_size: int) -> int:
+    records = _build_feature_records(output_df, symbol, timeframe)
+    if records:
+        db._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time', batch_size=upsert_batch_size)
+    return len(records)
+
+
 def _compute_and_upsert_timeframes(
     db: SupabaseClient,
     symbol: str,
@@ -188,42 +221,46 @@ def _compute_and_upsert_timeframes(
     filter_end_utc: pd.Timestamp | None = None,
     daily_rows: list[dict] | None = None,
 ) -> int:
-    if not source_rows:
-        for timeframe in _normalize_timeframes(timeframes):
-            _log_feature_run(symbol, timeframe, mode, 0, 0, 0, None)
-        return 0
-
-    source_df = pd.DataFrame(source_rows)
+    normalized_timeframes = _normalize_timeframes(timeframes)
+    source_df = pd.DataFrame(source_rows or [])
+    daily_df = pd.DataFrame(daily_rows or [])
     total_upserted = 0
-    for timeframe in _normalize_timeframes(timeframes):
+
+    for timeframe in normalized_timeframes:
+        if timeframe == '1d':
+            if daily_df.empty:
+                _log_feature_run(symbol, timeframe, mode, 0, 0, 0, None)
+                continue
+            computed_df = compute_daily_features(daily_df)
+            output_df = _filter_output_by_time(computed_df, filter_start_utc, filter_end_utc)
+            upserted = _upsert_feature_frame(db, symbol, timeframe, output_df, upsert_batch_size)
+            total_upserted += upserted
+            _log_feature_run(symbol, timeframe, mode, len(daily_df), len(computed_df), upserted, output_df)
+            continue
+
+        if source_df.empty:
+            _log_feature_run(symbol, timeframe, mode, 0, 0, 0, None)
+            continue
         aggregated_df = aggregate_timeframe(source_df, timeframe)
         if aggregated_df.empty:
             _log_feature_run(symbol, timeframe, mode, len(source_df), 0, 0, aggregated_df)
             continue
 
-        computed_df = compute_feature_dataframe(aggregated_df, daily_df=pd.DataFrame(daily_rows or []))
-        output_df = computed_df
-        if filter_start_utc is not None:
-            computed_time = pd.to_datetime(output_df['time'], utc=True, errors='coerce')
-            output_df = output_df.loc[computed_time >= filter_start_utc].copy()
-        if filter_end_utc is not None:
-            computed_time = pd.to_datetime(output_df['time'], utc=True, errors='coerce')
-            output_df = output_df.loc[computed_time < filter_end_utc].copy()
-
-        records = _build_feature_records(output_df, symbol, timeframe)
-        if records:
-            db._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time', batch_size=upsert_batch_size)
-        total_upserted += len(records)
-        _log_feature_run(symbol, timeframe, mode, len(source_df), len(computed_df), len(records), output_df)
+        computed_df = compute_intraday_features(aggregated_df, timeframe=timeframe, daily_df=daily_df)
+        output_df = _filter_output_by_time(computed_df, filter_start_utc, filter_end_utc)
+        upserted = _upsert_feature_frame(db, symbol, timeframe, output_df, upsert_batch_size)
+        total_upserted += upserted
+        _log_feature_run(symbol, timeframe, mode, len(source_df), len(computed_df), upserted, output_df)
 
     return total_upserted
-
 
 def calculate_features_for_symbol_full_chunked(symbol, timeframes=None, upsert_batch_size=1000):
     db = SupabaseClient()
     rows = _fetch_stock_intraday_paginated(db=db, symbol=symbol, order_desc=False)
     bounds = _date_bounds_for_daily_context(rows)
     daily_rows = _fetch_stock_daily_rows(db, symbol, bounds[0], bounds[1]) if bounds else []
+    if '1d' in _normalize_timeframes(timeframes) and not daily_rows:
+        daily_rows = _fetch_stock_daily_rows(db, symbol)
     return _compute_and_upsert_timeframes(
         db=db,
         symbol=symbol,
@@ -250,10 +287,11 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
         lt_time=tomorrow_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
         order_desc=False,
     )
-    if not today_rows:
-        for timeframe in _normalize_timeframes(timeframes):
-            _log_feature_run(symbol, timeframe, "incremental", 0, 0, 0, None)
-        return 0
+    normalized_timeframes = _normalize_timeframes(timeframes)
+    if not today_rows and any(tf in INTRADAY_TIMEFRAMES for tf in normalized_timeframes):
+        for timeframe in normalized_timeframes:
+            if timeframe in INTRADAY_TIMEFRAMES:
+                _log_feature_run(symbol, timeframe, "incremental", 0, 0, 0, None)
 
     warmup_rows = _fetch_stock_intraday_paginated(
         db=db,
@@ -263,14 +301,13 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
         limit_total=warmup_bars,
     )
     warmup_rows = list(reversed(warmup_rows))
-    daily_start_vn = (today_start_vn.date() - pd.Timedelta(days=14))
-    daily_rows = _fetch_stock_daily_rows(db, symbol, daily_start_vn, today_start_vn.date())
+    daily_rows = _fetch_stock_daily_rows(db, symbol, end_date=today_start_vn.date(), order_desc=True, limit_total=150)
 
     return _compute_and_upsert_timeframes(
         db=db,
         symbol=symbol,
         source_rows=warmup_rows + today_rows,
-        timeframes=timeframes,
+        timeframes=normalized_timeframes,
         mode='incremental',
         upsert_batch_size=upsert_batch_size,
         filter_start_utc=pd.Timestamp(today_start_utc),

@@ -3,6 +3,7 @@ import pandas as pd
 from src.intraday_value import calculate_trade_value
 
 SUPPORTED_TIMEFRAMES = {'1m', '5m', '15m', '60m', '1d'}
+INTRADAY_TIMEFRAMES = {'1m', '5m', '15m', '60m'}
 
 
 def _fill_missing_value_from_ohlcv(df: pd.DataFrame) -> pd.Series:
@@ -16,83 +17,60 @@ def _fill_missing_value_from_ohlcv(df: pd.DataFrame) -> pd.Series:
     return pd.to_numeric(values, errors='coerce')
 
 
-def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
-    """Aggregate 1m OHLCV rows into a requested feature timeframe.
+def _safe_div(numerator, denominator, index) -> pd.Series:
+    numerator_s = numerator.reindex(index) if isinstance(numerator, pd.Series) else pd.Series(numerator, index=index)
+    denominator_s = denominator.reindex(index) if isinstance(denominator, pd.Series) else pd.Series(denominator, index=index)
+    denominator_s = denominator_s.mask(denominator_s == 0)
+    result = numerator_s / denominator_s
+    return result.replace([float('inf'), float('-inf')], pd.NA)
 
-    `stock_intraday` remains the single source of truth and only stores 1m rows.
-    Higher timeframes are derived in memory before feature calculation.
-    """
-    if timeframe not in SUPPORTED_TIMEFRAMES:
-        raise ValueError(f"Unsupported timeframe: {timeframe}. Supported: {sorted(SUPPORTED_TIMEFRAMES)}")
-    if df.empty:
-        return df.copy()
 
-    # Prefer `value` persisted in stock_intraday; fill legacy nulls from close * volume.
-    required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
+def _prepare_ohlcv(df: pd.DataFrame, required_cols=None) -> pd.DataFrame:
+    required_cols = required_cols or ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns for aggregation: {missing_cols}")
-
+        raise ValueError(f"Missing required columns: {missing_cols}")
     out = df[required_cols].copy()
     out['time'] = pd.to_datetime(out['time'], errors='coerce', utc=True)
-    invalid_time_mask = out['time'].isna()
-    if invalid_time_mask.any():
-        raise ValueError(f"Invalid time values found: {int(invalid_time_mask.sum())} rows")
-
+    if out['time'].isna().any():
+        raise ValueError(f"Invalid time values found: {int(out['time'].isna().sum())} rows")
     for col in ['open', 'high', 'low', 'close', 'volume', 'value']:
         out[col] = pd.to_numeric(out[col], errors='coerce')
     out['value'] = _fill_missing_value_from_ohlcv(out)
-
     out = out.sort_values('time').drop_duplicates(subset=['time'], keep='last')
+    return out.reset_index(drop=True)
+
+
+def aggregate_timeframe(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    """Aggregate stock_intraday 1m OHLCV rows to an intraday feature timeframe.
+
+    The aggregation never crosses Vietnam trading dates or the lunch break.
+    Daily (1d) features are sourced from stock_daily and are intentionally not
+    supported here.
+    """
+    if timeframe not in INTRADAY_TIMEFRAMES:
+        raise ValueError(f"Unsupported intraday timeframe: {timeframe}. Supported: {sorted(INTRADAY_TIMEFRAMES)}")
+    if df.empty:
+        return df.copy()
+    out = _prepare_ohlcv(df)
     if timeframe == '1m':
-        return out.reset_index(drop=True)
+        return out
 
-    rule_by_timeframe = {
-        '5m': '5min',
-        '15m': '15min',
-        '60m': '60min',
-        '1d': '1D',
-    }
-    rule = rule_by_timeframe[timeframe]
-
-    # Resample on Vietnam trading dates so intraday buckets and daily bars do
-    # not cross local-session boundaries. Convert back to UTC for storage.
+    rule = {'5m': '5min', '15m': '15min', '60m': '60min'}[timeframe]
     local = out.copy()
     local['time'] = local['time'].dt.tz_convert('Asia/Ho_Chi_Minh')
     local = local.set_index('time')
     pieces = []
-
-    for _trading_date, day_df in local.groupby(local.index.date):
-        if timeframe == '1d':
-            aggregated = pd.DataFrame([{
-                'time': day_df.index[0].normalize(),
-                'open': day_df['open'].iloc[0],
-                'high': day_df['high'].max(),
-                'low': day_df['low'].min(),
-                'close': day_df['close'].iloc[-1],
-                'volume': day_df['volume'].sum(),
-                'value': day_df['value'].sum(),
-            }])
-        else:
-            aggregated = (
-                day_df
-                .resample(rule, label='left', closed='left')
-                .agg({
-                    'open': 'first',
-                    'high': 'max',
-                    'low': 'min',
-                    'close': 'last',
-                    'volume': 'sum',
-                    'value': 'sum',
-                })
-                .dropna(subset=['open', 'high', 'low', 'close'])
-                .reset_index()
-            )
+    for (_trading_date, session), part in local.groupby([local.index.date, (local.index.hour >= 12)], sort=True):
+        aggregated = (
+            part.resample(rule, label='left', closed='left')
+            .agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum', 'value': 'sum'})
+            .dropna(subset=['open', 'high', 'low', 'close'])
+            .reset_index()
+        )
         pieces.append(aggregated)
-
     if not pieces:
         return out.iloc[0:0].reset_index(drop=True)
-
     result = pd.concat(pieces, ignore_index=True)
     result['time'] = pd.to_datetime(result['time']).dt.tz_convert('UTC')
     return result.sort_values('time').reset_index(drop=True)
@@ -124,112 +102,105 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
 def _build_daily_prev_close_map(daily_df: pd.DataFrame | None) -> dict:
     if daily_df is None or daily_df.empty:
         return {}
-
     required_cols = {'trading_date', 'close_price'}
     missing_cols = required_cols - set(daily_df.columns)
     if missing_cols:
         raise ValueError(f"Missing required columns for daily previous close: {sorted(missing_cols)}")
-
     daily = daily_df[['trading_date', 'close_price']].copy()
     daily['trading_date'] = pd.to_datetime(daily['trading_date'], errors='coerce').dt.date
     daily['close_price'] = pd.to_numeric(daily['close_price'], errors='coerce')
-    daily = daily.dropna(subset=['trading_date', 'close_price'])
-    daily = daily.sort_values('trading_date').drop_duplicates(subset=['trading_date'], keep='last')
+    daily = daily.dropna(subset=['trading_date', 'close_price']).sort_values('trading_date')
+    daily = daily.drop_duplicates(subset=['trading_date'], keep='last')
     daily['prev_close'] = daily['close_price'].shift(1)
     return daily.set_index('trading_date')['prev_close'].dropna().to_dict()
 
 
-def compute_feature_dataframe(df: pd.DataFrame, daily_df: pd.DataFrame | None = None) -> pd.DataFrame:
-    if df.empty:
-        return df.copy()
-
-    # Prefer `value` persisted in stock_intraday; fill legacy nulls from close * volume.
-    required_cols = ['time', 'open', 'high', 'low', 'close', 'volume', 'value']
-    missing_cols = [c for c in required_cols if c not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns for feature calculation: {missing_cols}")
-
-    out = df.copy()
-    out['time'] = pd.to_datetime(out['time'], errors='coerce', utc=True)
-    invalid_time_mask = out['time'].isna()
-    if invalid_time_mask.any():
-        raise ValueError(f"Invalid time values found: {int(invalid_time_mask.sum())} rows")
-
-    out = out.sort_values('time').copy()
-    if out['time'].duplicated().any():
-        dup_count = int(out['time'].duplicated().sum())
-        raise ValueError(f"Duplicate time detected in feature input: {dup_count} rows")
-
-    numeric_price_cols = ['open', 'high', 'low', 'close', 'volume', 'value']
-    for col in numeric_price_cols:
-        out[col] = pd.to_numeric(out[col], errors='coerce')
-    out['value'] = _fill_missing_value_from_ohlcv(out)
-
-    def _safe_div(numerator, denominator) -> pd.Series:
-        numerator_s = numerator.reindex(out.index) if isinstance(numerator, pd.Series) else pd.Series(numerator, index=out.index)
-        denominator_s = denominator.reindex(out.index) if isinstance(denominator, pd.Series) else pd.Series(denominator, index=out.index)
-        denominator_s = denominator_s.mask(denominator_s == 0)
-        result = numerator_s / denominator_s
-        return result.replace([float('inf'), float('-inf')], pd.NA)
-
-    trading_time = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh')
-    date_key = trading_time.dt.date
-
-    # Session-reset returns (computed independently per trading date).
-    out['return_1m'] = out.groupby(date_key)['close'].pct_change(1)
-    out['return_5m'] = out.groupby(date_key)['close'].pct_change(5)
-    out['return_15m'] = out.groupby(date_key)['close'].pct_change(15)
-
-    session_open = out.groupby(date_key)['open'].transform('first')
-    out['return_from_open'] = _safe_div(out['close'], session_open) - 1
-
-    # Previous-close return: prefer stock_daily previous available trading-day
-    # close, then fall back to the previous intraday session close. Both maps are
-    # keyed by Vietnam trading date and only use dates before the current bar's
-    # session, so same-day future closes cannot leak into intraday features.
-    session_close_by_date = out.groupby(date_key)['close'].last()
-    prev_intraday_close_map = session_close_by_date.shift(1).to_dict()
-    daily_prev_close_map = _build_daily_prev_close_map(daily_df)
-    prev_close_values = [
-        daily_prev_close_map.get(trading_date, prev_intraday_close_map.get(trading_date))
-        for trading_date in date_key
-    ]
-    out['return_from_prev_close'] = _safe_div(out['close'], pd.Series(prev_close_values, index=out.index)) - 1
-
-    # Continuous intraday trend features (do not reset by session).
+def _add_common_features(out: pd.DataFrame, date_key, daily_df: pd.DataFrame | None, reset_volume_by_day: bool) -> pd.DataFrame:
+    out['return_from_open'] = _safe_div(out['close'], out.groupby(date_key)['open'].transform('first'), out.index) - 1
+    prev_close_map = _build_daily_prev_close_map(daily_df)
+    prev_close_values = [prev_close_map.get(trading_date) for trading_date in date_key]
+    out['return_from_prev_close'] = _safe_div(out['close'], pd.Series(prev_close_values, index=out.index), out.index) - 1
     out['ema9'] = out['close'].ewm(span=9, adjust=False, min_periods=9).mean()
     out['ema20'] = out['close'].ewm(span=20, adjust=False, min_periods=20).mean()
     out['ema50'] = out['close'].ewm(span=50, adjust=False, min_periods=50).mean()
     out['ema9_above_ema20'] = out['ema9'] > out['ema20']
     out['ema20_above_ema50'] = out['ema20'] > out['ema50']
-
-    # Continuous intraday momentum features (do not reset by session).
-    out['rsi14'] = calculate_rsi(out['close'], period=14)
+    out['rsi14'] = calculate_rsi(out['close'])
     out['macd'], out['macd_signal'], out['macd_histogram'] = calculate_macd(out['close'])
-
-    # Session-reset volume features (no cross-date leakage).
-    out['volume_ma20'] = out.groupby(date_key)['volume'].transform(lambda s: s.rolling(20).mean())
-    out['volume_ratio'] = _safe_div(out['volume'], out['volume_ma20'])
-    out['value_ma20'] = out.groupby(date_key)['value'].transform(lambda s: s.rolling(20).mean())
-    out['value_ratio'] = _safe_div(out['value'], out['value_ma20'])
-
-    # Session-reset breakout features with shift(1) to avoid lookahead.
-    out['high_20_bars'] = out.groupby(date_key)['high'].transform(lambda s: s.shift(1).rolling(20).max())
-    out['low_20_bars'] = out.groupby(date_key)['low'].transform(lambda s: s.shift(1).rolling(20).min())
+    roller = out.groupby(date_key) if reset_volume_by_day else None
+    out['volume_ma20'] = (roller['volume'].transform(lambda s: s.rolling(20).mean()) if reset_volume_by_day else out['volume'].rolling(20).mean())
+    out['volume_ratio'] = _safe_div(out['volume'], out['volume_ma20'], out.index)
+    out['value_ma20'] = (roller['value'].transform(lambda s: s.rolling(20).mean()) if reset_volume_by_day else out['value'].rolling(20).mean())
+    out['value_ratio'] = _safe_div(out['value'], out['value_ma20'], out.index)
+    high_source = out.groupby(date_key)['high'] if reset_volume_by_day else out['high']
+    low_source = out.groupby(date_key)['low'] if reset_volume_by_day else out['low']
+    out['high_20_bars'] = high_source.transform(lambda s: s.shift(1).rolling(20).max()) if reset_volume_by_day else high_source.shift(1).rolling(20).max()
+    out['low_20_bars'] = low_source.transform(lambda s: s.shift(1).rolling(20).min()) if reset_volume_by_day else low_source.shift(1).rolling(20).min()
     out['close_above_high_20'] = out['close'] > out['high_20_bars']
     out['close_below_low_20'] = out['close'] < out['low_20_bars']
-
-    # Session-reset VWAP features.
-    cum_value = out.groupby(date_key)['value'].cumsum()
-    cum_volume = out.groupby(date_key)['volume'].cumsum()
-    out['vwap_intraday'] = _safe_div(cum_value, cum_volume)
-    out['close_above_vwap'] = out['close'] > out['vwap_intraday']
-    out['distance_to_vwap_pct'] = _safe_div(out['close'] - out['vwap_intraday'], out['vwap_intraday'])
-
-    # Session-independent candle geometry per bar.
     out['candle_range'] = out['high'] - out['low']
     out['candle_body'] = out['close'] - out['open']
-    out['candle_body_pct'] = _safe_div(out['candle_body'], out['open'])
-    out['close_position_in_candle'] = _safe_div(out['close'] - out['low'], out['candle_range'])
-
+    out['candle_body_pct'] = _safe_div(out['candle_body'], out['open'], out.index)
+    out['close_position_in_candle'] = _safe_div(out['close'] - out['low'], out['candle_range'], out.index)
     return out
+
+
+def compute_intraday_features(df: pd.DataFrame, timeframe: str, daily_df: pd.DataFrame | None = None) -> pd.DataFrame:
+    if timeframe not in INTRADAY_TIMEFRAMES:
+        raise ValueError(f"Unsupported intraday timeframe: {timeframe}")
+    if df.empty:
+        return df.copy()
+    out = _prepare_ohlcv(df)
+    if out['time'].duplicated().any():
+        raise ValueError("Duplicate time detected in feature input")
+    date_key = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh').dt.date
+    out['return_1m'] = out.groupby(date_key)['close'].pct_change(1) if timeframe == '1m' else pd.NA
+    out['return_5m'] = out.groupby(date_key)['close'].pct_change(5 if timeframe == '1m' else 1) if timeframe in {'1m', '5m'} else pd.NA
+    out['return_15m'] = out.groupby(date_key)['close'].pct_change(15 if timeframe == '1m' else 3 if timeframe == '5m' else 1) if timeframe in {'1m', '5m', '15m'} else pd.NA
+    out = _add_common_features(out, date_key, daily_df, reset_volume_by_day=True)
+    cum_value = out.groupby(date_key)['value'].cumsum()
+    cum_volume = out.groupby(date_key)['volume'].cumsum()
+    out['vwap_intraday'] = _safe_div(cum_value, cum_volume, out.index)
+    out['close_above_vwap'] = out['close'] > out['vwap_intraday']
+    out['distance_to_vwap_pct'] = _safe_div(out['close'] - out['vwap_intraday'], out['vwap_intraday'], out.index)
+    return out
+
+
+def _daily_to_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+    required = ['trading_date', 'open_price', 'highest_price', 'lowest_price', 'close_price']
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns for daily feature calculation: {missing}")
+    out = pd.DataFrame({
+        'time': pd.to_datetime(df['trading_date'], errors='coerce').dt.tz_localize('Asia/Ho_Chi_Minh').dt.tz_convert('UTC'),
+        'open': pd.to_numeric(df['open_price'], errors='coerce'),
+        'high': pd.to_numeric(df['highest_price'], errors='coerce'),
+        'low': pd.to_numeric(df['lowest_price'], errors='coerce'),
+        'close': pd.to_numeric(df['close_price'], errors='coerce'),
+        'volume': pd.to_numeric(df.get('total_traded_vol', df.get('total_match_vol')), errors='coerce'),
+        'value': pd.to_numeric(df.get('total_traded_value', df.get('total_match_val')), errors='coerce'),
+    })
+    out = out.dropna(subset=['time']).sort_values('time').drop_duplicates(subset=['time'], keep='last').reset_index(drop=True)
+    return out
+
+
+def compute_daily_features(daily_df: pd.DataFrame) -> pd.DataFrame:
+    if daily_df.empty:
+        return pd.DataFrame()
+    out = _daily_to_ohlcv(daily_df)
+    date_key = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh').dt.date
+    out['return_1m'] = pd.NA
+    out['return_5m'] = pd.NA
+    out['return_15m'] = pd.NA
+    out = _add_common_features(out, date_key, daily_df, reset_volume_by_day=False)
+    out['vwap_intraday'] = pd.NA
+    out['close_above_vwap'] = pd.NA
+    out['distance_to_vwap_pct'] = pd.NA
+    return out
+
+
+def compute_feature_dataframe(df: pd.DataFrame, daily_df: pd.DataFrame | None = None, timeframe: str = '1m') -> pd.DataFrame:
+    """Backward-compatible wrapper. New code should call specific functions."""
+    if timeframe == '1d':
+        return compute_daily_features(df)
+    return compute_intraday_features(df, timeframe=timeframe, daily_df=daily_df)

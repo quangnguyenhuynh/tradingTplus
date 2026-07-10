@@ -221,7 +221,7 @@ def test_return_from_prev_close_prefers_stock_daily_previous_close():
     assert feats.iloc[1]['return_from_prev_close'] == ((20.5 / 99) - 1)
 
 
-def test_return_from_prev_close_falls_back_to_previous_intraday_session():
+def test_return_from_prev_close_without_stock_daily_is_null():
     rows = [
         _mk_row('2026-05-19T02:00:00Z', 0),
         _mk_row('2026-05-19T02:01:00Z', 1),
@@ -230,7 +230,7 @@ def test_return_from_prev_close_falls_back_to_previous_intraday_session():
 
     feats = fe.compute_feature_dataframe(pd.DataFrame(rows))
 
-    assert feats.iloc[2]['return_from_prev_close'] == ((20.5 / 11.5) - 1)
+    assert pd.isna(feats.iloc[2]['return_from_prev_close'])
 
 
 def test_aggregate_timeframe_does_not_cross_vietnam_trading_date_boundary():
@@ -248,3 +248,66 @@ def test_aggregate_timeframe_does_not_cross_vietnam_trading_date_boundary():
     assert agg.iloc[0]['close'] == 11.5
     assert agg.iloc[1]['time'] == pd.Timestamp('2026-05-20T17:00:00Z')
     assert agg.iloc[1]['close'] == 13.5
+
+
+def _mk_daily(date: str, i: int):
+    return {
+        'trading_date': date,
+        'open_price': 100 + i,
+        'highest_price': 110 + i,
+        'lowest_price': 90 + i,
+        'close_price': 105 + i,
+        'total_traded_vol': 1000 + i,
+        'total_traded_value': 10000 + i,
+    }
+
+
+def test_daily_features_are_computed_from_stock_daily_and_vwap_is_null():
+    daily = pd.DataFrame([_mk_daily(f'2026-05-{day:02d}', day) for day in range(1, 25)])
+
+    feats = fe.compute_daily_features(daily)
+
+    assert len(feats) == 24
+    assert feats.iloc[-1]['open'] == 124
+    assert feats.iloc[-1]['volume_ma20'] == sum(1000 + day for day in range(5, 25)) / 20
+    assert pd.isna(feats.iloc[-1]['vwap_intraday'])
+    assert pd.isna(feats.iloc[-1]['return_1m'])
+
+
+def test_daily_breakout_uses_previous_20_bars_without_lookahead():
+    rows = [_mk_daily(f'2026-05-{day:02d}', day) for day in range(1, 22)]
+    rows[-1]['highest_price'] = 999
+    rows[-1]['close_price'] = 200
+
+    feats = fe.compute_daily_features(pd.DataFrame(rows))
+
+    assert feats.iloc[-1]['high_20_bars'] == max(110 + day for day in range(1, 21))
+    assert bool(feats.iloc[-1]['close_above_high_20']) is True
+
+
+def test_intraday_vwap_and_volume_ma20_reset_each_day():
+    rows = []
+    for d in ['2026-05-20', '2026-05-21']:
+        base = pd.Timestamp(f'{d}T02:00:00Z')
+        for i in range(21):
+            rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
+
+    feats = fe.compute_intraday_features(pd.DataFrame(rows), timeframe='1m')
+
+    second_day = feats.iloc[21:]
+    assert pd.isna(second_day.iloc[18]['volume_ma20'])
+    assert second_day.iloc[19]['volume_ma20'] == sum(100 + i for i in range(20)) / 20
+    assert second_day.iloc[0]['vwap_intraday'] == second_day.iloc[0]['value'] / second_day.iloc[0]['volume']
+
+
+def test_return_columns_match_timeframe_semantics():
+    rows = [_mk_row((pd.Timestamp('2026-05-20T02:00:00Z') + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i) for i in range(20)]
+
+    feats_5m = fe.compute_intraday_features(fe.aggregate_timeframe(pd.DataFrame(rows), '5m'), timeframe='5m')
+    feats_15m = fe.compute_intraday_features(fe.aggregate_timeframe(pd.DataFrame(rows), '15m'), timeframe='15m')
+    feats_60m = fe.compute_intraday_features(fe.aggregate_timeframe(pd.DataFrame(rows), '60m'), timeframe='60m')
+
+    assert feats_5m['return_1m'].isna().all()
+    assert feats_5m['return_5m'].notna().any()
+    assert feats_15m['return_1m'].isna().all() and feats_15m['return_5m'].isna().all()
+    assert feats_60m[['return_1m', 'return_5m', 'return_15m']].isna().all().all()

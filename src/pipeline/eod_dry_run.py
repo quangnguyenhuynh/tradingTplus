@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.engine.feature_calculator import aggregate_timeframe, compute_feature_dataframe
+from src.engine.feature_calculator import aggregate_timeframe, compute_daily_features, compute_intraday_features
 from src.engine.feature_engine import FEATURE_COLUMNS, _normalize_timeframes
 from src.pipeline.fetch_one_day import (
     build_intraday_records,
@@ -135,8 +135,11 @@ def _build_symbol_summary(ssi: SSIApi, date: str, symbol: str, timeframes: list[
     daily_df = pd.DataFrame([stock_daily_record]) if stock_daily_record else None
     last_feature_df = pd.DataFrame()
     for timeframe in _normalize_timeframes(timeframes):
-        aggregated_df = aggregate_timeframe(source_df, timeframe)
-        feature_df = compute_feature_dataframe(aggregated_df, daily_df=daily_df) if not aggregated_df.empty else aggregated_df
+        if timeframe == "1d":
+            feature_df = compute_daily_features(daily_df) if daily_df is not None else pd.DataFrame()
+        else:
+            aggregated_df = aggregate_timeframe(source_df, timeframe)
+            feature_df = compute_intraday_features(aggregated_df, timeframe=timeframe, daily_df=daily_df) if not aggregated_df.empty else aggregated_df
         last_feature_df = feature_df
         row_count = len(feature_df)
         summary["feature_timeframes_calculated"].append(timeframe)
