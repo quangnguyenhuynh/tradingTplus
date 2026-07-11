@@ -8,7 +8,7 @@ from src.pipeline.daily import daily_run
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy
 from src.pipeline.ingest_check import check_ingest
 
-DEFAULT_EOD_TIMEFRAMES = ("1m", "5m", "15m")
+DEFAULT_EOD_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")
 
 
 def _resolve_eod_date(date: str | None) -> str:
@@ -53,10 +53,12 @@ def run_eod_pipeline(
     timeframes: list[str] | tuple[str, ...] | None = None,
     symbols: list[str] | tuple[str, ...] | None = None,
 ) -> dict:
-    """Run the end-of-day ingest + feature pipeline.
+    """Run EOD: daily ingest, ingest validation, then feature calculation.
 
-    The EOD task intentionally stops after feature generation. Signal and
-    backtest jobs are left for separate workflows.
+    EOD intentionally stops after features in this phase. Future signal,
+    outcome/backtest, statistics, and reports are explicit placeholders below.
+    The 1d timeframe is calculated by the feature engine from stock_daily, not
+    by aggregating intraday bars.
     """
     eod_date = _resolve_eod_date(date)
     feature_timeframes = tuple(timeframes or DEFAULT_EOD_TIMEFRAMES)
@@ -77,9 +79,11 @@ def run_eod_pipeline(
     if failures:
         status = "FAILED"
         result = {
+            "flow": "eod",
             "date": eod_date,
             "ingest_summary": ingest_summary,
-            "feature_records": 0,
+            "daily_summary": fetch_summary,
+            "feature_records": {tf: 0 for tf in feature_timeframes},
             "status": status,
             "failures": failures,
         }
@@ -93,20 +97,29 @@ def run_eod_pipeline(
     if int(feature_records or 0) == 0:
         status = "FAILED"
         result = {
+            "flow": "eod",
             "date": eod_date,
             "ingest_summary": ingest_summary,
-            "feature_records": feature_records,
+            "daily_summary": fetch_summary,
+            "feature_records": {tf: 0 for tf in feature_timeframes} | {"total": feature_records},
             "status": status,
             "failures": ["feature_records == 0"],
         }
         print(f"❌ Final status {status}: feature_records == 0")
         raise RuntimeError("EOD pipeline failed: feature_records == 0")
 
+    # TODO phase 2:
+    # signal_summary = run_signal_engine(...)
+    # backtest_stats = lookup_backtest_stats(...)
+    # statistics_report = build_eod_report(...)
+
     status = "OK"
     result = {
+        "flow": "eod",
         "date": eod_date,
+        "daily_summary": fetch_summary,
         "ingest_summary": ingest_summary,
-        "feature_records": feature_records,
+        "feature_records": {tf: 0 for tf in feature_timeframes} | {"total": feature_records},
         "status": status,
     }
     print(f"✅ Final status {status}")
