@@ -1,17 +1,17 @@
 # tradingTplus
 
-Pipeline thu thập dữ liệu SSI -> Supabase, sau đó tính feature kỹ thuật và sinh trading signal.
+Pipeline thu thập dữ liệu SSI -> Supabase, tính feature kỹ thuật theo luồng vận hành rõ ràng; signal/backtest không tự chạy trong Daily/EOD/Intraday phase hiện tại.
 
 ## Cấu trúc repo
 
-- `main.py`: CLI entrypoint cho các tác vụ ingest.
+- `main.py`: CLI entrypoint ngắn cho production flows (`sync-master-data`, `daily`, `eod`, `intraday`).
 - `src/ssi/`: client gọi SSI API.
-- `src/pipeline/`: luồng `init`, `daily`, `backfill`, `fetch_one_day`.
+- `src/pipeline/`: orchestration cho Daily ingest, EOD, Intraday, master data và ingest checks.
 - `src/database/`: Supabase client + các hàm insert/upsert.
 - `src/engine/feature_engine.py`: load dữ liệu 1m, aggregate timeframe và tính indicator/features.
 - `src/engine/signal_engine.py`: sinh signal từ features.
 - `src/engine/backtest_engine.py`: backtest MVP từ `features` + `trading_signals`.
-- `scripts/`: script hỗ trợ kiểm tra kết nối API/DB và chạy sample backfill.
+- `scripts/`: manual/debug/smoke/maintenance tools; các tool có khả năng ghi dữ liệu yêu cầu `--write` rõ ràng khi phù hợp.
 
 ## Quick start
 
@@ -35,10 +35,11 @@ SSI_CONSUMER_SECRET=
 
 ```bash
 python main.py init
-python main.py backfill 2024-01-01 2024-12-31
+python main.py sync-master-data
 python main.py daily
 python main.py daily 20/05/2026
-python main.py test SSI 20/05/2026
+python main.py eod 20/05/2026
+python main.py intraday --symbols SSI HPG
 ```
 
 ## Scripts hỗ trợ
@@ -48,17 +49,18 @@ python scripts/check_ssi_api.py
 python scripts/check_supabase.py
 python scripts/check_symbols.py
 python scripts/backfill_sample.py
+python scripts/fetch_one_day.py --symbol SSI --date 20/05/2026 --dry-run
 ```
 
 ## Ghi chú vận hành
 
-- `daily` và `backfill` mặc định theo múi giờ VN (UTC+7).
-- `backfill` yêu cầu format `YYYY-MM-DD`.
+- `daily`, `eod`, và `intraday` mặc định theo múi giờ VN (UTC+7).
+- `daily` chỉ ingest; `eod` ingest + validate + feature; `intraday` xử lý incremental intraday feature.
 - Khi parse timestamp intraday lỗi, hệ thống sẽ bỏ qua candle lỗi thay vì ghi dữ liệu sai thời gian.
 
 ## Trạng thái flow hiện tại
 
-- ✅ Ingest: `init`, `backfill`, `daily`, `test` đã chạy được qua `main.py`.
+- ✅ Production CLI: `init`/`sync-master-data`, `daily`, `eod`, `intraday` chạy qua `main.py`; test/debug/manual chạy qua `scripts/`.
 - ✅ Feature: có engine tính indicator cho `1m`, `5m`, `15m`, `60m`, `1d` và lưu vào bảng `features`.
 - ✅ Timeframe: `stock_intraday` chỉ lưu 1m; các timeframe cao hơn được aggregate trong bộ nhớ từ 1m trước khi tính feature.
 - ✅ Signal: có engine sinh tín hiệu rule-based và lưu `trading_signals`.
@@ -122,7 +124,8 @@ Use this guarded flow before any real SSI backfill:
    ```
 6. Run real backfills only after the smoke checks pass. The sample runner has no hardcoded defaults and requires explicit symbols/date range:
    ```bash
-   python scripts/backfill_sample.py --from-date YYYY-MM-DD --to-date YYYY-MM-DD --symbols SSI FPT
+   python scripts/backfill_sample.py
+python scripts/fetch_one_day.py --symbol SSI --date 20/05/2026 --dry-run --from-date YYYY-MM-DD --to-date YYYY-MM-DD --symbols SSI FPT
    ```
 
 If an accidental smoke-test write must be removed, edit and run `sql/cleanup_accidental_ssi_smoke_records.sql` for the exact symbol/date.
@@ -131,8 +134,10 @@ If an accidental smoke-test write must be removed, edit and run `sql/cleanup_acc
 
 - `python main.py sync-master-data` (alias of `init`) syncs symbols, securities, indexes, and index components.
 - `python main.py daily DD/MM/YYYY` ingests stock daily/raw daily, 1m intraday, foreign trading, and daily index data only; feature calculation is intentionally disabled in this ingest step.
-- `python main.py snapshot-orderbook SSI FPT` writes an orderbook/bid-ask snapshot for the provided symbols, or all DB symbols if no symbols are provided. If the SSI account/endpoint does not support orderbook data, the pipeline logs `unsupported/missing endpoint` and continues.
-- `python main.py check-ingest DD/MM/YYYY` prints symbol, securities, stock daily, intraday, index daily, foreign trading, and orderbook snapshot counts plus missing stock-daily symbols.
+- `python main.py eod DD/MM/YYYY` runs daily ingest, ingest validation, and feature calculation for `1m`, `5m`, `15m`, `60m`, and `1d`.
+- `python main.py intraday --symbols SSI FPT` runs the intraday incremental feature flow without daily ingest.
+- `python scripts/snapshot_orderbook.py SSI FPT --write` writes an orderbook/bid-ask snapshot manually. If the SSI account/endpoint does not support orderbook data, the pipeline logs `unsupported/missing endpoint` and continues.
+- `python scripts/check_ingest.py --date DD/MM/YYYY` prints symbol, securities, stock daily, intraday, index daily, foreign trading, and orderbook snapshot counts plus missing stock-daily symbols.
 
 ### SSI API endpoint source note
 
@@ -187,8 +192,8 @@ python scripts/test_ssi_streaming_parser.py
 Snapshot orderbook via SignalR:
 
 ```bash
-python main.py snapshot-orderbook SSI
-python main.py snapshot-orderbook --debug --timeout 30 SSI
+python scripts/snapshot_orderbook.py SSI --write
+python scripts/snapshot_orderbook.py --debug --timeout 30 SSI --write
 ```
 
 ### Debug SignalR negotiate
@@ -213,3 +218,35 @@ Classic SignalR test command:
 python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --raw
 python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --write
 ```
+
+## CLI production flows (refactored)
+
+Exit code convention: `0` means OK/PARTIAL, `1` means FAILED, and `2` means invalid CLI arguments.
+
+### Production commands
+
+```bash
+python main.py sync-master-data
+python main.py init
+python main.py daily 10/07/2026
+python main.py eod 10/07/2026
+python main.py intraday --symbols SSI HPG
+```
+
+- `daily` is SSI end-of-day ingest only: `raw_daily`, `stock_daily`, daily `raw_intraday` 1m, `stock_intraday` 1m, `foreign_trading`, and `index_daily`. It does not calculate features, signals, backtests, or investment decisions.
+- `eod` runs daily ingest, ingest validation, and incremental feature calculation for `1m`, `5m`, `15m`, `60m`, and `1d`. The `1d` feature timeframe is sourced from `stock_daily`, not aggregated from intraday bars. Signal and backtest steps are placeholders for a later phase.
+- `intraday` runs the in-session incremental feature flow for existing `stock_intraday` data. It supports all symbols by default or a focused subset via `--symbols`; signal, backtest-stat lookup, and alerting are placeholders for a later phase.
+
+### Manual and maintenance commands
+
+```bash
+python scripts/run_features.py --mode incremental --symbols SSI HPG --timeframes 1m 5m 15m 1d
+python scripts/check_ingest.py --date 10/07/2026
+python scripts/eod_dry_run.py --date 10/07/2026 --symbols SSI HPG --timeframes 1m 5m 15m 1d --json
+python scripts/fetch_one_day.py --symbol SSI --date 10/07/2026 --dry-run
+python scripts/fetch_one_day.py --symbol SSI --date 10/07/2026 --write
+python scripts/snapshot_orderbook.py SSI HPG --timeout 30 --debug --write
+python scripts/snapshot_stream.py --symbols SSI HPG --indexes VNINDEX VN30 --timeout 60 --limit 20 --write
+```
+
+Manual/debug/smoke tools live in `scripts/` and use `argparse` with a `main()` guard. Scripts that can write data default to read-only/dry-run unless `--write` is explicitly supplied.

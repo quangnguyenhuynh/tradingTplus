@@ -36,10 +36,10 @@ def test_run_eod_pipeline_calls_steps_in_order(monkeypatch):
     assert calls == [
         ('daily_run', '05/07/2024'),
         ('check_ingest', '05/07/2024'),
-        ('run_feature_engine', None, 'incremental', ('1m', '5m', '15m')),
+        ('run_feature_engine', None, 'incremental', ('1m', '5m', '15m', '60m', '1d')),
     ]
     assert result['date'] == '05/07/2024'
-    assert result['feature_records'] == 42
+    assert result['feature_records']['total'] == 42
     assert result['status'] == 'OK'
 
 

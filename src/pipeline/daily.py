@@ -9,12 +9,14 @@ from src.pipeline.date_utils import latest_previous_weekday
 VN_TZ = timezone(timedelta(hours=7))
 
 
-def daily_run(date: str = None):
-    """
-    Lấy dữ liệu cho 1 ngày (mặc định là hôm qua)
-    
+def run_daily_ingest(date: str = None):
+    """Ingest SSI end-of-day data only; does not compute features/signals/backtests.
+
+    Flow: SSI API -> raw_daily -> stock_daily -> raw_intraday 1m ->
+    stock_intraday 1m -> foreign_trading -> index_daily.
+
     Args:
-        date: DD/MM/YYYY (None = hôm qua)
+        date: DD/MM/YYYY (None = latest previous weekday)
     """
     if date is None:
         date = latest_previous_weekday().strftime("%d/%m/%Y")
@@ -70,3 +72,7 @@ def daily_run(date: str = None):
         'errors': errors,
         'status': status,
     }
+
+
+# Backward-compatible alias for older imports.
+daily_run = run_daily_ingest
