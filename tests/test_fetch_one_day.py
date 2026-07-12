@@ -46,7 +46,15 @@ def _daily():
     return {
         'RefPrice': '10.1',
         'CeilingPrice': '11.1',
-        'FloorPrice': '9.1',
+        'FloorPrice': '9.0',
+        'OpenPrice': '10.2',
+        'HighestPrice': '10.8',
+        'LowestPrice': '9.8',
+        'ClosePrice': '10.5',
+        'TotalMatchVol': '200',
+        'TotalMatchVal': '2100',
+        'TotalTradedVol': '200',
+        'TotalTradedValue': '2100',
     }
 
 

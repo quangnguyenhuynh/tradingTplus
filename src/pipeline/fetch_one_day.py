@@ -8,6 +8,9 @@ from typing import Any
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.intraday_value import calculate_trade_value
+from src.validation.daily_validator import validate_daily_record
+from src.validation.intraday_validator import validate_intraday_batch, validate_intraday_record
+from src.validation.logging_utils import log_validation_result
 
 
 logger = logging.getLogger(__name__)
@@ -237,16 +240,53 @@ def save_intraday_records(
     return len(clean_records)
 
 
+def _deduplicate_intraday_records(records: list[dict]) -> list[dict]:
+    """Keep the last input record for each symbol/timeframe/time key, then sort by time."""
+    keyed: dict[tuple[Any, Any, Any], tuple[int, dict]] = {}
+    for index, record in enumerate(records):
+        keyed[(record.get("symbol"), record.get("timeframe"), record.get("time"))] = (index, record)
+    return [record for _index, record in sorted(keyed.values(), key=lambda item: (item[1].get("time") or "", item[0]))]
+
+
+def _log_ingest_summary(summary: dict) -> None:
+    logger.info(
+        "%s %s\ndaily:\n  valid: %s\n  errors: %s\n  warnings: %s\nintraday:\n  received: %s\n  valid: %s\n  rejected: %s\n  batch_errors: %s\n  batch_warnings: %s",
+        summary["symbol"],
+        summary["date"],
+        "yes" if summary["daily_valid"] else "no",
+        summary["daily_errors"],
+        summary["daily_warnings"],
+        summary["intraday_received"],
+        summary["intraday_valid"],
+        summary["intraday_rejected"],
+        summary["intraday_batch_errors"],
+        summary["intraday_batch_warnings"],
+    )
+
+
 def fetch_one_day_with_clients(
     ssi: SSIApi,
     db: SupabaseClient,
     symbol: str,
     date: str,
 ) -> int:
-    """Fetch, transform, and save one trading day using existing clients."""
+    """Fetch, transform, validate, and save one trading day using existing clients."""
+    summary = {
+        "symbol": symbol,
+        "date": date,
+        "daily_valid": False,
+        "daily_errors": 0,
+        "daily_warnings": 0,
+        "intraday_received": 0,
+        "intraday_valid": 0,
+        "intraday_rejected": 0,
+        "intraday_batch_errors": 0,
+        "intraday_batch_warnings": 0,
+    }
     daily = fetch_daily_price(ssi, symbol, date)
     if not daily:
-        print(f"  ⚠️ {symbol}: không có dữ liệu ngày {date}")
+        logger.warning("%s: không có dữ liệu ngày %s", symbol, date)
+        _log_ingest_summary(summary)
         return 0
 
     raw_daily_record = build_raw_daily_record(symbol, date, daily)
@@ -254,17 +294,53 @@ def fetch_one_day_with_clients(
         db.upsert_raw_daily([raw_daily_record])
 
     stock_daily_record = build_stock_daily_record(symbol, date, daily)
-    if stock_daily_record:
+    daily_validation = validate_daily_record(stock_daily_record) if stock_daily_record else None
+    if daily_validation:
+        summary["daily_valid"] = daily_validation.is_valid
+        summary["daily_errors"] = len(daily_validation.errors)
+        summary["daily_warnings"] = len(daily_validation.warnings)
+        log_validation_result(daily_validation, "stock_daily", {"symbol": symbol, "trading_date": stock_daily_record.get("trading_date")})
+    if stock_daily_record and daily_validation and daily_validation.is_valid:
         db.upsert_stock_daily([stock_daily_record])
 
     candles = fetch_intraday_candles(ssi, symbol, date)
+    summary["intraday_received"] = len(candles)
     if not candles:
-        print(f"  ⚠️ {symbol}: không có dữ liệu intraday")
+        logger.warning("%s: không có dữ liệu intraday", symbol)
+        _log_ingest_summary(summary)
         return 0
 
     raw_records, clean_records = build_intraday_records(symbol, date, daily, candles)
-    count = save_intraday_records(db, raw_records, clean_records)
-    print(f"  ✅ {symbol}: {count} candles")
+    if raw_records:
+        db.upsert_raw(raw_records)
+
+    if not (stock_daily_record and daily_validation and daily_validation.is_valid):
+        logger.error("%s %s: daily validation failed; skipping stock_intraday clean records", symbol, date)
+        summary["intraday_rejected"] = len(clean_records)
+        _log_ingest_summary(summary)
+        return 0
+
+    individual_valid_records: list[dict] = []
+    for record in clean_records:
+        result = validate_intraday_record(record)
+        log_validation_result(result, "stock_intraday", {"symbol": symbol, "time": record.get("time")})
+        if result.is_valid:
+            individual_valid_records.append(record)
+
+    batch_result = validate_intraday_batch(individual_valid_records, daily_record=stock_daily_record)
+    log_validation_result(batch_result, "stock_intraday", {"symbol": symbol, "trading_date": stock_daily_record.get("trading_date")})
+    records_to_save = individual_valid_records
+    if any(issue.code == "INTRADAY_DUPLICATE_TIMESTAMP" for issue in batch_result.errors):
+        records_to_save = _deduplicate_intraday_records(individual_valid_records)
+
+    if records_to_save:
+        db.upsert_intraday(records_to_save)
+    count = len(records_to_save)
+    summary["intraday_valid"] = count
+    summary["intraday_rejected"] = len(clean_records) - len(individual_valid_records) + (len(individual_valid_records) - len(records_to_save))
+    summary["intraday_batch_errors"] = len(batch_result.errors)
+    summary["intraday_batch_warnings"] = len(batch_result.warnings)
+    _log_ingest_summary(summary)
     return count
 
 
