@@ -1,0 +1,46 @@
+name: TradingTPlus Feature Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional target date DD/MM/YYYY for incremental mode"
+        required: false
+        type: string
+      mode:
+        description: "Feature mode"
+        required: false
+        default: "incremental"
+        type: choice
+        options:
+          - incremental
+          - full
+      symbols:
+        description: "Optional space-separated symbols, e.g. SSI HPG"
+        required: false
+        type: string
+      timeframes:
+        description: "Optional space-separated timeframes, e.g. 1m 5m 15m 60m 1d"
+        required: false
+        type: string
+
+jobs:
+  features:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run explicit feature pipeline
+        shell: bash
+        run: |
+          cmd=(python main.py features --mode "${{ inputs.mode }}")
+          if [ -n "${{ inputs.date }}" ]; then cmd+=(--date "${{ inputs.date }}"); fi
+          if [ -n "${{ inputs.symbols }}" ]; then cmd+=(--symbols ${{ inputs.symbols }}); fi
+          if [ -n "${{ inputs.timeframes }}" ]; then cmd+=(--timeframes ${{ inputs.timeframes }}); fi
+          "${cmd[@]}"

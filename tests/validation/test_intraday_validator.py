@@ -131,3 +131,22 @@ def test_empty_batch_warning():
 
 def test_duplicate_batch_invalid():
     assert not validate_intraday_batch([candle(), candle()]).is_valid
+
+def test_1129_to_1300_reports_missing_before_lunch():
+    result = validate_intraday_batch([candle("2026-07-10T04:29:00Z"), candle("2026-07-10T06:00:00Z")])
+    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+
+
+def test_1130_to_1302_reports_missing_after_lunch():
+    result = validate_intraday_batch([candle("2026-07-10T04:30:00Z"), candle("2026-07-10T06:02:00Z")])
+    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+
+
+def test_large_gap_crossing_lunch_is_not_ignored():
+    result = validate_intraday_batch([candle("2026-07-10T02:15:00Z"), candle("2026-07-10T07:45:00Z")])
+    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+
+
+def test_gap_across_trading_dates_not_counted_as_same_session_gap():
+    result = validate_intraday_batch([candle("2026-07-10T08:00:00Z"), candle("2026-07-13T02:00:00Z")])
+    assert "INTRADAY_MISSING_INTERVAL" not in codes(result)

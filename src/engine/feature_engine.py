@@ -22,6 +22,30 @@ UTC_TZ = ZoneInfo("UTC")
 SOURCE_TIMEFRAME = '1m'
 DEFAULT_FEATURE_TIMEFRAMES = ('1m', '5m', '15m', '60m', '1d')
 
+
+
+def _normalize_target_date(target_date=None) -> date:
+    if target_date is None:
+        return datetime.now(VN_TZ).date()
+    if isinstance(target_date, datetime):
+        return target_date.astimezone(VN_TZ).date() if target_date.tzinfo else target_date.date()
+    if isinstance(target_date, date):
+        return target_date
+    text = str(target_date).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    raise ValueError(f"target_date must be date, YYYY-MM-DD, or DD/MM/YYYY; got {target_date!r}")
+
+
+def _target_utc_bounds(target_date=None) -> tuple[pd.Timestamp, pd.Timestamp, date]:
+    target = _normalize_target_date(target_date)
+    start_vn = datetime.combine(target, datetime.min.time(), tzinfo=VN_TZ)
+    end_vn = start_vn + pd.Timedelta(days=1)
+    return pd.Timestamp(start_vn.astimezone(UTC_TZ)), pd.Timestamp(end_vn.astimezone(UTC_TZ)), target
+
 FEATURE_COLUMNS = [
     'open', 'high', 'low', 'close', 'volume', 'value',
     'return_1m', 'return_5m', 'return_15m', 'return_from_open', 'return_from_prev_close',
@@ -220,6 +244,7 @@ def _compute_and_upsert_timeframes(
     filter_start_utc: pd.Timestamp | None = None,
     filter_end_utc: pd.Timestamp | None = None,
     daily_rows: list[dict] | None = None,
+    records_by_timeframe: dict[str, int] | None = None,
 ) -> int:
     normalized_timeframes = _normalize_timeframes(timeframes)
     source_df = pd.DataFrame(source_rows or [])
@@ -235,6 +260,8 @@ def _compute_and_upsert_timeframes(
             output_df = _filter_output_by_time(computed_df, filter_start_utc, filter_end_utc)
             upserted = _upsert_feature_frame(db, symbol, timeframe, output_df, upsert_batch_size)
             total_upserted += upserted
+            if records_by_timeframe is not None:
+                records_by_timeframe[timeframe] = records_by_timeframe.get(timeframe, 0) + upserted
             _log_feature_run(symbol, timeframe, mode, len(daily_df), len(computed_df), upserted, output_df)
             continue
 
@@ -250,6 +277,8 @@ def _compute_and_upsert_timeframes(
         output_df = _filter_output_by_time(computed_df, filter_start_utc, filter_end_utc)
         upserted = _upsert_feature_frame(db, symbol, timeframe, output_df, upsert_batch_size)
         total_upserted += upserted
+        if records_by_timeframe is not None:
+            records_by_timeframe[timeframe] = records_by_timeframe.get(timeframe, 0) + upserted
         _log_feature_run(symbol, timeframe, mode, len(source_df), len(computed_df), upserted, output_df)
 
     return total_upserted
@@ -272,19 +301,15 @@ def calculate_features_for_symbol_full_chunked(symbol, timeframes=None, upsert_b
     )
 
 
-def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_bars: int = 300, upsert_batch_size: int = 1000):
+def calculate_features_for_symbol_incremental(symbol, timeframes=None, target_date=None, warmup_bars: int = 300, upsert_batch_size: int = 1000, records_by_timeframe: dict[str, int] | None = None):
     db = SupabaseClient()
-    now_vn = datetime.now(VN_TZ)
-    today_start_vn = now_vn.replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow_start_vn = today_start_vn + pd.Timedelta(days=1)
-    today_start_utc = today_start_vn.astimezone(UTC_TZ)
-    tomorrow_start_utc = tomorrow_start_vn.astimezone(UTC_TZ)
+    start_utc, end_utc, target = _target_utc_bounds(target_date)
 
     today_rows = _fetch_stock_intraday_paginated(
         db=db,
         symbol=symbol,
-        gte_time=today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        lt_time=tomorrow_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        gte_time=start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        lt_time=end_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
         order_desc=False,
     )
     normalized_timeframes = _normalize_timeframes(timeframes)
@@ -296,12 +321,12 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
     warmup_rows = _fetch_stock_intraday_paginated(
         db=db,
         symbol=symbol,
-        lt_time=today_start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        lt_time=start_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
         order_desc=True,
         limit_total=warmup_bars,
     )
     warmup_rows = list(reversed(warmup_rows))
-    daily_rows = _fetch_stock_daily_rows(db, symbol, end_date=today_start_vn.date(), order_desc=True, limit_total=150)
+    daily_rows = _fetch_stock_daily_rows(db, symbol, end_date=target, order_desc=True, limit_total=150)
 
     return _compute_and_upsert_timeframes(
         db=db,
@@ -310,9 +335,10 @@ def calculate_features_for_symbol_incremental(symbol, timeframes=None, warmup_ba
         timeframes=normalized_timeframes,
         mode='incremental',
         upsert_batch_size=upsert_batch_size,
-        filter_start_utc=pd.Timestamp(today_start_utc),
-        filter_end_utc=pd.Timestamp(tomorrow_start_utc),
+        filter_start_utc=start_utc,
+        filter_end_utc=end_utc,
         daily_rows=daily_rows,
+        records_by_timeframe=records_by_timeframe,
     )
 
 
@@ -321,7 +347,7 @@ def calculate_features_for_symbol(symbol, timeframe='1m'):
     return calculate_features_for_symbol_full_chunked(symbol, timeframes=[timeframe])
 
 
-def run_feature_engine(symbols=None, mode='full', timeframes=None):
+def run_feature_engine(symbols=None, mode='full', timeframes=None, target_date=None):
     db = SupabaseClient()
 
     if not db.health_check():
@@ -343,12 +369,60 @@ def run_feature_engine(symbols=None, mode='full', timeframes=None):
             if mode == 'full':
                 total += calculate_features_for_symbol_full_chunked(symbol, timeframes=timeframes)
             else:
-                total += calculate_features_for_symbol_incremental(symbol, timeframes=timeframes)
+                total += calculate_features_for_symbol_incremental(symbol, timeframes=timeframes, target_date=target_date)
         except Exception:
             logger.exception("Feature engine failed for symbol=%s mode=%s", symbol, mode)
 
     logger.info("Feature engine completed with %s records", total)
     return total
+
+
+def run_feature_engine_with_summary(symbols=None, mode='full', timeframes=None, target_date=None):
+    db = SupabaseClient()
+    if not db.health_check():
+        raise RuntimeError("Supabase health-check failed. Please check connection and credentials.")
+    if symbols is None:
+        result = db.get().table('symbols').select('symbol').execute()
+        symbols = [row['symbol'] for row in result.data]
+    symbols = [str(s).upper() for s in symbols]
+    if mode not in {'full', 'incremental'}:
+        raise ValueError("mode must be either 'full' or 'incremental'")
+    normalized_timeframes = _normalize_timeframes(timeframes)
+    target = _normalize_target_date(target_date) if mode == 'incremental' else None
+    errors = []
+    records_by_timeframe = {tf: 0 for tf in normalized_timeframes}
+    total = 0
+    success = 0
+    for symbol in symbols:
+        try:
+            if mode == 'full':
+                count = calculate_features_for_symbol_full_chunked(symbol, timeframes=normalized_timeframes)
+            else:
+                count = calculate_features_for_symbol_incremental(symbol, timeframes=normalized_timeframes, target_date=target, records_by_timeframe=records_by_timeframe)
+            total += count
+            success += 1
+        except Exception as exc:
+            logger.exception("Feature engine failed for symbol=%s mode=%s", symbol, mode)
+            errors.append({"symbol": symbol, "error": str(exc)})
+    failed = len(errors)
+    if failed == len(symbols) or total == 0:
+        status = "FAILED"
+    elif failed:
+        status = "PARTIAL"
+    else:
+        status = "OK"
+    return {
+        "flow": "features",
+        "mode": mode,
+        "target_date": target.isoformat() if target else None,
+        "requested_symbols": len(symbols),
+        "successful_symbols": success,
+        "failed_symbols": failed,
+        "total_records": total,
+        "records_by_timeframe": records_by_timeframe,
+        "errors": errors,
+        "status": status,
+    }
 
 
 if __name__ == "__main__":

@@ -36,6 +36,24 @@ def latest_previous_weekday(reference: date | None = None) -> date:
     return current
 
 
+def latest_weekday_on_or_before(reference: date | datetime | None = None) -> date:
+    """Return reference date if weekday, otherwise the closest prior weekday.
+
+    This is a calendar helper only; it must not be treated as proof that the
+    returned date was an exchange trading day. SSI payload validation decides
+    whether market data exists for the date.
+    """
+    if reference is None:
+        current = today_vn()
+    elif isinstance(reference, datetime):
+        current = reference.astimezone(VN_TZ).date() if reference.tzinfo else reference.date()
+    else:
+        current = reference
+    while current.weekday() >= 5:
+        current -= timedelta(days=1)
+    return current
+
+
 def parse_ddmmyyyy(value: str) -> ValidatedDate:
     try:
         parsed = datetime.strptime(value, "%d/%m/%Y").date()
