@@ -62,7 +62,7 @@ def _is_lunch_gap(prev_utc: datetime, next_utc: datetime) -> bool:
     next_local = next_utc.astimezone(VN_TZ)
     if prev_local.date() != next_local.date():
         return False
-    return prev_local.time() <= MORNING_END and next_local.time() >= AFTERNOON_START and prev_local.time() <= time(11, 30) and next_local.time() >= time(13, 0)
+    return prev_local.time().replace(second=0, microsecond=0) == MORNING_END and next_local.time().replace(second=0, microsecond=0) == AFTERNOON_START
 
 
 def validate_intraday_record(record: dict) -> ValidationResult:
@@ -138,6 +138,8 @@ def validate_intraday_batch(records: list[dict], daily_record: dict | None = Non
 
     for (prev_i, prev_r, prev_ts), (next_i, next_r, next_ts) in zip(sorted_valid, sorted_valid[1:]):
         if prev_r.get("symbol") != next_r.get("symbol") or prev_r.get("timeframe") != next_r.get("timeframe"):
+            continue
+        if prev_ts.astimezone(VN_TZ).date() != next_ts.astimezone(VN_TZ).date():
             continue
         gap_minutes = int((next_ts - prev_ts).total_seconds() // 60)
         if gap_minutes > 1 and not _is_lunch_gap(prev_ts, next_ts):

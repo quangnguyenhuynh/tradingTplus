@@ -4,7 +4,7 @@ from src.ssi.api import SSIApi
 from src.pipeline.fetch_one_day import fetch_one_day_with_clients
 from src.pipeline.index_data import fetch_daily_indexes, sync_indexes, sync_index_components
 from src.pipeline.foreign_trading import fetch_foreign_for_symbol
-from src.pipeline.date_utils import latest_previous_weekday
+from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -22,6 +22,9 @@ def run_daily_ingest(date: str = None):
         date = latest_previous_weekday().strftime("%d/%m/%Y")
         print(f"📆 Daily fetch defaulted to latest previous weekday: {date}")
     else:
+        validated = parse_ddmmyyyy(date)
+        validate_safe_write_date(validated)
+        date = validated.ddmmyyyy
         print(f"📆 Daily fetch: {date}")
     
     db = SupabaseClient()

@@ -6,6 +6,28 @@ import requests
 from src.config import config
 
 
+def _get_case_insensitive(data: dict[str, Any], *keys: str) -> Any:
+    lower = {str(k).lower(): v for k, v in (data or {}).items()}
+    for key in keys:
+        if key in data:
+            return data.get(key)
+        if key.lower() in lower:
+            return lower[key.lower()]
+    return None
+
+def _parse_ssi_payload_date(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            from datetime import datetime
+            return datetime.strptime(text[:10], fmt).date().isoformat()
+        except ValueError:
+            pass
+    return None
+
+
 class SSIApi:
     def __init__(self) -> None:
         self.token: str | None = None
@@ -145,13 +167,26 @@ class SSIApi:
         items = self._extract_items(raw)
         return items[0] if items else None
 
-    def get_daily_price(self, symbol: str, date: str) -> dict | None:
+    def get_daily_price_items(self, symbol: str, date: str) -> list[dict]:
         try:
-            items = self._get_all_pages(config.SSI_DAILY_STOCK_PRICE_URL, {"Symbol": symbol, "FromDate": date, "ToDate": date}, page_size=1000)
-            return items[0] if items else None
+            return self._get_all_pages(config.SSI_DAILY_STOCK_PRICE_URL, {"Symbol": symbol, "FromDate": date, "ToDate": date}, page_size=1000)
         except (requests.RequestException, ValueError) as e:
             print(f"⚠️ Lỗi daily price {symbol}: {e}")
-            return None
+            return []
+
+    def get_daily_price(self, symbol: str, date: str) -> dict | None:
+        from src.pipeline.date_utils import parse_ddmmyyyy
+        requested_iso = parse_ddmmyyyy(date).iso
+        requested_symbol = symbol.upper()
+        items = self.get_daily_price_items(symbol, date)
+        for item in items:
+            item_symbol = _get_case_insensitive(item, "Symbol", "symbol", "Ticker", "StockSymbol")
+            item_date = _parse_ssi_payload_date(_get_case_insensitive(item, "TradingDate", "tradingDate", "Date", "date", "TradingTime"))
+            if str(item_symbol or "").upper() == requested_symbol and item_date == requested_iso:
+                return item
+        if items:
+            print(f"⚠️ SSI daily price returned no matching item for symbol={symbol} date={date}; clean data will be skipped")
+        return None
 
     def get_daily_prices_for_date(self, date: str, market: str | None = None) -> list[dict]:
         params: dict[str, Any] = {"FromDate": date, "ToDate": date}

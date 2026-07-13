@@ -188,3 +188,19 @@ def test_fetch_one_day_with_clients_saves_and_returns_int():
     assert count == 2
     assert isinstance(count, int)
     assert len(db.raw_records) == len(db.clean_records) == 2
+
+def test_build_stock_daily_record_rejects_wrong_payload_date():
+    daily = _daily() | {'Symbol': 'SSI', 'TradingDate': '17/06/2026'}
+    assert fod.build_stock_daily_record('SSI', '18/06/2026', daily) is None
+
+
+def test_build_stock_daily_record_rejects_wrong_payload_symbol():
+    daily = _daily() | {'Symbol': 'HPG', 'TradingDate': '18/06/2026'}
+    assert fod.build_stock_daily_record('SSI', '18/06/2026', daily) is None
+
+
+def test_build_stock_daily_record_accepts_matching_payload_symbol_and_date():
+    daily = _daily() | {'Symbol': 'SSI', 'TradingDate': '18/06/2026'}
+    record = fod.build_stock_daily_record('SSI', '18/06/2026', daily)
+    assert record['symbol'] == 'SSI'
+    assert record['trading_date'] == '2026-06-18'

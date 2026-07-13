@@ -6,6 +6,7 @@ Production commands:
   python main.py init
   python main.py daily [DD/MM/YYYY]
   python main.py eod [DD/MM/YYYY]
+  python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 1m 5m 15m]
 
 Exit codes: 0=OK/PARTIAL, 1=FAILED, 2=invalid arguments.
@@ -18,6 +19,7 @@ import sys
 from typing import Any
 
 from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline
+from src.engine.feature_engine import run_feature_engine_with_summary
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -39,10 +41,16 @@ def build_parser() -> argparse.ArgumentParser:
     daily = sub.add_parser("daily", help="Daily SSI ingest only; no features/signals/backtests")
     daily.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
 
-    eod = sub.add_parser("eod", help="EOD ingest + validation + feature calculation")
+    eod = sub.add_parser("eod", help="EOD daily ingest + completeness validation only; no features")
     eod.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
 
-    intraday = sub.add_parser("intraday", help="Intraday incremental feature pipeline")
+    features = sub.add_parser("features", help="Explicit feature pipeline; supports target date reruns/backfills")
+    features.add_argument("--mode", choices=["incremental", "full"], default="incremental")
+    features.add_argument("--date", default=None, help="Target date DD/MM/YYYY for incremental mode")
+    features.add_argument("--symbols", nargs="*", default=None, help="Symbols to process; omitted means all symbols")
+    features.add_argument("--timeframes", nargs="*", default=None, help="Feature timeframes: 1m 5m 15m 60m 1d")
+
+    intraday = sub.add_parser("intraday", help="Legacy alias for `features --mode incremental --timeframes 1m 5m 15m`; does not ingest candles")
     intraday.add_argument("--snapshot-time", default=None, help="Optional snapshot marker; defaults to current VN time")
     intraday.add_argument("--symbols", nargs="*", default=None, help="Symbols to process; omitted means all symbols")
     intraday.add_argument("--timeframes", nargs="*", default=["1m", "5m", "15m"], help="Intraday feature timeframes")
@@ -66,6 +74,16 @@ def main(argv: list[str] | None = None) -> int:
             return _status_to_exit(summary)
         if args.command == "eod":
             summary = run_eod_pipeline(args.date)
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "features":
+            symbols = [s.upper() for s in args.symbols] if args.symbols else None
+            summary = run_feature_engine_with_summary(
+                symbols=symbols,
+                mode=args.mode,
+                timeframes=tuple(args.timeframes) if args.timeframes else None,
+                target_date=args.date,
+            )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "intraday":

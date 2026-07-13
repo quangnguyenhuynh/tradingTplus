@@ -32,4 +32,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run EOD pipeline
-        run: python main.py eod "${{ inputs.date }}"
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            python main.py eod "${{ inputs.date }}"
+          else
+            python main.py eod
+          fi

@@ -5,6 +5,8 @@ from datetime import date as Date, datetime, time
 from zoneinfo import ZoneInfo
 from typing import Any
 
+from src.pipeline.date_utils import parse_ddmmyyyy
+
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.intraday_value import calculate_trade_value
@@ -102,9 +104,40 @@ def _parse_trading_date(date_str: str) -> str | None:
     base_date = _parse_base_date(date_str)
     return base_date.isoformat() if base_date else None
 
+
+def _payload_symbol(payload: dict) -> str | None:
+    value = _get_any(payload, "Symbol", "symbol", "Ticker", "StockSymbol")
+    return str(value).upper() if value not in (None, "") else None
+
+
+def _payload_trading_date(payload: dict) -> str | None:
+    value = _get_any(payload, "TradingDate", "tradingDate", "Date", "date", "TradingTime")
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text[:10], fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def payload_matches_request(payload: dict, symbol: str, date: str) -> bool:
+    requested = parse_ddmmyyyy(date).iso
+    return _payload_symbol(payload) == symbol.upper() and _payload_trading_date(payload) == requested
+
 def build_stock_daily_record(symbol: str, date: str, daily: dict) -> dict | None:
     trading_date = _parse_trading_date(date)
     if not trading_date:
+        return None
+    payload_date = _payload_trading_date(daily)
+    if payload_date is not None and payload_date != trading_date:
+        logger.warning("%s %s: SSI payload trading date %s does not match request; skipping stock_daily", symbol, date, payload_date)
+        return None
+    payload_symbol = _payload_symbol(daily)
+    if payload_symbol is not None and payload_symbol != symbol.upper():
+        logger.warning("%s %s: SSI payload symbol %s does not match request; skipping stock_daily", symbol, date, payload_symbol)
         return None
     mapping = {
         'price_change': ('PriceChange', 'Change'),

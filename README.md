@@ -250,3 +250,23 @@ python scripts/snapshot_stream.py --symbols SSI HPG --indexes VNINDEX VN30 --tim
 ```
 
 Manual/debug/smoke tools live in `scripts/` and use `argparse` with a `main()` guard. Scripts that can write data default to read-only/dry-run unless `--write` is explicitly supplied.
+
+### Phase 0 production flows
+
+* `python main.py daily [DD/MM/YYYY]` ingests raw and clean daily/intraday source data only. It does not calculate features, signals, or backtests.
+* `python main.py eod [DD/MM/YYYY]` runs daily ingest and ingest completeness validation only. The default EOD date is the latest weekday on or before the run date; actual trading-day validity is determined by SSI data, not by the calendar helper.
+* `python main.py features [--mode incremental|full] [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]` is the canonical explicit feature pipeline. Incremental mode with `--date` recalculates only that Vietnam trading date; full mode supports historical reruns/backfills.
+* `python main.py intraday` is a legacy compatibility alias for incremental feature calculation on existing `stock_intraday` data. It does not ingest new SSI candles.
+
+Read-only SQL to inspect potentially suspicious clean daily rows after this change (do not delete automatically):
+
+```sql
+select symbol, trading_date, raw
+from stock_daily
+where raw is not null
+  and (
+    upper(coalesce(raw->>'Symbol', raw->>'symbol')) is distinct from upper(symbol)
+    or coalesce(raw->>'TradingDate', raw->>'tradingDate', raw->>'Date', raw->>'date') is null
+  )
+order by trading_date desc, symbol;
+```

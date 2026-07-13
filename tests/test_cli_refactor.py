@@ -41,11 +41,11 @@ def test_eod_default_timeframes_include_1d():
 
 
 def test_intraday_does_not_call_daily_ingest(monkeypatch):
-    monkeypatch.setattr(intraday.SupabaseClient, "get_symbols", lambda self: ["SSI"])
-    monkeypatch.setattr(intraday, "run_feature_engine", lambda **kwargs: 3)
+    monkeypatch.setattr(intraday, "run_feature_engine_with_summary", lambda **kwargs: {"status": "OK", "total_records": 3, "errors": []})
     summary = intraday.run_intraday_pipeline(symbols=["SSI"])
     assert summary["status"] == "OK"
-    assert summary["feature_records"] == 3
+    assert summary["total_records"] == 3
+    assert "legacy feature alias" in summary["legacy_warning"]
 
 
 def test_scripts_import_without_running():
@@ -72,5 +72,5 @@ def test_fetch_one_day_default_is_dry_run():
 
 def test_main_has_no_old_debug_commands():
     source = Path("main.py").read_text()
-    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"', '"features"', '"backfill"']:
+    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"', '"backfill"']:
         assert old not in source
