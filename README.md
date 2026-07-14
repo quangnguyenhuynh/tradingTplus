@@ -143,15 +143,23 @@ If an accidental smoke-test write must be removed, edit and run `sql/cleanup_acc
 
 The hardcoded SSI REST URLs are limited to the endpoints listed in SSI FastConnect Data docs: `AccessToken`, `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`. Foreign trading is derived from `DailyStockPrice` foreign fields; no standalone public `ForeignTrading` REST URL is hardcoded. REST orderbook is not in the public FastConnect Data endpoint list, so `snapshot-orderbook` logs unsupported unless `SSI_ORDERBOOK_URL` is explicitly provided for a private/account-specific endpoint.
 
-### Read-only SSI API inspector
+### Read-only SSI API inspectors
 
-To inspect what each SSI API call returns and how the ingest mapper will shape it before any DB write, run:
+For raw SSI FastConnect Data REST envelope inspection across the 9 official REST endpoints, use the dedicated read-only inspector:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date DD/MM/YYYY --limit 3
+python scripts/ssi_api_inspector/inspect.py run all --symbol SSI --date DD/MM/YYYY --index-code VNINDEX --limit 2
+```
+
+See `scripts/ssi_api_inspector/README.md` for endpoint coverage, parameters, redaction behavior, and examples. The legacy mapper-oriented read-only inspector remains available when you need to compare SSI source rows with ingest mapper output before any DB write:
 
 ```bash
 python scripts/inspect_ssi_ingest_api.py --symbol SSI --date DD/MM/YYYY --index-code VNINDEX
 ```
 
-The script prints raw and mapped samples for symbols, securities details, DailyStockPrice (`raw_daily`/`stock_daily`), IntradayOhlc (`raw_intraday`/`stock_intraday` 1m), foreign trading derived from DailyStockPrice, IndexList (`indexes`), DailyIndex (`index_daily`), IndexComponents, and optional orderbook. It is read-only and never writes to Supabase.
+The legacy script prints raw and mapped samples for symbols, securities details, DailyStockPrice (`raw_daily`/`stock_daily`), IntradayOhlc (`raw_intraday`/`stock_intraday` 1m), foreign trading derived from DailyStockPrice, IndexList (`indexes`), DailyIndex (`index_daily`), IndexComponents, and optional orderbook. It is read-only and never writes to Supabase.
 
 
 ### SSI quote marketdata / orderbook note
