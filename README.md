@@ -157,67 +157,24 @@ See `scripts/ssi_api_inspector/README.md` for endpoint coverage, parameters, red
 
 ### SSI quote marketdata / orderbook note
 
-SSI FCData docs include bid/ask depth fields in quote marketdata messages, e.g. `BidPrice1`, `BidVol1`, `AskPrice1`, `AskVol1`. That is stream/message payload data, not the same thing as a documented public REST `MarketDepth` endpoint. The orderbook mapper supports those FCData quote fields. To verify a captured quote payload without DB writes:
+SSI FCData docs include bid/ask depth fields in quote marketdata messages, e.g. `BidPrice1`, `BidVol1`, `AskPrice1`, `AskVol1`. That is stream/message payload data, not the same thing as a documented public REST `MarketDepth` endpoint. The orderbook mapper supports those FCData quote fields. Use `scripts/ssi_streaming_inspector/` to inspect raw quote frames and decoded payloads without DB writes.
+
+### SSI SignalR streaming inspector
+
+SSI FCData streaming uses classic ASP.NET SignalR through the production host `https://fc-datahub.ssi.com.vn` and the current client defaults (`v2.0/signalr`, `FcMarketDataV2Hub`, `SwitchChannels`, `Broadcast`). For Phase 0 read-only inspection, use the dedicated streaming inspector:
 
 ```bash
-python scripts/inspect_ssi_quote_payload.py --file quote_payload.json
-# or
-echo '{"Symbol":"SSI","BidPrice1":25000,"BidVol1":1000,"AskPrice1":25100,"AskVol1":900}' | python scripts/inspect_ssi_quote_payload.py
+python scripts/ssi_streaming_inspector/inspect.py list
+python scripts/ssi_streaming_inspector/inspect.py negotiate
+python scripts/ssi_streaming_inspector/inspect.py run quote --symbols SSI --timeout 30 --max-messages 3
+python scripts/ssi_streaming_inspector/inspect.py run all --symbols SSI --index-codes VNINDEX --timeout 60 --max-messages 2
 ```
 
-### SSI SignalR streaming
-
-SSI FCData streaming uses SignalR, not a raw websocket endpoint such as `wss://fc-datahub.ssi.com.vn/v2.0`.
-
-Default config:
-
-```env
-SSI_STREAMING_ENABLED=true
-SSI_STREAMING_BASE_URL=https://fc-datahub.ssi.com.vn/
-SSI_SIGNALR_PATH=v2.0/signalr
-SSI_SIGNALR_HUB=FcMarketDataV2Hub
-SSI_SIGNALR_RECEIVE_METHOD=Broadcast
-SSI_SIGNALR_SWITCH_METHOD=SwitchChannels
-ORDERBOOK_SNAPSHOT_TIMEOUT_SEC=20
-```
-
-Test streaming quotes:
+The inspector prints sanitized raw frames, Broadcast wrappers, decoded content, and field coverage against the SSI streaming spec excerpts. It is not a production pipeline, does not write any database, and does not compute derived fields. Operational snapshot scripts remain separate:
 
 ```bash
-python scripts/test_ssi_streaming.py SSI --timeout 30 --raw
-python scripts/test_ssi_streaming.py SSI --timeout 30 --write
-python scripts/test_ssi_streaming.py SSI HPG FPT --timeout 30 --raw
-python scripts/test_ssi_streaming_parser.py
-```
-
-Snapshot orderbook via SignalR:
-
-```bash
-python scripts/snapshot_orderbook.py SSI --write
-python scripts/snapshot_orderbook.py --debug --timeout 30 SSI --write
-```
-
-### Debug SignalR negotiate
-
-To inspect raw SSI SignalR negotiate responses without `signalrcore`, websocket, Supabase, or DB writes:
-
-```bash
-python scripts/debug_signalr_negotiate.py
-python scripts/debug_signalr_negotiate.py --method GET
-python scripts/debug_signalr_negotiate.py --no-auth
-```
-
-The script prints the SignalR URL, each negotiate URL variant, request method/headers, status code, response headers, first 2000 response chars, parsed JSON if available, and warnings for non-integer `negotiateVersion` values.
-
-### SSI ASP.NET SignalR classic note
-
-SSI FCData negotiate returns `ProtocolVersion`/`ConnectionToken` (classic ASP.NET SignalR), not ASP.NET Core `negotiateVersion`. The streaming client therefore uses `requests` + `websocket-client` and does not use `signalrcore`.
-
-Classic SignalR test command:
-
-```bash
-python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --raw
-python scripts/test_ssi_signalr2_streaming.py SSI --timeout 60 --write
+python scripts/snapshot_stream.py --symbols SSI HPG --indexes VNINDEX VN30 --timeout 60 --limit 20 --write
+python scripts/snapshot_orderbook.py SSI HPG --timeout 30 --write
 ```
 
 ## CLI production flows (refactored)

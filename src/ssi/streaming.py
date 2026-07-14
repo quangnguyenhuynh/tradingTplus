@@ -47,9 +47,7 @@ class SSIStreamingClient:
     def _mask_token(self, token: str | None) -> str:
         if not token:
             return "<none>"
-        if len(token) <= 12:
-            return token[:3] + "***"
-        return token[:6] + "***" + token[-6:]
+        return "[REDACTED]"
 
     def _connection_data_json(self, hub_name: str) -> str:
         return json.dumps([{"name": hub_name}], separators=(",", ":"))
@@ -61,13 +59,13 @@ class SSIStreamingClient:
         resp = requests.post(url, headers=self._headers(), timeout=30)
         if resp.status_code >= 400:
             print(f"❌ negotiate failed status={resp.status_code}")
-            print(resp.text[:2000])
+            print("[REDACTED_ERROR_BODY]")
             resp.raise_for_status()
         try:
             data = resp.json()
         except ValueError as exc:
             print("❌ negotiate response is not JSON")
-            print(resp.text[:2000])
+            print("[REDACTED_ERROR_BODY]")
             raise RuntimeError("SignalR negotiate returned non-JSON response") from exc
         return data, url
 
@@ -143,7 +141,7 @@ class SSIStreamingClient:
         resp = requests.get(url, headers=self._headers(), timeout=30)
         if resp.status_code >= 400:
             print(f"❌ SignalR start failed status={resp.status_code}")
-            print(resp.text[:2000])
+            print("[REDACTED_ERROR_BODY]")
             resp.raise_for_status()
         print(f"SignalR start status: {resp.status_code}; body: {resp.text[:500]}")
 
