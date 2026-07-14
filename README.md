@@ -45,10 +45,10 @@ python main.py intraday --symbols SSI HPG
 ## Scripts hỗ trợ
 
 ```bash
-python scripts/check_ssi_api.py
 python scripts/check_supabase.py
-python scripts/check_symbols.py
-python scripts/backfill_sample.py
+python scripts/check_complete_ssi_ingest.py --symbol SSI
+python scripts/check_ssi_ingest_schema.py
+python scripts/backfill_sample.py --from-date YYYY-MM-DD --to-date YYYY-MM-DD --symbols SSI FPT
 python scripts/fetch_one_day.py --symbol SSI --date 20/05/2026 --dry-run
 ```
 
@@ -153,14 +153,7 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI -
 python scripts/ssi_api_inspector/inspect.py run all --symbol SSI --date DD/MM/YYYY --index-code VNINDEX --limit 2
 ```
 
-See `scripts/ssi_api_inspector/README.md` for endpoint coverage, parameters, redaction behavior, and examples. The legacy mapper-oriented read-only inspector remains available when you need to compare SSI source rows with ingest mapper output before any DB write:
-
-```bash
-python scripts/inspect_ssi_ingest_api.py --symbol SSI --date DD/MM/YYYY --index-code VNINDEX
-```
-
-The legacy script prints raw and mapped samples for symbols, securities details, DailyStockPrice (`raw_daily`/`stock_daily`), IntradayOhlc (`raw_intraday`/`stock_intraday` 1m), foreign trading derived from DailyStockPrice, IndexList (`indexes`), DailyIndex (`index_daily`), IndexComponents, and optional orderbook. It is read-only and never writes to Supabase.
-
+See `scripts/ssi_api_inspector/README.md` for endpoint coverage, parameters, redaction behavior, and examples. This inspector is the canonical CLI for viewing raw SSI FastConnect Data REST responses; ingest validation and mapper checks remain covered by the dedicated smoke/schema scripts above.
 
 ### SSI quote marketdata / orderbook note
 
