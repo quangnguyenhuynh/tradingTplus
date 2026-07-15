@@ -52,7 +52,7 @@ Không ưu tiên:
 
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
-| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `eod`, `features`, `intraday` |
+| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday` |
 | SSI REST client | Implemented | Login, pagination, retry `401` một lần |
 | Master data | Implemented | Symbols, securities, indexes, index components |
 | Daily raw ingest | Implemented | `raw_daily` từ `DailyStockPrice` |
@@ -170,7 +170,7 @@ OK / PARTIAL / FAILED
 
 `eod` không chạy feature.
 
-Điều này khác với một số đoạn cũ trong README mô tả `eod` có chạy feature. Hành vi trong code hiện tại phải được xem là source of truth.
+README hiện đã được cập nhật để mô tả `eod` không chạy feature; hành vi trong code vẫn là source of truth.
 
 ---
 
@@ -1407,7 +1407,7 @@ Các phần sau đã có nền tảng nhưng chưa được xác nhận đủ đ
 - `ARCHITECTURE_DECISIONS.md`.
 - README cleanup.
 
-Một số README section hiện mâu thuẫn với code hiện tại, đặc biệt mô tả `eod` có chạy feature.
+README đã được cập nhật để không mô tả `eod` có chạy feature.
 
 ### Operational readiness
 
@@ -1483,13 +1483,13 @@ Các hạng mục sau chưa nên được xem là hoàn thành.
 Một số đoạn README vẫn nói:
 
 ```text
-eod = ingest + validate + feature
+eod = daily ingest + intraday ingest + completeness
 ```
 
 Trong code hiện tại:
 
 ```text
-eod = daily ingest + completeness
+eod = daily ingest + intraday ingest + completeness
 ```
 
 Feature phải chạy riêng bằng:
@@ -1498,9 +1498,7 @@ Feature phải chạy riêng bằng:
 python main.py features ...
 ```
 
-README cũng có đoạn đề xuất split `daily_features` và `intraday_features`, trong khi kiến trúc hiện đã chốt giữ một bảng `features` có cột `timeframe`.
-
-README cần được cleanup bằng task documentation riêng.
+README đã được cập nhật để giữ một bảng `features` có cột `timeframe`; không tách `daily_features`/`intraday_features`.
 
 ---
 
@@ -2125,3 +2123,15 @@ Cho đến khi các điều kiện này đạt, project vẫn ở Phase 0.
 - [AGENTS.md](../AGENTS.md)
 - [Database Schema](../docs_db_schema.md)
 - [README](../README.md)
+---
+
+## Current ingest/CLI state after Issue #69
+
+- `daily` is daily-only production ingest and writes `raw_daily`, `stock_daily`, `foreign_trading`, and `index_daily`.
+- `intraday-ingest` is the production SSI `IntradayOhlc` 1m ingest and writes `raw_intraday` and `stock_intraday` only.
+- `eod` calls daily ingest, intraday ingest, then completeness checks and returns `daily_summary`, `intraday_summary`, `ingest_summary`, and final status.
+- `features` is the explicit feature pipeline.
+- `intraday` is still a legacy feature alias for existing `stock_intraday` data; it does not ingest candles.
+- No migration or automatic backfill is required by the split.
+
+See [`CLI_USAGE.md`](CLI_USAGE.md) for command syntax and public entry functions.

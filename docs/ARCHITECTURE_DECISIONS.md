@@ -672,7 +672,7 @@ source
 
 Daily clean row chỉ được ghi nếu daily validation pass.
 
-Clean intraday hiện chỉ được ghi khi daily record tương ứng hợp lệ.
+Clean intraday được validate độc lập; daily context là optional và nếu thiếu thì các field context giữ `NULL`/`None`, không ép về `0`.
 
 ### Consequences
 
@@ -1063,7 +1063,7 @@ eod = daily ingest + validation + feature
 ### Replaced by
 
 ```text
-eod = daily ingest + completeness
+eod = daily ingest + intraday ingest + completeness
 features = explicit separate command
 ```
 
@@ -1798,3 +1798,20 @@ Mô tả phương án và lý do không chọn.
 - [AGENTS.md](../AGENTS.md)
 - [Database Schema](../docs_db_schema.md)
 - [README](../README.md)
+---
+
+## ADR-002 update: production daily/intraday split
+
+Status: accepted for Phase 0.
+
+Decision: production daily ingest and production intraday ingest are separate commands and public entry functions.
+
+Consequences:
+
+- `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `raw_intraday` or `stock_intraday`.
+- `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `raw_intraday` and `stock_intraday` for candle ingest.
+- `python main.py eod [DD/MM/YYYY]` is an orchestrator: daily ingest → intraday ingest → completeness check.
+- `python main.py intraday` remains a backward-compatible feature alias and must not be redefined as an ingest command.
+- Feature computation, signal generation, and backtesting remain explicit downstream stages.
+
+No schema change is required for this split.

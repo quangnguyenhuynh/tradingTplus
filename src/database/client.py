@@ -368,6 +368,16 @@ class SupabaseClient:
         result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")
         return [row['symbol'] for row in result.data]
 
+    def get_stock_daily(self, symbol: str, trading_date: str | None):
+        if not trading_date:
+            return None
+        result = self._with_retry(
+            lambda: self.client.table('stock_daily').select('*').eq('symbol', symbol.upper()).eq('trading_date', trading_date).limit(1).execute(),
+            action_name=f"get_stock_daily {symbol.upper()} {trading_date}",
+        )
+        rows = result.data or []
+        return rows[0] if rows else None
+
     def get_symbol_count(self):
         result = self._with_retry(
             lambda: self.client.table('symbols').select('*', count='exact').execute(),

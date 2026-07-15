@@ -5,6 +5,7 @@ Production commands:
   python main.py sync-master-data
   python main.py init
   python main.py daily [DD/MM/YYYY]
+  python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
   python main.py eod [DD/MM/YYYY]
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 1m 5m 15m]
@@ -18,7 +19,7 @@ import json
 import sys
 from typing import Any
 
-from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline
+from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest
 from src.engine.feature_engine import run_feature_engine_with_summary
 
 
@@ -41,7 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     daily = sub.add_parser("daily", help="Daily SSI ingest only; no features/signals/backtests")
     daily.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
 
-    eod = sub.add_parser("eod", help="EOD daily ingest + completeness validation only; no features")
+    intraday_ingest = sub.add_parser("intraday-ingest", help="Production SSI IntradayOhlc 1m ingest only; no features/signals/backtests")
+    intraday_ingest.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
+    intraday_ingest.add_argument("--symbols", nargs="*", default=None, help="Symbols to ingest; omitted means all active symbols")
+
+    eod = sub.add_parser("eod", help="EOD orchestrator: daily ingest + intraday ingest + completeness validation only; no features")
     eod.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
 
     features = sub.add_parser("features", help="Explicit feature pipeline; supports target date reruns/backfills")
@@ -70,6 +75,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "daily":
             summary = daily_run(args.date)
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "intraday-ingest":
+            symbols = [s.upper() for s in args.symbols] if args.symbols else None
+            summary = run_intraday_ingest(args.date, symbols=symbols)
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "eod":

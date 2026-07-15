@@ -188,10 +188,14 @@ def build_raw_daily_record(symbol: str, date: str, daily: dict) -> dict | None:
 def build_intraday_records(
     symbol: str,
     date: str,
-    daily: dict,
+    daily: dict | None,
     candles: list[dict],
 ) -> tuple[list[dict], list[dict]]:
-    """Transform SSI daily and intraday API data into DB-ready records."""
+    """Transform SSI intraday API data into DB-ready records.
+
+    Daily context is optional and is used only for reference/ceiling/floor fields.
+    Missing context remains None; it is never converted to zero.
+    """
     raw_records: list[dict] = []
     clean_records: list[dict] = []
     base_date = _parse_base_date(date)
@@ -199,9 +203,10 @@ def build_intraday_records(
         print(f"  ⚠️ {symbol}: ngày không hợp lệ: {date}")
         return raw_records, clean_records
 
-    reference_price = _to_float(daily.get('RefPrice', 0))
-    ceiling_price = _to_float(daily.get('CeilingPrice', 0))
-    floor_price = _to_float(daily.get('FloorPrice', 0))
+    daily = daily or {}
+    reference_price = _to_nullable_float(_get_any(daily, 'RefPrice', 'ref_price'))
+    ceiling_price = _to_nullable_float(_get_any(daily, 'CeilingPrice', 'ceiling_price'))
+    floor_price = _to_nullable_float(_get_any(daily, 'FloorPrice', 'floor_price'))
     debug_samples: list[dict] = []
 
     for candle in candles:
@@ -297,30 +302,30 @@ def _log_ingest_summary(summary: dict) -> None:
     )
 
 
-def fetch_one_day_with_clients(
+
+def fetch_daily_for_symbol_with_clients(
     ssi: SSIApi,
     db: SupabaseClient,
     symbol: str,
     date: str,
-) -> int:
-    """Fetch, transform, validate, and save one trading day using existing clients."""
-    summary = {
+) -> dict[str, Any]:
+    """Fetch, validate, and save DailyStockPrice rows for one symbol/date only."""
+    summary: dict[str, Any] = {
         "symbol": symbol,
         "date": date,
         "daily_valid": False,
+        "daily_rows": 0,
         "daily_errors": 0,
         "daily_warnings": 0,
-        "intraday_received": 0,
-        "intraday_valid": 0,
-        "intraday_rejected": 0,
-        "intraday_batch_errors": 0,
-        "intraday_batch_warnings": 0,
+        "status": "FAILED",
+        "errors": [],
     }
     daily = fetch_daily_price(ssi, symbol, date)
     if not daily:
-        logger.warning("%s: không có dữ liệu ngày %s", symbol, date)
-        _log_ingest_summary(summary)
-        return 0
+        message = f"{symbol}: không có dữ liệu ngày {date}"
+        logger.warning(message)
+        summary["errors"].append(message)
+        return summary
 
     raw_daily_record = build_raw_daily_record(symbol, date, daily)
     if raw_daily_record:
@@ -335,23 +340,63 @@ def fetch_one_day_with_clients(
         log_validation_result(daily_validation, "stock_daily", {"symbol": symbol, "trading_date": stock_daily_record.get("trading_date")})
     if stock_daily_record and daily_validation and daily_validation.is_valid:
         db.upsert_stock_daily([stock_daily_record])
+        summary["daily_rows"] = 1
+        summary["status"] = "OK"
+    else:
+        summary["errors"].append(f"{symbol} {date}: daily validation failed")
+    return summary
 
+
+def _daily_context_from_record(record: dict | None) -> dict:
+    if not record:
+        return {}
+    return {
+        "RefPrice": record.get("ref_price"),
+        "CeilingPrice": record.get("ceiling_price"),
+        "FloorPrice": record.get("floor_price"),
+        "ClosePrice": record.get("close_price"),
+        "TotalMatchVol": record.get("total_match_vol"),
+        **record,
+    }
+
+
+def fetch_intraday_for_symbol_with_clients(
+    ssi: SSIApi,
+    db: SupabaseClient,
+    symbol: str,
+    date: str,
+    daily_context: dict | None = None,
+) -> dict[str, Any]:
+    """Fetch, validate, and save SSI IntradayOhlc 1m rows for one symbol/date only."""
+    summary: dict[str, Any] = {
+        "symbol": symbol,
+        "date": date,
+        "candles_received": 0,
+        "candles_valid": 0,
+        "candles_rejected": 0,
+        "daily_context_missing": daily_context is None,
+        "batch_errors": 0,
+        "batch_warnings": 0,
+        "status": "FAILED",
+        "errors": [],
+        "warnings": [],
+    }
     candles = fetch_intraday_candles(ssi, symbol, date)
-    summary["intraday_received"] = len(candles)
+    summary["candles_received"] = len(candles)
     if not candles:
-        logger.warning("%s: không có dữ liệu intraday", symbol)
-        _log_ingest_summary(summary)
-        return 0
+        warning = f"{symbol}: không có dữ liệu intraday"
+        logger.warning(warning)
+        summary["warnings"].append(warning)
+        return summary
 
-    raw_records, clean_records = build_intraday_records(symbol, date, daily, candles)
+    if daily_context is None:
+        warning = f"{symbol} {date}: daily_context_missing"
+        logger.warning(warning)
+        summary["warnings"].append(warning)
+
+    raw_records, clean_records = build_intraday_records(symbol, date, _daily_context_from_record(daily_context), candles)
     if raw_records:
         db.upsert_raw(raw_records)
-
-    if not (stock_daily_record and daily_validation and daily_validation.is_valid):
-        logger.error("%s %s: daily validation failed; skipping stock_intraday clean records", symbol, date)
-        summary["intraday_rejected"] = len(clean_records)
-        _log_ingest_summary(summary)
-        return 0
 
     individual_valid_records: list[dict] = []
     for record in clean_records:
@@ -360,22 +405,34 @@ def fetch_one_day_with_clients(
         if result.is_valid:
             individual_valid_records.append(record)
 
-    batch_result = validate_intraday_batch(individual_valid_records, daily_record=stock_daily_record)
-    log_validation_result(batch_result, "stock_intraday", {"symbol": symbol, "trading_date": stock_daily_record.get("trading_date")})
+    batch_result = validate_intraday_batch(individual_valid_records, daily_record=daily_context)
+    log_validation_result(batch_result, "stock_intraday", {"symbol": symbol, "date": date})
     records_to_save = individual_valid_records
     if any(issue.code == "INTRADAY_DUPLICATE_TIMESTAMP" for issue in batch_result.errors):
         records_to_save = _deduplicate_intraday_records(individual_valid_records)
 
     if records_to_save:
         db.upsert_intraday(records_to_save)
-    count = len(records_to_save)
-    summary["intraday_valid"] = count
-    summary["intraday_rejected"] = len(clean_records) - len(individual_valid_records) + (len(individual_valid_records) - len(records_to_save))
-    summary["intraday_batch_errors"] = len(batch_result.errors)
-    summary["intraday_batch_warnings"] = len(batch_result.warnings)
-    _log_ingest_summary(summary)
-    return count
+    summary["candles_valid"] = len(records_to_save)
+    summary["candles_rejected"] = len(clean_records) - len(individual_valid_records) + (len(individual_valid_records) - len(records_to_save))
+    summary["batch_errors"] = len(batch_result.errors)
+    summary["batch_warnings"] = len(batch_result.warnings)
+    summary["status"] = "OK" if records_to_save and not batch_result.errors else "PARTIAL" if records_to_save else "FAILED"
+    return summary
 
+def fetch_one_day_with_clients(
+    ssi: SSIApi,
+    db: SupabaseClient,
+    symbol: str,
+    date: str,
+) -> int:
+    """Compatibility wrapper that runs daily ingest and intraday ingest for one symbol/date."""
+    daily_summary = fetch_daily_for_symbol_with_clients(ssi, db, symbol, date)
+    if daily_summary.get("status") != "OK":
+        return 0
+    daily_context = db.get_stock_daily(symbol, _parse_trading_date(date)) if hasattr(db, "get_stock_daily") else None
+    intraday_summary = fetch_intraday_for_symbol_with_clients(ssi, db, symbol, date, daily_context=daily_context)
+    return int(intraday_summary.get("candles_valid") or 0)
 
 def fetch_one_day(symbol: str, date: str) -> int:
     """

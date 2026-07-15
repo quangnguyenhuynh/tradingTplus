@@ -6,6 +6,7 @@ from typing import Any
 from src.pipeline.daily import daily_run
 from src.pipeline.date_utils import latest_weekday_on_or_before, parse_ddmmyyyy
 from src.pipeline.ingest_check import check_ingest
+from src.pipeline.intraday_ingest import run_intraday_ingest
 
 DEFAULT_EOD_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")  # compatibility constant; EOD no longer uses it.
 
@@ -18,13 +19,13 @@ def _resolve_eod_date(date: str | None) -> str:
     return parse_ddmmyyyy(date.strip()).ddmmyyyy
 
 
-def _validate_fetch_summary(summary: Any) -> list[str]:
+def _validate_pipeline_summary(summary: Any, name: str) -> list[str]:
     if not isinstance(summary, dict):
-        return []
+        return [f"{name} returned non-dict summary"]
     symbol_count = int(summary.get("symbol_count") or 0)
     error_count = int(summary.get("error_count") or len(summary.get("errors") or []))
-    if symbol_count > 0 and error_count >= max(1, symbol_count):
-        return [f"daily_run failed for all symbols ({error_count}/{symbol_count})"]
+    if summary.get("status") == "FAILED" or (symbol_count > 0 and error_count >= max(1, symbol_count)):
+        return [f"{name} failed for all symbols ({error_count}/{symbol_count})"]
     return []
 
 
@@ -55,22 +56,27 @@ def run_eod_pipeline(
         print("⚠️ EOD ignores symbols/timeframes; run `python main.py features ...` explicitly for features.")
     eod_date = _resolve_eod_date(date)
     print(f"🚀 EOD date: {eod_date}")
-    print("1️⃣ Fetch SSI REST data...")
+    print("1️⃣ Run daily ingest...")
     daily_summary = daily_run(eod_date)
-    print(f"✅ Fetch completed for {eod_date}")
+    print(f"✅ Daily ingest completed for {eod_date}")
 
-    print("2️⃣ Check ingest completeness...")
+    print("2️⃣ Run intraday ingest...")
+    intraday_summary = run_intraday_ingest(eod_date)
+    print(f"✅ Intraday ingest completed for {eod_date}")
+
+    print("3️⃣ Check ingest completeness...")
     ingest_summary = check_ingest(eod_date)
     print("🔎 Ingest check summary:")
     print(pformat(ingest_summary, sort_dicts=True))
 
-    failures = _validate_fetch_summary(daily_summary)
+    failures = _validate_pipeline_summary(daily_summary, "daily ingest") + _validate_pipeline_summary(intraday_summary, "intraday ingest")
     warnings: list[str] = []
     status = _status_from_ingest(ingest_summary, failures, warnings)
     result = {
         "flow": "eod",
         "date": eod_date,
         "daily_summary": daily_summary,
+        "intraday_summary": intraday_summary,
         "ingest_summary": ingest_summary,
         "status": status,
         "failures": failures,

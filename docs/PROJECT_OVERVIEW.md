@@ -148,7 +148,6 @@ python main.py daily DD/MM/YYYY
 Daily ingest hiện xử lý:
 
 - `DailyStockPrice`;
-- `IntradayOhlc` resolution 1 phút;
 - foreign trading fields từ `DailyStockPrice`;
 - `DailyIndex`;
 - master index data cần thiết.
@@ -174,6 +173,8 @@ EOD hiện chạy:
 
 ```text
 daily ingest
+    ↓
+intraday ingest 1m
     ↓
 ingest completeness check
     ↓
@@ -661,7 +662,7 @@ Dừng sau ingest.
 #### `eod`
 
 ```text
-daily ingest → completeness check
+daily ingest → intraday ingest → completeness check
 ```
 
 Dừng sau completeness.
@@ -864,3 +865,26 @@ Project được xem là đi đúng hướng khi:
 - [AGENTS.md](../AGENTS.md)
 - [Database Schema](../docs_db_schema.md)
 - [README](../README.md)
+---
+
+## CLI reference
+
+See [`docs/CLI_USAGE.md`](CLI_USAGE.md) for the complete production CLI reference, exit codes, parameters, tables read/written, examples, and public Python entry functions.
+
+## Current Phase 0 production ingest behavior
+
+Daily and intraday ingest are separate production pipelines:
+
+```text
+python main.py daily [DD/MM/YYYY]
+    DailyStockPrice → raw_daily, validation, stock_daily
+    DailyStockPrice foreign fields → foreign_trading
+    DailyIndex → index_daily
+
+python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
+    IntradayOhlc resolution=1 → raw_intraday, validation, stock_intraday timeframe='1m'
+```
+
+`python main.py eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
+
+`python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
