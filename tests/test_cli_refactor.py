@@ -59,6 +59,7 @@ def test_scripts_import_without_running():
     for path in [
         "scripts/run_features.py",
         "scripts/check_ingest.py",
+        "scripts/check_supabase.py",
         "scripts/eod_dry_run.py",
         "scripts/fetch_one_day.py",
         "scripts/snapshot_orderbook.py",
