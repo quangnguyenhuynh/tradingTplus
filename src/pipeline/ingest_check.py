@@ -21,6 +21,14 @@ def _count_query(db: SupabaseClient, table: str, select: str = '*', **eq) -> int
     return result.count or 0
 
 
+def _count_time_range_query(db: SupabaseClient, table: str, start: str, end: str, select: str = '*', **eq) -> int:
+    query = db.client.table(table).select(select, count='exact').gte('time', start).lt('time', end)
+    for key, value in eq.items():
+        query = query.eq(key, value)
+    result = db._with_retry(lambda: query.limit(1).execute(), action_name=f"count {table} time range")
+    return result.count or 0
+
+
 def _vn_utc_range(validated) -> tuple[str, str]:
     start_vn = datetime.combine(validated.date, time.min, tzinfo=VN_TZ)
     end_vn = start_vn + timedelta(days=1)
@@ -126,7 +134,7 @@ def check_ingest(date: str) -> dict:
         "per_symbol": per_symbol,
         "index_daily_count": _count_query(db, 'index_daily', trading_date=date_iso),
         "foreign_trading_count": _count_query(db, 'foreign_trading', trading_date=date_iso),
-        "orderbook_snapshot_count": 0,
+        "orderbook_snapshot_count": _count_time_range_query(db, 'orderbook_snapshot', start, end),
         "status": status,
         "utc_range": {"start": start, "end": end},
     }
