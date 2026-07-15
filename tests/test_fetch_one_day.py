@@ -204,3 +204,46 @@ def test_build_stock_daily_record_accepts_matching_payload_symbol_and_date():
     record = fod.build_stock_daily_record('SSI', '18/06/2026', daily)
     assert record['symbol'] == 'SSI'
     assert record['trading_date'] == '2026-06-18'
+
+
+def test_build_intraday_records_missing_daily_context_keeps_limits_null():
+    _raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', None, [_candle('09:15:00')])
+    assert clean_records[0]['reference_price'] is None
+    assert clean_records[0]['ceiling_price'] is None
+    assert clean_records[0]['floor_price'] is None
+
+
+def test_daily_only_function_does_not_call_intraday():
+    ssi = _SSI(daily=_daily(), candles=[_candle()])
+    db = _DB()
+    summary = fod.fetch_daily_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026')
+    assert summary['status'] == 'OK'
+    assert db.raw_daily_records is not None
+    assert db.stock_daily_records is not None
+    assert db.raw_records is None
+    assert db.clean_records is None
+
+
+def test_intraday_only_function_does_not_call_daily_price_and_writes_no_daily_rows():
+    class NoDailySSI(_SSI):
+        def get_daily_price(self, symbol, date):
+            raise AssertionError('daily should not be fetched')
+    ssi = NoDailySSI(candles=[_candle('09:15:00'), _candle('09:16:00')])
+    db = _DB()
+    summary = fod.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
+    assert summary['candles_received'] == 2
+    assert summary['daily_context_missing'] is True
+    assert db.raw_records is not None
+    assert db.clean_records is not None
+    assert db.raw_daily_records is None
+    assert db.stock_daily_records is None
+
+
+def test_intraday_only_empty_api_creates_no_fake_rows():
+    ssi = _SSI(candles=[])
+    db = _DB()
+    summary = fod.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
+    assert summary['status'] == 'FAILED'
+    assert summary['candles_received'] == 0
+    assert db.raw_records is None
+    assert db.clean_records is None

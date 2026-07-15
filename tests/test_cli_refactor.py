@@ -36,6 +36,13 @@ def test_eod_command_calls_existing_pipeline(monkeypatch):
     assert captured["date"] == "10/07/2026"
 
 
+def test_intraday_ingest_cli_calls_pipeline_with_symbols(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_intraday_ingest", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["intraday-ingest", "10/07/2026", "--symbols", "ssi", "HPG"]) == 0
+    assert captured == {"date": "10/07/2026", "symbols": ["SSI", "HPG"]}
+
+
 def test_eod_default_timeframes_include_1d():
     assert "1d" in eod.DEFAULT_EOD_TIMEFRAMES
 

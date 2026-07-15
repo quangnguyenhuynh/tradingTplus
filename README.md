@@ -4,7 +4,7 @@ Pipeline thu thập dữ liệu SSI -> Supabase, tính feature kỹ thuật theo
 
 ## Cấu trúc repo
 
-- `main.py`: CLI entrypoint ngắn cho production flows (`sync-master-data`, `daily`, `eod`, `intraday`).
+- `main.py`: CLI entrypoint ngắn cho production flows (`sync-master-data`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday`).
 - `src/ssi/`: client gọi SSI API.
 - `src/pipeline/`: orchestration cho Daily ingest, EOD, Intraday, master data và ingest checks.
 - `src/database/`: Supabase client + các hàm insert/upsert.
@@ -38,7 +38,9 @@ python main.py init
 python main.py sync-master-data
 python main.py daily
 python main.py daily 20/05/2026
+python main.py intraday-ingest 20/05/2026 --symbols SSI HPG
 python main.py eod 20/05/2026
+python main.py features --mode incremental --date 20/05/2026 --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 ```
 
@@ -54,13 +56,13 @@ python scripts/fetch_one_day.py --symbol SSI --date 20/05/2026 --dry-run
 
 ## Ghi chú vận hành
 
-- `daily`, `eod`, và `intraday` mặc định theo múi giờ VN (UTC+7).
-- `daily` chỉ ingest; `eod` ingest + validate + feature; `intraday` xử lý incremental intraday feature.
+- `daily`, `intraday-ingest`, `eod`, và `intraday` mặc định theo múi giờ VN (UTC+7).
+- `daily` chỉ ingest DailyStockPrice/DailyIndex/foreign fields; `intraday-ingest` ingest IntradayOhlc 1m; `eod` orchestrate daily → intraday-ingest → completeness; `features` chạy riêng; `intraday` là legacy feature alias.
 - Khi parse timestamp intraday lỗi, hệ thống sẽ bỏ qua candle lỗi thay vì ghi dữ liệu sai thời gian.
 
 ## Trạng thái flow hiện tại
 
-- ✅ Production CLI: `init`/`sync-master-data`, `daily`, `eod`, `intraday` chạy qua `main.py`; test/debug/manual chạy qua `scripts/`.
+- ✅ Production CLI: `init`/`sync-master-data`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday` chạy qua `main.py`; test/debug/manual chạy qua `scripts/`.
 - ✅ Feature: có engine tính indicator cho `1m`, `5m`, `15m`, `60m`, `1d` và lưu vào bảng `features`.
 - ✅ Timeframe: `stock_intraday` chỉ lưu 1m; các timeframe cao hơn được aggregate trong bộ nhớ từ 1m trước khi tính feature.
 - ✅ Signal: có engine sinh tín hiệu rule-based và lưu `trading_signals`.
@@ -96,9 +98,9 @@ Code hiện tại đã có fallback tự động bỏ `on_conflict` để job kh
 The ingest layer now persists SSI daily fundamentals before signal/backtest work:
 
 - `python main.py init` keeps syncing legacy `symbols` and also fills full `securities` metadata from `SecuritiesDetails`.
-- `python main.py daily DD/MM/YYYY` writes `raw_daily`, full `stock_daily`, `raw_intraday`, `stock_intraday` (`timeframe='1m'` only), and `index_daily`.
+- `python main.py daily DD/MM/YYYY` writes `raw_daily`, full `stock_daily`, `foreign_trading`, and `index_daily`; `python main.py intraday-ingest DD/MM/YYYY` writes `raw_intraday` and `stock_intraday` (`timeframe='1m'` only).
 - `stock_daily` is the canonical daily source for T+ / swing features; `stock_intraday` is only for 1m timing. `DailyOHLC` should be used only for cross-checking.
-- Later feature work should split `daily_features` and `intraday_features` instead of deriving 1d technical features from intraday bars.
+- The current accepted feature design remains one `features` table keyed by `(symbol, timeframe, time)`; `1d` features come from `stock_daily`, not intraday bars.
 - Smoke check without DB writes: `python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY`.
 
 ### Safe SSI smoke/backfill workflow
@@ -133,9 +135,10 @@ If an accidental smoke-test write must be removed, edit and run `sql/cleanup_acc
 ### SSI ingest CLI additions
 
 - `python main.py sync-master-data` (alias of `init`) syncs symbols, securities, indexes, and index components.
-- `python main.py daily DD/MM/YYYY` ingests stock daily/raw daily, 1m intraday, foreign trading, and daily index data only; feature calculation is intentionally disabled in this ingest step.
-- `python main.py eod DD/MM/YYYY` runs daily ingest, ingest validation, and feature calculation for `1m`, `5m`, `15m`, `60m`, and `1d`.
-- `python main.py intraday --symbols SSI FPT` runs the intraday incremental feature flow without daily ingest.
+- `python main.py daily DD/MM/YYYY` ingests stock daily/raw daily, foreign trading, and daily index data only; feature calculation is intentionally disabled in this ingest step.
+- `python main.py intraday-ingest DD/MM/YYYY --symbols SSI FPT` ingests SSI IntradayOhlc 1m into raw/clean intraday only.
+- `python main.py eod DD/MM/YYYY` runs daily ingest, intraday ingest, and ingest validation; it does not calculate features.
+- `python main.py intraday --symbols SSI FPT` is the legacy intraday feature alias and does not ingest SSI candles.
 - `python scripts/snapshot_orderbook.py SSI FPT --write` writes an orderbook/bid-ask snapshot manually. If the SSI account/endpoint does not support orderbook data, the pipeline logs `unsupported/missing endpoint` and continues.
 - `python scripts/check_ingest.py --date DD/MM/YYYY` prints symbol, securities, stock daily, intraday, index daily, foreign trading, and orderbook snapshot counts plus missing stock-daily symbols.
 
@@ -187,13 +190,17 @@ Exit code convention: `0` means OK/PARTIAL, `1` means FAILED, and `2` means inva
 python main.py sync-master-data
 python main.py init
 python main.py daily 10/07/2026
+python main.py intraday-ingest 10/07/2026 --symbols SSI HPG
 python main.py eod 10/07/2026
+python main.py features --mode incremental --date 10/07/2026 --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 ```
 
-- `daily` is SSI end-of-day ingest only: `raw_daily`, `stock_daily`, daily `raw_intraday` 1m, `stock_intraday` 1m, `foreign_trading`, and `index_daily`. It does not calculate features, signals, backtests, or investment decisions.
-- `eod` runs daily ingest, ingest validation, and incremental feature calculation for `1m`, `5m`, `15m`, `60m`, and `1d`. The `1d` feature timeframe is sourced from `stock_daily`, not aggregated from intraday bars. Signal and backtest steps are placeholders for a later phase.
-- `intraday` runs the in-session incremental feature flow for existing `stock_intraday` data. It supports all symbols by default or a focused subset via `--symbols`; signal, backtest-stat lookup, and alerting are placeholders for a later phase.
+- `daily` is SSI end-of-day ingest only: `raw_daily`, `stock_daily`, `foreign_trading`, and `index_daily`. It does not ingest intraday candles or calculate features, signals, backtests, or investment decisions.
+- `intraday-ingest` is production SSI IntradayOhlc 1m ingest only: `raw_intraday` and `stock_intraday` with `timeframe='1m'`. It may read optional `stock_daily` validation context but does not write daily tables.
+- `eod` runs daily ingest, intraday ingest, and ingest completeness validation. It does not calculate features.
+- `features` is the explicit feature pipeline. The `1d` feature timeframe is sourced from `stock_daily`, not aggregated from intraday bars.
+- `intraday` runs the legacy in-session incremental feature flow for existing `stock_intraday` data; it does not ingest SSI candles.
 
 ### Manual and maintenance commands
 
@@ -211,10 +218,12 @@ Manual/debug/smoke tools live in `scripts/` and use `argparse` with a `main()` g
 
 ### Phase 0 production flows
 
-* `python main.py daily [DD/MM/YYYY]` ingests raw and clean daily/intraday source data only. It does not calculate features, signals, or backtests.
-* `python main.py eod [DD/MM/YYYY]` runs daily ingest and ingest completeness validation only. The default EOD date is the latest weekday on or before the run date; actual trading-day validity is determined by SSI data, not by the calendar helper.
+* `python main.py daily [DD/MM/YYYY]` ingests raw and clean daily source data only; intraday source data is handled by `intraday-ingest`. It does not calculate features, signals, or backtests.
+* `python main.py eod [DD/MM/YYYY]` runs daily ingest, intraday ingest, and ingest completeness validation only. The default EOD date is the latest weekday on or before the run date; actual trading-day validity is determined by SSI data, not by the calendar helper.
 * `python main.py features [--mode incremental|full] [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]` is the canonical explicit feature pipeline. Incremental mode with `--date` recalculates only that Vietnam trading date; full mode supports historical reruns/backfills.
 * `python main.py intraday` is a legacy compatibility alias for incremental feature calculation on existing `stock_intraday` data. It does not ingest new SSI candles.
+
+Full CLI reference: [`docs/CLI_USAGE.md`](docs/CLI_USAGE.md).
 
 Read-only SQL to inspect potentially suspicious clean daily rows after this change (do not delete automatically):
 
