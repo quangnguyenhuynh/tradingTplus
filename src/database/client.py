@@ -47,6 +47,8 @@ class SupabaseClient:
         "stream_trade_snapshot",
         "stream_foreign_snapshot",
         "stream_index_snapshot",
+        "stream_status_snapshot",
+        "stream_bar_snapshot",
         "trading_signals",
         "securities",
         "stock_daily",
@@ -344,7 +346,7 @@ class SupabaseClient:
         self._upsert_in_batches('foreign_trading', records, on_conflict=on_conflict)
 
     def upsert_stream_raw(self, records):
-        self._upsert_in_batches('stream_raw_snapshot', records, on_conflict='channel,time')
+        self._upsert_in_batches('stream_raw_snapshot', records, on_conflict='payload_hash')
 
     def upsert_stream_quote(self, records):
         self._upsert_in_batches('stream_quote_snapshot', records, on_conflict='symbol,time')
@@ -357,6 +359,12 @@ class SupabaseClient:
 
     def upsert_stream_index_snapshot(self, records):
         self._upsert_in_batches('stream_index_snapshot', records, on_conflict='index_code,time')
+
+    def upsert_stream_status_snapshot(self, records):
+        self._upsert_in_batches('stream_status_snapshot', records, on_conflict='symbol,time')
+
+    def upsert_stream_bar_snapshot(self, records):
+        self._upsert_in_batches('stream_bar_snapshot', records, on_conflict='symbol,time')
 
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')

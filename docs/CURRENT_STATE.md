@@ -2135,3 +2135,8 @@ Cho đến khi các điều kiện này đạt, project vẫn ở Phase 0.
 - No migration or automatic backfill is required by the split.
 
 See [`CLI_USAGE.md`](CLI_USAGE.md) for command syntax and public entry functions.
+
+
+## Streaming ingest reconciliation
+
+A production `streaming-ingest` CLI is available for bounded SSI SignalR capture. It subscribes only to explicit symbol/index channels, is dry-run by default, and writes only with `--write`. The flow keeps raw audit records separate from clean streaming snapshots and supports F, X-QUOTE, X-TRADE, R, MI, and B channel groups.

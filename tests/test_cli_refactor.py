@@ -82,3 +82,18 @@ def test_main_has_no_old_debug_commands():
     source = Path("main.py").read_text()
     for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"', '"backfill"']:
         assert old not in source
+
+
+def test_streaming_ingest_cli_is_dry_run_by_default(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_streaming_ingest", lambda **kwargs: captured.update(kwargs) or {"status": "EMPTY"})
+    assert main.main(["streaming-ingest", "--symbols", "ssi", "--indexes", "vnindex", "--channels", "quote", "index", "--timeout", "1", "--max-messages-per-channel", "1"]) == 0
+    assert captured["symbols"] == ["SSI"]
+    assert captured["indexes"] == ["VNINDEX"]
+    assert captured["write"] is False
+
+def test_streaming_ingest_cli_write_flag(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_streaming_ingest", lambda **kwargs: captured.update(kwargs) or {"status": "OK"})
+    assert main.main(["streaming-ingest", "--symbols", "SSI", "--channels", "quote", "--write"]) == 0
+    assert captured["write"] is True

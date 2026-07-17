@@ -151,3 +151,8 @@ order by tablename, indexname;
 - Public SSI FastConnect Data REST docs list the market endpoints used for this repo: `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`.
 - There is no hardcoded public REST `ForeignTrading` endpoint. The `foreign_trading` ingest maps foreign fields from `DailyStockPrice` into a research-friendly table.
 - There is no hardcoded public REST orderbook endpoint. `orderbook_snapshot` remains optional and logs unsupported unless an account-specific `SSI_ORDERBOOK_URL` is configured.
+
+
+## Streaming reconciliation tables
+
+Issue #73 adds/reconciles `stream_raw_snapshot`, `stream_quote_snapshot`, `stream_trade_snapshot`, `stream_foreign_snapshot`, `stream_index_snapshot`, `stream_status_snapshot`, and `stream_bar_snapshot`. Raw rows use a stable `payload_hash` conflict key and keep `received_at` separate from nullable source `time`/`source_time`; clean tables use exact unique indexes matching the application `on_conflict` keys.

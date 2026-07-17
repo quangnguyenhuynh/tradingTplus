@@ -237,3 +237,8 @@ where raw is not null
   )
 order by trading_date desc, symbol;
 ```
+
+
+### SSI streaming ingest (Phase 0)
+
+`python main.py streaming-ingest --symbols SSI HPG --indexes VNINDEX VN30 --channels securities-status quote trade foreign-room index realtime-bar --timeout 60 --max-messages-per-channel 1` runs a bounded SSI streaming capture in dry-run/read-only mode. Add `--write` only when database writes are intended. Raw streaming payloads are stored separately from clean snapshot tables; invalid clean rows do not block raw audit storage, and realtime bars are not written to `stock_intraday`.
