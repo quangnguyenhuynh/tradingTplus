@@ -9,6 +9,7 @@ Production commands:
   python main.py eod [DD/MM/YYYY]
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 1m 5m 15m]
+  python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
 
 Exit codes: 0=OK/PARTIAL, 1=FAILED, 2=invalid arguments.
 """
@@ -19,7 +20,7 @@ import json
 import sys
 from typing import Any
 
-from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest
+from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
 from src.engine.feature_engine import run_feature_engine_with_summary
 
 
@@ -59,6 +60,15 @@ def build_parser() -> argparse.ArgumentParser:
     intraday.add_argument("--snapshot-time", default=None, help="Optional snapshot marker; defaults to current VN time")
     intraday.add_argument("--symbols", nargs="*", default=None, help="Symbols to process; omitted means all symbols")
     intraday.add_argument("--timeframes", nargs="*", default=["1m", "5m", "15m"], help="Intraday feature timeframes")
+
+    streaming = sub.add_parser("streaming-ingest", help="Bounded SSI streaming ingest; dry-run/read-only unless --write is passed")
+    streaming.add_argument("--symbols", nargs="*", default=[], help="Explicit symbols; never defaults to ALL")
+    streaming.add_argument("--indexes", nargs="*", default=[], help="Explicit index codes for index channel")
+    streaming.add_argument("--channels", nargs="*", required=True, choices=["securities-status", "quote", "trade", "foreign-room", "index", "realtime-bar"], help="Streaming channel groups to subscribe")
+    streaming.add_argument("--timeout", type=int, default=60, help="Bounded timeout in seconds")
+    streaming.add_argument("--max-messages-per-channel", type=int, default=1, help="Bounded message count per channel")
+    streaming.add_argument("--write", action="store_true", default=False, help="Persist raw and valid clean rows; omitted means dry-run/read-only")
+    streaming.add_argument("--debug", action="store_true", default=False, help="Print sanitized debug summaries only")
     return parser
 
 
@@ -102,6 +112,18 @@ def main(argv: list[str] | None = None) -> int:
                 snapshot_time=args.snapshot_time,
                 symbols=symbols,
                 timeframes=tuple(args.timeframes),
+            )
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "streaming-ingest":
+            summary = run_streaming_ingest(
+                symbols=[s.upper() for s in args.symbols],
+                indexes=[i.upper() for i in args.indexes],
+                channels=list(args.channels),
+                timeout_sec=args.timeout,
+                max_messages_per_channel=args.max_messages_per_channel,
+                write=args.write,
+                debug=args.debug,
             )
             _print_summary(summary)
             return _status_to_exit(summary)

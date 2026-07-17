@@ -3085,3 +3085,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
+
+-- Streaming ingest reconciliation snapshot (Issue #73).
+-- See migrations/20260717_reconcile_streaming_ingest.sql for idempotent production DDL.

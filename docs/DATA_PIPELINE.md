@@ -117,3 +117,8 @@ Production ingest responsibilities are explicit:
 Intraday ingest may read optional `stock_daily` context for validation of the same `symbol + trading_date`, but it must not call `DailyStockPrice` or write daily tables. Missing context is reported and optional price-limit fields remain `NULL`/`None`, not zero.
 
 `stock_daily` is the canonical source for `1d` features. `stock_intraday` stores only clean 1-minute candles; higher intraday feature timeframes are aggregated by the feature pipeline and are not persisted back into `stock_intraday`.
+
+
+## Streaming ingest
+
+Streaming ingest is separate from daily/intraday historical ingest and from feature/signal/backtest stages. It captures raw SSI streaming payloads with `received_at`, nullable source timestamp fields, validation status/issues, then upserts valid clean rows into streaming snapshot tables. Realtime bar (`B`) rows remain in `stream_bar_snapshot` and are not canonical `stock_intraday` candles.
