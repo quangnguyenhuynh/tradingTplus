@@ -57,7 +57,7 @@ python scripts/fetch_one_day.py --symbol SSI --date 20/05/2026 --dry-run
 ## Ghi chú vận hành
 
 - `daily`, `intraday-ingest`, `eod`, và `intraday` mặc định theo múi giờ VN (UTC+7).
-- `daily` chỉ ingest DailyStockPrice/DailyIndex/foreign fields; `intraday-ingest` ingest IntradayOhlc 1m; `eod` orchestrate daily → intraday-ingest → completeness; `features` chạy riêng; `intraday` là legacy feature alias.
+- `daily` chỉ ingest DailyStockPrice/DailyIndex/foreign fields; mỗi symbol/date fetch DailyStockPrice một lần rồi reuse cùng payload cho `raw_daily`, `stock_daily`, và `foreign_trading`. `intraday-ingest` ingest IntradayOhlc 1m; `eod` orchestrate daily → intraday-ingest → completeness; `features` chạy riêng; `intraday` là legacy feature alias.
 - Khi parse timestamp intraday lỗi, hệ thống sẽ bỏ qua candle lỗi thay vì ghi dữ liệu sai thời gian.
 
 ## Trạng thái flow hiện tại
@@ -99,7 +99,7 @@ The ingest layer now persists SSI daily fundamentals before signal/backtest work
 
 - `python main.py init` keeps syncing legacy `symbols` and also fills full `securities` metadata from `SecuritiesDetails`.
 - `python main.py daily DD/MM/YYYY` writes `raw_daily`, full `stock_daily`, `foreign_trading`, and `index_daily`; `python main.py intraday-ingest DD/MM/YYYY` writes `raw_intraday` and `stock_intraday` (`timeframe='1m'` only).
-- `stock_daily` is the canonical daily source for T+ / swing features; `stock_intraday` is only for 1m timing. `DailyOHLC` should be used only for cross-checking.
+- `stock_daily` is the canonical daily source for T+ / swing features; `stock_intraday` is only for 1m timing. `DailyOHLC` should be used only for inspector/cross-checking and is not part of production ingest.
 - The current accepted feature design remains one `features` table keyed by `(symbol, timeframe, time)`; `1d` features come from `stock_daily`, not intraday bars.
 - Smoke check without DB writes: `python scripts/check_complete_ssi_ingest.py --symbol SSI --date DD/MM/YYYY`.
 

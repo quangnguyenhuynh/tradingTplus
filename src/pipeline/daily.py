@@ -54,7 +54,9 @@ def run_daily_ingest(date: str = None):
             total_daily_rows += int(summary.get('daily_rows') or 0)
             if summary.get('status') == 'FAILED':
                 errors.append({'symbol': symbol, 'error': '; '.join(summary.get('errors') or ['daily ingest failed'])})
-            foreign_record = fetch_foreign_for_symbol(ssi, symbol, date)
+            foreign_record = None
+            if summary.get('daily_payload') is not None:
+                foreign_record = fetch_foreign_for_symbol(ssi, symbol, date, daily=summary.get('daily_payload'))
             if foreign_record:
                 db.upsert_foreign([foreign_record])
                 total_foreign += 1

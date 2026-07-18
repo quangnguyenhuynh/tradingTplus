@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from src.database.client import SupabaseClient
@@ -30,6 +31,26 @@ def _net(left: float | None, right: float | None) -> float | None:
     if left is None or right is None:
         return None
     return left - right
+
+
+def _daily_payload_matches_request(row: dict, symbol: str, date: str) -> bool:
+    requested_date = parse_ddmmyyyy(date).iso
+    row_symbol = _get_any(row, "Symbol", "symbol", "Ticker", "StockSymbol")
+    if row_symbol not in (None, "") and str(row_symbol).upper() != symbol.upper():
+        return False
+    row_date = _get_any(row, "TradingDate", "tradingDate", "Date", "date", "TradingTime")
+    if row_date not in (None, ""):
+        text = str(row_date).strip()
+        parsed = None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+            try:
+                parsed = datetime.strptime(text[:10], fmt).date().isoformat()
+                break
+            except ValueError:
+                continue
+        if parsed is not None and parsed != requested_date:
+            return False
+    return True
 
 
 def build_foreign_trading_record(symbol: str, date: str, row: dict) -> dict | None:
@@ -67,9 +88,9 @@ def build_foreign_trading_record(symbol: str, date: str, row: dict) -> dict | No
 
 
 def fetch_foreign_for_symbol(ssi: SSIApi, symbol: str, date: str, daily: dict | None = None) -> dict | None:
-    rows = ssi.get_foreign_trading(symbol=symbol, date=date)
-    if not rows and daily:
-        rows = [daily]
+    if daily is not None and not _daily_payload_matches_request(daily, symbol, date):
+        return None
+    rows = [daily] if daily else ssi.get_foreign_trading(symbol=symbol, date=date)
     for row in rows:
         record = build_foreign_trading_record(symbol, date, row)
         if record:

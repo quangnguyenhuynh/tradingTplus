@@ -108,11 +108,13 @@ Tất cả feature
 
 Production ingest responsibilities are explicit:
 
-- `daily` ingests daily source data only: `DailyStockPrice` to `raw_daily`/`stock_daily`, foreign fields to `foreign_trading`, and `DailyIndex` to `index_daily`.
+- `daily` ingests daily source data only: one `DailyStockPrice` request per symbol/date is reused for `raw_daily`, `stock_daily`, and the foreign fields mapped to `foreign_trading`; `DailyIndex` is written to `index_daily`.
 - `intraday-ingest` ingests SSI `IntradayOhlc` resolution `1` only, writing `raw_intraday` and `stock_intraday` with persisted `timeframe='1m'`.
 - `eod` orchestrates `daily` → `intraday-ingest` → completeness check.
 - `features` is the only production feature pipeline and is run explicitly.
 - `intraday` remains a legacy feature alias for existing intraday data and does not ingest SSI candles.
+
+`DailyOHLC` is limited to inspector/cross-check use and is not part of production daily ingest.
 
 Intraday ingest may read optional `stock_daily` context for validation of the same `symbol + trading_date`, but it must not call `DailyStockPrice` or write daily tables. Missing context is reported and optional price-limit fields remain `NULL`/`None`, not zero.
 
