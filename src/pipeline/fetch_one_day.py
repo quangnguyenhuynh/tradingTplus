@@ -326,6 +326,7 @@ def fetch_daily_for_symbol_with_clients(
         logger.warning(message)
         summary["errors"].append(message)
         return summary
+    summary["daily_payload"] = daily
 
     raw_daily_record = build_raw_daily_record(symbol, date, daily)
     if raw_daily_record:
