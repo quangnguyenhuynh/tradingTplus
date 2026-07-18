@@ -12,7 +12,8 @@ Tài liệu cấp repository về sản phẩm, kiến trúc, trạng thái, CLI
 | File | Mục đích |
 | --- | --- |
 | `PROJECT_OVERVIEW.md` | Mục tiêu sản phẩm, ưu tiên Phase 0, use case và tổng quan component. |
-| `CURRENT_STATE.md` | Đánh giá trạng thái code tại một thời điểm và các khoảng thiếu. |
+| `CURRENT_STATE.md` | Đánh giá trạng thái code và khoảng thiếu tại một thời điểm; đã rà soát theo code ngày 18/07/2026. |
+| `DATA_PIPELINE.md` | Luồng master, daily, intraday, streaming, validation và feature đang chạy. |
 | `ARCHITECTURE_DECISIONS.md` | Quyết định pipeline và hợp đồng dữ liệu đã chốt. |
 | `CLI_USAGE.md` | Hướng dẫn command production và vận hành. |
 
@@ -25,7 +26,8 @@ Ghi chú database bổ sung hiện nằm ở root với tên `docs_db_schema.md`
 - Tài liệu trạng thái theo thời điểm phải ghi ngày rà soát.
 - Không mô tả signal/backtest research hoặc MVP như hành vi production đã kiểm chứng.
 - Không kết luận migration đã deploy chỉ vì file có trong repo.
+- Khi tài liệu mâu thuẫn, ưu tiên code thực thi, schema, migration, test và `AGENTS.md` hiện tại.
 
-## Lưu ý tài liệu có thể cũ
+## Bảo trì
 
-Một số tài liệu trạng thái có thể cũ sau khi code thay đổi. Ví dụ, code hiện tại tách `daily` và `intraday-ingest`, trong khi một số đoạn trạng thái cũ vẫn gộp hai luồng. Việc cập nhật toàn bộ tài liệu trạng thái nên được thực hiện bằng task riêng sau khi đối chiếu đầy đủ.
+`CURRENT_STATE.md` và `DATA_PIPELINE.md` đã được đồng bộ với việc tách daily/intraday, reuse payload, completeness query, feature contract và streaming-ingest vào ngày 18/07/2026. Cần rà soát lại tài liệu trạng thái mỗi khi hành vi production thay đổi.
