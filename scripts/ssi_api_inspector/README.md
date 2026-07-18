@@ -4,6 +4,11 @@ Read-only CLI for Phase 0 SSI FastConnect Data REST verification.
 
 The inspector sends direct HTTP requests to SSI, prints the real response envelope in a readable form, and never writes to Supabase or any database. Use it to verify endpoint availability, request parameters, paging, empty responses, response keys, record fields, and differences between SSI endpoints before changing the ingest or clean-data pipelines.
 
+## Documentation
+
+- 🇺🇸 English: [README.md](README.md)
+- 🇻🇳 Tiếng Việt: [README.vi.md](README.vi.md)
+
 ## Scope and safety
 
 - Read-only for database state.
