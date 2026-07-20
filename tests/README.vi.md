@@ -1,41 +1,48 @@
 # Bộ test
 
-Unit test, contract test, regression, CLI, migration-text và pipeline test chạy offline.
+Bộ unit test, contract test, regression test, CLI test, migration-text test, validation test và pipeline test chạy offline cho Trading T+.
 
 ## Tài liệu
 
 - English: [README.md](README.md)
 - Tiếng Việt: [README.vi.md](README.vi.md)
-- Test validation: [`validation/README.vi.md`](validation/README.vi.md)
 
-## Phạm vi kiểm tra
+## Cấu trúc
 
-- Hợp đồng production CLI và exit code.
-- Pipeline daily, intraday-ingest, EOD, one-day và streaming.
-- SSI REST/streaming inspector.
-- Mapping raw/clean và ý nghĩa intraday value.
-- Feature engine aggregate, incremental/full và target date.
-- Hành vi signal/backtest MVP ở nơi đã có test.
-- Contract text của migration/schema.
-- Validation daily, intraday và streaming.
+| Thư mục | Trách nhiệm |
+| --- | --- |
+| [`ingest/`](ingest/README.vi.md) | Mapping daily/intraday, tính value, tái sử dụng payload, điều phối ingest và truy vấn completeness. |
+| [`features/`](features/README.vi.md) | Công thức feature, aggregate timeframe, chạy incremental/full và hợp đồng ghi dữ liệu. |
+| [`validation/`](validation/README.vi.md) | Quy tắc validation daily, intraday và streaming. |
+| [`streaming/`](streaming/README.vi.md) | Hành vi streaming ingest và contract migration. |
+| [`inspectors/`](inspectors/README.vi.md) | Test cho SSI REST/streaming inspector chỉ đọc. |
+| [`pipeline/`](pipeline/README.vi.md) | Điều phối EOD và hành vi dry-run. |
+| [`cli/`](cli/README.vi.md) | Hợp đồng production CLI và entrypoint script. |
+| [`legacy/`](legacy/README.vi.md) | Test research/MVP được đánh dấu rõ, chưa phải hành vi T+ đã kiểm chứng. |
 
-## Command
+`conftest.py` thêm project root vào `sys.path` để import vẫn ổn định sau khi test được chia theo thư mục con.
+
+## Lệnh thường dùng
 
 ```bash
-python -m pytest -q tests/test_feature_engine.py
-python -m pytest -q tests/test_cli_refactor.py tests/test_eod_pipeline.py
+python -m pytest -q tests/ingest
+python -m pytest -q tests/features
 python -m pytest -q tests/validation
+python -m pytest -q tests/streaming tests/inspectors
+python -m pytest -q tests/pipeline tests/cli
+python -m pytest -q tests/legacy
 python -m pytest -q
-python -m compileall main.py src scripts
+python -m compileall main.py src scripts tests
 ```
 
 ## Quy tắc
 
-- Chạy test nhỏ liên quan trước, sau đó chạy full suite khi phù hợp.
-- Unit test không phụ thuộc credential SSI/Supabase thật nếu không được đánh dấu integration/smoke rõ ràng.
+- Chạy nhóm nhỏ liên quan trước, sau đó chạy full suite khi phù hợp.
+- Test thông thường không phụ thuộc credential SSI hoặc Supabase thật.
 - Mock API và database bên ngoài.
-- Test bình thường không được ghi dữ liệu production.
-- Task chỉ đổi tài liệu vẫn phải kiểm tra path, command và link với repo hiện tại.
-- Phân biệt lỗi có sẵn và lỗi do task tạo ra.
+- Test không được ghi dữ liệu production.
+- Mỗi lỗi data-quality production cần regression test deterministic.
+- Không làm yếu validation chỉ để chấp nhận anomaly nguồn chưa giải thích.
+- Tách rõ test legacy/research khỏi các bảo đảm dữ liệu Phase 0.
 
 GitHub Actions chạy toàn bộ pytest khi có pull request và push vào `dev`.

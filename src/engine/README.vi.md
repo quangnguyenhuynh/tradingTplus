@@ -36,8 +36,8 @@ Signal/backtest là code downstream dạng research/MVP trong Phase 0. Chúng ph
 ## Test
 
 ```bash
-python -m pytest -q tests/test_feature_engine.py
-python -m pytest -q tests/test_backtest_engine.py
+python -m pytest -q tests/features/test_feature_engine.py
+python -m pytest -q tests/legacy/test_backtest_engine.py
 ```
 
 Khi đổi công thức feature, phải ghi công thức cũ/mới, timeframe bị ảnh hưởng, dữ liệu lịch sử, nhu cầu backfill và test.

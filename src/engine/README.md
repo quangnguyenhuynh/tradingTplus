@@ -36,8 +36,8 @@ Signal and backtest modules are downstream research/MVP code in Phase 0. They mu
 ## Testing
 
 ```bash
-python -m pytest -q tests/test_feature_engine.py
-python -m pytest -q tests/test_backtest_engine.py
+python -m pytest -q tests/features/test_feature_engine.py
+python -m pytest -q tests/legacy/test_backtest_engine.py
 ```
 
 When a feature formula changes, document the old/new formula, affected timeframes, historical-row impact, backfill need, and tests.
