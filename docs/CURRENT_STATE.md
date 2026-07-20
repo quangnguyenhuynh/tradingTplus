@@ -1,26 +1,46 @@
 # Current State
 
-## Document Status
+## Document status
 
-Tài liệu này mô tả trạng thái hiện tại của repository Trading T+ dựa trên code đang có.
+Tài liệu này mô tả trạng thái hiện tại của repository Trading T+ dựa trên code, migration, test và workflow đang có.
 
 Last reviewed against repository code:
 
 ```text
-14/07/2026
+18/07/2026
 ```
+
+Repository commit dùng để đối chiếu:
+
+```text
+59e36b1310c4e435f1c426bd2d19276262f47922
+```
+
+Phạm vi đã đọc và đối chiếu gồm:
+
+- `main.py`;
+- `src/ssi/`;
+- `src/pipeline/`;
+- `src/database/client.py`;
+- `src/validation/`;
+- `src/engine/`;
+- `schema.sql` và các migration liên quan;
+- `tests/`;
+- `.github/workflows/`;
+- các tài liệu production CLI và data pipeline.
 
 Cần phân biệt rõ:
 
-- **Code hiện có trong repository**: đã được đọc và đối chiếu.
-- **Schema Supabase thực tế**: chưa thể khẳng định migration nào đã được áp dụng nếu chưa chạy schema check.
-- **Dữ liệu production thực tế**: chưa thể khẳng định completeness nếu chưa chạy kiểm tra trên Supabase.
-- **SSI account thực tế**: chưa thể khẳng định mọi endpoint hoặc streaming channel đều được tài khoản hỗ trợ.
-- **Test runtime hiện tại**: phải chạy lại trong môi trường development trước khi kết luận toàn bộ test pass.
+- **Hành vi code hiện tại**: được mô tả trong tài liệu này.
+- **Schema Supabase production**: chưa thể khẳng định migration nào đã được áp dụng nếu chưa chạy schema check thực tế.
+- **Dữ liệu production**: chưa thể khẳng định completeness hoặc consistency nếu chưa query Supabase.
+- **SSI account thực tế**: chưa thể khẳng định mọi endpoint hoặc streaming channel đều được account hỗ trợ.
+- **Test offline**: GitHub Actions `Unit Tests` đã pass trên Python 3.11 cho PR #77 ngày 18/07/2026.
+- **Smoke test live**: chưa được xác nhận trong tài liệu này vì cần credential SSI/Supabase và phải mặc định read-only.
 
 ---
 
-## Current Development Phase
+## Current development phase
 
 Project đang ở:
 
@@ -28,134 +48,131 @@ Project đang ở:
 Phase 0 — Data Foundation and Validation
 ```
 
-Mục tiêu hiện tại là:
+Thứ tự ưu tiên hiện tại:
 
-1. Hiểu đúng SSI API và ý nghĩa từng field.
-2. Lưu raw data chính xác.
-3. Tạo clean data chính xác.
-4. Kiểm tra completeness và consistency.
-5. Bảo đảm feature có thể rerun và backfill.
-6. Chỉ sau đó mới hoàn thiện signal và backtest.
+1. Hiểu đúng SSI API và ý nghĩa field.
+2. Raw data chính xác và có thể truy vết.
+3. Clean data chính xác.
+4. Completeness và consistency.
+5. Feature deterministic, rerun và backfill được.
+6. Signal.
+7. Backtest.
+8. Tối ưu chiến lược và AI.
 
-Không ưu tiên:
-
-- tối ưu lợi nhuận;
-- tối ưu win rate;
-- AI prediction;
-- gợi ý phần trăm NAV;
-- production alert;
-- tự động đặt lệnh.
+Không dùng signal/backtest MVP hiện tại để kết luận khả năng sinh lợi.
 
 ---
 
-## Overall Status
+## Executive status
 
-| Thành phần | Trạng thái | Ghi chú |
-|---|---|---|
-| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday` |
-| SSI REST client | Implemented | Login, pagination, retry `401` một lần |
-| Master data | Implemented | Symbols, securities, indexes, index components |
-| Daily raw ingest | Implemented | `raw_daily` từ `DailyStockPrice` |
-| Daily clean ingest | Implemented | `stock_daily` có validation |
-| Intraday raw ingest | Partial | Có `raw_intraday`, nhưng chưa giữ full raw JSON payload |
-| Intraday clean ingest | Implemented | Chỉ lưu timeframe `1m` |
-| Intraday value | Implemented | `round(close * volume)`, là giá trị ước tính |
-| Foreign trading | Implemented | Derive từ `DailyStockPrice` |
-| Daily index | Implemented | Ghi vào `index_daily` |
-| Daily validation | Implemented | Required fields, OHLC, price limit, volume/value |
-| Intraday validation | Implemented | Record và batch validation |
-| Completeness check | Implemented một phần | Tập trung vào `stock_daily` và `stock_intraday` |
-| Feature `1d` | Implemented | Nguồn từ `stock_daily` |
-| Feature intraday | Implemented | `1m`, `5m`, `15m`, `60m` |
-| Incremental feature | Implemented | Có warm-up và target-date filtering |
-| Full feature | Implemented có rủi ro | Có thể dùng nhiều RAM |
-| Signal engine | Có code MVP nhưng chưa phù hợp | Đang dùng schema/field cũ |
-| Backtest engine | Có code MVP nhưng chưa phải T+ | Dùng `holding_bars`, chưa dùng trading sessions T+3/T+5 |
-| Alert scheduler | Not started | Chưa có production scheduler |
-| Probability/confidence | Not started | Chưa có model hoặc calibration |
-| NAV suggestion | Not started | Chưa có risk sizing engine |
-| Mobile application | Not started trong repo này | Chưa phải ưu tiên Phase 0 |
-| Production monitoring | Chưa hoàn chỉnh | Chưa có đầy đủ metrics và data-quality history |
+| Thành phần | Trạng thái | Ghi chú hiện tại |
+| --- | --- | --- |
+| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday`, `streaming-ingest`. |
+| SSI REST client | Implemented | Authentication, paging, timeout, retry `401` một lần. |
+| SSI streaming client | Implemented, live chưa kiểm chứng | Classic SignalR, explicit channel, bounded timeout. |
+| Master data | Implemented | `symbols`, `securities`, `indexes`, `index_components`. |
+| Daily raw ingest | Implemented | `raw_daily` giữ full `DailyStockPrice` payload và hash. |
+| Daily clean ingest | Implemented | `stock_daily` được validate trước khi ghi. |
+| Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
+| Intraday clean ingest | Implemented | Chỉ persist `timeframe='1m'`. |
+| Foreign trading | Implemented | Production daily reuse cùng `DailyStockPrice` payload, không fetch lặp. |
+| Daily index | Implemented | Ghi `index_daily`. |
+| Daily validation | Implemented | Required field, OHLC, limits, volume/value và consistency. |
+| Intraday validation | Implemented | Record validation và batch validation. |
+| Completeness | Partial | Daily/intraday là điều kiện chính; index/foreign/orderbook mới là count tham khảo. |
+| Feature `1d` | Implemented | Nguồn từ `stock_daily`. |
+| Feature intraday | Implemented | `1m`, `5m`, `15m`, `60m`; timeframe cao aggregate từ 1m. |
+| Incremental feature | Implemented | Target date, warm-up và scoped upsert. |
+| Full feature | Implemented, có rủi ro RAM | Toàn bộ history từng symbol vẫn được giữ trong memory. |
+| Signal engine | MVP cũ, không production-ready | Feature names, check times và conflict key chưa phù hợp current contract. |
+| Backtest engine | MVP/research | Dùng future bars, chưa phải T+1/T+3/T+5 trading sessions. |
+| Streaming ingest | Implemented, live chưa kiểm chứng | Dry-run mặc định; raw/clean snapshot tách biệt. |
+| Test offline | Passing tại mốc review | GitHub Actions Python 3.11 pass cho merge commit trước task này. |
+| Alert scheduler | Not started | Chưa có production scheduler tại 09:30, 11:30, 13:30, 14:30. |
+| Probability/NAV | Not started | Chưa có calibration hoặc sizing engine. |
+| Production monitoring | Partial | Chưa có đầy đủ metrics, DQ history, alert failure và runbook. |
 
 ---
 
-## Current Production Commands
+## Current production commands
 
 ## 1. Master-data sync
 
 ```bash
 python main.py sync-master-data
-```
-
-Alias:
-
-```bash
 python main.py init
 ```
 
+`init` là alias backward-compatible.
+
 Hiện thực hiện:
 
-- lấy danh sách mã từ SSI;
-- ghi `symbols`;
-- lấy `SecuritiesDetails`;
-- ghi `securities`;
-- lấy danh sách index;
-- ghi `indexes`;
-- lấy thành phần index;
-- ghi `index_components`.
+- đọc SSI securities và security details;
+- đồng bộ `symbols` và `securities`;
+- đồng bộ `indexes` và `index_components`.
 
-Không thực hiện:
-
-- daily ingest;
-- feature;
-- signal;
-- backtest.
-
----
+Không ingest history và không chạy feature/signal/backtest.
 
 ## 2. Daily ingest
 
 ```bash
-python main.py daily DD/MM/YYYY
+python main.py daily [DD/MM/YYYY]
 ```
 
-Hiện thực hiện:
+Flow hiện tại:
 
 ```text
-SSI DailyStockPrice
-    ├── raw_daily
-    ├── validate
-    └── stock_daily
+SSI DailyStockPrice — một request cho mỗi symbol/date
+    ├── raw_daily: full payload + data_hash
+    ├── validate daily mapper
+    ├── stock_daily nếu valid
+    └── foreign_trading từ cùng payload
 
-SSI IntradayOhlc resolution=1
-    ├── raw_intraday
-    ├── validate candle
-    ├── validate batch
-    └── stock_intraday timeframe=1m
-
-DailyStockPrice foreign fields
-    └── foreign_trading
-
-DailyIndex
+SSI DailyIndex
     └── index_daily
 ```
 
-Không thực hiện:
+`daily` không gọi `IntradayOhlc`, không ghi `raw_intraday`/`stock_intraday`, và không chạy feature/signal/backtest.
 
-- feature;
-- signal;
-- backtest;
-- alert;
-- recommendation.
+Khi không truyền ngày, command dùng `latest_previous_weekday` theo logic hiện tại. Đây là weekday-based default, chưa phải exchange holiday calendar.
 
-Khi không truyền ngày, `daily` hiện chọn latest previous weekday.
+Nếu `DailyStockPrice` rỗng hoặc daily validation fail, per-symbol summary trả `FAILED`; overall daily summary là `FAILED` khi tất cả symbol lỗi và `PARTIAL` khi chỉ một phần lỗi.
 
----
-
-## 3. EOD flow
+## 3. Intraday ingest
 
 ```bash
-python main.py eod DD/MM/YYYY
+python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
+```
+
+Flow hiện tại:
+
+```text
+SSI IntradayOhlc resolution=1
+    ├── parse SSI local time as Asia/Ho_Chi_Minh
+    ├── convert to UTC
+    ├── raw_intraday
+    ├── validate each clean candle
+    ├── validate batch
+    └── stock_intraday timeframe=1m
+```
+
+Hành vi quan trọng:
+
+- không gọi `DailyStockPrice`;
+- không ghi daily, foreign hoặc index tables;
+- có thể đọc `stock_daily` cùng symbol/date làm optional validation context;
+- thiếu daily context không chặn ingest;
+- `reference_price`, `ceiling_price`, `floor_price` giữ `NULL` khi thiếu context;
+- summary được đánh dấu `PARTIAL` nếu daily context thiếu;
+- timestamp không parse được bị bỏ qua trước khi tạo raw/clean record;
+- raw intraday được ghi trước clean validation đối với các candle parse được;
+- clean candle valid vẫn được ghi ngay cả khi batch validation có warning/error; summary phản ánh `PARTIAL`;
+- duplicate timestamp được deduplicate bằng cách giữ record cuối trước khi upsert clean.
+
+## 4. EOD
+
+```bash
+python main.py eod [DD/MM/YYYY]
 ```
 
 Flow hiện tại:
@@ -163,18 +180,27 @@ Flow hiện tại:
 ```text
 daily ingest
     ↓
+intraday-ingest 1m
+    ↓
 ingest completeness check
     ↓
 OK / PARTIAL / FAILED
 ```
 
-`eod` không chạy feature.
+`eod` trả:
 
-README hiện đã được cập nhật để mô tả `eod` không chạy feature; hành vi trong code vẫn là source of truth.
+- `daily_summary`;
+- `intraday_summary`;
+- `ingest_summary`;
+- `failures`;
+- `warnings`;
+- final `status`.
 
----
+`eod` không chạy feature, signal hoặc backtest.
 
-## 4. Explicit feature flow
+Khi không truyền ngày, EOD dùng `latest_weekday_on_or_before`. Nếu chạy manual trước khi phiên kết thúc vào một ngày giao dịch, có thể ingest dữ liệu chưa hoàn chỉnh. Workflow hiện chạy EOD lúc 16:30 giờ Việt Nam các ngày trong tuần.
+
+## 5. Explicit feature pipeline
 
 ```bash
 python main.py features \
@@ -183,8 +209,6 @@ python main.py features \
   --symbols SSI HPG \
   --timeframes 1m 5m 15m 60m 1d
 ```
-
-Feature được chạy riêng sau ingest và validation.
 
 Supported modes:
 
@@ -203,85 +227,53 @@ Supported timeframes:
 1d
 ```
 
----
+Feature chạy độc lập với ingest và chỉ ghi bảng `features`.
 
-## 5. Intraday command
+## 6. Legacy intraday feature alias
 
 ```bash
 python main.py intraday --symbols SSI HPG
 ```
 
-Trạng thái hiện tại:
+Command này:
 
-- là legacy compatibility alias;
+- đọc `stock_intraday` đã có;
 - chạy incremental feature;
-- không gọi SSI để ingest candle mới;
-- mặc định tính `1m`, `5m`, `15m`;
-- không cho phép `1d`.
+- mặc định dùng `1m`, `5m`, `15m`;
+- không ingest SSI candle;
+- không tính `1d`.
 
-Tên command dễ gây hiểu nhầm vì nó không phải intraday ingest pipeline.
+Tên command là legacy compatibility alias và có thể gây hiểu nhầm nếu không đọc CLI docs.
 
----
+## 7. Streaming ingest
 
-## Implementation Status
+```bash
+python main.py streaming-ingest \
+  --symbols SSI HPG \
+  --indexes VNINDEX \
+  --channels quote trade foreign-room index \
+  --timeout 60 \
+  --max-messages-per-channel 1
+```
 
-## 1. SSI REST Client
+Hành vi hiện tại:
 
-### Đã có
+- yêu cầu symbol rõ ràng cho channel không phải index;
+- yêu cầu index code rõ ràng cho index channel;
+- timeout giới hạn từ 1 đến 3600 giây;
+- message limit giới hạn từ 1 đến 1000;
+- dry-run/read-only nếu không truyền `--write`;
+- validate mapped record;
+- giữ raw stream record riêng với validation status/issues;
+- chỉ ghi clean snapshot valid khi có `--write`.
 
-- Đăng nhập bằng consumer ID và consumer secret.
-- Lưu access token trong instance.
-- Gửi Bearer token.
-- Timeout cho request.
-- Nếu gặp `401`:
-  1. login lại;
-  2. retry request một lần.
-- Pagination với:
-  - `pageIndex`;
-  - `pageSize`;
-  - `totalRecord` khi có.
-- Có khoảng nghỉ ngắn giữa các page.
-- Có xử lý một số dạng response:
-  - `dataList`;
-  - `data`;
-  - `items`.
-
-### Endpoint đang được code sử dụng
-
-- `Securities`;
-- `SecuritiesDetails`;
-- `IndexList`;
-- `IndexComponents`;
-- `DailyStockPrice`;
-- `IntradayOhlc`;
-- `DailyIndex`.
-
-### Không được hardcode như public endpoint
-
-- standalone `ForeignTrading`;
-- REST market depth/order book.
-
-Foreign trading hiện derive từ `DailyStockPrice`.
-
-Order book chỉ có thể lấy từ:
-
-- SSI streaming quote;
-- hoặc account-specific endpoint được cấu hình rõ ràng.
-
-### Chưa được xác nhận đầy đủ
-
-- API rate limit thực tế.
-- Pagination behavior trên mọi endpoint.
-- Field units trên toàn bộ market.
-- Account permission cho streaming channel.
-- Behavior trong ngày nghỉ hoặc ngày đặc biệt.
-- Timestamp là bar start hay bar end.
+Streaming ingest không thay thế historical daily/intraday ingest và realtime bar `B` không được ghi vào canonical `stock_intraday`.
 
 ---
 
-## 2. Master Data
+## Current data contracts
 
-### Đã có
+## 1. Master data
 
 Các bảng chính:
 
@@ -292,27 +284,16 @@ indexes
 index_components
 ```
 
-Master pipeline có thể:
+Master sync là idempotent theo conflict key hiện tại và không tự chạy feature.
 
-- lấy mã theo market;
-- map metadata chứng khoán;
-- map index;
-- map index components;
-- upsert lại dữ liệu.
+Điểm chưa xác minh đầy đủ:
 
-### Điểm cần kiểm tra thêm
+- universe nào phù hợp cho T+;
+- inactive/delisted handling;
+- ETF, warrant, bond, derivative filtering;
+- lịch sử thay đổi index components.
 
-- Symbol universe có bao gồm toàn bộ loại chứng khoán cần phân tích hay không.
-- Có cần loại DER, warrant, ETF hoặc bond khỏi universe T+ hay không.
-- Security đang ngừng giao dịch có được loại khỏi active universe hay không.
-- Index component có ngày hiệu lực hay chỉ lưu trạng thái mới nhất.
-- Master data có cần lưu lịch sử thay đổi hay không.
-
----
-
-## 3. Raw Daily Data
-
-### Đã có
+## 2. Raw daily
 
 `raw_daily` hiện lưu:
 
@@ -321,71 +302,33 @@ Master pipeline có thể:
 - `data_hash`;
 - full source `payload`.
 
-Nguồn:
+Hash được tạo từ `json.dumps(..., sort_keys=True)` nên ổn định với thứ tự key JSON thông thường.
 
-```text
-DailyStockPrice
-```
-
-Conflict key dự kiến:
+Conflict key code sử dụng:
 
 ```text
 symbol,trading_date,data_hash
 ```
 
-### Điểm tốt
+Raw daily được ghi trước clean validation, cho phép audit source row khi clean bị reject.
 
-- Có payload gốc để đối chiếu.
-- Có hash phục vụ idempotency.
-- Raw được ghi trước clean validation.
-- Daily clean record có thể được tái tạo từ source payload.
+## 3. Clean daily
 
-### Cần kiểm tra thêm
+`stock_daily` là daily source chính cho T+ và feature `1d`.
 
-- Unique index đã được áp dụng trong Supabase thực tế chưa.
-- Data hash có ổn định khi JSON key order thay đổi hay không.
-- Có cần thêm:
-  - source endpoint;
-  - ingest time;
-  - API request parameters;
-  - API response metadata;
-  - mapper version.
-
----
-
-## 4. Clean Daily Data
-
-### Đã có
-
-`stock_daily` là nguồn daily chính.
-
-Nguồn:
+Nguồn production:
 
 ```text
 SSI DailyStockPrice
 ```
 
-Các nhóm field hiện được map:
+`DailyOhlc` chỉ dùng inspector/cross-check, không thuộc production daily ingest.
 
-- price change;
-- percent change;
-- ceiling;
-- floor;
-- reference;
-- open;
-- high;
-- low;
-- close;
-- average price;
-- adjusted close;
-- match volume/value;
-- deal volume/value;
-- total traded volume/value;
-- foreign buy/sell volume/value;
-- net foreign volume/value;
-- foreign room;
-- buy/sell trade counts;
-- raw source.
+Clean row chỉ được ghi khi:
+
+- source date/symbol không mâu thuẫn request;
+- mapper tạo được record;
+- daily validator không có error.
 
 Conflict key:
 
@@ -393,93 +336,46 @@ Conflict key:
 symbol,trading_date
 ```
 
-### Quy tắc hiện tại
+## 4. Raw intraday
 
-Clean row chỉ được ghi nếu:
+`raw_intraday` hiện lưu cho mỗi candle parse được:
 
-- source đúng requested symbol;
-- source đúng requested trading date;
-- daily validation không có error.
-
-### Vai trò
-
-`stock_daily` là source of truth cho:
-
-```text
-feature timeframe = 1d
-```
-
-Không tính canonical feature `1d` từ intraday.
-
----
-
-## 5. Raw Intraday Data
-
-### Đã có
-
-`raw_intraday` hiện lưu:
-
-- symbol;
-- UTC time;
-- open;
-- high;
-- low;
-- close;
-- volume;
-- data hash.
+- `symbol`;
+- UTC `time`;
+- `open`, `high`, `low`, `close`;
+- `volume`;
+- `data_hash`.
 
 Nguồn:
 
 ```text
-IntradayOhlc resolution=1
+SSI IntradayOhlc resolution=1
 ```
 
-Conflict key:
+Conflict key code sử dụng:
 
 ```text
 symbol,time,data_hash
 ```
 
-### Khoảng thiếu
+Khoảng thiếu quan trọng:
 
-`raw_intraday` hiện chưa giữ full raw candle JSON payload.
+- không giữ full source candle JSON;
+- không giữ request params, endpoint metadata, ingest run ID hoặc mapper version;
+- candle có timestamp lỗi bị bỏ qua hoàn toàn, nên raw layer không giữ được source evidence cho case đó.
 
-Hash được tính từ source candle JSON, nhưng source JSON không được lưu đầy đủ.
+## 5. Clean intraday
 
-Hệ quả:
-
-- khó kiểm tra field mới sau ingest;
-- khó chứng minh mapper không bỏ mất field;
-- khó debug khi SSI thay đổi response;
-- khó backfill lại clean mapping mà không gọi SSI lần nữa.
-
-Đây là khoảng thiếu quan trọng của raw layer.
-
-Mọi thay đổi bổ sung raw payload phải:
-
-- kiểm tra schema hiện tại;
-- tạo migration;
-- xác định data cũ có cần backfill hay không;
-- không thực hiện kèm task không liên quan.
-
----
-
-## 6. Clean Intraday Data
-
-### Đã có
-
-`stock_intraday` là clean intraday table.
-
-Timeframe duy nhất được phép lưu:
+`stock_intraday` chỉ cho phép:
 
 ```text
-1m
+timeframe = 1m
 ```
 
 Database client từ chối:
 
 - timeframe khác `1m`;
-- feature columns bị ghi nhầm vào `stock_intraday`.
+- feature columns bị ghi nhầm vào clean intraday.
 
 Conflict key:
 
@@ -487,31 +383,13 @@ Conflict key:
 symbol,timeframe,time
 ```
 
-### Timestamp
-
-SSI candle time được hiểu theo:
-
-```text
-Asia/Ho_Chi_Minh
-```
-
-Sau đó chuyển sang UTC để lưu.
-
-Timestamp không parse được sẽ bị bỏ qua.
-
-### Partition
-
-`stock_intraday` được partition theo tháng.
-
-Database client gọi RPC:
+`stock_intraday` được partition theo tháng thông qua RPC:
 
 ```text
 create_partition_if_not_exists
 ```
 
-trước khi upsert dữ liệu từng tháng.
-
-### Intraday value
+## 6. Intraday value
 
 Công thức hiện tại:
 
@@ -519,38 +397,29 @@ Công thức hiện tại:
 value = round(close * volume)
 ```
 
-Ý nghĩa:
+Đây là estimated candle value, không phải exact turnover từ SSI.
 
-- giá trị giao dịch ước tính theo close của candle;
-- không phải exact turnover từ SSI;
-- chỉ phục vụ research khi đã ghi rõ provenance.
-
-Nếu close hoặc volume thiếu:
+Nếu close hoặc volume thiếu/sai:
 
 ```text
 value = NULL
 ```
 
-Không tự thay bằng `0`.
+Không tự thay missing bằng `0`.
 
----
+## 7. Foreign trading
 
-## 7. Foreign Trading
+Production daily hiện reuse cùng `DailyStockPrice` payload đã lấy cho raw/clean daily.
 
-### Đã có
+Các field được derive gồm:
 
-`foreign_trading` hiện được derive từ các foreign fields trong `DailyStockPrice`.
-
-Các nhóm dữ liệu:
-
-- foreign buy volume;
-- foreign sell volume;
-- foreign buy value;
-- foreign sell value;
-- net foreign volume;
-- net foreign value;
+- foreign buy/sell volume;
+- foreign buy/sell value;
+- net volume/value;
 - foreign room;
 - raw source row.
+
+Không có standalone public SSI REST `ForeignTrading` endpoint trong contract hiện tại.
 
 Conflict key daily:
 
@@ -558,26 +427,9 @@ Conflict key daily:
 symbol,trading_date
 ```
 
-### Known inefficiency
+Standalone helper `fetch_foreign_trading_day` vẫn có thể tự fetch khi được gọi riêng, nhưng production `daily` không còn duplicate request cho cùng symbol/date.
 
-Daily pipeline hiện có thể gọi `DailyStockPrice` hai lần cho cùng symbol/date:
-
-1. lấy daily raw/clean;
-2. lấy foreign trading.
-
-Đây là duplicate API request.
-
-Chưa cần sửa kèm task khác. Khi sửa phải:
-
-- reuse daily payload đã có;
-- giữ nguyên mapper contract;
-- thêm test để tránh thay đổi output.
-
----
-
-## 8. Index Data
-
-### Đã có
+## 8. Index data
 
 Các bảng:
 
@@ -587,109 +439,80 @@ index_components
 index_daily
 ```
 
-Index quan trọng đang được cấu hình gồm:
+`index_daily` giữ raw payload cùng các field index đã map. Index code, exchange coverage và completeness thực tế vẫn cần kiểm chứng bằng SSI evidence.
 
-- VNINDEX;
-- VN30;
-- HNXIndex;
-- HNX30;
-- HNXUpcomIndex;
-- UPCOMIndex.
+## 9. Streaming raw và clean snapshots
 
-`index_daily` lưu:
+Migration mới nhất trong repo bổ sung/reconcile:
 
-- index value;
-- change;
-- ratio change;
-- total trade;
-- volume/value;
-- advances;
-- no changes;
-- declines;
-- ceilings;
-- floors;
-- raw payload.
+```text
+stream_raw_snapshot
+stream_quote_snapshot
+stream_trade_snapshot
+stream_foreign_snapshot
+stream_index_snapshot
+stream_status_snapshot
+stream_bar_snapshot
+```
 
-### Cần kiểm tra thêm
+Raw stream record có:
 
-- Tên index code SSI thực tế có nhất quán hay không.
-- Có index code nào trả rỗng theo từng exchange hay không.
-- Có cần filter nhóm index phù hợp với product hay không.
-- Daily index có được kiểm tra completeness cùng stock data hay không.
-- Index component có lịch sử thay đổi hay chưa.
+- requested channel;
+- payload;
+- source time nếu parse được;
+- `received_at`;
+- payload hash;
+- validation status/issues.
+
+Clean snapshot tách theo channel type. Việc migration đã được áp dụng vào production Supabase chưa vẫn phải được schema check thực tế xác nhận.
 
 ---
 
-## 9. Daily Validation
+## Validation and completeness
 
-### Đã có
+## 1. Daily validation
 
-Daily validator kiểm tra:
+Daily validator kiểm tra các nhóm chính:
 
 - required fields;
-- price field hợp lệ;
-- price dương khi có giao dịch;
+- numeric/price validity;
 - volume/value không âm;
-- quan hệ OHLC;
-- high không thấp hơn các thành phần khác;
-- low không cao hơn các thành phần khác;
-- floor ≤ reference ≤ ceiling;
-- OHLC nằm trong floor/ceiling;
-- price change so với close − reference;
-- percent change;
-- total volume so với match + deal;
-- total value so với match + deal.
+- OHLC relationship;
+- floor/reference/ceiling relationship;
+- price limits;
+- change và percentage consistency;
+- total volume/value so với match + deal khi field có đủ.
 
-### Error behavior
+Nếu daily validation error:
 
-Nếu có validation error:
-
+- `raw_daily` vẫn giữ source payload;
 - `stock_daily` không được ghi;
-- clean intraday của cùng symbol/date cũng không được ghi.
+- production `intraday-ingest` vẫn là pipeline riêng và không bị chặn tự động bởi lỗi daily này.
 
-### Warning behavior
-
-Warning được log nhưng không nhất thiết chặn ghi clean daily.
-
-### Cần kiểm chứng thêm
-
-- Price unit của SSI.
-- Tolerance theo tick size.
-- Adjusted close behavior.
-- Daily volume/value fields trên các loại chứng khoán khác nhau.
-- Trường hợp symbol không giao dịch nhưng vẫn có daily row.
-- Trường hợp giá bằng `0` hợp lệ hay không.
-
----
-
-## 10. Intraday Validation
-
-### Record validation đã có
+## 2. Intraday record validation
 
 Kiểm tra:
 
 - required fields;
-- timeframe phải là `1m`;
-- UTC timezone-aware timestamp;
-- OHLC phải dương;
-- volume không âm;
-- value không âm;
-- quan hệ OHLC;
-- price nằm trong floor/ceiling.
+- timeframe `1m`;
+- timezone-aware UTC timestamp;
+- OHLC dương và hợp lệ;
+- volume/value không âm;
+- optional floor/ceiling khi context có sẵn.
 
-### Batch validation đã có
+## 3. Intraday batch validation
 
 Kiểm tra:
 
 - empty batch;
 - duplicate timestamp;
 - unsorted input;
-- candle ngoài trading session;
+- candle ngoài session;
 - missing 1-minute interval;
-- last intraday close so với daily close;
-- tổng volume intraday so với daily matched volume.
+- last intraday close so với daily close khi có context;
+- tổng intraday volume so với daily matched volume khi có context.
 
-### Trading session hiện tại
+Session rule hiện tại:
 
 ```text
 09:00–11:30
@@ -697,26 +520,19 @@ Kiểm tra:
 Asia/Ho_Chi_Minh
 ```
 
-Lunch break không được xem là missing interval.
+Lunch break không được tính là missing interval.
 
-### Cần kiểm chứng thêm
+Chưa được SSI evidence xác nhận đầy đủ:
 
-- Candle timestamp là bar start hay bar end.
-- Candle tại `09:00` có thật sự được SSI trả không.
-- ATO và ATC được biểu diễn ra sao.
-- Có candle tại `11:30` và `15:00` hay không.
-- Session rule của HOSE, HNX và UPCOM có cần tách không.
-- Symbol halt hoặc không phát sinh giao dịch được đánh giá thế nào.
-- Gap do không có giao dịch có phải missing data hay response đúng của SSI.
-- Daily matched volume có luôn bằng tổng intraday volume hay không.
+- timestamp là bar start hay bar end;
+- ATO/ATC representation;
+- boundary candle tại 09:00, 11:30 và 15:00;
+- khác biệt HOSE/HNX/UPCOM;
+- zero-volume candle, halt và symbol ít thanh khoản.
 
-Không được dùng một con số cố định như `226` để kết luận mọi ngày đầy đủ.
+Không dùng một con số cố định như `226` để kết luận mọi ngày đầy đủ.
 
----
-
-## 11. Completeness Check
-
-### Đã có
+## 4. Ingest completeness
 
 Command:
 
@@ -724,122 +540,94 @@ Command:
 python scripts/check_ingest.py --date DD/MM/YYYY
 ```
 
-Check hiện tại đọc:
+Hiện query:
 
 - symbol universe;
 - `stock_daily`;
 - `stock_intraday` timeframe `1m`;
 - `index_daily` count;
-- `foreign_trading` count.
+- `foreign_trading` count;
+- `orderbook_snapshot` count theo UTC range của ngày Việt Nam.
 
-Theo từng symbol, summary có:
+Per-symbol summary có:
 
 - daily present;
-- intraday candle count;
-- first candle;
-- last candle;
+- candle count;
+- first/last candle;
 - duplicate count;
 - missing interval count;
 - missing minutes;
 - status.
 
-### Trạng thái
+Overall status hiện dựa chủ yếu trên:
 
-#### `FAILED`
+- có hay không `stock_daily`;
+- có hay không `stock_intraday`;
+- missing symbol;
+- duplicate/gap intraday.
 
-Khi:
+`index_daily_count`, `foreign_trading_count` và `orderbook_snapshot_count` được query thật nhưng chưa ảnh hưởng đầy đủ đến overall status.
 
-- không có `stock_daily`; hoặc
-- không có `stock_intraday`.
+Completeness chưa bao phủ đầy đủ:
 
-#### `PARTIAL`
-
-Khi:
-
-- thiếu daily symbol;
-- thiếu intraday symbol;
-- có duplicate;
-- có missing interval.
-
-#### `OK`
-
-Khi không phát hiện các vấn đề trên theo rule hiện tại.
-
-### Khoảng thiếu
-
-Completeness hiện chưa bao phủ đầy đủ:
-
-- `raw_daily`;
-- `raw_intraday`;
-- `securities`;
-- `indexes`;
-- `index_components`;
+- raw-to-clean traceability;
+- raw table completeness;
 - field-level null rate;
-- cross-table raw-to-clean mapping;
-- foreign-trading completeness;
-- index completeness;
 - partition completeness;
-- order-book snapshot completeness.
+- master-data completeness;
+- expected index set;
+- foreign field availability theo symbol;
+- streaming snapshot completeness;
+- holiday/non-trading-day classification.
 
-`orderbook_snapshot_count` hiện đang hardcode:
+---
+
+## Database layer and migrations
+
+## Code behavior đã có
+
+- Supabase client singleton;
+- bounded retry tối đa mặc định 3 lần;
+- exponential backoff có jitter;
+- reconnect cho lỗi auth/JWT;
+- batch upsert;
+- JSON sanitization;
+- fail-fast khi critical table thiếu unique/exclusion constraint;
+- fail-fast khi schema thiếu column;
+- monthly partition handling cho `stock_intraday`.
+
+## Conflict-key caveat
+
+`raw_intraday` dùng:
 
 ```text
-0
+on_conflict = symbol,time,data_hash
 ```
 
-chứ chưa query dữ liệu thực tế.
+Nhưng `raw_intraday` hiện không nằm trong `_CRITICAL_ON_CONFLICT_TABLES`.
+
+Nếu production thiếu unique index tương ứng, generic database helper có thể fallback sang upsert không có explicit `on_conflict` thay vì fail-fast. Điều này cần được kiểm tra và xử lý trong task database riêng; tài liệu này không tự kết luận production đang duplicate.
+
+## Production schema chưa được xác nhận
+
+Cần chạy read-only schema verification để xác nhận:
+
+- table/column/data type;
+- unique index;
+- migration order;
+- `create_partition_if_not_exists`;
+- service-role RPC permission;
+- partition hiện có;
+- schema drift;
+- duplicate lịch sử.
+
+Có migration trong repo không chứng minh migration đã được apply lên production.
 
 ---
 
-## 12. Database Layer
+## Feature pipeline
 
-### Đã có
-
-- Supabase client singleton.
-- Batch upsert.
-- JSON sanitization.
-- Bounded retry.
-- Exponential backoff có jitter.
-- Reconnect cho lỗi auth/JWT.
-- Logging batch size và time range.
-- Critical conflict tables.
-- Fail-fast khi critical table thiếu matching unique constraint.
-- Fail-fast khi schema thiếu column.
-- Monthly partition handling cho `stock_intraday`.
-
-### Critical conflict keys
-
-Các bảng critical gồm:
-
-- `stock_intraday`;
-- `features`;
-- `backtest_data`;
-- `foreign_trading`;
-- `orderbook_snapshot`;
-- streaming snapshot tables;
-- `trading_signals`;
-- `securities`;
-- `stock_daily`;
-- `raw_daily`;
-- `indexes`;
-- `index_components`;
-- `index_daily`.
-
-### Cần xác nhận trong Supabase
-
-- Tất cả unique indexes đã tồn tại.
-- Tất cả migrations đã được áp dụng đúng thứ tự.
-- Function `create_partition_if_not_exists` tồn tại.
-- Service role có quyền gọi RPC.
-- Partition mới được tạo đúng.
-- Không có schema drift giữa local `schema.sql` và production.
-- Không còn dữ liệu duplicate từ các version cũ.
-
----
-
-## 13. Feature Pipeline
-
-### Đã có
+## Current contract
 
 Một bảng feature chung:
 
@@ -853,20 +641,10 @@ Conflict key:
 symbol,timeframe,time
 ```
 
-Supported timeframes:
-
-```text
-1m
-5m
-15m
-60m
-1d
-```
-
-### Nguồn dữ liệu
+Nguồn dữ liệu:
 
 | Timeframe | Source |
-|---|---|
+| --- | --- |
 | `1d` | `stock_daily` |
 | `1m` | `stock_intraday` 1m |
 | `5m` | aggregate từ 1m |
@@ -875,103 +653,66 @@ Supported timeframes:
 
 Không ghi candle aggregate ngược vào `stock_intraday`.
 
-### Feature groups hiện có
+## Feature groups hiện có
 
-- OHLC;
-- volume;
-- value;
-- returns;
-- EMA9;
-- EMA20;
-- EMA50;
-- EMA relationship flags;
+- OHLCV và value;
+- return ngắn hạn và return từ open/previous close;
+- EMA9/20/50 và relationship flags;
 - RSI14;
-- MACD;
-- MACD signal;
-- MACD histogram;
-- volume MA20;
-- volume ratio;
-- value MA20;
-- value ratio;
-- rolling high;
-- rolling low;
-- breakout flags;
-- intraday VWAP;
-- close versus VWAP;
-- distance to VWAP;
-- candle range;
-- candle body;
-- candle body percentage;
-- close position in candle.
+- MACD, signal, histogram;
+- volume/value MA20 và ratio;
+- rolling high/low và breakout flags;
+- intraday VWAP và khoảng cách;
+- candle range/body/position.
 
-### Incremental mode
+## Incremental mode
 
-Hiện lấy:
+Hiện tải:
 
-- target-date intraday data;
+- target-date intraday rows;
 - tối đa 300 intraday warm-up rows;
 - tối đa 150 daily rows.
 
-Sau khi tính trên warm-up + target data, chỉ upsert output trong target date.
+Feature được tính trên warm-up + target data nhưng chỉ upsert output trong target date.
 
-### Full mode
+Chưa có evidence đầy đủ rằng 300 rows đủ cho mọi intraday timeframe hoặc future feature.
 
-Hiện:
+## Full mode
 
-1. fetch `stock_intraday` theo page;
-2. gom toàn bộ rows của symbol vào list;
-3. tạo DataFrame;
-4. tính toàn bộ requested timeframes;
-5. upsert toàn bộ feature output.
+Function hiện fetch paginated từ database nhưng vẫn gom toàn bộ intraday history của từng symbol vào một list/DataFrame trước khi tính.
 
-### Rủi ro full mode
+Do đó:
 
-Pagination chỉ giới hạn kích thước mỗi DB request.
+- pagination chỉ giới hạn kích thước request;
+- không giới hạn tổng memory mỗi symbol;
+- chưa phù hợp backfill toàn universe/lịch sử lớn nếu chưa đo RAM, runtime và upsert duration.
 
-Toàn bộ history của một symbol vẫn được giữ trong RAM.
+## Chưa được chứng minh
 
-Full mode chưa phù hợp để chạy toàn universe và lịch sử lớn nếu chưa đo:
-
-- memory;
-- runtime;
-- request count;
-- upsert duration.
-
-### Chưa được chứng minh đầy đủ
-
-- Incremental output bằng full output trên overlapping rows.
-- Warm-up 300 intraday rows đủ cho mọi timeframe.
-- Warm-up 150 daily rows đủ cho mọi future feature.
-- Aggregation không tạo bar qua lunch break.
-- Timestamp của aggregate bar đúng mong muốn.
-- Incomplete current candle được xử lý đúng.
-- Feature formulas đã được đối chiếu với nguồn thứ hai.
-- Null behavior sau warm-up được thống nhất.
-- Feature versioning.
+- full và incremental tương đương trên overlapping rows;
+- aggregation không vượt lunch/session boundary trong mọi case;
+- aggregate timestamp đúng semantic mong muốn;
+- incomplete current bar được xử lý đúng;
+- formula đã đối chiếu với nguồn thứ hai;
+- feature versioning;
+- null behavior sau warm-up.
 
 ---
 
-## 14. Signal Engine
+## Signal engine
 
-### Code hiện có
-
-Repository có:
+Code hiện có:
 
 ```text
 src/engine/signal_engine.py
+src/engine/signal/
 ```
 
-và một số strategy module:
+Strategy modules hiện gồm reversal, breakout và trend.
 
-- reversal;
-- breakout;
-- trend.
+Signal engine hiện là MVP cũ và chưa tương thích current feature schema.
 
-### Trạng thái thực tế
-
-Signal engine hiện là code cũ/MVP và chưa phù hợp với current feature schema.
-
-Signal query đang yêu cầu các field như:
+Query hiện yêu cầu:
 
 ```text
 rsi
@@ -981,7 +722,7 @@ bb_upper
 volume_spike
 ```
 
-Trong khi feature engine hiện sử dụng các field như:
+Trong khi current feature output dùng các field như:
 
 ```text
 rsi14
@@ -989,546 +730,9 @@ ema20
 ema50
 ```
 
-Một số field signal yêu cầu không có trong current feature output:
+`bb_upper` và `volume_spike` không có trong current feature output.
 
-```text
-bb_upper
-volume_spike
-```
-
-### Check times hiện tại trong code
-
-```text
-09:45
-10:30
-13:45
-14:30
-```
-
-Không khớp mục tiêu sản phẩm đã chốt:
-
-```text
-09:30
-11:30
-13:30
-14:30
-```
-
-### Conflict key không thống nhất
-
-Signal engine hiện upsert theo:
-
-```text
-symbol,signal_type,bucket_time
-```
-
-Trong khi các phần khác của repository mô tả key có thêm timeframe/time.
-
-Cần kiểm tra schema thực tế trước khi sửa.
-
-### Kết luận
-
-Signal engine:
-
-```text
-NOT PRODUCTION READY
-```
-
-Không được tự động gọi từ:
-
-- daily;
-- eod;
-- features;
-- intraday.
-
-Cần một task riêng để thiết kế lại signal contract sau khi feature được kiểm chứng.
-
----
-
-## 15. Backtest Engine
-
-### Code hiện có
-
-Repository có MVP backtest:
-
-```text
-src/engine/backtest_engine.py
-```
-
-Backtest hiện hỗ trợ:
-
-- input in-memory;
-- long và short direction;
-- initial capital;
-- position size percentage;
-- holding bars;
-- fee percentage;
-- minimum signal score;
-- bỏ overlapping trade cùng symbol/timeframe;
-- PnL;
-- return;
-- win rate;
-- max drawdown;
-- simple Sharpe;
-- trade list.
-
-### Điểm tốt
-
-- Logic tách thành function có thể unit test.
-- Không bắt buộc Supabase để test core logic.
-- Có config rõ ràng.
-- Có xử lý fee.
-- Có basic overlap rule.
-
-### Chưa phù hợp với sản phẩm T+
-
-Backtest hiện thoát lệnh theo:
-
-```text
-holding_bars
-```
-
-Không phải:
-
-```text
-T+1
-T+3
-T+5 trading sessions
-```
-
-Backtest hiện chưa xác định đầy đủ:
-
-- entry tại close hay next open;
-- khớp lệnh sau signal bao lâu;
-- giá trần/sàn;
-- thanh khoản;
-- không khớp được lệnh;
-- slippage;
-- lot size;
-- transaction tax;
-- settlement restrictions;
-- missing future daily row;
-- corporate action;
-- adjusted price;
-- trading calendar;
-- portfolio-level capital allocation.
-
-`run_backtest_engine` hiện tải feature và signal trong cùng target date, phù hợp hơn với intraday bar backtest hơn T+3/T+5.
-
-### Kết luận
-
-Backtest engine:
-
-```text
-MVP / RESEARCH ONLY
-```
-
-Không được dùng để đánh giá khả năng sinh lợi hiện tại của sản phẩm.
-
----
-
-## 16. Streaming và Order Book
-
-### Code hiện có
-
-Repository đã có các thành phần liên quan đến:
-
-- SSI SignalR negotiation;
-- streaming connection;
-- quote snapshot;
-- trade snapshot;
-- foreign snapshot;
-- index snapshot;
-- order-book mapping;
-- manual snapshot scripts;
-- streaming test scripts.
-
-### Kiến trúc hiện hiểu
-
-SSI FCData streaming dùng classic ASP.NET SignalR, không phải raw websocket endpoint đơn giản.
-
-Order-book depth có thể xuất hiện trong quote message qua các field như:
-
-```text
-BidPrice1
-BidVol1
-AskPrice1
-AskVol1
-...
-```
-
-### Chưa được xác nhận
-
-- Tài khoản hiện tại có quyền streaming không.
-- Channel name chính xác trong production.
-- Message frequency.
-- Reconnect behavior dài hạn.
-- Snapshot capture có bỏ sót message không.
-- Thời điểm snapshot chính xác.
-- Độ sâu đủ 10 level cho mọi symbol không.
-- Có thể chạy ổn định trên GitHub Actions không.
-- Order-book history cần lưu bao lâu.
-- Snapshot cadence phù hợp với mục tiêu T+ hay không.
-
-### Trạng thái
-
-```text
-IMPLEMENTATION EXISTS
-LIVE RELIABILITY NOT YET VERIFIED
-```
-
-Order book chưa được xem là dependency bắt buộc của Phase 0 daily pipeline.
-
----
-
-## 17. Smoke, Debug và Maintenance Scripts
-
-### Đã có
-
-Các nhóm script hiện có:
-
-- SSI API check;
-- Supabase check;
-- symbol check;
-- complete ingest smoke test;
-- schema check;
-- API inspector;
-- ingest completeness;
-- feature runner;
-- sample backfill;
-- intraday value backfill;
-- streaming tests;
-- order-book snapshot;
-- SignalR debug;
-- cleanup SQL.
-
-### Safety behavior đã có
-
-`check_complete_ssi_ingest.py`:
-
-- read-only mặc định;
-- `--write` yêu cầu explicit date;
-- weekend/future guard;
-- intraday write cần `--write-intraday`;
-- có `--force` cho trường hợp thật sự cần.
-
-`backfill_sample.py`:
-
-- bắt buộc from date;
-- bắt buộc to date;
-- bắt buộc symbols;
-- không còn hardcoded sample date;
-- chặn future date mặc định.
-
-### Cần cải thiện thêm
-
-- Chuẩn hóa output JSON summary.
-- Chuẩn hóa exit code.
-- Ghi rõ script nào read-only.
-- Ghi rõ script nào write.
-- Ghi rõ table bị ảnh hưởng.
-- Thêm dry-run cho các maintenance script còn thiếu.
-- Thêm confirmation scope cho delete/update script.
-
----
-
-## 18. Tests
-
-### Test structure đã có
-
-Repository có test cho các nhóm như:
-
-- CLI;
-- EOD pipeline;
-- EOD dry run;
-- fetch one day;
-- feature engine;
-- intraday value;
-- backtest engine;
-- daily validator;
-- intraday validator;
-- SSI/streaming parser ở một số script.
-
-### Chưa được khẳng định trong tài liệu này
-
-- Toàn bộ test suite hiện đang pass.
-- Test có chạy với Python version nào.
-- Test integration có credential hay không.
-- GitHub Actions hiện pass hay fail.
-- Code coverage bao nhiêu.
-- Production schema có khớp test fixtures không.
-
-### Test cần bổ sung hoặc củng cố
-
-- Raw-to-clean mapping snapshot test.
-- Exact SSI sample payload test.
-- Daily symbol/date mismatch test.
-- Non-trading-day behavior.
-- Holiday behavior.
-- Full versus incremental feature equivalence.
-- Session-aware 5m/15m/60m aggregation.
-- Lunch-break boundary.
-- Incomplete latest candle.
-- Partition creation.
-- Unique-index failure.
-- Large pagination.
-- Foreign payload reuse.
-- T+ session-based outcome labeling.
-- Signal schema compatibility sau khi signal được redesign.
-
----
-
-## Completed Work
-
-Các phần sau đã có implementation trong code.
-
-### Core infrastructure
-
-- Python application structure.
-- Main CLI.
-- SSI REST client.
-- Supabase client.
-- Config qua environment.
-- Database retry có giới hạn.
-- Batch upsert.
-- Basic logging.
-- Schema và migration files.
-
-### Master data
-
-- Symbols sync.
-- Securities details sync.
-- Index list sync.
-- Index component sync.
-
-### Daily ingest
-
-- `DailyStockPrice` fetch.
-- `raw_daily`.
-- `stock_daily`.
-- Daily validation.
-- Symbol/date match guard.
-- Daily index ingest.
-- Foreign fields mapping.
-
-### Intraday ingest
-
-- `IntradayOhlc` resolution 1.
-- Vietnam time → UTC conversion.
-- Invalid timestamp rejection.
-- `raw_intraday`.
-- `stock_intraday` 1m.
-- Individual validation.
-- Batch validation.
-- Duplicate handling.
-- Estimated intraday value.
-- Monthly partition handling.
-
-### Data quality
-
-- Daily OHLC checks.
-- Intraday OHLC checks.
-- Price-limit checks.
-- Duplicate checks.
-- Gap checks.
-- Daily/intraday close comparison.
-- Daily/intraday volume comparison.
-- Per-symbol completeness summary.
-
-### Features
-
-- Explicit feature CLI.
-- One `features` table.
-- Daily source separation.
-- Intraday aggregation.
-- Incremental mode.
-- Full mode.
-- Warm-up loading.
-- Multi-timeframe output.
-- Idempotent feature upsert.
-
-### Safety
-
-- Read-only smoke mode.
-- Explicit write flags.
-- Date guards.
-- Scoped sample backfill.
-- Bounded API/DB retry.
-- Critical conflict-key fail-fast.
-
----
-
-## In Progress
-
-Các phần sau đã có nền tảng nhưng chưa được xác nhận đủ để xem là hoàn thành.
-
-### SSI contract verification
-
-- Field meaning.
-- Units.
-- Timestamp semantics.
-- Trading-session semantics.
-- Empty response behavior.
-- Special trading days.
-- Market-specific differences.
-
-### Raw data quality
-
-- Full raw intraday payload.
-- Raw ingest metadata.
-- Raw/clean traceability report.
-- Historical raw-data completeness.
-
-### Completeness
-
-- Dynamic expected-session model.
-- Exchange calendar.
-- Auction handling.
-- Halt handling.
-- Index completeness.
-- Foreign completeness.
-- Raw-table completeness.
-- Order-book completeness.
-
-### Feature reproducibility
-
-- Full/incremental comparison.
-- Warm-up sufficiency.
-- Session-safe aggregation.
-- Incomplete-bar handling.
-- Formula validation.
-- Feature versioning.
-
-### Documentation
-
-- `PROJECT_OVERVIEW.md`.
-- `DATA_PIPELINE.md`.
-- `CURRENT_STATE.md`.
-- `ARCHITECTURE_DECISIONS.md`.
-- README cleanup.
-
-README đã được cập nhật để không mô tả `eod` có chạy feature.
-
-### Operational readiness
-
-- Production schedule.
-- Data-quality history.
-- Alert on failed ingest.
-- Runtime monitoring.
-- Rate-limit monitoring.
-- Partition monitoring.
-- Backfill runbook.
-
----
-
-## Not Started or Not Production Ready
-
-Các hạng mục sau chưa nên được xem là hoàn thành.
-
-### Signal
-
-- Current signal engine chưa tương thích feature schema.
-- Check times chưa đúng mục tiêu.
-- Chưa có multi-timeframe T+ signal contract.
-- Chưa có signal versioning.
-- Chưa có confidence calibration.
-- Chưa có duplicate/no-spam policy hoàn chỉnh.
-
-### T+ backtest
-
-- Chưa có T+1/T+3/T+5 session outcomes.
-- Chưa có next-session execution model.
-- Chưa có portfolio-level simulation.
-- Chưa có slippage model phù hợp Việt Nam.
-- Chưa có price-limit execution rule.
-- Chưa có corporate-action handling.
-- Chưa có data-snooping controls.
-
-### Alert system
-
-- Chưa có scheduler cho:
-  - `09:30`;
-  - `11:30`;
-  - `13:30`;
-  - `14:30`.
-- Chưa có alert deduplication.
-- Chưa có alert suppression.
-- Chưa có explanation template.
-- Chưa có delivery channel.
-- Chưa có watchlist-based filtering.
-
-### Risk và NAV suggestion
-
-- Chưa có position sizing.
-- Chưa có portfolio exposure limit.
-- Chưa có confidence-to-NAV mapping.
-- Chưa có drawdown-based risk adjustment.
-- Chưa có liquidity-based sizing.
-
-### AI
-
-- Chưa có training dataset đã được xác nhận.
-- Chưa có outcome labels đáng tin.
-- Chưa có feature leakage audit.
-- Chưa có model validation.
-- Chưa có probability calibration.
-- Chưa có drift monitoring.
-
----
-
-## Known Issues
-
-## 1. README không đồng nhất với code
-
-Một số đoạn README vẫn nói:
-
-```text
-eod = daily ingest + intraday ingest + completeness
-```
-
-Trong code hiện tại:
-
-```text
-eod = daily ingest + intraday ingest + completeness
-```
-
-Feature phải chạy riêng bằng:
-
-```bash
-python main.py features ...
-```
-
-README đã được cập nhật để giữ một bảng `features` có cột `timeframe`; không tách `daily_features`/`intraday_features`.
-
----
-
-## 2. Signal engine dùng feature schema cũ
-
-Signal engine đang query:
-
-```text
-rsi
-ema_20
-ema_50
-bb_upper
-volume_spike
-```
-
-Feature schema hiện dùng:
-
-```text
-rsi14
-ema20
-ema50
-```
-
-Signal engine có thể lỗi query hoặc không chạy đúng.
-
----
-
-## 3. Signal check times không đúng mục tiêu
-
-Code hiện dùng:
+Check times trong code:
 
 ```text
 09:45
@@ -1546,597 +750,351 @@ Mục tiêu sản phẩm:
 14:30
 ```
 
-Không sửa chỉ bằng cách đổi constant. Cần thiết kế lại snapshot data contract trước.
-
----
-
-## 4. Signal conflict key chưa thống nhất
-
-Signal engine, database client, schema và docs có thể đang mô tả conflict key khác nhau.
-
-Phải kiểm tra schema Supabase và migration trước khi sửa.
-
----
-
-## 5. Backtest chưa phải T+ backtest
-
-Current MVP dùng future bars thay vì future trading sessions.
-
-Không được dùng kết quả hiện tại để đánh giá chiến lược T+3/T+5.
-
----
-
-## 6. Raw intraday chưa giữ full source payload
-
-Raw intraday hiện không có full JSON source row.
-
-Điều này làm giảm khả năng audit và remap dữ liệu lịch sử.
-
----
-
-## 7. Foreign trading gọi lại DailyStockPrice
-
-Daily source có thể bị gọi lặp cho cùng symbol/date.
-
-Ảnh hưởng:
-
-- tăng request count;
-- tăng runtime;
-- tăng nguy cơ rate limit;
-- hai lần gọi có thể nhận response khác nhau nếu API thay đổi trong lúc chạy.
-
----
-
-## 8. Daily và EOD có default-date behavior khác nhau
-
-`daily` mặc định dùng latest previous weekday.
-
-`eod` mặc định dùng latest weekday on or before today.
-
-Nếu chạy `eod` trong ngày giao dịch trước khi phiên kết thúc, có thể ingest dữ liệu chưa hoàn chỉnh.
-
-Production schedule nên luôn truyền explicit trading date.
-
----
-
-## 9. Full feature mode có nguy cơ RAM cao
-
-Toàn bộ intraday history của từng symbol được gom vào memory.
-
-Rủi ro tăng theo:
-
-- số ngày;
-- số candle;
-- số timeframe;
-- số symbol chạy đồng thời.
-
----
-
-## 10. Completeness status chưa dùng index và foreign làm điều kiện chính
-
-`index_daily_count` và `foreign_trading_count` được hiển thị nhưng chưa ảnh hưởng đầy đủ đến overall status.
-
-Có thể xuất hiện trạng thái `OK` dù index hoặc foreign data thiếu.
-
----
-
-## 11. Order-book completeness đang hardcode 0
-
-`orderbook_snapshot_count` chưa query database thực tế.
-
-Không dùng field này để kết luận order-book data hiện thiếu hay đủ.
-
----
-
-## 12. Daily ingest status có thể chưa phản ánh API empty toàn universe
-
-Daily status hiện chủ yếu dựa trên exception count.
-
-Nếu API trả rỗng mà không raise exception, daily summary có thể chưa phản ánh lỗi đầy đủ.
-
-EOD completeness hiện giúp phát hiện `stock_daily_count = 0` hoặc `stock_intraday_count = 0`, nhưng daily command chạy riêng vẫn cần được kiểm tra kỹ.
-
----
-
-## 13. Trading calendar chưa hoàn chỉnh
-
-Code hiện có weekday-based defaults và weekend guards.
-
-Chưa có exchange holiday calendar hoàn chỉnh.
-
-Ngày trong tuần không đồng nghĩa chắc chắn là trading day.
-
----
-
-## 14. Session configuration chưa được xác nhận hoàn toàn
-
-Validator đang dùng:
+Signal upsert hiện dùng:
 
 ```text
-09:00–11:30
-13:00–15:00
+symbol,signal_type,bucket_time
 ```
 
-Cần kiểm chứng với response SSI thực tế, ATO/ATC và ý nghĩa timestamp.
+trong khi record có cả `timeframe` và `time`. Schema/migration thực tế phải được kiểm tra trước khi redesign.
 
----
-
-## 15. Feature full/incremental equivalence chưa được chứng minh
-
-Cùng một source history cần tạo cùng kết quả trên overlapping rows.
-
-Hiện có thiết kế warm-up nhưng chưa có đủ evidence để kết luận hoàn toàn tương đương.
-
----
-
-## Current Risks
-
-## Data correctness risk
-
-Nếu hiểu sai:
-
-- volume;
-- value;
-- timestamp;
-- adjusted close;
-- foreign fields;
-- total match versus total traded;
-
-thì feature và backtest sẽ sai dù code chạy không lỗi.
-
-Mức độ:
+Kết luận:
 
 ```text
-HIGH
+NOT PRODUCTION READY
+```
+
+Signal không được tự động gọi sau ingest hoặc feature.
+
+---
+
+## Backtest engine
+
+MVP hiện hỗ trợ:
+
+- long/short direction;
+- initial capital;
+- position-size percentage;
+- `holding_bars`;
+- fee percentage;
+- minimum score;
+- skip overlapping trade cùng symbol/timeframe;
+- PnL, return, win rate, max drawdown, simple Sharpe;
+- in-memory test không cần Supabase.
+
+Entry hiện dùng feature close mới nhất tại hoặc trước signal time. Exit dùng feature row sau `holding_bars`.
+
+Đây không phải T+ backtest vì chưa xử lý:
+
+- T+1/T+3/T+5 theo trading sessions;
+- next-session execution;
+- price limit và khả năng khớp lệnh;
+- slippage, tax, lot size;
+- liquidity;
+- holiday calendar;
+- missing future row;
+- corporate action/adjusted price;
+- portfolio-level allocation.
+
+`run_backtest_engine` hiện load feature và signal trong cùng target date, phù hợp hơn với intraday bar MVP.
+
+Kết luận:
+
+```text
+MVP / RESEARCH ONLY
 ```
 
 ---
 
-## Schema drift risk
+## Streaming and order book
 
-Code phụ thuộc vào:
+## Implemented
 
-- columns;
-- unique indexes;
-- RPC;
-- partitions;
-- conflict keys.
+- classic ASP.NET SignalR negotiation/connection;
+- explicit subscriptions;
+- channel groups `F`, `X-QUOTE`, `X-TRADE`, `R`, `MI`, `B`;
+- raw frame normalization;
+- raw audit record;
+- quote/trade/foreign/index/status/bar mapping;
+- quote depth mapping đến 10 levels khi payload có field;
+- validation status/issues;
+- dry-run mặc định;
+- clean writes chỉ khi `--write`.
 
-Nếu production Supabase không khớp migration, pipeline có thể fail hoặc ghi không đúng.
+## Live reliability chưa được chứng minh
 
-Mức độ:
-
-```text
-HIGH
-```
-
----
-
-## Incomplete raw lineage risk
-
-Raw intraday chưa giữ full payload.
-
-Nếu SSI thay đổi mapper contract, dữ liệu cũ khó remap.
-
-Mức độ:
-
-```text
-MEDIUM TO HIGH
-```
-
----
-
-## False completeness risk
-
-Gap-based validation có thể hiểu nhầm:
-
-- symbol không phát sinh giao dịch;
-- trading halt;
-- auction;
-- SSI không trả candle zero-volume;
-
-thành missing data.
-
-Ngược lại, đủ số candle cũng không chứng minh field values đúng.
-
-Mức độ:
-
-```text
-HIGH
-```
-
----
-
-## Full feature memory risk
-
-Full mode có thể dùng quá nhiều RAM khi backfill toàn lịch sử.
-
-Mức độ:
-
-```text
-MEDIUM
-```
-
----
-
-## Documentation drift risk
-
-README và code hiện có một số mâu thuẫn.
-
-Agent hoặc developer có thể sửa theo docs cũ và làm hỏng kiến trúc đã chốt.
-
-Mức độ:
-
-```text
-MEDIUM TO HIGH
-```
-
----
-
-## Premature strategy risk
-
-Repository có signal/backtest MVP nên dễ tạo cảm giác project đã sẵn sàng đánh giá lợi nhuận.
-
-Thực tế source data và feature vẫn đang trong quá trình kiểm chứng.
-
-Mức độ:
-
-```text
-HIGH
-```
-
----
-
-## External dependency risk
-
-Pipeline phụ thuộc vào:
-
-- SSI API availability;
-- SSI credentials;
 - account permission;
-- Supabase availability;
-- network;
-- schema deployment.
+- production channel names và field coverage;
+- reconnect dài hạn;
+- message loss;
+- capture timestamp accuracy;
+- 10-level depth availability;
+- GitHub Actions stability;
+- retention và snapshot cadence.
 
-Mức độ:
+## Known loop limitation
+
+`run_streaming_ingest` hiện dùng dictionary `latest` để đánh giá số message theo channel. Dictionary chỉ giữ một entry cho mỗi channel, nên khi `--max-messages-per-channel` lớn hơn `1`, stop condition không thật sự đếm đủ số message đã nhận theo channel và có thể chạy đến timeout dù đã nhận nhiều message.
+
+Đây là code observation cần test/fix riêng, không phải bằng chứng live ingest đã mất dữ liệu.
+
+Order book chưa phải dependency bắt buộc của daily pipeline Phase 0.
+
+---
+
+## Tests
+
+GitHub workflow:
 
 ```text
-MEDIUM
+.github/workflows/tests.yml
+Python 3.11
+python -m pytest -q
 ```
 
----
+Mốc xác nhận gần nhất trước commit tài liệu này:
 
-## Open Questions
+```text
+PR #77 — Unit Tests: success — 18/07/2026
+```
 
-## SSI và source data
+Test hiện bao phủ các nhóm:
 
-1. `IntradayOhlc.Time` là thời điểm bắt đầu hay kết thúc candle?
-2. `IntradayOhlc.Volume` đã được xác nhận là volume riêng của candle trên mọi market chưa?
-3. Daily price và intraday price dùng cùng unit chưa?
-4. Total value của SSI dùng đơn vị nào?
-5. `TotalMatchVol` có luôn bằng tổng volume intraday không?
-6. ATO và ATC được biểu diễn trong intraday data ra sao?
-7. API trả gì trong ngày symbol không có giao dịch?
-8. API trả gì trong trading halt?
-9. API có giới hạn date range hoặc page size thực tế không?
-10. Có endpoint hoặc field thay đổi theo SSI account version không?
+- CLI contracts;
+- daily/EOD/intraday-ingest pipelines;
+- daily payload reuse cho raw/clean/foreign;
+- one-day mapper;
+- ingest completeness;
+- feature engine;
+- intraday value;
+- backtest MVP;
+- SSI REST inspector;
+- SSI streaming inspector;
+- streaming ingest;
+- streaming migration contract;
+- daily, intraday và streaming validation.
 
-## Trading calendar và completeness
+Test offline pass không chứng minh:
 
-1. Nguồn trading calendar chính thức sẽ lấy ở đâu?
-2. Completeness nên dựa trên expected timestamp set nào?
-3. Có cần rule riêng cho HOSE, HNX và UPCOM không?
-4. Candle zero-volume có được SSI trả không?
-5. Missing candle do không giao dịch có được xem là lỗi không?
-6. Phiên rút ngắn được cấu hình thế nào?
-7. Khi nào một ngày được đánh dấu `COMPLETE`, `PARTIAL`, `NO_DATA`, `NON_TRADING_DAY`?
+- production schema đúng;
+- live SSI payload đúng;
+- account streaming permission;
+- historical completeness;
+- feature full/incremental equivalence trên production data.
 
-## Raw và clean data
+Các test còn cần bổ sung/củng cố:
 
-1. Có bổ sung full payload cho `raw_intraday` không?
-2. Có cần mapper version trong raw/clean row không?
-3. Có cần ingest run ID không?
-4. Có cần source endpoint và request params trong raw table không?
-5. Data cũ có đủ để backfill raw payload không?
-
-## Features
-
-1. Warm-up cần bao nhiêu bar cho từng timeframe?
-2. Aggregate timestamp dùng bar start hay bar end?
-3. `60m` phải chia theo session thế nào?
-4. Incomplete current candle có được tính không?
-5. Feature nào thật sự cần cho T+3/T+5?
-6. Feature nào chỉ dùng cho timing?
-7. Có cần feature version không?
-8. Feature incremental và full sẽ được so sánh bằng tolerance nào?
-
-## Signals
-
-1. Signal nên tạo từ daily setup trước hay scan tất cả timeframe cùng lúc?
-2. `1d`, `60m`, `15m` kết hợp theo rule nào?
-3. `5m` và `1m` có vai trò gì trong final signal?
-4. Một symbol có thể có bao nhiêu signal trong ngày?
-5. Khi nào suppress signal lặp?
-6. Signal score khác probability như thế nào?
-7. Reason format sẽ lưu text hay structured JSON?
-8. Signal version được lưu ở đâu?
-
-## Backtest
-
-1. Entry price dùng next open, snapshot close hay giá khác?
-2. T+3/T+5 được tính theo trading session nào?
-3. Nếu thiếu giá exit thì xử lý thế nào?
-4. Có cho overlapping signals không?
-5. Position engine có cần trong MVP không?
-6. Fee, tax và slippage dùng bao nhiêu?
-7. Price-limit và không khớp lệnh được mô phỏng thế nào?
-8. Corporate action được xử lý bằng adjusted price hay raw price?
-
-## Alerts
-
-1. Alert chạy đúng các mốc:
-   - `09:30`;
-   - `11:30`;
-   - `13:30`;
-   - `14:30`;
-   hay cần thay đổi?
-2. Snapshot lấy candle đóng gần nhất nào?
-3. Alert gửi cho toàn universe hay watchlist?
-4. Điều kiện suppress alert là gì?
-5. Alert có cần probability tối thiểu không?
-6. Alert channel sẽ là mobile push, Telegram, email hay Supabase realtime?
+- exact SSI sample payload fixtures có provenance;
+- holiday/non-trading-day classification;
+- full versus incremental feature equivalence;
+- session-aware 5m/15m/60m aggregation;
+- incomplete latest candle;
+- partition integration;
+- raw_intraday missing-constraint fail-fast;
+- large pagination/memory benchmark;
+- streaming count khi max messages > 1;
+- T+ session-based outcomes;
+- redesigned signal schema compatibility.
 
 ---
 
-## Next Steps
+## Fixed since the previous review
 
-Thứ tự dưới đây bám theo Phase 0. Không chuyển sang bước sau khi bước trước chưa có evidence.
+Các mô tả/issue cũ sau không còn đúng với code hiện tại:
 
-## Step 1 — Đồng bộ documentation với code
-
-Cần hoàn thiện:
-
-- `PROJECT_OVERVIEW.md`;
-- `DATA_PIPELINE.md`;
-- `CURRENT_STATE.md`;
-- `ARCHITECTURE_DECISIONS.md`;
-- cleanup README.
-
-Mục tiêu:
-
-- không còn mô tả `eod` tự chạy feature;
-- không còn đề xuất tự tách bảng `features`;
-- command và architecture nhất quán.
+1. **`daily` ingest cả intraday** — đã tách; `daily` chỉ daily, `intraday-ingest` chỉ 1m intraday.
+2. **EOD chỉ chạy daily rồi completeness** — đã sửa; EOD chạy daily → intraday → completeness.
+3. **Foreign trading gọi lại `DailyStockPrice` trong production daily** — đã sửa; cùng payload được reuse.
+4. **`orderbook_snapshot_count` hardcode `0`** — đã sửa; completeness query count theo time range.
+5. **Intraday bị chặn khi thiếu/invalid daily context** — production intraday pipeline hiện độc lập; thiếu context được báo và optional fields giữ `NULL`.
+6. **Không biết test suite pass hay fail** — GitHub Actions đã có evidence pass trên Python 3.11 tại mốc review.
+7. **Không có production streaming CLI** — đã có `streaming-ingest`, bounded và dry-run mặc định.
 
 ---
 
-## Step 2 — Xác minh schema Supabase
+## Known issues and risks
 
-Chạy read-only schema check.
+## 1. Raw intraday lineage chưa đầy đủ
+
+Không có full source candle JSON và metadata ingest. Mức độ: **HIGH** đối với audit/remap lịch sử.
+
+## 2. `raw_intraday` chưa nằm trong critical conflict tables
+
+Nếu unique index thiếu, helper có thể fallback không dùng explicit conflict key. Mức độ: **HIGH** cho idempotency; cần schema check trước khi kết luận dữ liệu thực tế bị ảnh hưởng.
+
+## 3. Completeness overall chưa dùng đầy đủ index/foreign/orderbook
+
+Các count được query nhưng chưa quyết định overall status. Mức độ: **MEDIUM TO HIGH**.
+
+## 4. Trading calendar chưa hoàn chỉnh
+
+Default date và guard hiện dựa weekday; chưa có exchange holiday calendar. Mức độ: **HIGH** cho non-trading-day behavior.
+
+## 5. Session/timestamp semantics chưa được SSI evidence xác nhận
+
+Có nguy cơ false gap hoặc sai aggregate boundary. Mức độ: **HIGH**.
+
+## 6. Feature reproducibility chưa được chứng minh
+
+Warm-up, full/incremental equivalence, incomplete bar và session aggregation cần evidence. Mức độ: **HIGH**.
+
+## 7. Full feature memory risk
+
+Toàn bộ history từng symbol nằm trong RAM. Mức độ: **MEDIUM**.
+
+## 8. Signal contract cũ
+
+Feature names, check times và conflict key không phù hợp. Mức độ: **HIGH**, nhưng chưa phải ưu tiên trước Phase 0 data validation.
+
+## 9. Backtest chưa phải T+
+
+Future bars không tương đương T+ trading sessions. Mức độ: **HIGH** nếu dùng sai để đánh giá chiến lược.
+
+## 10. Streaming live reliability và message-count stop condition
+
+Implementation có nhưng live permission/reconnect/cadence chưa chứng minh; max-message counting >1 có hạn chế. Mức độ: **MEDIUM TO HIGH**.
+
+## 11. Production schema drift
+
+Code phụ thuộc table, column, unique index, RPC và partition. Mức độ: **HIGH** cho đến khi schema check pass.
+
+## 12. Premature strategy conclusions
+
+Repository có signal/backtest MVP dễ tạo cảm giác đã sẵn sàng tối ưu lợi nhuận. Thực tế project vẫn Phase 0. Mức độ: **HIGH**.
+
+---
+
+## Next steps
+
+Thứ tự dưới đây bám theo Phase 0.
+
+## Step 1 — Verify production schema read-only
 
 Kiểm tra:
 
-- tables;
-- columns;
-- data types;
+- tables/columns/data types;
 - unique indexes;
-- partition function;
-- migrations applied;
-- conflict keys.
+- `raw_intraday` conflict key;
+- partition function và partitions;
+- streaming snapshot tables;
+- migration application order;
+- schema drift.
 
-Không ingest hoặc backfill lớn trước khi schema check pass.
+## Step 2 — Select verified SSI samples
 
----
+Chọn ít nhất:
 
-## Step 3 — Chọn một sample chuẩn
+- một symbol thanh khoản cao, ngày giao dịch bình thường;
+- một ngày nghỉ/holiday;
+- một symbol ít thanh khoản;
+- sample streaming nếu account hỗ trợ.
 
-Chọn:
+## Step 3 — Inspect SSI read-only and preserve evidence
 
-- 1 symbol thanh khoản cao;
-- 1 trading date bình thường;
-- 1 ngày không giao dịch hoặc ngày nghỉ;
-- 1 symbol ít thanh khoản nếu cần.
+Đối chiếu:
 
-Ví dụ sample phải được ghi rõ, không hardcode vào production code.
-
----
-
-## Step 4 — Inspect SSI read-only
-
-Chạy inspector để lưu evidence:
-
-- raw `DailyStockPrice`;
-- raw `IntradayOhlc`;
-- mapped daily;
-- mapped intraday;
+- `DailyStockPrice`;
+- `IntradayOhlc`;
+- `DailyIndex`;
 - foreign fields;
-- daily index;
-- symbol/date matching;
-- units;
-- timestamp samples.
+- timestamp, volume, value, units;
+- empty/non-trading-day behavior;
+- streaming quote fields khi có.
 
-Không ghi database trong bước này.
+## Step 4 — Validate raw-to-clean mapping
 
----
+So sánh raw/clean theo exact symbol/date, bao gồm mismatch, `NULL`, timezone, value và rejected records.
 
-## Step 5 — Validate raw và clean mapping
+## Step 5 — Validate completeness model
 
-Với một symbol/date:
+Bổ sung holiday calendar, market/session rules, zero-volume/halt handling và status rõ như `COMPLETE`, `PARTIAL`, `NO_DATA`, `NON_TRADING_DAY` nếu được chốt.
 
-1. So sánh raw daily với clean daily.
-2. So sánh raw intraday với clean intraday.
-3. Kiểm tra timestamp UTC và giờ Việt Nam.
-4. Kiểm tra intraday value.
-5. Kiểm tra close và volume consistency.
-6. Ghi lại field nào chưa hiểu rõ.
+## Step 6 — Decide raw intraday lineage
 
----
+Nếu thêm full payload/metadata:
 
-## Step 6 — Xác minh completeness rules
-
-Kiểm thử trên:
-
-- ngày bình thường;
-- ngày nghỉ;
-- weekend;
-- symbol ít thanh khoản;
-- symbol có gap;
-- duplicate sample;
-- candle ngoài session.
-
-Không chốt universal expected count nếu chưa có căn cứ.
-
----
-
-## Step 7 — Quyết định raw intraday lineage
-
-Đánh giá việc thêm full payload vào `raw_intraday`.
-
-Nếu làm:
-
-- phải có migration;
+- tạo migration;
 - giữ backward compatibility;
-- xác định data cũ có backfill được không;
-- thêm mapper test;
-- không đổi clean schema ngoài phạm vi.
+- xác định dữ liệu cũ có backfill được không;
+- thêm mapper/regression test.
+
+## Step 7 — Prove feature reproducibility
+
+So sánh full/incremental, warm-up, timeframe aggregation, lunch boundary, incomplete bar và formula output.
+
+## Step 8 — Build operational runbook
+
+Bao gồm schedule, explicit trading date, safe rerun, failure handling, monitoring, backfill và cleanup.
+
+## Step 9 — Redesign signal only after Phase 0 evidence
+
+Signal task tương lai phải dùng current feature schema, timeframe roles, alert times, versioning, reason và no-spam policy.
+
+## Step 10 — Build session-based T+ backtest
+
+Chỉ sau khi dữ liệu/feature được xác nhận, định nghĩa entry/exit, T+ sessions, fees/tax/slippage, price limits, liquidity và missing prices.
 
 ---
 
-## Step 8 — Kiểm tra feature reproducibility
+## Phase 0 exit criteria
 
-Với một symbol/date:
-
-1. Chạy full.
-2. Lưu output sample.
-3. Xóa hoặc rerun target rows an toàn.
-4. Chạy incremental.
-5. So sánh overlapping rows.
-6. Kiểm tra từng timeframe.
-7. Kiểm tra lunch boundary.
-8. Kiểm tra null warm-up.
-
-Chỉ coi feature pipeline ổn định khi kết quả có thể tái tạo.
-
----
-
-## Step 9 — Xây production data runbook
-
-Runbook cần mô tả:
-
-- schedule;
-- explicit trading date;
-- master-data frequency;
-- daily/EOD flow;
-- completeness threshold;
-- retry behavior;
-- failure handling;
-- safe rerun;
-- backfill;
-- cleanup;
-- monitoring.
-
----
-
-## Step 10 — Chỉ sau Phase 0 mới redesign signal
-
-Signal task tương lai cần:
-
-- đọc current feature schema;
-- bỏ field cũ;
-- chốt timeframe roles;
-- chốt alert times;
-- chốt signal storage contract;
-- có strategy version;
-- có reason rõ ràng;
-- không spam;
-- không chạy tự động sau feature nếu chưa yêu cầu.
-
----
-
-## Phase 0 Exit Criteria
-
-Phase 0 chỉ hoàn thành khi có evidence cho các điều kiện sau.
+Phase 0 chỉ hoàn thành khi có evidence cho:
 
 ### SSI contract
 
-- Endpoint đã xác nhận.
-- Field đã xác nhận.
-- Units đã xác nhận.
-- Timestamp semantics đã xác nhận.
-- Volume semantics đã xác nhận.
-- Non-trading-day behavior đã xác nhận.
+- endpoint/field/unit đã xác nhận;
+- timestamp và volume semantics đã xác nhận;
+- non-trading-day behavior đã xác nhận.
 
 ### Raw data
 
-- Raw daily có lineage đầy đủ.
-- Raw intraday lineage được chấp nhận hoặc đã bổ sung.
-- Không tạo fake data.
-- Có stable conflict key.
-- Rerun không tạo duplicate.
+- daily lineage đầy đủ;
+- intraday lineage được chấp nhận hoặc bổ sung;
+- rerun idempotent;
+- không fabricate data.
 
 ### Clean data
 
-- Daily mapper được kiểm chứng.
-- Intraday mapper được kiểm chứng.
-- Missing giữ đúng `NULL`.
-- OHLC validation đáng tin.
-- Timezone đúng.
-- Daily/intraday consistency được báo cáo.
+- daily/intraday mapper được kiểm chứng;
+- timezone và `NULL` behavior đúng;
+- OHLC và consistency report đáng tin.
 
 ### Completeness
 
-- Check theo symbol/date.
-- Không hardcode universal candle count.
-- Có phân biệt missing data và non-trading day.
-- Có rule cho session và lunch break.
-- Có report đủ để debug.
+- symbol/date/session-aware;
+- không hardcode universal candle count;
+- phân biệt trading day, non-trading day, no data và partial;
+- report đủ để debug.
 
 ### Features
 
-- `1d` lấy từ `stock_daily`.
-- Intraday lấy từ `stock_intraday` 1m.
-- Aggregate không qua session boundary.
-- Incremental và full tương đương.
-- Không look-ahead.
-- Có rerun và backfill.
-- Có tests cho formula quan trọng.
+- `1d` từ `stock_daily`;
+- intraday từ clean `1m`;
+- aggregation không qua session boundary;
+- full/incremental tương đương;
+- không look-ahead;
+- rerun/backfill được;
+- formula quan trọng có test/evidence.
 
 ### Operations
 
-- Schema verified.
-- Migrations documented.
-- Smoke test read-only.
-- Backfill có scope.
-- Debug mặc định read-only.
-- Failure được báo rõ.
-- Không lộ secret.
+- schema verified;
+- migration documented/applied rõ;
+- smoke test read-only;
+- backfill có scope;
+- failure/monitoring/runbook rõ;
+- không lộ secret.
 
-Cho đến khi các điều kiện này đạt, project vẫn ở Phase 0.
+Cho đến khi các điều kiện trên đạt, project vẫn ở Phase 0.
 
 ---
 
-## Related Documents
+## Related documents
 
 - [Project Overview](PROJECT_OVERVIEW.md)
-- [Architecture Decisions](ARCHITECTURE_DECISIONS.md)
 - [Data Pipeline](DATA_PIPELINE.md)
+- [Architecture Decisions](ARCHITECTURE_DECISIONS.md)
+- [CLI Usage](CLI_USAGE.md)
 - [AGENTS.md](../AGENTS.md)
-- [Database Schema](../docs_db_schema.md)
-- [README](../README.md)
----
-
-## Current ingest/CLI state after Issue #69
-
-- `daily` is daily-only production ingest and writes `raw_daily`, `stock_daily`, `foreign_trading`, and `index_daily`.
-- `intraday-ingest` is the production SSI `IntradayOhlc` 1m ingest and writes `raw_intraday` and `stock_intraday` only.
-- `eod` calls daily ingest, intraday ingest, then completeness checks and returns `daily_summary`, `intraday_summary`, `ingest_summary`, and final status.
-- `features` is the explicit feature pipeline.
-- `intraday` is still a legacy feature alias for existing `stock_intraday` data; it does not ingest candles.
-- No migration or automatic backfill is required by the split.
-
-See [`CLI_USAGE.md`](CLI_USAGE.md) for command syntax and public entry functions.
-
-
-## Streaming ingest reconciliation
-
-A production `streaming-ingest` CLI is available for bounded SSI SignalR capture. It subscribes only to explicit symbol/index channels, is dry-run by default, and writes only with `--write`. The flow keeps raw audit records separate from clean streaming snapshots and supports F, X-QUOTE, X-TRADE, R, MI, and B channel groups.
+- [Database Schema Notes](../docs_db_schema.md)
+- [Repository README](../README.md)
