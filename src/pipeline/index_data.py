@@ -1,7 +1,8 @@
 from typing import Any
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
-from src.pipeline.fetch_one_day import _to_nullable_float, _parse_trading_date
+from src.pipeline.daily_mapper import to_nullable_float
+from src.pipeline.date_utils import trading_date_iso
 
 IMPORTANT_INDEX_CODES = ["VNINDEX", "VN30", "HNXIndex", "HNX30", "HNXUpcomIndex", "UPCOMIndex"]
 
@@ -50,7 +51,7 @@ def sync_index_components(index_codes: list[str] | None = None, ssi: SSIApi | No
 
 
 def build_index_daily_record(index_code: str, date: str, item: dict) -> dict | None:
-    trading_date = _parse_trading_date(date)
+    trading_date = trading_date_iso(date)
     if not trading_date:
         return None
     mapping = {
@@ -68,7 +69,7 @@ def build_index_daily_record(index_code: str, date: str, item: dict) -> dict | N
         "exchange": _get_any(item, "Exchange"), "raw": item,
     }
     for key, names in mapping.items():
-        record[key] = _to_nullable_float(_get_any(item, *names))
+        record[key] = to_nullable_float(_get_any(item, *names))
     return record
 
 

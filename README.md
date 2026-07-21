@@ -65,6 +65,8 @@ Non-negotiable contracts:
 
 Each tracked folder has English `README.md` and Vietnamese `README.vi.md` documentation.
 
+Daily and intraday REST ingest each use dedicated `fetcher -> mapper -> validator integration -> persistence -> service` modules. `daily.py` and `intraday_ingest.py` are their independent batch orchestrators; `eod.py` only sequences both and runs completeness validation. The legacy `fetch_one_day.py` is a thin compatibility wrapper, not a second implementation. See [the pipeline module guide](src/pipeline/README.md) for the complete tree, ownership, retry behavior, and execution order.
+
 ## Setup
 
 ```bash

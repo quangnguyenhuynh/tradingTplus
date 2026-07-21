@@ -66,6 +66,8 @@ Feature pipeline phải hỗ trợ:
 
 ## 3. Tổng quan pipeline hiện tại
 
+Trong mỗi REST ingest pipeline, trách nhiệm được tách theo module: fetcher chỉ gọi SSI; mapper chỉ tạo raw/clean candidate; service tích hợp validator hiện có; persistence chỉ gọi DB public methods; batch orchestrator điều phối phạm vi symbol/date. Daily và intraday không import private helper của nhau. `src/pipeline/fetch_one_day.py` chỉ còn là compatibility wrapper mỏng; cấu trúc file đầy đủ nằm tại [`src/pipeline/README.vi.md`](../src/pipeline/README.vi.md).
+
 ```text
 SSI FastConnect Data
         │

@@ -3,7 +3,7 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
-from src.pipeline.fetch_one_day import fetch_daily_for_symbol_with_clients
+from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
 from src.pipeline.index_data import fetch_daily_indexes, sync_indexes, sync_index_components
 from src.pipeline.foreign_trading import fetch_foreign_for_symbol
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
