@@ -1,55 +1,101 @@
 # Data pipelines
 
-Production orchestration for master data, daily/intraday ingest, EOD validation, features compatibility, backfill, and bounded snapshots.
+Production ingest is split into explicit fetch, mapping, validation-integration, persistence, and orchestration layers. Daily and intraday are independent pipelines; EOD only sequences them and checks completeness.
 
-## Documentation
-
-- English: [README.md](README.md)
-- Tiếng Việt: [README.vi.md](README.vi.md)
-
-## Main flows
-
-| File/flow | Current responsibility |
-| --- | --- |
-| `init_symbols.py` | Synchronize symbols, securities, indexes, and index components. |
-| `daily.py` | Daily SSI ingest only: `raw_daily`, `stock_daily`, foreign fields, and `index_daily`. |
-| `intraday_ingest.py` | SSI `IntradayOhlc` resolution 1 into `raw_intraday` and `stock_intraday`. |
-| `eod.py` | Daily ingest → intraday ingest → completeness check. |
-| `fetch_one_day.py` | Scoped mapping helpers for one symbol/date. |
-| `ingest_check.py` | Completeness summaries and missing-data reporting. |
-| `date_utils.py` | Vietnam-market date parsing and safe-write checks. |
-| `foreign_trading.py` | Derive foreign-trading records from `DailyStockPrice` fields. |
-| `index_data.py` | Index master and daily index ingest. |
-| `backfill.py` | Explicit scoped historical ingest. |
-| `intraday.py` | Legacy intraday feature compatibility flow; not candle ingest. |
-| `streaming_snapshot.py` | Bounded streaming capture; read-only unless write is explicit. |
-| `orderbook_snapshot.py` | Quote-stream orderbook snapshot mapping. |
-| `eod_dry_run.py` | Read-only EOD readiness checks. |
-
-## Required separation
+## Directory tree and responsibilities
 
 ```text
-daily ingest ─┐
-              ├─> EOD completeness (optional orchestration)
-intraday ingest┘
-
-validated clean data ─> explicit feature pipeline
-features ─> explicit signal/backtest jobs only when requested
+src/pipeline/
+├── daily_fetcher.py          # call SSI DailyStockPrice only
+├── daily_mapper.py           # payload -> raw_daily / stock_daily records
+├── daily_persistence.py      # raw_daily / stock_daily DB writes only
+├── daily_service.py          # fetch -> map -> validate -> persist for one symbol/date
+├── daily.py                  # public batch daily orchestrator
+├── intraday_fetcher.py       # call SSI IntradayOhlc resolution 1 only
+├── intraday_mapper.py        # payload -> raw_intraday / stock_intraday 1m records
+├── intraday_persistence.py   # raw_intraday / stock_intraday DB writes only
+├── intraday_service.py       # fetch -> map -> validate -> deduplicate -> persist
+├── intraday_ingest.py        # public batch intraday orchestrator
+├── fetch_one_day.py          # thin backward-compatibility wrapper/re-exports
+├── eod.py                    # daily -> intraday -> completeness orchestration
+├── ingest_check.py           # completeness and consistency report
+├── date_utils.py             # Vietnam-market date parsing/safety
+├── init_symbols.py           # master-data synchronization
+├── index_data.py             # index master/daily ingest
+├── foreign_trading.py        # derive foreign rows from DailyStockPrice fields
+├── backfill.py               # explicitly scoped historical compatibility flow
+├── intraday.py               # legacy feature alias; not candle ingest
+├── eod_dry_run.py            # read-only EOD/feature preview utility
+├── streaming_snapshot.py     # bounded streaming capture
+└── orderbook_snapshot.py     # quote-stream orderbook mapping
 ```
 
-## Data rules
+Existing streaming, index, master-data, feature-compatibility, and dry-run modules remain separate from the daily/intraday REST ingest layers.
 
-- Daily canonical source: SSI `DailyStockPrice` → `stock_daily`.
-- `DailyOhlc` is for inspection/cross-checking, not production daily ingest.
-- Intraday persisted timeframe: `1m` only.
-- Foreign trading is derived from fields in `DailyStockPrice`; do not invent a public standalone REST endpoint.
-- Orderbook data comes from supported quote streaming or an explicitly configured private endpoint; unsupported data must be reported, not fabricated.
-- Do not hardcode one candle count as universal completeness.
+## Daily execution
 
-## Errors and writes
+Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed by `python main.py daily [DD/MM/YYYY]`.
 
-Use bounded retries, preserve symbol/date/timeframe/endpoint context, reject invalid timestamps, and do not swallow exceptions. Write-capable paths require clear scope and idempotent conflict keys.
+1. Resolve and validate the requested Vietnam-market date.
+2. `daily_fetcher.py` calls SSI `DailyStockPrice` once per symbol.
+3. `daily_mapper.py` creates the source-preserving `raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`.
+4. `daily_service.py` persists raw evidence through `daily_persistence.py`.
+5. `daily_service.py` invokes the existing `validate_daily_record` validator.
+6. Only valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`.
+7. `daily.py` derives foreign trading from the same verified payload and independently handles index ingest.
+
+## Intraday execution
+
+Public entrypoint: `run_intraday_ingest()` in `intraday_ingest.py`, exposed by `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]`.
+
+1. Resolve date and explicit/all-active symbol scope.
+2. Read optional daily context from `stock_daily`; this does not fetch or write daily data.
+3. `intraday_fetcher.py` calls SSI `IntradayOhlc` with resolution 1.
+4. `intraday_mapper.py` treats source candle times as `Asia/Ho_Chi_Minh`, converts them to UTC, rejects invalid timestamps, and creates raw and clean candidates.
+5. The mapper persists only `timeframe='1m'`; `value` is the estimated `round(close * volume)` and remains `None` when either input is missing/invalid.
+6. `intraday_service.py` persists raw evidence through `intraday_persistence.py`, invokes existing record/batch validators, deduplicates by `(symbol, timeframe, time)` when reported, then persists valid clean records.
+
+Higher intraday timeframes are feature-time aggregations and are never written to `stock_intraday`.
+
+## EOD execution
+
+Public entrypoint: `run_eod_pipeline()` in `eod.py`, exposed by `python main.py eod [DD/MM/YYYY]`.
+
+```text
+daily ingest -> intraday ingest -> ingest completeness check -> OK/PARTIAL/FAILED
+```
+
+EOD preserves the daily and intraday service boundaries. It does not calculate features and does not run signals or backtests.
+
+## Raw, clean, validation, and persistence ownership
+
+| Dataset | Record creation | Validation integration | Persistence |
+| --- | --- | --- | --- |
+| `raw_daily` | `daily_mapper.py` | raw evidence is retained before clean validation | `daily_persistence.py` |
+| `stock_daily` | `daily_mapper.py` | `daily_service.py` + existing daily validator | `daily_persistence.py` |
+| `raw_intraday` | `intraday_mapper.py` | raw evidence is retained before clean validation | `intraday_persistence.py` |
+| `stock_intraday` | `intraday_mapper.py` | `intraday_service.py` + existing intraday validators | `intraday_persistence.py` |
+
+## Compatibility wrapper
+
+`fetch_one_day.py` remains a thin compatibility module for existing imports and the explicitly scoped script. It re-exports legacy mapper/fetcher helpers and composes the public daily and intraday services; it contains no duplicate mapping, validation, or persistence implementation. New code should import the relevant layered module directly.
+
+## Errors and retries
+
+- Fetchers expose SSI client results and do not swallow service/DB failures.
+- Empty SSI responses produce no fabricated raw or clean rows.
+- Invalid timestamps are rejected rather than replaced with current time.
+- Per-symbol services attach symbol/date context and return the existing summary contract.
+- Bounded SSI HTTP retry behavior stays in `src/ssi/api.py`; bounded DB retry/backoff stays in `src/database/client.py`.
+- Persistence continues using existing public DB methods and conflict keys.
 
 ## Tests
 
-Relevant tests include CLI, daily/EOD, one-day mapping, intraday ingest, streaming ingest, completeness, and dry-run suites under `tests/`.
+```bash
+python -m pytest -q tests/ingest/test_fetch_one_day.py
+python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
+python -m pytest -q tests/pipeline/test_eod_pipeline.py
+python -m pytest -q
+```
+
+Ingest commands never automatically calculate features, generate signals, or run backtests. Those remain explicit downstream commands.

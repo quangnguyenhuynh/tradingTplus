@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.database.client import SupabaseClient
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
-from src.pipeline.fetch_one_day import build_raw_daily_record, build_stock_daily_record
+from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
 from src.pipeline.index_data import build_index_daily_record, map_index_record
 from src.pipeline.init_symbols import map_security_record
 from src.ssi.api import SSIApi
@@ -189,7 +189,8 @@ def main() -> None:
     else:
         _warn_empty("index_daily")
     if args.write_intraday:
-        from src.pipeline.fetch_one_day import build_intraday_records, save_intraday_records
+        from src.pipeline.intraday_mapper import build_intraday_records
+        from src.pipeline.intraday_persistence import save_intraday_records
 
         raw_intraday, clean_intraday = build_intraday_records(symbol, ssi_date, daily or {}, intraday)
         count = save_intraday_records(db, raw_intraday, clean_intraday)

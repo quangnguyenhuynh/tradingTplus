@@ -65,6 +65,8 @@ Các hợp đồng bắt buộc:
 
 Mỗi folder tracked có cặp tài liệu `README.md` tiếng Anh và `README.vi.md` tiếng Việt.
 
+Daily và intraday REST ingest đều có module riêng theo tầng `fetcher -> mapper -> tích hợp validator -> persistence -> service`. `daily.py` và `intraday_ingest.py` là hai batch orchestrator độc lập; `eod.py` chỉ chạy tuần tự hai pipeline rồi kiểm tra completeness. `fetch_one_day.py` legacy là compatibility wrapper mỏng, không phải implementation thứ hai. Xem [hướng dẫn module pipeline](src/pipeline/README.vi.md) để biết đầy đủ cây thư mục, ownership, retry và thứ tự chạy.
+
 ## Cài đặt
 
 ```bash

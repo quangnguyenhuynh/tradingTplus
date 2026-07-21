@@ -4,7 +4,8 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
-from src.pipeline.fetch_one_day import _parse_trading_date, fetch_intraday_for_symbol_with_clients
+from src.pipeline.date_utils import trading_date_iso
+from src.pipeline.intraday_service import fetch_intraday_for_symbol_with_clients
 from src.ssi.api import SSIApi
 
 
@@ -46,7 +47,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
         }
 
     ssi = SSIApi()
-    trading_date = _parse_trading_date(resolved_date)
+    trading_date = trading_date_iso(resolved_date)
     totals = {'candles_received': 0, 'candles_valid': 0, 'candles_rejected': 0}
     errors: list[dict[str, str]] = []
     daily_context_missing: list[str] = []

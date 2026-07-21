@@ -62,6 +62,14 @@ def parse_ddmmyyyy(value: str) -> ValidatedDate:
     return ValidatedDate(raw=value, date=parsed)
 
 
+def trading_date_iso(value: str) -> str | None:
+    """Return an ISO date for a SSI ``DD/MM/YYYY`` request value."""
+    try:
+        return parse_ddmmyyyy(value).iso
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_iso_date(value: str) -> ValidatedDate:
     try:
         parsed = datetime.strptime(value, "%Y-%m-%d").date()

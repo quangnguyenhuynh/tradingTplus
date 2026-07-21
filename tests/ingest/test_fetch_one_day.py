@@ -8,6 +8,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import importlib
 
 fod = importlib.import_module("src.pipeline.fetch_one_day")
+daily_mapper = importlib.import_module("src.pipeline.daily_mapper")
+daily_service = importlib.import_module("src.pipeline.daily_service")
+intraday_mapper = importlib.import_module("src.pipeline.intraday_mapper")
+intraday_service = importlib.import_module("src.pipeline.intraday_service")
 
 
 class _SSI:
@@ -141,13 +145,21 @@ def test_build_intraday_records_sets_value_null_when_close_or_volume_missing():
 
 
 def test_build_intraday_records_logs_normalized_debug_sample(caplog):
-    caplog.set_level('DEBUG', logger='src.pipeline.fetch_one_day')
+    caplog.set_level('DEBUG', logger='src.pipeline.intraday_mapper')
 
     fod.build_intraday_records('SSI', '18/06/2026', _daily(), [_candle('09:15:00', volume='100', close='10.5')])
 
     assert 'Normalized intraday sample rows for SSI 18/06/2026' in caplog.text
     assert "'value': 1050" in caplog.text
     assert "'value_type': 'int'" in caplog.text
+
+
+def test_compatibility_module_reexports_public_mapper_contracts():
+    assert fod.build_stock_daily_record is daily_mapper.build_stock_daily_record
+    assert fod.build_intraday_records is intraday_mapper.build_intraday_records
+    assert fod.parse_time is intraday_mapper.parse_time
+    assert fod.fetch_daily_for_symbol_with_clients is daily_service.fetch_daily_for_symbol_with_clients
+    assert fod.fetch_intraday_for_symbol_with_clients is intraday_service.fetch_intraday_for_symbol_with_clients
 
 
 def test_save_intraday_records_returns_clean_record_count():
@@ -216,7 +228,7 @@ def test_build_intraday_records_missing_daily_context_keeps_limits_null():
 def test_daily_only_function_does_not_call_intraday():
     ssi = _SSI(daily=_daily(), candles=[_candle()])
     db = _DB()
-    summary = fod.fetch_daily_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026')
+    summary = daily_service.fetch_daily_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026')
     assert summary['status'] == 'OK'
     assert db.raw_daily_records is not None
     assert db.stock_daily_records is not None
@@ -230,7 +242,7 @@ def test_intraday_only_function_does_not_call_daily_price_and_writes_no_daily_ro
             raise AssertionError('daily should not be fetched')
     ssi = NoDailySSI(candles=[_candle('09:15:00'), _candle('09:16:00')])
     db = _DB()
-    summary = fod.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
+    summary = intraday_service.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
     assert summary['candles_received'] == 2
     assert summary['daily_context_missing'] is True
     assert db.raw_records is not None
@@ -242,7 +254,7 @@ def test_intraday_only_function_does_not_call_daily_price_and_writes_no_daily_ro
 def test_intraday_only_empty_api_creates_no_fake_rows():
     ssi = _SSI(candles=[])
     db = _DB()
-    summary = fod.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
+    summary = intraday_service.fetch_intraday_for_symbol_with_clients(ssi, db, 'SSI', '18/06/2026', daily_context=None)
     assert summary['status'] == 'FAILED'
     assert summary['candles_received'] == 0
     assert db.raw_records is None

@@ -4,7 +4,7 @@ Test việc chuẩn hóa dữ liệu SSI daily/intraday và điều phối inges
 
 ## File
 
-- `test_fetch_one_day.py`: mapping raw/clean, kiểm tra ngày/mã, response rỗng và tách daily/intraday.
+- `test_fetch_one_day.py`: mapper/service daily và intraday, đổi UTC, field nullable, estimated value, timestamp sai, compatibility import và tách daily/intraday.
 - `test_intraday_value.py`: tính intraday value ước tính và giữ NULL.
 - `test_daily_ingest_payload_reuse.py`: tái sử dụng một payload `DailyStockPrice` cho raw, clean và foreign.
 - `test_intraday_ingest_pipeline.py`: phạm vi symbol, daily context và trạng thái partial.
