@@ -125,8 +125,7 @@ Flow hiện tại:
 SSI DailyStockPrice — một request cho mỗi symbol/date
     ├── raw_daily: full payload + data_hash
     ├── validate daily mapper
-    ├── stock_daily nếu valid
-    └── foreign_trading từ cùng payload
+    └── stock_daily nếu valid, bao gồm foreign daily/room fields
 
 SSI DailyIndex
     └── index_daily
@@ -427,7 +426,7 @@ Conflict key daily:
 symbol,trading_date
 ```
 
-Standalone helper `fetch_foreign_trading_day` vẫn có thể tự fetch khi được gọi riêng, nhưng production `daily` không còn duplicate request cho cùng symbol/date.
+`stock_daily` là nguồn canonical cho foreign data cuối ngày. Production `daily` không gọi helper và không ghi row `foreign_trading`; standalone helper `fetch_foreign_trading_day` chỉ còn là compatibility path explicit.
 
 ## 8. Index data
 
@@ -546,7 +545,7 @@ Hiện query:
 - `stock_daily`;
 - `stock_intraday` timeframe `1m`;
 - `index_daily` count;
-- `foreign_trading` count;
+- legacy `foreign_trading` count (observability only; normal daily ingest không ghi);
 - `orderbook_snapshot` count theo UTC range của ngày Việt Nam.
 
 Per-symbol summary có:
@@ -566,7 +565,7 @@ Overall status hiện dựa chủ yếu trên:
 - missing symbol;
 - duplicate/gap intraday.
 
-`index_daily_count`, `foreign_trading_count` và `orderbook_snapshot_count` được query thật nhưng chưa ảnh hưởng đầy đủ đến overall status.
+`index_daily_count`, legacy `foreign_trading_count` và `orderbook_snapshot_count` được query thật nhưng chưa ảnh hưởng đầy đủ đến overall status. Canonical daily completeness phải dựa trên `stock_daily`, không dựa trên legacy count này.
 
 Completeness chưa bao phủ đầy đủ:
 

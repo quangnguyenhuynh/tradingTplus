@@ -878,7 +878,7 @@ Daily and intraday ingest are separate production pipelines:
 ```text
 python main.py daily [DD/MM/YYYY]
     DailyStockPrice → raw_daily, validation, stock_daily
-    DailyStockPrice foreign fields → foreign_trading
+    DailyStockPrice foreign fields → canonical stock_daily fields
     DailyIndex → index_daily
 
 python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]

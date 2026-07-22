@@ -30,7 +30,7 @@ sync-master-data
 
 | Command | Purpose | SSI ingest? | Tables written | Does not do |
 | --- | --- | --- | --- | --- |
-| `daily` | Daily source ingest | `DailyStockPrice`, `DailyIndex` | `raw_daily`, `stock_daily`, `foreign_trading`, `index_daily`, master index tables as needed | intraday candles, features, signals, backtests |
+| `daily` | Daily source ingest | `DailyStockPrice`, `DailyIndex` | `raw_daily`, `stock_daily`, `index_daily`, master index tables as needed | `foreign_trading`, intraday candles, features, signals, backtests |
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
@@ -82,9 +82,9 @@ Positional parameters:
 
 Default behavior: all active symbols from `symbols` are processed.
 
-Reads: `symbols`; SSI `DailyStockPrice`; SSI `DailyIndex`; index master endpoints where needed; `DailyStockPrice` foreign fields.
+Reads: `symbols`; SSI `DailyStockPrice` (including daily foreign and room fields); SSI `DailyIndex`; index master endpoints where needed.
 
-Writes: `raw_daily`, `stock_daily`, `foreign_trading`, `index_daily`, `indexes`, `index_components` as needed.
+Writes: `raw_daily`, canonical `stock_daily` (including daily foreign and room fields), `index_daily`, `indexes`, `index_components` as needed. Normal daily ingest does not write the legacy `foreign_trading` table.
 
 Does not: call SSI `IntradayOhlc`, write `raw_intraday`/`stock_intraday`, calculate features, generate signals, or run backtests.
 
@@ -97,7 +97,7 @@ python main.py daily 10/07/2026
 
 Public function: `src.pipeline.daily.run_daily_ingest(date: str | None = None) -> dict`.
 
-Summary fields include `date`, `symbol_count`, `daily_valid_count`, `total_daily_rows`, `total_foreign`, `index_daily_count`, `errors`, and `status`. `total_candles` is retained as a deprecated compatibility key and is always `0` for daily-only ingest.
+Summary fields include `date`, `symbol_count`, `daily_valid_count`, `total_daily_rows`, `total_foreign`, `index_daily_count`, `errors`, and `status`. `total_foreign` is retained temporarily for compatibility and is always `0`; `total_candles` is also a deprecated compatibility key and is always `0` for daily-only ingest.
 
 ## `intraday-ingest`
 
@@ -158,7 +158,7 @@ ingest completeness check
 OK / PARTIAL / FAILED
 ```
 
-Reads/writes: same as `daily` plus `intraday-ingest`; completeness reads `stock_daily`, `stock_intraday`, `index_daily`, `foreign_trading`, and related snapshot tables for counts.
+Reads/writes: same as `daily` plus `intraday-ingest`; completeness reads canonical `stock_daily`, `stock_intraday`, `index_daily`, the legacy `foreign_trading` table, and related snapshot tables for counts. The legacy count is observability-only and is not a daily ingest write.
 
 Does not: calculate features, generate signals, or run backtests.
 

@@ -22,7 +22,7 @@ src/pipeline/
 ├── date_utils.py             # parse/kiểm tra ngày thị trường Việt Nam
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
-├── foreign_trading.py        # derive foreign từ DailyStockPrice
+├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
 ├── backfill.py               # compatibility flow lịch sử có scope
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
@@ -42,7 +42,10 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `p
 4. `daily_service.py` ghi raw evidence qua `daily_persistence.py`.
 5. `daily_service.py` gọi validator `validate_daily_record` hiện có.
 6. Chỉ clean candidate hợp lệ mới được ghi vào `stock_daily` qua `daily_persistence.py`.
-7. `daily.py` derive foreign trading từ cùng payload đã fetch và xử lý index độc lập.
+7. Các field mua, bán, net và room khối ngoại cuối ngày nằm trong row `stock_daily`; daily ingest thông thường không ghi `foreign_trading`.
+8. `daily.py` xử lý index độc lập.
+
+`stock_daily` là nguồn canonical cho dữ liệu daily, bao gồm dữ liệu giao dịch khối ngoại và room cuối ngày. `foreign_trading` là bảng legacy và không còn được daily ingest ghi dữ liệu mới; helper compatibility explicit vẫn được giữ lại. Snapshot khối ngoại intraday vẫn là streaming dataset riêng.
 
 ## Trình tự intraday
 
