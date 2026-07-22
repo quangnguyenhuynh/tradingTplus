@@ -15,6 +15,8 @@ AFTERNOON_START = time(13, 0)
 AFTERNOON_CONTINUOUS_END = time(14, 29)
 SESSION_END = time(15, 0)
 REQUIRED_FIELDS = ["symbol", "time", "timeframe", "open", "high", "low", "close", "volume"]
+UNSORTED_SAMPLE_HEAD = 3
+UNSORTED_SAMPLE_TAIL = 2
 
 
 def _issue(code: str, message: str, severity: str, field: str | None = None, actual: Any = None, expected: Any = None) -> ValidationIssue:
@@ -51,6 +53,22 @@ def _parse_ts(value: Any) -> datetime | None:
 
 def _result(errors: list[ValidationIssue], warnings: list[ValidationIssue]) -> ValidationResult:
     return ValidationResult(is_valid=not errors, errors=errors, warnings=warnings)
+
+
+def _received_order_summary(records: list[dict]) -> dict[str, Any]:
+    timestamps = [record.get("time") for record in records]
+    sample_limit = UNSORTED_SAMPLE_HEAD + UNSORTED_SAMPLE_TAIL
+    sample: list[Any]
+    if len(timestamps) <= sample_limit:
+        sample = timestamps
+    else:
+        sample = timestamps[:UNSORTED_SAMPLE_HEAD] + ["..."] + timestamps[-UNSORTED_SAMPLE_TAIL:]
+    return {
+        "record_count": len(records),
+        "first_received": timestamps[0],
+        "last_received": timestamps[-1],
+        "sample_received": sample,
+    }
 
 
 def _in_trading_session(dt_utc: datetime) -> bool:
@@ -147,7 +165,7 @@ def validate_intraday_batch(records: list[dict], daily_record: dict | None = Non
 
     sorted_valid = sorted(parsed_valid, key=lambda item: item[2])
     if [i for i, _, _ in sorted_valid] != [i for i, _, _ in parsed_valid]:
-        warnings.append(_issue("INTRADAY_UNSORTED_INPUT", "Input intraday candles are not sorted by timestamp", "warning", "time", [r.get("time") for _, r, _ in parsed_valid], "ascending time"))
+        warnings.append(_issue("INTRADAY_UNSORTED_INPUT", "Input intraday candles are not sorted by timestamp", "warning", "time", _received_order_summary(records), "ascending time"))
 
     for _, r, ts in parsed_valid:
         if not _in_trading_session(ts):

@@ -29,6 +29,10 @@ def missing_minutes(result):
     )
 
 
+def issue_for(result, code):
+    return next(issue for issue in result.errors + result.warnings if issue.code == code)
+
+
 def test_valid_candle():
     assert validate_intraday_record(candle()).is_valid
 
@@ -96,9 +100,44 @@ def test_duplicate_timestamp():
 
 
 def test_unsorted_input():
-    result = validate_intraday_batch([candle("2026-07-10T02:01:00Z"), candle("2026-07-10T02:00:00Z")])
+    received = [candle("2026-07-10T02:01:00Z"), candle("2026-07-10T02:00:00Z")]
+    result = validate_intraday_batch(received)
     assert result.is_valid
-    assert "INTRADAY_UNSORTED_INPUT" in codes(result)
+    issue = issue_for(result, "INTRADAY_UNSORTED_INPUT")
+    assert issue.actual_value == {
+        "record_count": 2,
+        "first_received": received[0]["time"],
+        "last_received": received[-1]["time"],
+        "sample_received": [record["time"] for record in received],
+    }
+    assert issue.expected_value == "ascending time"
+
+
+def test_unsorted_input_summary_sample_is_bounded_for_large_batch():
+    received = [candle(f"2026-07-10T02:{minute:02d}:00Z") for minute in reversed(range(30))]
+    issue = issue_for(validate_intraday_batch(received), "INTRADAY_UNSORTED_INPUT")
+
+    assert isinstance(issue.actual_value, dict)
+    assert issue.actual_value["record_count"] == 30
+    assert issue.actual_value["first_received"] == received[0]["time"]
+    assert issue.actual_value["last_received"] == received[-1]["time"]
+    assert issue.actual_value["sample_received"] == [
+        received[0]["time"],
+        received[1]["time"],
+        received[2]["time"],
+        "...",
+        received[-2]["time"],
+        received[-1]["time"],
+    ]
+    assert len(issue.actual_value["sample_received"]) == 6
+
+
+def test_sorted_input_has_no_unsorted_warning():
+    result = validate_intraday_batch([
+        candle("2026-07-10T02:00:00Z"),
+        candle("2026-07-10T02:01:00Z"),
+    ])
+    assert "INTRADAY_UNSORTED_INPUT" not in codes(result)
 
 
 def test_unsorted_input_is_sorted_for_gap_validation():
@@ -108,6 +147,17 @@ def test_unsorted_input_is_sorted_for_gap_validation():
     ])
     assert "INTRADAY_UNSORTED_INPUT" in codes(result)
     assert missing_minutes(result) == 1
+
+
+def test_unsorted_summary_does_not_change_duplicate_detection():
+    result = validate_intraday_batch([
+        candle("2026-07-10T02:01:00Z"),
+        candle("2026-07-10T02:00:00Z"),
+        candle("2026-07-10T02:01:00Z"),
+    ])
+    assert "INTRADAY_UNSORTED_INPUT" in codes(result)
+    assert "INTRADAY_DUPLICATE_TIMESTAMP" in codes(result)
+    assert not result.is_valid
 
 
 def test_missing_minute_between_session():
