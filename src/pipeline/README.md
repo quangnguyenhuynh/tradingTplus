@@ -60,6 +60,8 @@ Public entrypoint: `run_intraday_ingest()` in `intraday_ingest.py`, exposed by `
 
 Higher intraday timeframes are feature-time aggregations and are never written to `stock_intraday`.
 
+Intraday gap validation normalizes timestamps to minute buckets in memory only; raw and clean timestamps are not modified. Missing minutes are checked only within the continuous matching ranges `09:00-11:29` and `13:00-14:29` (`Asia/Ho_Chi_Minh`). Lunch-break minutes and the `14:30-14:44` ATC interval before an SSI close result around `14:45` are excluded. Input is sorted internally for gap checks while unsorted input remains explicitly reported. Completeness is based on these session-aware gaps and duplicates, not a universal expected candle count.
+
 ## EOD execution
 
 Public entrypoint: `run_eod_pipeline()` in `eod.py`, exposed by `python main.py eod [DD/MM/YYYY]`.
@@ -97,6 +99,8 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 ```bash
 python -m pytest -q tests/ingest/test_fetch_one_day.py
 python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
+python -m pytest -q tests/validation/test_intraday_validator.py
+python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```

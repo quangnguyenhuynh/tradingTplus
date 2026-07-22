@@ -21,6 +21,14 @@ def codes(result):
     return [i.code for i in result.errors + result.warnings]
 
 
+def missing_minutes(result):
+    return sum(
+        issue.actual_value["missing_minutes"]
+        for issue in result.warnings
+        if issue.code == "INTRADAY_MISSING_INTERVAL"
+    )
+
+
 def test_valid_candle():
     assert validate_intraday_record(candle()).is_valid
 
@@ -93,15 +101,44 @@ def test_unsorted_input():
     assert "INTRADAY_UNSORTED_INPUT" in codes(result)
 
 
+def test_unsorted_input_is_sorted_for_gap_validation():
+    result = validate_intraday_batch([
+        candle("2026-07-10T02:02:21Z"),
+        candle("2026-07-10T02:00:18Z"),
+    ])
+    assert "INTRADAY_UNSORTED_INPUT" in codes(result)
+    assert missing_minutes(result) == 1
+
+
 def test_missing_minute_between_session():
     result = validate_intraday_batch([candle(), candle("2026-07-10T02:02:00Z")])
     assert result.is_valid
     assert "INTRADAY_MISSING_INTERVAL" in codes(result)
 
 
-def test_lunch_break_not_missing_interval():
-    # 11:30 VN is 04:30 UTC; 13:00 VN is 06:00 UTC.
-    result = validate_intraday_batch([candle("2026-07-10T04:30:00Z"), candle("2026-07-10T06:00:00Z")])
+def test_lunch_break_boundaries_not_missing_interval():
+    result = validate_intraday_batch([
+        candle("2026-07-10T04:29:47Z"),
+        candle("2026-07-10T04:30:08Z"),
+        candle("2026-07-10T06:00:39Z"),
+    ])
+    assert "INTRADAY_MISSING_INTERVAL" not in codes(result)
+
+
+def test_atc_boundaries_not_missing_interval():
+    result = validate_intraday_batch([
+        candle("2026-07-10T07:29:51Z"),
+        candle("2026-07-10T07:30:09Z"),
+        candle("2026-07-10T07:45:00Z"),
+    ])
+    assert "INTRADAY_MISSING_INTERVAL" not in codes(result)
+
+
+def test_second_offsets_in_same_minute_buckets_do_not_create_false_gap():
+    result = validate_intraday_batch([
+        candle("2026-07-10T02:00:58Z"),
+        candle("2026-07-10T02:01:02Z"),
+    ])
     assert "INTRADAY_MISSING_INTERVAL" not in codes(result)
 
 
@@ -132,19 +169,19 @@ def test_empty_batch_warning():
 def test_duplicate_batch_invalid():
     assert not validate_intraday_batch([candle(), candle()]).is_valid
 
-def test_1129_to_1300_reports_missing_before_lunch():
-    result = validate_intraday_batch([candle("2026-07-10T04:29:00Z"), candle("2026-07-10T06:00:00Z")])
-    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+def test_missing_minute_inside_morning_session():
+    result = validate_intraday_batch([candle("2026-07-10T04:27:15Z"), candle("2026-07-10T04:29:42Z")])
+    assert missing_minutes(result) == 1
 
 
-def test_1130_to_1302_reports_missing_after_lunch():
-    result = validate_intraday_batch([candle("2026-07-10T04:30:00Z"), candle("2026-07-10T06:02:00Z")])
-    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+def test_missing_minute_inside_afternoon_session():
+    result = validate_intraday_batch([candle("2026-07-10T06:00:15Z"), candle("2026-07-10T06:02:42Z")])
+    assert missing_minutes(result) == 1
 
 
-def test_large_gap_crossing_lunch_is_not_ignored():
-    result = validate_intraday_batch([candle("2026-07-10T02:15:00Z"), candle("2026-07-10T07:45:00Z")])
-    assert "INTRADAY_MISSING_INTERVAL" in codes(result)
+def test_gap_crossing_lunch_counts_only_continuous_session_minutes():
+    result = validate_intraday_batch([candle("2026-07-10T04:28:00Z"), candle("2026-07-10T06:02:00Z")])
+    assert missing_minutes(result) == 3  # 11:29, 13:00, and 13:01; lunch is excluded.
 
 
 def test_gap_across_trading_dates_not_counted_as_same_session_gap():

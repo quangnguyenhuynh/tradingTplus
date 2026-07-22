@@ -60,6 +60,8 @@ Public entrypoint: `run_intraday_ingest()` trong `intraday_ingest.py`; CLI `pyth
 
 Timeframe intraday cao hơn chỉ được aggregate trong feature pipeline và không ghi vào `stock_intraday`.
 
+Validation gap intraday chỉ chuẩn hóa timestamp thành minute bucket trong bộ nhớ; timestamp raw và clean không bị thay đổi. Phút thiếu chỉ được kiểm tra trong các đoạn khớp lệnh liên tục `09:00-11:29` và `13:00-14:29` (`Asia/Ho_Chi_Minh`). Các phút nghỉ trưa và khoảng ATC `14:30-14:44` trước kết quả đóng cửa SSI vào khoảng `14:45` bị loại khỏi phép đếm. Validator sort nội bộ để kiểm tra gap nhưng vẫn báo rõ input không sort. Completeness dựa trên gap theo phiên và duplicate, không dựa trên một số lượng candle chuẩn chung cho mọi ngày.
+
 ## Trình tự EOD
 
 Public entrypoint: `run_eod_pipeline()` trong `eod.py`; CLI `python main.py eod [DD/MM/YYYY]`.
@@ -97,6 +99,8 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 ```bash
 python -m pytest -q tests/ingest/test_fetch_one_day.py
 python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
+python -m pytest -q tests/validation/test_intraday_validator.py
+python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```

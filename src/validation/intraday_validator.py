@@ -10,9 +10,10 @@ PRICE_TOLERANCE = 1e-6
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 UTC_TZ = ZoneInfo("UTC")
 MORNING_START = time(9, 0)
-MORNING_END = time(11, 30)
+MORNING_CONTINUOUS_END = time(11, 29)
 AFTERNOON_START = time(13, 0)
-AFTERNOON_END = time(15, 0)
+AFTERNOON_CONTINUOUS_END = time(14, 29)
+SESSION_END = time(15, 0)
 REQUIRED_FIELDS = ["symbol", "time", "timeframe", "open", "high", "low", "close", "volume"]
 
 
@@ -54,15 +55,31 @@ def _result(errors: list[ValidationIssue], warnings: list[ValidationIssue]) -> V
 
 def _in_trading_session(dt_utc: datetime) -> bool:
     local_t = dt_utc.astimezone(VN_TZ).time()
-    return (MORNING_START <= local_t <= MORNING_END) or (AFTERNOON_START <= local_t <= AFTERNOON_END)
+    return (MORNING_START <= local_t <= time(11, 30)) or (AFTERNOON_START <= local_t <= SESSION_END)
 
 
-def _is_lunch_gap(prev_utc: datetime, next_utc: datetime) -> bool:
-    prev_local = prev_utc.astimezone(VN_TZ)
-    next_local = next_utc.astimezone(VN_TZ)
-    if prev_local.date() != next_local.date():
-        return False
-    return prev_local.time().replace(second=0, microsecond=0) == MORNING_END and next_local.time().replace(second=0, microsecond=0) == AFTERNOON_START
+def _minute_bucket(dt_utc: datetime) -> datetime:
+    """Normalize only the validation view; persisted source timestamps stay intact."""
+    return dt_utc.replace(second=0, microsecond=0)
+
+
+def _is_continuous_minute(dt_utc: datetime) -> bool:
+    local_t = dt_utc.astimezone(VN_TZ).time()
+    return (MORNING_START <= local_t <= MORNING_CONTINUOUS_END) or (
+        AFTERNOON_START <= local_t <= AFTERNOON_CONTINUOUS_END
+    )
+
+
+def _missing_continuous_minutes(prev_utc: datetime, next_utc: datetime) -> int:
+    """Count only absent minute buckets that belong to continuous trading."""
+    current = _minute_bucket(prev_utc) + timedelta(minutes=1)
+    end = _minute_bucket(next_utc)
+    missing = 0
+    while current < end:
+        if _is_continuous_minute(current):
+            missing += 1
+        current += timedelta(minutes=1)
+    return missing
 
 
 def validate_intraday_record(record: dict) -> ValidationResult:
@@ -141,9 +158,9 @@ def validate_intraday_batch(records: list[dict], daily_record: dict | None = Non
             continue
         if prev_ts.astimezone(VN_TZ).date() != next_ts.astimezone(VN_TZ).date():
             continue
-        gap_minutes = int((next_ts - prev_ts).total_seconds() // 60)
-        if gap_minutes > 1 and not _is_lunch_gap(prev_ts, next_ts):
-            warnings.append(_issue("INTRADAY_MISSING_INTERVAL", "Missing one or more 1m candles between timestamps", "warning", "time", {"previous_time": prev_r.get("time"), "next_time": next_r.get("time"), "missing_minutes": gap_minutes - 1}, "consecutive 1m candles"))
+        missing_minutes = _missing_continuous_minutes(prev_ts, next_ts)
+        if missing_minutes:
+            warnings.append(_issue("INTRADAY_MISSING_INTERVAL", "Missing one or more 1m candles inside continuous trading sessions", "warning", "time", {"previous_time": prev_r.get("time"), "next_time": next_r.get("time"), "missing_minutes": missing_minutes}, "consecutive 1m candles inside 09:00-11:29 or 13:00-14:29 Asia/Ho_Chi_Minh"))
 
     if daily_record and sorted_valid:
         last = sorted_valid[-1][1]
