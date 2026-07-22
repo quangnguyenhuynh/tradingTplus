@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from src.pipeline import ingest_check
 
 
@@ -92,3 +94,53 @@ def test_check_ingest_counts_orderbook_snapshots_in_vietnam_date_range(monkeypat
             (("*",), {"count": "exact"}),
         )
     ]
+
+
+def _ssi_style_day_times():
+    """Build continuous 1m buckets plus SSI-style lunch/close boundaries."""
+    ranges = (
+        (datetime(2026, 7, 20, 2, 0, 17, tzinfo=timezone.utc), 150),
+        (datetime(2026, 7, 20, 6, 0, 11, tzinfo=timezone.utc), 90),
+    )
+    times = [
+        (start + timedelta(minutes=offset)).isoformat().replace("+00:00", "Z")
+        for start, count in ranges
+        for offset in range(count)
+    ]
+    return times + ["2026-07-20T04:30:09Z", "2026-07-20T07:30:08Z", "2026-07-20T07:45:00Z"]
+
+
+def _intraday_rows(times):
+    return [{"symbol": "SSI", "time": value, "timeframe": "1m"} for value in times]
+
+
+def test_completeness_ok_for_2026_07_20_ssi_style_boundaries():
+    times = _ssi_style_day_times()
+
+    summary = ingest_check._symbol_intraday_summary("SSI", _intraday_rows(times), has_daily=True)
+
+    assert summary["intraday_candle_count"] == 243
+    assert summary["missing_interval_count"] == 0
+    assert summary["missing_minutes"] == 0
+    assert summary["status"] == "OK"
+
+
+def test_completeness_warning_when_continuous_candle_is_removed():
+    times = _ssi_style_day_times()
+    times.remove("2026-07-20T06:27:11Z")
+
+    summary = ingest_check._symbol_intraday_summary("SSI", _intraday_rows(times), has_daily=True)
+
+    assert summary["missing_interval_count"] == 1
+    assert summary["missing_minutes"] == 1
+    assert summary["status"] == "WARNING"
+
+
+def test_completeness_duplicate_detection_is_unchanged():
+    times = _ssi_style_day_times()
+    times.append(times[0])
+
+    summary = ingest_check._symbol_intraday_summary("SSI", _intraday_rows(times), has_daily=True)
+
+    assert summary["duplicate_count"] == 1
+    assert summary["status"] == "WARNING"
