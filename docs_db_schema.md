@@ -36,9 +36,14 @@ Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `
 - Upsert theo conflict key: `symbol,time`.
 
 ### foreign_trading
-- Ghi tối thiểu: `symbol`, `time`, `buy_vol`, `sell_vol`.
-- Derive thêm trong code: `net_vol`.
-- Upsert theo conflict key: `symbol,time`.
+- Legacy duplicated daily storage, retained temporarily for compatibility/history.
+- Normal daily ingest no longer writes this table; existing rows remain untouched.
+- Explicit legacy helpers may still upsert by `symbol,trading_date`; older rows/schema also support `symbol,time` compatibility.
+
+### stock_daily
+- Canonical clean daily market data from SSI `DailyStockPrice`.
+- Includes `foreign_buy_vol_total`, `foreign_sell_vol_total`, `foreign_buy_val_total`, `foreign_sell_val_total`, `net_foreign_vol`, `net_foreign_val`, and `foreign_current_room`.
+- Missing source foreign values remain null.
 
 ### features
 - Key: `symbol`, `timeframe`, `time`, `last_updated_at`.
@@ -142,14 +147,15 @@ order by tablename, indexname;
 
 ## Foreign trading and orderbook ingest additions
 
-- `foreign_trading` is the dedicated research-friendly daily foreign flow table keyed by `(symbol, trading_date)` and stores buy/sell/net volume/value, foreign room/current room, and raw SSI JSON.
+- `stock_daily` is the canonical clean daily source and includes foreign buy/sell/net volume/value and end-of-day room fields from `DailyStockPrice`.
+- `foreign_trading` is legacy duplicated daily storage. Normal daily ingest no longer writes it, and existing rows remain untouched for compatibility/history.
 - `orderbook_snapshot` stores point-in-time 10-level bid/ask snapshots keyed by `(symbol, time)` with total depth, imbalance, pressure score, and raw SSI JSON.
 - Run `migrations/20260707_complete_foreign_orderbook_ingest.sql` after the complete SSI ingest schema migration to add missing compatibility columns and indexes if the existing tables are older.
 
 ## SSI endpoint source correction
 
 - Public SSI FastConnect Data REST docs list the market endpoints used for this repo: `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice`.
-- There is no hardcoded public REST `ForeignTrading` endpoint. The `foreign_trading` ingest maps foreign fields from `DailyStockPrice` into a research-friendly table.
+- There is no hardcoded public REST `ForeignTrading` endpoint. Normal daily ingest maps foreign fields from `DailyStockPrice` directly into canonical `stock_daily`; only an explicit legacy compatibility helper can still write `foreign_trading`.
 - There is no hardcoded public REST orderbook endpoint. `orderbook_snapshot` remains optional and logs unsupported unless an account-specific `SSI_ORDERBOOK_URL` is configured.
 
 

@@ -22,7 +22,7 @@ src/pipeline/
 ├── date_utils.py             # Vietnam-market date parsing/safety
 ├── init_symbols.py           # master-data synchronization
 ├── index_data.py             # index master/daily ingest
-├── foreign_trading.py        # derive foreign rows from DailyStockPrice fields
+├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # explicitly scoped historical compatibility flow
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
@@ -42,7 +42,10 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed b
 4. `daily_service.py` persists raw evidence through `daily_persistence.py`.
 5. `daily_service.py` invokes the existing `validate_daily_record` validator.
 6. Only valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`.
-7. `daily.py` derives foreign trading from the same verified payload and independently handles index ingest.
+7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `foreign_trading`.
+8. `daily.py` independently handles index ingest.
+
+`foreign_trading` is retained as legacy historical storage and for the explicit compatibility helper only. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
 
 ## Intraday execution
 

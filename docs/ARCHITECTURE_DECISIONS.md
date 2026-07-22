@@ -861,7 +861,7 @@ Chỉ dùng:
 
 ---
 
-## ADR-020 — Foreign trading derive từ `DailyStockPrice`
+## ADR-020 — Foreign trading daily thuộc canonical `stock_daily`
 
 ### Status
 
@@ -875,14 +875,18 @@ SSI public REST specification hiện dùng trong project không có standalone `
 
 ### Decision
 
-Foreign trading daily được derive từ `DailyStockPrice`.
+Foreign trading daily được lấy từ `DailyStockPrice` và lưu trong row canonical `stock_daily`. Normal daily ingest không duplicate các giá trị này sang `foreign_trading`.
 
 ### Consequences
 
 - Không tạo public REST URL giả cho foreign trading.
-- `foreign_trading` phải giữ source relationship với daily payload.
-- Có thể tối ưu bằng cách reuse daily payload thay vì gọi lại API.
-- Net value/volume chỉ tự tính khi source net field không có và buy/sell đều tồn tại.
+- `stock_daily` là nguồn canonical daily duy nhất, bao gồm foreign buy/sell/net/room fields.
+- Foreign fields không được fetch từ standalone public REST endpoint.
+- Normal daily ingest không ghi `foreign_trading`.
+- Row `foreign_trading` hiện có không bị thay đổi và được giữ cho legacy compatibility/history.
+- Intraday foreign streaming snapshot vẫn là dataset riêng.
+- Task tương lai có thể thay legacy daily access bằng view hoặc xóa bảng cũ sau khi verify dependency.
+- Không cần migration hoặc backfill vì foreign fields đã có trong `stock_daily`.
 
 ---
 

@@ -76,7 +76,7 @@ def _patch_daily_dependencies(monkeypatch, ssi, db):
     monkeypatch.setattr(daily_mod, "fetch_daily_indexes", lambda date, ssi, db: 0)
 
 
-def test_daily_ingest_reuses_daily_stock_price_payload_for_raw_clean_and_foreign(monkeypatch):
+def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
     payload = _daily()
     ssi = _SSI(payload)
     db = _DB()
@@ -89,9 +89,13 @@ def test_daily_ingest_reuses_daily_stock_price_payload_for_raw_clean_and_foreign
     assert ssi.foreign_calls == 0
     assert db.raw_daily_records[0]["payload"] is payload
     assert db.stock_daily_records[0]["raw"] is payload
-    assert db.foreign_records[0]["raw"] is payload
-    assert db.foreign_records[0]["foreign_buy_vol"] == 10
-    assert db.foreign_records[0]["foreign_sell_vol"] == 3
+    assert db.stock_daily_records[0]["foreign_buy_vol_total"] == 10
+    assert db.stock_daily_records[0]["foreign_sell_vol_total"] == 3
+    assert db.stock_daily_records[0]["foreign_buy_val_total"] == 100
+    assert db.stock_daily_records[0]["foreign_sell_val_total"] == 30
+    assert db.stock_daily_records[0]["foreign_current_room"] == 1000
+    assert db.foreign_records == []
+    assert summary["total_foreign"] == 0
 
 
 def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(monkeypatch):
@@ -112,7 +116,13 @@ def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(
     assert ssi.daily_price_calls == 1
     assert ssi.foreign_calls == 0
     assert db.stock_daily_records
+    assert db.stock_daily_records[0]["foreign_buy_vol_total"] is None
+    assert db.stock_daily_records[0]["foreign_sell_vol_total"] is None
+    assert db.stock_daily_records[0]["foreign_buy_val_total"] is None
+    assert db.stock_daily_records[0]["foreign_sell_val_total"] is None
+    assert db.stock_daily_records[0]["foreign_current_room"] is None
     assert db.foreign_records == []
+    assert summary["total_foreign"] == 0
 
 
 def test_fetch_foreign_for_symbol_independent_call_still_fetches_daily_stock_price():

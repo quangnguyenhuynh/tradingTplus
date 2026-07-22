@@ -79,8 +79,7 @@ SSI FastConnect Data
         │
         ├── Daily ingest pipeline
         │     ├── raw_daily
-        │     ├── stock_daily
-        │     ├── foreign_trading
+        │     ├── stock_daily (bao gồm foreign daily/room)
         │     └── index_daily
         │
         ├── Intraday ingest pipeline
@@ -177,14 +176,15 @@ EOD không chạy feature.
 ```text
 DailyStockPrice
     ├── raw_daily
-    ├── stock_daily
-    └── foreign_trading
+    └── stock_daily (canonical, bao gồm foreign daily/room)
 
 DailyIndex
     └── index_daily
 ```
 
 `DailyOhlc` chỉ dùng inspector/cross-check.
+
+Normal daily ingest không ghi `foreign_trading`; bảng này chỉ còn là legacy historical storage. Intraday foreign snapshot vẫn thuộc streaming pipeline riêng.
 
 ### Intraday
 
