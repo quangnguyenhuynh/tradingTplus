@@ -27,7 +27,7 @@ Explicit symbols are stripped, uppercased, and deduplicated in first-seen order 
 
 ## Branch behavior and data impact
 
-- **`backfill-daily`** runs only historical daily ingest. It preserves daily index synchronization and index daily ingest, so an intentional run may write `raw_daily`, `stock_daily`, `index_daily`, and existing index master/context tables. `--symbols` scopes stock ingest only. It does not run intraday ingest or completeness.
+- **`backfill-daily`** runs only historical daily ingest. It preserves daily index ingest but never synchronizes index master data per date, so an intentional run may write only `raw_daily`, `stock_daily`, and `index_daily`. `--symbols` scopes stock ingest only. It does not run intraday ingest or completeness.
 - **`backfill-intraday`** runs only historical SSI 1m intraday ingest and may write `raw_intraday` and `stock_intraday` with only `timeframe='1m'`. It reads existing `stock_daily` context when available; missing context remains visible as `PARTIAL`. It never runs daily ingest or completeness automatically.
 - **`backfill`** runs the complete daily branch before the complete intraday branch, then reads source tables through scoped completeness checking for each eligible date. It retains both branch summaries and creates combined `backfill-day` summaries using EOD-compatible status rules. It does not call EOD directly.
 

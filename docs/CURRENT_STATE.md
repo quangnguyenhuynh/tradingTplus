@@ -107,9 +107,8 @@ python main.py init
 
 Hiện thực hiện:
 
-- đọc SSI securities và security details;
-- đồng bộ `symbols` và `securities`;
-- đồng bộ `indexes` và `index_components`.
+- đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`;
+- ghi `symbols`, `securities`, `indexes` và `index_components`.
 
 Không ingest history và không chạy feature/signal/backtest.
 
@@ -131,7 +130,7 @@ SSI DailyIndex
     └── index_daily
 ```
 
-`daily` không gọi `IntradayOhlc`, không ghi `raw_intraday`/`stock_intraday`, và không chạy feature/signal/backtest.
+`daily` chỉ đọc SSI `DailyStockPrice` và `DailyIndex`, rồi ghi `raw_daily`, `stock_daily` và `index_daily`. Pipeline không gọi `IndexList`, `IndexComponents`, `Securities` hoặc `SecuritiesDetails`; không ghi/đồng bộ `indexes` hay `index_components`; không gọi `IntradayOhlc`; không ghi `raw_intraday`/`stock_intraday`; và không chạy feature/signal/backtest.
 
 Khi không truyền ngày, command dùng `latest_previous_weekday` theo logic hiện tại. Đây là weekday-based default, chưa phải exchange holiday calendar.
 
@@ -157,9 +156,11 @@ SSI IntradayOhlc resolution=1
 
 Hành vi quan trọng:
 
-- không gọi `DailyStockPrice`;
+- SSI source duy nhất là `IntradayOhlc` resolution 1;
+- không gọi `DailyStockPrice`, `DailyIndex` hoặc master-data endpoints;
 - không ghi daily, foreign hoặc index tables;
-- có thể đọc `stock_daily` cùng symbol/date làm optional validation context;
+- đọc `stock_daily` cùng symbol/date làm optional validation context từ database;
+- chỉ ghi `raw_intraday` và `stock_intraday` với `timeframe='1m'`;
 - thiếu daily context không chặn ingest;
 - `reference_price`, `ceiling_price`, `floor_price` giữ `NULL` khi thiếu context;
 - summary được đánh dấu `PARTIAL` nếu daily context thiếu;

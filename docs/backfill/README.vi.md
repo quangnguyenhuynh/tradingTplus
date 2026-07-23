@@ -27,7 +27,7 @@ Symbol explicit được strip, đổi chữ hoa và loại trùng theo thứ t�
 
 ## Hành vi nhánh và ảnh hưởng dữ liệu
 
-- **`backfill-daily`** chỉ chạy daily ingest lịch sử. Đồng bộ index và ingest index daily hiện có được giữ nguyên, nên lần chạy chủ động có thể ghi `raw_daily`, `stock_daily`, `index_daily` và các bảng index master/context hiện có. `--symbols` chỉ giới hạn cổ phiếu. Command không chạy intraday hay completeness.
+- **`backfill-daily`** chỉ chạy daily ingest lịch sử. Ingest index daily được giữ nguyên nhưng không đồng bộ index master theo từng ngày, nên lần chạy chủ động chỉ có thể ghi `raw_daily`, `stock_daily` và `index_daily`. `--symbols` chỉ giới hạn cổ phiếu. Command không chạy intraday hay completeness.
 - **`backfill-intraday`** chỉ chạy ingest SSI intraday 1m lịch sử và có thể ghi `raw_intraday`, `stock_intraday` chỉ với `timeframe='1m'`. Pipeline đọc context `stock_daily` hiện có nếu có; thiếu context vẫn thể hiện bằng `PARTIAL`. Pipeline không tự chạy daily hay completeness.
 - **`backfill`** chạy xong toàn bộ nhánh daily trước nhánh intraday, sau đó đọc bảng nguồn để kiểm tra completeness có scope cho từng ngày hợp lệ. Summary giữ cả hai nhánh và tạo summary `backfill-day` theo status tương thích EOD. Pipeline không gọi EOD trực tiếp.
 

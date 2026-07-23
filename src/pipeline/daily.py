@@ -4,7 +4,7 @@ from typing import Any
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
-from src.pipeline.index_data import fetch_daily_indexes, sync_indexes, sync_index_components
+from src.pipeline.index_data import fetch_daily_indexes
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
 
@@ -47,8 +47,6 @@ def run_daily_ingest(
         }
 
     ssi = SSIApi()
-    sync_indexes(ssi=ssi, db=db)
-    sync_index_components(None, ssi=ssi, db=db)
     total_daily_rows = 0
     errors: list[dict[str, Any]] = []
     error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}

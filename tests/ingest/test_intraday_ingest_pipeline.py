@@ -59,3 +59,38 @@ def test_intraday_explicit_empty_scope_is_invalid(monkeypatch):
     import pytest
     with pytest.raises(ValueError):
         intraday_ingest.run_intraday_ingest('10/07/2026', symbols=[])
+
+
+def test_intraday_calls_only_intraday_endpoint_once_per_symbol(monkeypatch):
+    class FailFastSSI:
+        def __init__(self):
+            self.calls = []
+
+        def get_intraday(self, symbol, date):
+            self.calls.append((symbol, date))
+            return []
+
+        def _forbidden(self, *args, **kwargs):
+            raise AssertionError("intraday ingest called a non-intraday SSI endpoint")
+
+        get_daily_price = _forbidden
+        get_daily_prices_for_date = _forbidden
+        get_daily_index = _forbidden
+        get_index_list = _forbidden
+        get_index_components = _forbidden
+
+    db = _DB()
+    ssi = FailFastSSI()
+    monkeypatch.setattr(intraday_ingest, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_ingest, 'SSIApi', lambda: ssi)
+
+    def fetch(client, db_arg, symbol, date, daily_context=None):
+        client.get_intraday(symbol, date)
+        return {'status': 'OK', 'candles_received': 1, 'candles_valid': 1, 'candles_rejected': 0}
+
+    monkeypatch.setattr(intraday_ingest, 'fetch_intraday_for_symbol_with_clients', fetch)
+    summary = intraday_ingest.run_intraday_ingest('10/07/2026', symbols=['SSI', 'HPG'])
+
+    assert ssi.calls == [('SSI', '10/07/2026'), ('HPG', '10/07/2026')]
+    assert db.context_calls == [('SSI', '2026-07-10'), ('HPG', '2026-07-10')]
+    assert summary['status'] == 'OK'
