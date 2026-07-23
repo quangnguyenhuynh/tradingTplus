@@ -36,6 +36,35 @@ def test_eod_command_calls_existing_pipeline(monkeypatch):
     assert captured["date"] == "10/07/2026"
 
 
+def test_backfill_cli_calls_pipeline(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        main,
+        "run_backfill_pipeline",
+        lambda from_date, to_date: captured.update(from_date=from_date, to_date=to_date) or {"status": "PARTIAL"},
+    )
+
+    assert main.main(["backfill", "--from", "01/07/2026", "--to", "10/07/2026"]) == 0
+    assert captured == {"from_date": "01/07/2026", "to_date": "10/07/2026"}
+
+
+def test_backfill_cli_aliases_and_failed_exit(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        main,
+        "run_backfill_pipeline",
+        lambda from_date, to_date: captured.update(from_date=from_date, to_date=to_date) or {"status": "FAILED"},
+    )
+
+    assert main.main(["backfill", "--from-date", "01/07/2026", "--to-date", "10/07/2026"]) == 1
+    assert captured == {"from_date": "01/07/2026", "to_date": "10/07/2026"}
+
+
+def test_backfill_cli_requires_explicit_range(capsys):
+    assert main.main(["backfill"]) == 2
+    assert "required" in capsys.readouterr().err
+
+
 def test_intraday_ingest_cli_calls_pipeline_with_symbols(monkeypatch):
     captured = {}
     monkeypatch.setattr(main, "run_intraday_ingest", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
@@ -62,6 +91,7 @@ def test_scripts_import_without_running():
         "scripts/check_supabase.py",
         "scripts/eod_dry_run.py",
         "scripts/fetch_one_day.py",
+        "scripts/backfill_sample.py",
         "scripts/snapshot_orderbook.py",
         "scripts/snapshot_stream.py",
     ]:
@@ -80,7 +110,7 @@ def test_fetch_one_day_default_is_dry_run():
 
 def test_main_has_no_old_debug_commands():
     source = Path("main.py").read_text()
-    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"', '"backfill"']:
+    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"']:
         assert old not in source
 
 
@@ -91,6 +121,7 @@ def test_streaming_ingest_cli_is_dry_run_by_default(monkeypatch):
     assert captured["symbols"] == ["SSI"]
     assert captured["indexes"] == ["VNINDEX"]
     assert captured["write"] is False
+
 
 def test_streaming_ingest_cli_write_flag(monkeypatch):
     captured = {}
