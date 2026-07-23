@@ -34,7 +34,7 @@ sync-master-data
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
-| `backfill` | Inclusive historical EOD orchestration | Once per weekday | Same as sequential `eod` runs | symbol scope, features, signals, backtests |
+| `backfill` | Inclusive historical EOD orchestration | Once per weekday | Same as sequential `eod` runs | features, signals, backtests |
 | `features` | Explicit deterministic feature pipeline | No | `features` | source ingest, signals, backtests |
 
 ## `sync-master-data`
@@ -74,7 +74,7 @@ Parameters/defaults/read/write behavior: same as `sync-master-data`.
 Syntax:
 
 ```bash
-python main.py daily [DD/MM/YYYY]
+python main.py daily [DD/MM/YYYY] [--symbols SSI HPG]
 ```
 
 Positional parameters:
@@ -93,10 +93,10 @@ Examples:
 
 ```bash
 python main.py daily
-python main.py daily 10/07/2026
+python main.py daily 10/07/2026 --symbols SSI HPG
 ```
 
-Public function: `src.pipeline.daily.run_daily_ingest(date: str | None = None) -> dict`.
+Public function: `src.pipeline.daily.run_daily_ingest(date: str | None = None, symbols: list[str] | tuple[str, ...] | None = None) -> dict`.
 
 Summary fields include `date`, `symbol_count`, `daily_valid_count`, `total_daily_rows`, `total_foreign`, `index_daily_count`, `errors`, and `status`. `total_foreign` is retained temporarily for compatibility and is always `0`; `total_candles` is also a deprecated compatibility key and is always `0` for daily-only ingest.
 
@@ -140,7 +140,7 @@ Summary fields include `date`, `symbol_count`, `candles_received`, `candles_vali
 Syntax:
 
 ```bash
-python main.py eod [DD/MM/YYYY]
+python main.py eod [DD/MM/YYYY] [--symbols SSI HPG]
 ```
 
 Positional parameters:
@@ -166,7 +166,7 @@ Does not: calculate features, generate signals, or run backtests.
 Example:
 
 ```bash
-python main.py eod 10/07/2026
+python main.py eod 10/07/2026 --symbols SSI HPG
 ```
 
 Public function: `src.pipeline.eod.run_eod_pipeline(date: str | None = None, *, timeframes=None, symbols=None) -> dict`.
@@ -178,16 +178,16 @@ Summary fields include `daily_summary`, `intraday_summary`, `ingest_summary`, fi
 Syntax:
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 ```
 
 `--from-date` and `--to-date` are aliases. Both dates are required and inclusive. The command rejects future or reversed ranges, walks calendar dates sequentially, reports and skips weekends, and delegates every remaining weekday exactly once to `run_eod_pipeline()`. Weekday holidays and SSI empty responses are not skipped or fabricated; EOD reports their actual completeness status. A weekend-only range is an `OK` no-op.
 
-Writes: exactly the potential writes of sequential EOD runs (`raw_daily`, `stock_daily`, `index_daily` and related index master data, `raw_intraday`, `stock_intraday` 1m). It does not calculate features or run signals/backtests. There is no `--symbols` because EOD has no symbol scope.
+Writes: exactly the potential writes of sequential EOD runs (`raw_daily`, `stock_daily`, `index_daily` and related index master data, `raw_intraday`, `stock_intraday` 1m). `--symbols` applies the same stock scope to every EOD date. It does not calculate features or run signals/backtests.
 
 The range summary retains each EOD result and reports weekend dates, status counts, and date-level exceptions. Exceptions do not stop later dates. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`/runtime failure, and `2` for invalid arguments/ranges. See [the bilingual backfill guide](backfill/README.md).
 
-Public function: `src.pipeline.backfill.run_backfill_pipeline(from_date: str, to_date: str) -> dict`.
+Public function: `src.pipeline.backfill.run_backfill_pipeline(from_date: str, to_date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict`.
 
 ## `features`
 
@@ -229,3 +229,9 @@ Writes: `features` through the feature engine.
 Does not: call SSI, ingest new candles, write `raw_intraday`/`stock_intraday`, or calculate `1d` features.
 
 Public function: `src.pipeline.intraday.run_intraday_pipeline(snapshot_time: str | None = None, symbols: list[str] | None = None, timeframes: tuple[str, ...] = ('1m', '5m', '15m')) -> dict`.
+
+## Shared source-ingest symbol scope
+
+`daily`, `intraday-ingest`, `eod`, and `backfill` use `--symbols` with `nargs="+"`; the flag therefore requires at least one value. Explicit values are stripped, uppercased, deduplicated, and retain first-seen order. Omitting the option uses every symbol returned by the existing master-symbol source; an explicit empty or blank-only programmatic scope raises `ValueError` rather than falling back to all symbols. Explicit symbols are not silently dropped against an invented active/inactive rule; existing per-symbol SSI/service results report unavailable symbols.
+
+The scope limits stock ingest only. Daily index synchronization and index daily ingest still run once. EOD passes the same scope to daily, intraday ingest, and completeness. Scoped completeness filters `stock_daily` and `stock_intraday` and evaluates only requested symbols; `index_daily_count`, legacy `foreign_trading_count`, and `orderbook_snapshot_count` remain date-level market-context observations. Backfill reuses one normalized explicit list for every date. None of these commands runs features, signals, or backtests. The legacy `intraday` command is a feature alias and is not production candle ingest.

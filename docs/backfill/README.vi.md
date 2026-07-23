@@ -20,7 +20,7 @@ Backfill không chứa implementation riêng để fetch SSI, map, validate, per
 Hai đầu mút đều bắt buộc và đều thuộc khoảng chạy:
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from-date DD/MM/YYYY --to-date DD/MM/YYYY
 ```
 
@@ -52,9 +52,9 @@ Exit code là `0` cho `OK` hoặc `PARTIAL`, `1` cho `FAILED` hoặc runtime fai
 
 ## Compatibility và giới hạn
 
-`src.pipeline.backfill.backfill(...)` được giữ làm wrapper deprecated. Hàm chấp nhận ngày ISO legacy để giữ compatibility import, chuyển định dạng rồi delegate sang `run_backfill_pipeline()`; symbol scope và future-date override bị từ chối vì EOD không hỗ trợ các hợp đồng đó. `scripts/backfill_sample.py` cũng deprecated và delegate sang pipeline production.
+`src.pipeline.backfill.backfill(...)` được giữ làm wrapper deprecated. Hàm chấp nhận ngày ISO legacy và symbol scope tùy chọn để giữ compatibility import, chuyển định dạng rồi delegate sang `run_backfill_pipeline()`; future-date override vẫn bị từ chối. `scripts/backfill_sample.py` cũng deprecated và delegate sang pipeline production.
 
-Backfill chỉ bỏ qua cuối tuần, không tự nhận biết ngày nghỉ sàn. Không có `--symbols`, chạy song song, retry ngoài retry hữu hạn của SSI/database client hiện có, tự tính feature, hoặc transaction bao trùm nhiều ngày. Failure cấp ngày có thể để lại partial write giống một EOD bị gián đoạn; cần đọc summary được giữ lại rồi rerun an toàn.
+Backfill chỉ bỏ qua cuối tuần, không tự nhận biết ngày nghỉ sàn. Không có chạy song song, retry ngoài retry hữu hạn của SSI/database client hiện có, tự tính feature, hoặc transaction bao trùm nhiều ngày. Failure cấp ngày có thể để lại partial write giống một EOD bị gián đoạn; cần đọc summary được giữ lại rồi rerun an toàn.
 
 ## Test
 
@@ -64,3 +64,7 @@ python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```
+
+## Phạm vi symbol
+
+Dùng `--symbols SSI HPG` để áp dụng một scope cổ phiếu explicit đã chuẩn hóa cho mọi ngày EOD. Giá trị được strip, đổi chữ hoa và loại trùng theo thứ tự xuất hiện đầu tiên; option bắt buộc ít nhất một giá trị. Bỏ option giữ hành vi dùng toàn bộ symbol master hiện có. EOD áp dụng scope nhất quán cho daily stock ingest, intraday ingest và completeness cổ phiếu, còn index context hằng ngày vẫn độc lập. Summary thể hiện `symbol_scope`, `requested_symbols`, `symbols` và `symbol_count`.

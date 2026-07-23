@@ -18,10 +18,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Deprecated: use `python main.py backfill` instead. Writes through EOD.")
     parser.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date DD/MM/YYYY")
     parser.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date DD/MM/YYYY")
+    parser.add_argument("--symbols", nargs="+", default=None, help="Stock symbols used for every date")
     args = parser.parse_args(argv)
     print("⚠️ Deprecated: use `python main.py backfill --from ... --to ...`.", file=sys.stderr)
     try:
-        summary = run_backfill_pipeline(args.from_date, args.to_date)
+        summary = run_backfill_pipeline(args.from_date, args.to_date, symbols=args.symbols)
     except ValueError as exc:
         print(f"❌ Invalid arguments: {exc}", file=sys.stderr)
         return 2

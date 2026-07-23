@@ -34,7 +34,7 @@ Existing streaming, index, master-data, feature-compatibility, and dry-run modul
 
 ## Daily execution
 
-Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed by `python main.py daily [DD/MM/YYYY]`.
+Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed by `python main.py daily [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 1. Resolve and validate the requested Vietnam-market date.
 2. `daily_fetcher.py` calls SSI `DailyStockPrice` once per symbol.
@@ -66,7 +66,7 @@ Intraday gap validation normalizes timestamps to minute buckets in memory only; 
 
 ## EOD execution
 
-Public entrypoint: `run_eod_pipeline()` in `eod.py`, exposed by `python main.py eod [DD/MM/YYYY]`.
+Public entrypoint: `run_eod_pipeline()` in `eod.py`, exposed by `python main.py eod [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 ```text
 daily ingest -> intraday ingest -> ingest completeness check -> OK/PARTIAL/FAILED
@@ -91,7 +91,7 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 
 `fetch_one_day.py` remains a thin compatibility module for existing imports and the explicitly scoped script. It re-exports legacy mapper/fetcher helpers and composes the public daily and intraday services; it contains no duplicate mapping, validation, or persistence implementation. New code should import the relevant layered module directly.
 
-The legacy `backfill(...)` import is deprecated and delegates to `run_backfill_pipeline()`; unsupported legacy symbol/future overrides are rejected.
+The legacy `backfill(...)` import is deprecated and delegates to `run_backfill_pipeline()`; the optional legacy symbol scope delegates to production backfill; future overrides are rejected.
 
 ## Errors and retries
 
@@ -115,3 +115,7 @@ python -m pytest -q
 ```
 
 Ingest commands never automatically calculate features, generate signals, or run backtests. Those remain explicit downstream commands.
+
+## Shared stock-symbol scope
+
+`daily`, `intraday-ingest`, `eod`, completeness, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index ingest and `index_daily_count` remain market context and are not filtered by stock symbols.

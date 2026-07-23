@@ -7,6 +7,7 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.date_utils import parse_ddmmyyyy
+from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
 from src.validation.intraday_validator import validate_intraday_batch
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -46,20 +47,24 @@ def _vn_utc_range(validated) -> tuple[str, str]:
     return start_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ'), end_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def _fetch_daily_symbols(db: SupabaseClient, date_iso: str) -> set[str]:
-    result = db._with_retry(lambda: db.client.table('stock_daily').select('symbol').eq('trading_date', date_iso).execute(), action_name='stock_daily symbols')
+def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None) -> set[str]:
+    query = db.client.table('stock_daily').select('symbol').eq('trading_date', date_iso)
+    if symbols is not None:
+        query = query.in_('symbol', symbols)
+    result = db._with_retry(lambda: query.execute(), action_name='stock_daily symbols')
     return {row['symbol'] for row in (result.data or [])}
 
 
-def _fetch_intraday_rows(db: SupabaseClient, start: str, end: str, page_size: int = 1000) -> list[dict]:
+def _fetch_intraday_rows(db: SupabaseClient, start: str, end: str, symbols: list[str] | None = None, page_size: int = 1000) -> list[dict]:
     rows: list[dict] = []
     offset = 0
     while True:
         query = (db.client.table('stock_intraday')
             .select('symbol,time,timeframe')
-            .gte('time', start).lt('time', end).eq('timeframe', '1m')
-            .order('symbol').order('time')
-            .range(offset, offset + page_size - 1))
+            .gte('time', start).lt('time', end).eq('timeframe', '1m'))
+        if symbols is not None:
+            query = query.in_('symbol', symbols)
+        query = query.order('symbol').order('time').range(offset, offset + page_size - 1)
         result = db._with_retry(lambda q=query: q.execute(), action_name=f'fetch stock_intraday completeness offset={offset}')
         page = result.data or []
         if not page:
@@ -140,21 +145,23 @@ def _symbol_intraday_summary(symbol: str, rows: list[dict], has_daily: bool) -> 
     }
 
 
-def check_ingest(date: str) -> dict:
+def check_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
     db = SupabaseClient()
     validated = parse_ddmmyyyy(date)
     date_iso = validated.iso
     start, end = _vn_utc_range(validated)
-    symbols = db.get_symbols()
-    daily_present = _fetch_daily_symbols(db, date_iso)
-    intraday_rows = _fetch_intraday_rows(db, start, end)
+    active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
+    scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
+    query_scope = active_symbols if requested_symbols is not None else None
+    daily_present = _fetch_daily_symbols(db, date_iso, query_scope)
+    intraday_rows = _fetch_intraday_rows(db, start, end, query_scope)
     by_symbol: dict[str, list[dict]] = defaultdict(list)
     for row in intraday_rows:
         by_symbol[row.get('symbol')].append(row)
 
-    per_symbol = [_symbol_intraday_summary(symbol, by_symbol.get(symbol, []), symbol in daily_present) for symbol in symbols]
-    missing_daily = [s for s in symbols if s not in daily_present]
-    missing_intraday = [s for s in symbols if not by_symbol.get(s)]
+    per_symbol = [_symbol_intraday_summary(symbol, by_symbol.get(symbol, []), symbol in daily_present) for symbol in active_symbols]
+    missing_daily = [s for s in active_symbols if s not in daily_present]
+    missing_intraday = [s for s in active_symbols if not by_symbol.get(s)]
     incomplete = [
         {"symbol": r["symbol"], "candle_count": r["intraday_candle_count"], "missing_interval_count": r["missing_interval_count"], "missing_minutes": r["missing_minutes"]}
         for r in per_symbol if r["intraday_candle_count"] and r["status"] == 'WARNING'
@@ -169,13 +176,13 @@ def check_ingest(date: str) -> dict:
         status = 'OK'
     summary = {
         "date": date_iso,
-        "symbol_count": len(symbols),
+        **scope_summary,
         "stock_daily_count": stock_daily_count,
         "missing_stock_daily_count": len(missing_daily),
         "missing_stock_daily_symbols": missing_daily,
         "missing_stock_daily_symbols_sample": missing_daily[:100],
         "stock_intraday_count": stock_intraday_count,
-        "intraday_symbol_count": len([s for s in symbols if by_symbol.get(s)]),
+        "intraday_symbol_count": len([s for s in active_symbols if by_symbol.get(s)]),
         "missing_intraday_count": len(missing_intraday),
         "missing_intraday_symbols": missing_intraday,
         "missing_intraday_symbols_sample": missing_intraday[:100],

@@ -34,7 +34,7 @@ Các module streaming, index, master data, compatibility feature và dry-run v�
 
 ## Trình tự daily
 
-Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `python main.py daily [DD/MM/YYYY]`.
+Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `python main.py daily [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 1. Resolve và validate ngày theo thị trường Việt Nam.
 2. `daily_fetcher.py` gọi SSI `DailyStockPrice` đúng một lần cho mỗi mã.
@@ -66,7 +66,7 @@ Validation gap intraday chỉ chuẩn hóa timestamp thành minute bucket trong 
 
 ## Trình tự EOD
 
-Public entrypoint: `run_eod_pipeline()` trong `eod.py`; CLI `python main.py eod [DD/MM/YYYY]`.
+Public entrypoint: `run_eod_pipeline()` trong `eod.py`; CLI `python main.py eod [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 ```text
 daily ingest -> intraday ingest -> kiểm tra completeness -> OK/PARTIAL/FAILED
@@ -91,7 +91,7 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 
 `fetch_one_day.py` được giữ làm compatibility module mỏng cho import cũ và script có scope rõ. File re-export helper fetcher/mapper legacy và compose daily/intraday service public; không còn implementation mapping, validation hay persistence trùng lặp. Code mới phải import module theo tầng tương ứng.
 
-Import legacy `backfill(...)` đã deprecated và delegate sang `run_backfill_pipeline()`; override symbol/future legacy không được hỗ trợ và sẽ bị từ chối.
+Import legacy `backfill(...)` đã deprecated và delegate sang `run_backfill_pipeline()`; symbol scope legacy tùy chọn được delegate sang backfill production; future override vẫn bị từ chối.
 
 ## Error và retry
 
@@ -115,3 +115,7 @@ python -m pytest -q
 ```
 
 Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. Các bước downstream này chỉ chạy bằng command explicit.
+
+## Scope mã cổ phiếu dùng chung
+
+`daily`, `intraday-ingest`, `eod`, completeness và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Ingest index và `index_daily_count` vẫn là market context, không lọc bằng mã cổ phiếu.

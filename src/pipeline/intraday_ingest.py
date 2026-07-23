@@ -6,6 +6,7 @@ from src.database.client import SupabaseClient
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.date_utils import trading_date_iso
 from src.pipeline.intraday_service import fetch_intraday_for_symbol_with_clients
+from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
 from src.ssi.api import SSIApi
 
 
@@ -20,23 +21,16 @@ def _resolve_intraday_date(date: str | None) -> str:
     return validated.ddmmyyyy
 
 
-def _normalize_symbols(symbols: list[str] | tuple[str, ...] | None) -> list[str] | None:
-    if symbols is None:
-        return None
-    normalized = [str(symbol).upper() for symbol in symbols if str(symbol).strip()]
-    return normalized or None
-
-
 def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str, ...] | None = None) -> dict[str, Any]:
     """Ingest SSI IntradayOhlc 1m only; no daily writes or feature calculation."""
     resolved_date = _resolve_intraday_date(date)
     db = SupabaseClient()
-    requested_symbols = _normalize_symbols(symbols)
-    active_symbols = requested_symbols or [str(symbol).upper() for symbol in db.get_symbols()]
+    active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
+    scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
     if not active_symbols:
         return {
             'date': resolved_date,
-            'symbol_count': 0,
+            **scope_summary,
             'candles_received': 0,
             'candles_valid': 0,
             'candles_rejected': 0,
@@ -71,7 +65,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
         status = 'PARTIAL'
     return {
         'date': resolved_date,
-        'symbol_count': len(active_symbols),
+        **scope_summary,
         **totals,
         'daily_context_missing_count': len(daily_context_missing),
         'daily_context_missing_symbols': daily_context_missing,

@@ -38,3 +38,24 @@ def test_intraday_ingest_missing_daily_context_reports_partial(monkeypatch):
     assert summary['daily_context_missing_count'] == 1
     assert summary['daily_context_missing_symbols'] == ['SSI']
     assert summary['status'] == 'PARTIAL'
+
+
+def test_intraday_scope_deduplicates_and_does_not_use_master_fallback(monkeypatch):
+    db = _DB()
+    db.get_symbols = lambda: (_ for _ in ()).throw(AssertionError("must not read master"))
+    monkeypatch.setattr(intraday_ingest, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_ingest, 'SSIApi', lambda: object())
+    calls = []
+    monkeypatch.setattr(intraday_ingest, 'fetch_intraday_for_symbol_with_clients', lambda ssi, db_arg, symbol, date, daily_context=None: calls.append(symbol) or {'status': 'OK', 'candles_received': 1, 'candles_valid': 1, 'candles_rejected': 0})
+    summary = intraday_ingest.run_intraday_ingest('10/07/2026', symbols=['ssi', ' SSI ', 'hpg'])
+    assert calls == ['SSI', 'HPG']
+    assert db.context_calls == [('SSI', '2026-07-10'), ('HPG', '2026-07-10')]
+    assert summary['symbols'] == ['SSI', 'HPG']
+
+
+def test_intraday_explicit_empty_scope_is_invalid(monkeypatch):
+    db = _DB()
+    monkeypatch.setattr(intraday_ingest, 'SupabaseClient', lambda: db)
+    import pytest
+    with pytest.raises(ValueError):
+        intraday_ingest.run_intraday_ingest('10/07/2026', symbols=[])

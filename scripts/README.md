@@ -56,4 +56,4 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 
 Run commands from the repository root and use `--help` before any write-capable tool.
 
-Use `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` for production. The deprecated sample has no symbol/future override, delegates to the same pipeline, skips weekends, and never runs features, signals, or backtests automatically. See [`docs/backfill/README.md`](../docs/backfill/README.md).
+Use `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` for production. The deprecated sample accepts optional `--symbols` but no future override, delegates to the same pipeline, skips weekends, and never runs features, signals, or backtests automatically. See [`docs/backfill/README.md`](../docs/backfill/README.md).

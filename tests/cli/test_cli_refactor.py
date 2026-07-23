@@ -17,21 +17,23 @@ def test_main_invalid_command_returns_invalid_arguments(capsys):
 
 def test_daily_with_date_calls_pipeline(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "daily_run", lambda date: (captured.setdefault("date", date), {"status": "OK"})[1])
+    monkeypatch.setattr(main, "daily_run", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
     assert main.main(["daily", "10/07/2026"]) == 0
     assert captured["date"] == "10/07/2026"
+    assert captured["symbols"] is None
+    assert captured.get("symbols") is None
 
 
 def test_daily_without_date_calls_pipeline(monkeypatch):
     captured = {"called": False}
-    monkeypatch.setattr(main, "daily_run", lambda date: captured.update(called=True, date=date) or {"status": "OK"})
+    monkeypatch.setattr(main, "daily_run", lambda date, symbols=None: captured.update(called=True, date=date, symbols=symbols) or {"status": "OK"})
     assert main.main(["daily"]) == 0
-    assert captured == {"called": True, "date": None}
+    assert captured == {"called": True, "date": None, "symbols": None}
 
 
 def test_eod_command_calls_existing_pipeline(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "run_eod_pipeline", lambda date: (captured.setdefault("date", date), {"status": "OK"})[1])
+    monkeypatch.setattr(main, "run_eod_pipeline", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
     assert main.main(["eod", "10/07/2026"]) == 0
     assert captured["date"] == "10/07/2026"
 
@@ -86,16 +88,16 @@ def test_main_has_no_old_debug_commands():
 
 def test_backfill_cli_passes_exact_dates(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: captured.update(start=start, end=end) or {"status": "OK"})
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "OK"})
     assert main.main(["backfill", "--from", "10/07/2026", "--to", "14/07/2026"]) == 0
-    assert captured == {"start": "10/07/2026", "end": "14/07/2026"}
+    assert captured == {"start": "10/07/2026", "end": "14/07/2026", "symbols": None}
 
 
 def test_backfill_cli_aliases_work(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: captured.update(start=start, end=end) or {"status": "PARTIAL"})
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "PARTIAL"})
     assert main.main(["backfill", "--from-date", "10/07/2026", "--to-date", "10/07/2026"]) == 0
-    assert captured == {"start": "10/07/2026", "end": "10/07/2026"}
+    assert captured == {"start": "10/07/2026", "end": "10/07/2026", "symbols": None}
 
 
 def test_backfill_cli_requires_both_dates(capsys):
@@ -104,12 +106,12 @@ def test_backfill_cli_requires_both_dates(capsys):
 
 
 def test_backfill_cli_failed_summary_returns_one(monkeypatch):
-    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: {"status": "FAILED"})
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: {"status": "FAILED"})
     assert main.main(["backfill", "--from", "10/07/2026", "--to", "10/07/2026"]) == 1
 
 
 def test_backfill_cli_invalid_range_returns_two(monkeypatch):
-    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: (_ for _ in ()).throw(ValueError("from_date must be <= to_date")))
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: (_ for _ in ()).throw(ValueError("from_date must be <= to_date")))
     assert main.main(["backfill", "--from", "11/07/2026", "--to", "10/07/2026"]) == 2
 
 
@@ -126,3 +128,34 @@ def test_streaming_ingest_cli_write_flag(monkeypatch):
     monkeypatch.setattr(main, "run_streaming_ingest", lambda **kwargs: captured.update(kwargs) or {"status": "OK"})
     assert main.main(["streaming-ingest", "--symbols", "SSI", "--channels", "quote", "--write"]) == 0
     assert captured["write"] is True
+
+
+def test_daily_cli_normalizes_and_deduplicates_symbols(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "daily_run", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["daily", "10/07/2026", "--symbols", "ssi", " HPG ", "SSI"]) == 0
+    assert captured["symbols"] == ["SSI", "HPG"]
+
+
+def test_eod_cli_passes_symbols(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_eod_pipeline", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["eod", "10/07/2026", "--symbols", "ssi", "HPG"]) == 0
+    assert captured["symbols"] == ["SSI", "HPG"]
+
+
+def test_backfill_cli_passes_symbols(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(symbols=symbols) or {"status": "OK"})
+    assert main.main(["backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols", "ssi", "SSI", "hpg"]) == 0
+    assert captured["symbols"] == ["SSI", "HPG"]
+
+
+def test_ingest_commands_reject_symbols_flag_without_values():
+    commands = [
+        ["daily", "10/07/2026", "--symbols"],
+        ["intraday-ingest", "10/07/2026", "--symbols"],
+        ["eod", "10/07/2026", "--symbols"],
+        ["backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
+    ]
+    assert [main.main(command) for command in commands] == [2, 2, 2, 2]
