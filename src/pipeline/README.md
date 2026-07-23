@@ -60,7 +60,9 @@ Public entrypoint: `run_intraday_ingest()` in `intraday_ingest.py`, exposed by `
 
 Higher intraday timeframes are feature-time aggregations and are never written to `stock_intraday`.
 
-Intraday gap validation normalizes timestamps to minute buckets in memory only; raw and clean timestamps are not modified. Missing minutes are checked only within the continuous matching ranges `09:00-11:29` and `13:00-14:29` (`Asia/Ho_Chi_Minh`). Lunch-break minutes and the `14:30-14:44` ATC interval before an SSI close result around `14:45` are excluded. Input is sorted internally for gap checks while unsorted input remains explicitly reported. Completeness is based on these session-aware gaps and duplicates, not a universal expected candle count.
+Intraday gap validation normalizes timestamps to minute buckets in memory only; raw and clean timestamps are not modified. Empty/missing buckets are checked only within the continuous matching ranges `09:00-11:29` and `13:00-14:29` (`Asia/Ho_Chi_Minh`). Lunch-break minutes and the `14:30-14:44` ATC interval before an SSI close result around `14:45` are excluded. Input is sorted internally for gap checks while unsorted input remains explicitly reported.
+
+`INTRADAY_MISSING_INTERVAL` means an **observed empty/missing minute bucket**. IntradayOhlc alone cannot distinguish a no-trade minute from a source omission. Short isolated gaps are therefore counted in `missing_interval_count`, `missing_minutes`, and `empty_minute_bucket_count` but do not by themselves fail completeness or fabricate candles. Duplicates and structural coverage problems still produce `WARNING`/`PARTIAL`. The initial structural heuristics are explicit data-quality thresholds, not official SSI rules: a continuous gap of at least 15 minutes, at least 30 total empty minutes, a missing morning/afternoon session, or first/last coverage more than 15 minutes inside the expected edges. No universal candle count is used.
 
 ## EOD execution
 

@@ -53,3 +53,16 @@ def test_run_backtest_returns_empty_summary_without_inputs():
     assert result["trade_count"] == 0
     assert result["final_capital"] == 1_000_000
     assert result["total_pnl"] == 0
+
+
+def test_backtest_entry_never_uses_future_or_stale_intraday_feature():
+    features = [
+        _feature("SSI", 15, 100),
+        _feature("SSI", 20, 105),
+        _feature("SSI", 21, 106),
+    ]
+    stale_signal = [{"symbol": "SSI", "timeframe": "1m", "time": "2026-06-18T09:19:00Z", "signal_type": "BUY"}]
+
+    stale = run_backtest(features, stale_signal, BacktestConfig(holding_bars=1, fee_pct=0))
+
+    assert stale["trade_count"] == 0  # 09:20 is future; 09:15 exceeds two-minute staleness.

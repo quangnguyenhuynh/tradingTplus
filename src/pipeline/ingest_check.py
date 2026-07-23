@@ -12,6 +12,17 @@ from src.validation.intraday_validator import validate_intraday_batch
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 UTC_TZ = ZoneInfo("UTC")
 
+# Data-quality heuristics, not official SSI completeness rules. SSI can omit a
+# minute candle when no trade occurs, so short isolated gaps remain observable
+# without failing ingest. Structural coverage loss still needs investigation.
+LONG_CONTINUOUS_GAP_MINUTES = 15
+MAX_TOTAL_EMPTY_MINUTES = 30
+SESSION_EDGE_TOLERANCE_MINUTES = 15
+MORNING_START = time(9, 0)
+MORNING_END = time(11, 30)
+AFTERNOON_START = time(13, 0)
+AFTERNOON_COVERAGE_END = time(14, 29)
+
 
 def _count_query(db: SupabaseClient, table: str, select: str = '*', **eq) -> int:
     query = db.client.table(table).select(select, count='exact')
@@ -67,15 +78,50 @@ def _symbol_intraday_summary(symbol: str, rows: list[dict], has_daily: bool) -> 
     validation = validate_intraday_batch(records)
     missing_interval_count = 0
     missing_minutes = 0
+    longest_gap_minutes = 0
     for issue in validation.warnings:
         if issue.code == 'INTRADAY_MISSING_INTERVAL':
             missing_interval_count += 1
             actual = issue.actual_value or {}
-            missing_minutes += int(actual.get('missing_minutes') or 0) if isinstance(actual, dict) else 0
+            interval_minutes = int(actual.get('missing_minutes') or 0) if isinstance(actual, dict) else 0
+            missing_minutes += interval_minutes
+            longest_gap_minutes = max(longest_gap_minutes, interval_minutes)
+
+    parsed_times = sorted(
+        datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(VN_TZ)
+        for value in set(times)
+    )
+    morning_times = [dt for dt in parsed_times if MORNING_START <= dt.time() <= MORNING_END]
+    afternoon_times = [dt for dt in parsed_times if AFTERNOON_START <= dt.time()]
+    first_candle_late = bool(
+        parsed_times
+        and parsed_times[0].time()
+        > (datetime.combine(parsed_times[0].date(), MORNING_START) + timedelta(minutes=SESSION_EDGE_TOLERANCE_MINUTES)).time()
+    )
+    last_candle_early = bool(
+        parsed_times
+        and parsed_times[-1].time()
+        < (datetime.combine(parsed_times[-1].date(), AFTERNOON_COVERAGE_END) - timedelta(minutes=SESSION_EDGE_TOLERANCE_MINUTES)).time()
+    )
+    structural_reasons = []
+    if times and not morning_times:
+        structural_reasons.append('missing_morning_session')
+    if times and not afternoon_times:
+        structural_reasons.append('missing_afternoon_session')
+    if first_candle_late:
+        structural_reasons.append('late_first_candle')
+    if last_candle_early:
+        structural_reasons.append('early_last_candle')
+    if longest_gap_minutes >= LONG_CONTINUOUS_GAP_MINUTES:
+        structural_reasons.append('long_continuous_gap')
+    if missing_minutes >= MAX_TOTAL_EMPTY_MINUTES:
+        structural_reasons.append('excessive_total_gap_minutes')
+
+    gap_status = 'STRUCTURAL' if structural_reasons else ('OBSERVED' if missing_minutes else 'NONE')
     status = 'OK'
     if not has_daily or not times:
         status = 'MISSING'
-    elif duplicate_count or missing_interval_count:
+    elif duplicate_count or structural_reasons:
         status = 'WARNING'
     return {
         "symbol": symbol,
@@ -86,6 +132,10 @@ def _symbol_intraday_summary(symbol: str, rows: list[dict], has_daily: bool) -> 
         "duplicate_count": duplicate_count,
         "missing_interval_count": missing_interval_count,
         "missing_minutes": missing_minutes,
+        "empty_minute_bucket_count": missing_minutes,
+        "longest_gap_minutes": longest_gap_minutes,
+        "gap_status": gap_status,
+        "structural_gap_reasons": structural_reasons,
         "status": status,
     }
 
@@ -107,7 +157,7 @@ def check_ingest(date: str) -> dict:
     missing_intraday = [s for s in symbols if not by_symbol.get(s)]
     incomplete = [
         {"symbol": r["symbol"], "candle_count": r["intraday_candle_count"], "missing_interval_count": r["missing_interval_count"], "missing_minutes": r["missing_minutes"]}
-        for r in per_symbol if r["intraday_candle_count"] and (r["duplicate_count"] or r["missing_interval_count"])
+        for r in per_symbol if r["intraday_candle_count"] and r["status"] == 'WARNING'
     ]
     stock_daily_count = len(daily_present)
     stock_intraday_count = len(intraday_rows)

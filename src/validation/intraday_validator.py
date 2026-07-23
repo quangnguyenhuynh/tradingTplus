@@ -178,7 +178,18 @@ def validate_intraday_batch(records: list[dict], daily_record: dict | None = Non
             continue
         missing_minutes = _missing_continuous_minutes(prev_ts, next_ts)
         if missing_minutes:
-            warnings.append(_issue("INTRADAY_MISSING_INTERVAL", "Missing one or more 1m candles inside continuous trading sessions", "warning", "time", {"previous_time": prev_r.get("time"), "next_time": next_r.get("time"), "missing_minutes": missing_minutes}, "consecutive 1m candles inside 09:00-11:29 or 13:00-14:29 Asia/Ho_Chi_Minh"))
+            warnings.append(_issue(
+                "INTRADAY_MISSING_INTERVAL",
+                "Observed one or more empty/missing 1m buckets inside continuous trading; this may be a no-trade interval or a source omission",
+                "warning",
+                "time",
+                {
+                    "previous_time": prev_r.get("time"),
+                    "next_time": next_r.get("time"),
+                    "missing_minutes": missing_minutes,
+                },
+                "observed candle buckets inside 09:00-11:29 or 13:00-14:29 Asia/Ho_Chi_Minh",
+            ))
 
     if daily_record and sorted_valid:
         last = sorted_valid[-1][1]
