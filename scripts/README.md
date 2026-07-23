@@ -8,6 +8,7 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 - Tiếng Việt: [README.vi.md](README.vi.md)
 - REST inspector: [ssi_api_inspector/README.md](ssi_api_inspector/README.md)
 - Streaming inspector: [ssi_streaming_inspector/README.md](ssi_streaming_inspector/README.md)
+- Production backfill: [../docs/backfill/README.md](../docs/backfill/README.md)
 
 ## Safety labels
 
@@ -27,7 +28,7 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 | `check_ingest.py` | `READ-ONLY` | Report ingest completeness for a date. |
 | `eod_dry_run.py` | `READ-ONLY` | Inspect EOD readiness without database writes. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Inspect or write exactly one symbol/day. |
-| `backfill_sample.py` | `WRITES DB` | Scoped date-range/symbol backfill. |
+| `backfill_sample.py` | `WRITES DB` | Deprecated wrapper for the full-market EOD-style date-range backfill. Prefer `python main.py backfill`. |
 | `run_features.py` | `WRITES DB` | Run the feature pipeline explicitly. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Capture bounded streaming snapshots. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Capture quote/orderbook snapshots from supported streaming payloads. |
@@ -48,7 +49,7 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 ## Rules
 
 - Do not connect ingest → features → signals → backtests inside a convenience script.
-- A write script must require explicit symbol/date scope.
+- A write tool must require an explicit, reviewable scope. The production backfill is intentionally full-universe and therefore requires an explicit inclusive date range.
 - Do not print secrets, tokens, or `.env` contents.
 - Do not fabricate rows for weekends, holidays, empty responses, or unsupported endpoints.
 - `stock_intraday` stores only `1m`; higher feature timeframes are aggregated later.
