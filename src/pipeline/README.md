@@ -1,5 +1,7 @@
 # Data pipelines
 
+[English](README.md) | [Tiếng Việt](README.vi.md)
+
 Production ingest is split into explicit fetch, mapping, validation-integration, persistence, and orchestration layers. Daily and intraday are independent pipelines; EOD only sequences them and checks completeness.
 
 ## Directory tree and responsibilities
@@ -18,12 +20,12 @@ src/pipeline/
 ├── intraday_ingest.py        # public batch intraday orchestrator
 ├── fetch_one_day.py          # thin backward-compatibility wrapper/re-exports
 ├── eod.py                    # daily -> intraday -> completeness orchestration
+├── backfill.py               # date-range orchestration that delegates each weekday to EOD
 ├── ingest_check.py           # completeness and consistency report
 ├── date_utils.py             # Vietnam-market date parsing/safety
 ├── init_symbols.py           # master-data synchronization
 ├── index_data.py             # index master/daily ingest
 ├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
-├── backfill.py               # explicitly scoped historical compatibility flow
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
@@ -56,7 +58,7 @@ Public entrypoint: `run_intraday_ingest()` in `intraday_ingest.py`, exposed by `
 3. `intraday_fetcher.py` calls SSI `IntradayOhlc` with resolution 1.
 4. `intraday_mapper.py` treats source candle times as `Asia/Ho_Chi_Minh`, converts them to UTC, rejects invalid timestamps, and creates raw and clean candidates.
 5. The mapper persists only `timeframe='1m'`; `value` is the estimated `round(close * volume)` and remains `None` when either input is missing/invalid.
-6. `intraday_service.py` persists raw evidence through `intraday_persistence.py`, invokes existing record/batch validators, deduplicates by `(symbol, timeframe, time)` when reported, then persists valid clean records.
+6. `intraday_service.py` persists raw evidence through `intraday_persistence.py`, invokes existing record/batch validators, deduplicates by `(symbol, timeframe,time)` when reported, then persists valid clean records.
 
 Higher intraday timeframes are feature-time aggregations and are never written to `stock_intraday`.
 
@@ -74,6 +76,20 @@ daily ingest -> intraday ingest -> ingest completeness check -> OK/PARTIAL/FAILE
 
 EOD preserves the daily and intraday service boundaries. It does not calculate features and does not run signals or backtests.
 
+## Backfill execution
+
+Public entrypoint: `run_backfill_pipeline()` in `backfill.py`, exposed by:
+
+```bash
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+```
+
+Backfill validates an inclusive historical range, skips Saturdays and Sundays, then delegates every remaining date to `run_eod_pipeline()`. It preserves each EOD summary and returns range-level counts for `OK`, `PARTIAL`, and `FAILED` days. It does not duplicate ingest code and does not run features, signals, or backtests.
+
+Backfill currently uses the same full active-symbol universe as EOD; symbol-scoped mode is not exposed. A weekday is only a calendar candidate, so holidays or empty SSI responses are reported by the delegated EOD run and never replaced with fabricated rows.
+
+Full documentation: [`docs/backfill/README.md`](../../docs/backfill/README.md).
+
 ## Raw, clean, validation, and persistence ownership
 
 | Dataset | Record creation | Validation integration | Persistence |
@@ -87,6 +103,8 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 
 `fetch_one_day.py` remains a thin compatibility module for existing imports and the explicitly scoped script. It re-exports legacy mapper/fetcher helpers and composes the public daily and intraday services; it contains no duplicate mapping, validation, or persistence implementation. New code should import the relevant layered module directly.
 
+The legacy function name `backfill()` remains as a compatibility wrapper around `run_backfill_pipeline()`. Legacy ISO date strings are accepted by the Python function, but symbol-scoped and future-date backfill are rejected because they are not part of the production EOD contract. `scripts/backfill_sample.py` is deprecated and delegates to the main backfill pipeline.
+
 ## Errors and retries
 
 - Fetchers expose SSI client results and do not swallow service/DB failures.
@@ -95,6 +113,7 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 - Per-symbol services attach symbol/date context and return the existing summary contract.
 - Bounded SSI HTTP retry behavior stays in `src/ssi/api.py`; bounded DB retry/backoff stays in `src/database/client.py`.
 - Persistence continues using existing public DB methods and conflict keys.
+- Backfill catches failures at the date boundary, records the date/error in its range summary, and continues with later dates. It does not hide the failed EOD summary.
 
 ## Tests
 
@@ -104,7 +123,9 @@ python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
 python -m pytest -q tests/validation/test_intraday_validator.py
 python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
+python -m pytest -q tests/pipeline/test_backfill_pipeline.py
+python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q
 ```
 
-Ingest commands never automatically calculate features, generate signals, or run backtests. Those remain explicit downstream commands.
+Ingest and backfill commands never automatically calculate features, generate signals, or run backtests. Those remain explicit downstream commands.
