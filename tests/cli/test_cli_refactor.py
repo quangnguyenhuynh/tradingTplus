@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 
 import main
+import pytest
 from src.pipeline import eod, intraday
 
 
@@ -93,6 +94,30 @@ def test_backfill_cli_passes_exact_dates(monkeypatch):
     assert captured == {"start": "10/07/2026", "end": "14/07/2026", "symbols": None}
 
 
+@pytest.mark.parametrize(
+    ("command", "runner_name"),
+    [("backfill-daily", "run_daily_backfill_pipeline"), ("backfill-intraday", "run_intraday_backfill_pipeline")],
+)
+def test_split_backfill_cli_passes_dates_and_normalized_symbols(monkeypatch, command, runner_name):
+    captured = {}
+    monkeypatch.setattr(main, runner_name, lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "OK"})
+    assert main.main([command, "--from", "10/07/2026", "--to", "14/07/2026", "--symbols", "ssi", " HPG ", "SSI"]) == 0
+    assert captured == {"start": "10/07/2026", "end": "14/07/2026", "symbols": ["SSI", "HPG"]}
+
+
+@pytest.mark.parametrize(
+    ("command", "runner_name"),
+    [("backfill-daily", "run_daily_backfill_pipeline"), ("backfill-intraday", "run_intraday_backfill_pipeline")],
+)
+def test_split_backfill_cli_aliases_and_status_exit_codes(monkeypatch, command, runner_name):
+    captured = {}
+    monkeypatch.setattr(main, runner_name, lambda start, end, symbols=None: captured.update(start=start, end=end) or {"status": "PARTIAL"})
+    assert main.main([command, "--from-date", "10/07/2026", "--to-date", "10/07/2026"]) == 0
+    assert captured == {"start": "10/07/2026", "end": "10/07/2026"}
+    monkeypatch.setattr(main, runner_name, lambda *args, **kwargs: {"status": "FAILED"})
+    assert main.main([command, "--from", "10/07/2026", "--to", "10/07/2026"]) == 1
+
+
 def test_backfill_cli_aliases_work(monkeypatch):
     captured = {}
     monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "PARTIAL"})
@@ -157,5 +182,7 @@ def test_ingest_commands_reject_symbols_flag_without_values():
         ["intraday-ingest", "10/07/2026", "--symbols"],
         ["eod", "10/07/2026", "--symbols"],
         ["backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
+        ["backfill-daily", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
+        ["backfill-intraday", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
     ]
-    assert [main.main(command) for command in commands] == [2, 2, 2, 2]
+    assert [main.main(command) for command in commands] == [2, 2, 2, 2, 2, 2]

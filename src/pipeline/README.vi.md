@@ -23,7 +23,7 @@ src/pipeline/
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
 ├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
-├── backfill.py               # khoảng ngày thường -> orchestration EOD hiện có
+├── backfill.py               # nhánh daily/intraday độc lập + completeness kết hợp
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
@@ -76,7 +76,7 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 
 ## Trình tự backfill
 
-`run_backfill_pipeline(from_date, to_date)` parse khoảng `DD/MM/YYYY` bao gồm hai đầu, bỏ qua và báo cáo cuối tuần, rồi gọi `run_eod_pipeline()` đúng một lần cho mỗi ngày thường ứng viên. Hàm giữ mọi summary EOD, ghi exception tại biên ngày, tiếp tục ngày sau và tổng hợp `OK`/`PARTIAL`/`FAILED` theo quy tắc xác định. Hàm không trực tiếp fetch, map, validate, persist hay gọi engine downstream. Xem [`docs/backfill/README.vi.md`](../../docs/backfill/README.vi.md).
+`run_daily_backfill_pipeline()` và `run_intraday_backfill_pipeline()` chỉ chạy source ingest tương ứng cho từng ngày thường hợp lệ. `run_backfill_pipeline()` chạy hết khoảng daily, rồi hết khoảng intraday, rồi completeness có scope từng ngày; không gọi EOD trực tiếp. Mọi khoảng gồm hai đầu, báo cáo cuối tuần, cô lập lỗi theo ngày và không chạy engine downstream. Xem [`docs/backfill/README.vi.md`](../../docs/backfill/README.vi.md).
 
 ## Raw, clean, validation và persistence
 
@@ -118,4 +118,4 @@ Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. 
 
 ## Scope mã cổ phiếu dùng chung
 
-`daily`, `intraday-ingest`, `eod`, completeness và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Ingest index và `index_daily_count` vẫn là market context, không lọc bằng mã cổ phiếu.
+`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday` và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Ingest index và `index_daily_count` vẫn là market context, không lọc bằng mã cổ phiếu.

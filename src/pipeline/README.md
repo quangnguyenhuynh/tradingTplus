@@ -23,7 +23,7 @@ src/pipeline/
 ├── init_symbols.py           # master-data synchronization
 ├── index_data.py             # index master/daily ingest
 ├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
-├── backfill.py               # weekday range -> existing EOD orchestration
+├── backfill.py               # independent daily/intraday ranges + combined completeness
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
@@ -76,7 +76,7 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 
 ## Backfill execution
 
-`run_backfill_pipeline(from_date, to_date)` parses an inclusive `DD/MM/YYYY` range, skips and reports weekends, and invokes `run_eod_pipeline()` exactly once for every weekday candidate. It retains every EOD summary, records exceptions at the date boundary, continues later dates, and deterministically aggregates `OK`/`PARTIAL`/`FAILED`. It contains no direct fetch, mapping, validation, persistence, or downstream-engine logic. See [`docs/backfill/README.md`](../../docs/backfill/README.md).
+`run_daily_backfill_pipeline()` and `run_intraday_backfill_pipeline()` independently run only their source ingest for each eligible weekday. `run_backfill_pipeline()` runs the complete daily range, then the complete intraday range, then scoped completeness per date; it does not call EOD directly. All ranges are inclusive, report weekends, isolate date failures, and never run downstream engines. See [`docs/backfill/README.md`](../../docs/backfill/README.md).
 
 ## Raw, clean, validation, and persistence ownership
 
@@ -118,4 +118,4 @@ Ingest commands never automatically calculate features, generate signals, or run
 
 ## Shared stock-symbol scope
 
-`daily`, `intraday-ingest`, `eod`, completeness, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index ingest and `index_daily_count` remain market context and are not filtered by stock symbols.
+`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index ingest and `index_daily_count` remain market context and are not filtered by stock symbols.

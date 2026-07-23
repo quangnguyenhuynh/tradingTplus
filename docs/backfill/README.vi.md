@@ -1,60 +1,43 @@
 # Backfill dữ liệu nguồn production
 
-## Mục đích và kiến trúc
+## Kiến trúc
 
-Backfill chạy lại đúng hợp đồng EOD Phase 0 hiện có cho một khoảng lịch sử bao gồm cả hai đầu:
+TradingTPlus cung cấp ba pipeline khoảng ngày độc lập cho Phase 0:
 
 ```text
-mỗi ngày thường ứng viên
-→ run_eod_pipeline(DD/MM/YYYY) đúng một lần
-→ daily ingest
-→ intraday 1m ingest
-→ kiểm tra completeness ingest
-→ OK / PARTIAL / FAILED
+run_daily_backfill_pipeline()    -> daily ingest cho mọi ngày hợp lệ
+run_intraday_backfill_pipeline() -> intraday 1m ingest cho mọi ngày hợp lệ
+run_backfill_pipeline()          -> chạy xong nhánh daily -> chạy xong nhánh intraday
+                                  -> kiểm tra completeness từng ngày hợp lệ
 ```
 
-Backfill không chứa implementation riêng để fetch SSI, map, validate, persist, tính feature, signal hoặc backtest. Ngày thường chỉ là ứng viên theo lịch; response SSI rỗng vào ngày lễ hoặc ngày không giao dịch vẫn được phản ánh trong summary EOD, không tạo dòng giả hay thay dữ liệu thiếu bằng 0.
+Không pipeline nào chạy feature, signal hoặc backtest. Pipeline không đoán ngày lễ trong tuần: response SSI rỗng và dữ liệu thiếu vẫn quan sát được, không tạo dòng giả hay âm thầm thay bằng 0.
 
-## CLI và ví dụ
-
-Hai đầu mút đều bắt buộc và đều thuộc khoảng chạy:
+## Command
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
-python main.py backfill --from-date DD/MM/YYYY --to-date DD/MM/YYYY
+python main.py backfill-daily --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill-intraday --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 ```
 
-Ví dụ:
+`--from-date` và `--to-date` là alias. Khoảng dùng `DD/MM/YYYY`, gồm cả hai đầu, từ chối ngày tương lai/khoảng đảo ngược, xử lý tuần tự, bỏ qua và báo cáo thứ Bảy/Chủ nhật. Khoảng chỉ có cuối tuần là no-op `OK`.
 
-```bash
-python main.py backfill --from 10/07/2026 --to 14/07/2026
-```
+Symbol explicit được strip, đổi chữ hoa và loại trùng theo thứ tự đầu tiên đúng một lần trước khi xử lý; scope explicit rỗng không hợp lệ. Bỏ scope thì dùng symbol master hiện tại.
 
-Ngày dùng định dạng ngày thị trường Việt Nam. Future date và khoảng đảo ngược bị từ chối. Pipeline đi tuần tự theo ngày lịch; thứ Bảy và Chủ nhật được bỏ qua và ghi trong `skipped_weekend_dates`. Khoảng chỉ có cuối tuần là no-op thành công với `processed_days=0`, `status=OK`.
+## Hành vi nhánh và ảnh hưởng dữ liệu
 
-## Dữ liệu bị ảnh hưởng và chạy lại
+- **`backfill-daily`** chỉ chạy daily ingest lịch sử. Đồng bộ index và ingest index daily hiện có được giữ nguyên, nên lần chạy chủ động có thể ghi `raw_daily`, `stock_daily`, `index_daily` và các bảng index master/context hiện có. `--symbols` chỉ giới hạn cổ phiếu. Command không chạy intraday hay completeness.
+- **`backfill-intraday`** chỉ chạy ingest SSI intraday 1m lịch sử và có thể ghi `raw_intraday`, `stock_intraday` chỉ với `timeframe='1m'`. Pipeline đọc context `stock_daily` hiện có nếu có; thiếu context vẫn thể hiện bằng `PARTIAL`. Pipeline không tự chạy daily hay completeness.
+- **`backfill`** chạy xong toàn bộ nhánh daily trước nhánh intraday, sau đó đọc bảng nguồn để kiểm tra completeness có scope cho từng ngày hợp lệ. Summary giữ cả hai nhánh và tạo summary `backfill-day` theo status tương thích EOD. Pipeline không gọi EOD trực tiếp.
 
-Khi chủ động chạy, command có thể ảnh hưởng đúng các bảng giống như chạy EOD tuần tự: `raw_daily`, `stock_daily`, `index_daily`, các bảng master index liên quan, `raw_intraday`, và `stock_intraday` với `timeframe='1m'`. Completeness validation đọc các bảng dữ liệu nguồn này. Ghi thực tế phụ thuộc response SSI và service EOD hiện có.
+Mỗi nhánh ghi exception theo ngày và tiếp tục ngày sau. Exception completeness cũng được ghi mà không làm mất kết quả hai nhánh. Status khoảng là `OK` khi mọi ngày xử lý đều `OK`, `FAILED` khi mọi ngày thất bại, và `PARTIAL` khi status trộn hoặc có ngày partial. Exit code là `0` cho `OK`/`PARTIAL`, `1` cho `FAILED`/runtime failure, và `2` cho argument sai.
 
-Các conflict key persistence hiện có giữ hợp đồng idempotency của EOD khi rerun; backfill không thêm cách persist khác. Hãy xác minh một ngày giao dịch lịch sử trước khi mở rộng khoảng. Không có production backfill nào tự chạy sau deploy.
+Không có backfill production tự chạy sau deploy, và chỉ deploy code không yêu cầu chạy lại lịch sử. Chỉ chạy phạm vi ngày/symbol sửa chữa đã được cho phép rõ ràng.
 
-Feature, signal và backtest **không tự động chạy**. Chỉ chạy pipeline downstream riêng sau khi đã xác minh dữ liệu nguồn và completeness.
+## Compatibility
 
-## Hợp đồng summary và status
-
-JSON summary cấp khoảng gồm `flow`, `from_date`, `to_date`, `requested_calendar_days`, `processed_days`, `skipped_weekend_days`, `skipped_weekend_dates`, `ok_days`, `partial_days`, `failed_days`, `error_count`, `errors`, `day_summaries`, và `status`. Summary EOD thành công được giữ nguyên. Exception được chặn tại biên ngày, ghi rõ ngày và message, rồi các ngày sau tiếp tục.
-
-- `OK`: mọi ngày đã xử lý đều `OK` (bao gồm no-op không có ngày xử lý như đã mô tả).
-- `FAILED`: mọi ngày đã xử lý đều `FAILED`.
-- `PARTIAL`: status bị trộn, hoặc có ít nhất một ngày `PARTIAL`.
-
-Exit code là `0` cho `OK` hoặc `PARTIAL`, `1` cho `FAILED` hoặc runtime failure chưa xử lý, và `2` cho CLI argument/khoảng ngày không hợp lệ.
-
-## Compatibility và giới hạn
-
-`src.pipeline.backfill.backfill(...)` được giữ làm wrapper deprecated. Hàm chấp nhận ngày ISO legacy và symbol scope tùy chọn để giữ compatibility import, chuyển định dạng rồi delegate sang `run_backfill_pipeline()`; future-date override vẫn bị từ chối. `scripts/backfill_sample.py` cũng deprecated và delegate sang pipeline production.
-
-Backfill chỉ bỏ qua cuối tuần, không tự nhận biết ngày nghỉ sàn. Không có chạy song song, retry ngoài retry hữu hạn của SSI/database client hiện có, tự tính feature, hoặc transaction bao trùm nhiều ngày. Failure cấp ngày có thể để lại partial write giống một EOD bị gián đoạn; cần đọc summary được giữ lại rồi rerun an toàn.
+`backfill(...)` vẫn deprecated, nhận ngày ISO legacy, từ chối `allow_future=True`, và delegate sang `run_backfill_pipeline()`. `scripts/backfill_sample.py` vẫn là delegate deprecated sang command kết hợp.
 
 ## Test
 
@@ -64,7 +47,3 @@ python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```
-
-## Phạm vi symbol
-
-Dùng `--symbols SSI HPG` để áp dụng một scope cổ phiếu explicit đã chuẩn hóa cho mọi ngày EOD. Giá trị được strip, đổi chữ hoa và loại trùng theo thứ tự xuất hiện đầu tiên; option bắt buộc ít nhất một giá trị. Bỏ option giữ hành vi dùng toàn bộ symbol master hiện có. EOD áp dụng scope nhất quán cho daily stock ingest, intraday ingest và completeness cổ phiếu, còn index context hằng ngày vẫn độc lập. Summary thể hiện `symbol_scope`, `requested_symbols`, `symbols` và `symbol_count`.

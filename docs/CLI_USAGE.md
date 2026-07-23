@@ -34,7 +34,9 @@ sync-master-data
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
-| `backfill` | Inclusive historical EOD orchestration | Once per weekday | Same as sequential `eod` runs | features, signals, backtests |
+| `backfill-daily` | Inclusive daily-only historical ingest | Once per weekday | Daily source/index tables | intraday, completeness, features, signals, backtests |
+| `backfill-intraday` | Inclusive 1m intraday historical ingest | Once per weekday | Intraday raw/clean tables | daily, completeness, features, signals, backtests |
+| `backfill` | Daily range then intraday range and completeness | Branches then per-date checks | Both source-data layers | features, signals, backtests |
 | `features` | Explicit deterministic feature pipeline | No | `features` | source ingest, signals, backtests |
 
 ## `sync-master-data`
@@ -173,21 +175,29 @@ Public function: `src.pipeline.eod.run_eod_pipeline(date: str | None = None, *, 
 
 Summary fields include `daily_summary`, `intraday_summary`, `ingest_summary`, final `status`, `failures`, and `warnings`.
 
-## `backfill`
+## Backfill commands
 
 Syntax:
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py backfill-daily --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill-intraday --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 ```
 
-`--from-date` and `--to-date` are aliases. Both dates are required and inclusive. The command rejects future or reversed ranges, walks calendar dates sequentially, reports and skips weekends, and delegates every remaining weekday exactly once to `run_eod_pipeline()`. Weekday holidays and SSI empty responses are not skipped or fabricated; EOD reports their actual completeness status. A weekend-only range is an `OK` no-op.
+All accept `--from-date`/`--to-date` aliases. Dates use `DD/MM/YYYY`; both endpoints are inclusive. Future/reversed ranges are rejected, weekends are skipped and reported, and a weekend-only range is an `OK` no-op. Weekday holidays are not guessed, so SSI empty responses remain observable.
 
-Writes: exactly the potential writes of sequential EOD runs (`raw_daily`, `stock_daily`, `index_daily` and related index master data, `raw_intraday`, `stock_intraday` 1m). `--symbols` applies the same stock scope to every EOD date. It does not calculate features or run signals/backtests.
+`backfill-daily` calls only daily ingest per eligible date, retaining index synchronization/index daily behavior. `backfill-intraday` calls only 1m intraday ingest and uses existing daily context if available; missing context remains `PARTIAL` and does not trigger daily ingest. Combined `backfill` runs the complete daily branch before the complete intraday branch, then checks scoped completeness for every eligible date. It retains both branch summaries and EOD-compatible combined day summaries; it no longer calls EOD directly.
 
-The range summary retains each EOD result and reports weekend dates, status counts, and date-level exceptions. Exceptions do not stop later dates. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`/runtime failure, and `2` for invalid arguments/ranges. See [the bilingual backfill guide](backfill/README.md).
+None of these commands runs features, signals, or backtests. Exceptions are recorded by date and later dates continue. No backfill runs automatically after deployment.
 
-Public function: `src.pipeline.backfill.run_backfill_pipeline(from_date: str, to_date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict`.
+Public functions:
+
+- `run_daily_backfill_pipeline(from_date, to_date, symbols=None) -> dict`
+- `run_intraday_backfill_pipeline(from_date, to_date, symbols=None) -> dict`
+- `run_backfill_pipeline(from_date, to_date, symbols=None) -> dict`
+
+See [the bilingual backfill guide](backfill/README.md).
 
 ## `features`
 
@@ -232,6 +242,6 @@ Public function: `src.pipeline.intraday.run_intraday_pipeline(snapshot_time: str
 
 ## Shared source-ingest symbol scope
 
-`daily`, `intraday-ingest`, `eod`, and `backfill` use `--symbols` with `nargs="+"`; the flag therefore requires at least one value. Explicit values are stripped, uppercased, deduplicated, and retain first-seen order. Omitting the option uses every symbol returned by the existing master-symbol source; an explicit empty or blank-only programmatic scope raises `ValueError` rather than falling back to all symbols. Explicit symbols are not silently dropped against an invented active/inactive rule; existing per-symbol SSI/service results report unavailable symbols.
+`daily`, `intraday-ingest`, `eod`, `backfill-daily`, `backfill-intraday`, and `backfill` use `--symbols` with `nargs="+"`; the flag therefore requires at least one value. Explicit values are stripped, uppercased, deduplicated, and retain first-seen order. Omitting the option uses every symbol returned by the existing master-symbol source; an explicit empty or blank-only programmatic scope raises `ValueError` rather than falling back to all symbols. Explicit symbols are not silently dropped against an invented active/inactive rule; existing per-symbol SSI/service results report unavailable symbols.
 
-The scope limits stock ingest only. Daily index synchronization and index daily ingest still run once. EOD passes the same scope to daily, intraday ingest, and completeness. Scoped completeness filters `stock_daily` and `stock_intraday` and evaluates only requested symbols; `index_daily_count`, legacy `foreign_trading_count`, and `orderbook_snapshot_count` remain date-level market-context observations. Backfill reuses one normalized explicit list for every date. None of these commands runs features, signals, or backtests. The legacy `intraday` command is a feature alias and is not production candle ingest.
+The scope limits stock ingest only. Daily index synchronization and index daily ingest still run once. EOD passes the same scope to daily, intraday ingest, and completeness. Scoped completeness filters `stock_daily` and `stock_intraday` and evaluates only requested symbols; `index_daily_count`, legacy `foreign_trading_count`, and `orderbook_snapshot_count` remain date-level market-context observations. All backfill branches reuse one normalized explicit list for every date; combined backfill passes it to both branches and completeness. None of these commands runs features, signals, or backtests. The legacy `intraday` command is a feature alias and is not production candle ingest.
