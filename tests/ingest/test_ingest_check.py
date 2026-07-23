@@ -46,7 +46,7 @@ class _Query:
         if self.table == "stock_daily":
             return _Result(data=[{"symbol": "SSI"}], count=1)
         if self.table == "stock_intraday":
-            return _Result(data=[], count=0)
+            return _Result(data=self.db.intraday_rows, count=len(self.db.intraday_rows))
         if self.table == "orderbook_snapshot":
             return _Result(count=2)
         return _Result(count=0)
@@ -61,9 +61,10 @@ class _Client:
 
 
 class _DB:
-    def __init__(self):
+    def __init__(self, intraday_rows=None):
         self.client = _Client(self)
         self.executed = []
+        self.intraday_rows = intraday_rows or []
 
     def _with_retry(self, action, action_name, **_kwargs):
         return action()
@@ -125,7 +126,7 @@ def test_completeness_ok_for_2026_07_20_ssi_style_boundaries():
     assert summary["status"] == "OK"
 
 
-def test_completeness_warning_when_continuous_candle_is_removed():
+def test_short_empty_bucket_is_reported_without_failing_completeness():
     times = _ssi_style_day_times()
     times.remove("2026-07-20T06:27:11Z")
 
@@ -133,7 +134,69 @@ def test_completeness_warning_when_continuous_candle_is_removed():
 
     assert summary["missing_interval_count"] == 1
     assert summary["missing_minutes"] == 1
+    assert summary["empty_minute_bucket_count"] == 1
+    assert summary["gap_status"] == "OBSERVED"
+    assert summary["status"] == "OK"
+
+
+def test_five_isolated_pdr_style_empty_buckets_remain_ok():
+    times = _ssi_style_day_times()
+    for value in [
+        "2026-07-20T02:10:17Z",
+        "2026-07-20T02:30:17Z",
+        "2026-07-20T03:10:17Z",
+        "2026-07-20T03:30:17Z",
+        "2026-07-20T04:10:17Z",
+    ]:
+        times.remove(value)
+
+    summary = ingest_check._symbol_intraday_summary("PDR", _intraday_rows(times), has_daily=True)
+
+    assert summary["missing_interval_count"] == 5
+    assert summary["missing_minutes"] == 5
+    assert summary["gap_status"] == "OBSERVED"
+    assert summary["status"] == "OK"
+
+
+def test_missing_entire_afternoon_session_is_structural_warning():
+    times = [value for value in _ssi_style_day_times() if value < "2026-07-20T06:00:00Z"]
+
+    summary = ingest_check._symbol_intraday_summary("SSI", _intraday_rows(times), has_daily=True)
+
+    assert "missing_afternoon_session" in summary["structural_gap_reasons"]
+    assert summary["gap_status"] == "STRUCTURAL"
     assert summary["status"] == "WARNING"
+
+
+def test_long_continuous_gap_is_structural_warning():
+    times = _ssi_style_day_times()
+    times = [value for value in times if not ("2026-07-20T02:30:00Z" <= value < "2026-07-20T02:50:00Z")]
+
+    summary = ingest_check._symbol_intraday_summary("SSI", _intraday_rows(times), has_daily=True)
+
+    assert summary["longest_gap_minutes"] == 20
+    assert "long_continuous_gap" in summary["structural_gap_reasons"]
+    assert summary["status"] == "WARNING"
+
+
+def test_short_gaps_do_not_make_check_ingest_or_eod_completeness_partial(monkeypatch):
+    times = _ssi_style_day_times()
+    for value in [
+        "2026-07-20T02:10:17Z",
+        "2026-07-20T02:30:17Z",
+        "2026-07-20T03:10:17Z",
+        "2026-07-20T03:30:17Z",
+        "2026-07-20T04:10:17Z",
+    ]:
+        times.remove(value)
+    db = _DB(_intraday_rows(times))
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)
+
+    summary = ingest_check.check_ingest("20/07/2026")
+
+    assert summary["per_symbol"][0]["missing_minutes"] == 5
+    assert summary["incomplete_intraday_count"] == 0
+    assert summary["status"] == "OK"
 
 
 def test_completeness_duplicate_detection_is_unchanged():

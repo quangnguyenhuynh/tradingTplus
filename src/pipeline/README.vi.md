@@ -60,7 +60,9 @@ Public entrypoint: `run_intraday_ingest()` trong `intraday_ingest.py`; CLI `pyth
 
 Timeframe intraday cao hơn chỉ được aggregate trong feature pipeline và không ghi vào `stock_intraday`.
 
-Validation gap intraday chỉ chuẩn hóa timestamp thành minute bucket trong bộ nhớ; timestamp raw và clean không bị thay đổi. Phút thiếu chỉ được kiểm tra trong các đoạn khớp lệnh liên tục `09:00-11:29` và `13:00-14:29` (`Asia/Ho_Chi_Minh`). Các phút nghỉ trưa và khoảng ATC `14:30-14:44` trước kết quả đóng cửa SSI vào khoảng `14:45` bị loại khỏi phép đếm. Validator sort nội bộ để kiểm tra gap nhưng vẫn báo rõ input không sort. Completeness dựa trên gap theo phiên và duplicate, không dựa trên một số lượng candle chuẩn chung cho mọi ngày.
+Validation gap intraday chỉ chuẩn hóa timestamp thành minute bucket trong bộ nhớ; timestamp raw và clean không bị thay đổi. Bucket trống/thiếu chỉ được kiểm tra trong các đoạn khớp lệnh liên tục `09:00-11:29` và `13:00-14:29` (`Asia/Ho_Chi_Minh`). Các phút nghỉ trưa và khoảng ATC `14:30-14:44` trước kết quả đóng cửa SSI vào khoảng `14:45` bị loại khỏi phép đếm. Validator sort nội bộ để kiểm tra gap nhưng vẫn báo rõ input không sort.
+
+`INTRADAY_MISSING_INTERVAL` có nghĩa là **minute bucket trống/thiếu quan sát được**. Chỉ từ IntradayOhlc không thể phân biệt phút không có giao dịch với source omission. Vì vậy gap ngắn, rời rạc vẫn được đếm trong `missing_interval_count`, `missing_minutes` và `empty_minute_bucket_count`, nhưng tự nó không làm completeness fail và không tạo candle giả. Duplicate và mất coverage có tính cấu trúc vẫn tạo `WARNING`/`PARTIAL`. Heuristic ban đầu là ngưỡng data-quality minh bạch, không phải quy tắc SSI chính thức: gap liên tục ít nhất 15 phút, tổng ít nhất 30 phút trống, thiếu phiên sáng/chiều, hoặc first/last coverage lệch vào trong quá 15 phút. Không dùng một candle count cố định chung.
 
 ## Trình tự EOD
 

@@ -3,9 +3,11 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import src.engine.feature_engine as fe
+import src.engine.feature_calculator as fc
 
 
 class _Result:
@@ -163,6 +165,31 @@ def test_aggregate_timeframe_builds_5m_bars_from_1m_source():
     assert agg.iloc[0]['value'] == sum(1000 + i for i in range(5))
 
 
+def test_aggregate_partial_5m_bucket_sums_only_observed_candles():
+    base = pd.Timestamp('2026-05-20T02:00:00Z')
+    rows = [
+        _mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i)
+        for i in [0, 1, 3, 4, 10]
+    ]
+
+    agg = fe.aggregate_timeframe(pd.DataFrame(rows), '5m')
+
+    assert len(agg) == 2  # The entirely empty 09:05 bucket is not fabricated.
+    assert agg.iloc[0]['close'] == 14.5
+    assert agg.iloc[0]['volume'] == sum(100 + i for i in [0, 1, 3, 4])
+    assert agg.iloc[0]['value'] == sum(1000 + i for i in [0, 1, 3, 4])
+    assert agg.iloc[1]['time'] == pd.Timestamp('2026-05-20T02:10:00Z')
+
+
+def test_aggregation_does_not_cross_lunch_break():
+    rows = [_mk_row('2026-05-20T04:29:00Z', 0), _mk_row('2026-05-20T06:00:00Z', 1)]
+
+    agg = fe.aggregate_timeframe(pd.DataFrame(rows), '60m')
+
+    assert len(agg) == 2
+    assert list(agg['volume']) == [100, 101]
+
+
 def test_full_mode_derives_higher_timeframe_features_without_writing_stock_intraday(monkeypatch):
     rows = []
     base = pd.Timestamp('2026-05-20T02:00:00Z')
@@ -311,3 +338,108 @@ def test_return_columns_match_timeframe_semantics():
     assert feats_5m['return_5m'].notna().any()
     assert feats_15m['return_1m'].isna().all() and feats_15m['return_5m'].isna().all()
     assert feats_60m[['return_1m', 'return_5m', 'return_15m']].isna().all().all()
+
+
+def _feature_at(feats, timestamp):
+    return feats.loc[feats['time'] == pd.Timestamp(timestamp)].iloc[0]
+
+
+def test_time_aware_returns_match_continuous_wall_clock_horizons():
+    base = pd.Timestamp('2026-05-20T02:00:00Z')
+    rows = [_mk_row((base + pd.Timedelta(minutes=i)).isoformat(), i) for i in range(16)]
+
+    result = fe.compute_intraday_features(pd.DataFrame(rows), '1m').iloc[-1]
+
+    assert result['return_1m'] == pytest.approx(25.5 / 24.5 - 1)
+    assert result['return_5m'] == pytest.approx(25.5 / 20.5 - 1)
+    assert result['return_15m'] == pytest.approx(25.5 / 10.5 - 1)
+
+
+def test_time_aware_return_uses_latest_reference_at_or_before_target():
+    times = ['09:43', '09:44', '09:45', '09:46', '09:48', '09:49']
+    rows = [_mk_row(f'2026-05-20T{hour}:00+07:00', i) for i, hour in enumerate(times)]
+
+    feats = fe.compute_intraday_features(pd.DataFrame(rows), '1m')
+    result = _feature_at(feats, '2026-05-20T02:49:00Z')
+
+    assert result['return_1m'] == pytest.approx(15.5 / 14.5 - 1)
+    assert result['return_5m'] == pytest.approx(15.5 / 11.5 - 1)  # exact 09:44 target
+
+
+def test_time_aware_return_accepts_prior_reference_within_tolerance():
+    rows = [
+        _mk_row('2026-05-20T02:43:00Z', 0),
+        _mk_row('2026-05-20T02:49:00Z', 1),
+    ]
+
+    result = fe.compute_intraday_features(pd.DataFrame(rows), '1m').iloc[-1]
+
+    assert result['return_5m'] == pytest.approx(11.5 / 10.5 - 1)
+
+
+def test_time_aware_return_rejects_stale_or_future_reference():
+    rows = [
+        _mk_row('2026-05-20T02:41:00Z', 0),  # too old for 09:49 - 5m target
+        _mk_row('2026-05-20T02:45:00Z', 1),  # after target; must not be used
+        _mk_row('2026-05-20T02:49:00Z', 2),
+    ]
+
+    result = fe.compute_intraday_features(pd.DataFrame(rows), '1m').iloc[-1]
+
+    assert pd.isna(result['return_5m'])
+
+
+def test_time_aware_return_does_not_cross_lunch_or_trading_date():
+    rows = [
+        _mk_row('2026-05-20T04:29:00Z', 0),
+        _mk_row('2026-05-20T06:00:00Z', 1),
+        _mk_row('2026-05-21T02:00:00Z', 2),
+    ]
+
+    feats = fe.compute_intraday_features(pd.DataFrame(rows), '1m')
+
+    assert pd.isna(feats.iloc[1]['return_15m'])
+    assert pd.isna(feats.iloc[2]['return_15m'])
+
+
+def test_higher_timeframe_returns_use_timestamps():
+    rows_5m = [_mk_row(f'2026-05-20T02:{minute:02d}:00Z', i) for i, minute in enumerate([0, 5, 10, 15])]
+    rows_15m = [_mk_row(f'2026-05-20T02:{minute:02d}:00Z', i) for i, minute in enumerate([0, 15])]
+
+    features_5m = fe.compute_intraday_features(pd.DataFrame(rows_5m), '5m')
+    features_15m = fe.compute_intraday_features(pd.DataFrame(rows_15m), '15m')
+
+    assert features_5m.iloc[-1]['return_5m'] == pytest.approx(13.5 / 12.5 - 1)
+    assert features_5m.iloc[-1]['return_15m'] == pytest.approx(13.5 / 10.5 - 1)
+    assert features_15m.iloc[-1]['return_15m'] == pytest.approx(11.5 / 10.5 - 1)
+
+
+def test_bar_based_indicators_match_continuous_input_regression():
+    rows = [_mk_row((pd.Timestamp('2026-05-20T02:00:00Z') + pd.Timedelta(minutes=i)).isoformat(), i) for i in range(60)]
+    prices = pd.Series([row['close'] for row in rows], dtype='float64')
+
+    feats = fe.compute_intraday_features(pd.DataFrame(rows), '1m')
+    expected_macd, expected_signal, expected_histogram = fc.calculate_macd(prices)
+
+    assert feats['rsi14'].equals(fc.calculate_rsi(prices))
+    assert feats['ema20'].equals(prices.ewm(span=20, adjust=False, min_periods=20).mean())
+    assert feats['macd'].equals(expected_macd)
+    assert feats['macd_signal'].equals(expected_signal)
+    assert feats['macd_histogram'].equals(expected_histogram)
+
+
+def test_full_and_incremental_calculation_rules_match_on_overlap():
+    base = pd.Timestamp('2026-05-20T02:00:00Z')
+    rows = [_mk_row((base + pd.Timedelta(minutes=i)).isoformat(), i) for i in range(60) if i != 43]
+    full = fe.compute_intraday_features(pd.DataFrame(rows), '1m')
+    incremental_input = pd.DataFrame(rows[-40:])
+    incremental = fe.compute_intraday_features(incremental_input, '1m')
+
+    # Incremental mode supplies warm-up rows; compare after the longest return
+    # horizon has elapsed within this isolated calculator fixture.
+    incremental = incremental.iloc[15:].reset_index(drop=True)
+    overlap = full[full['time'].isin(incremental['time'])].reset_index(drop=True)
+
+    pd.testing.assert_series_equal(overlap['return_1m'], incremental['return_1m'], check_names=False)
+    pd.testing.assert_series_equal(overlap['return_5m'], incremental['return_5m'], check_names=False)
+    pd.testing.assert_series_equal(overlap['return_15m'], incremental['return_15m'], check_names=False)

@@ -8,7 +8,7 @@ light so it can be unit tested without a live Supabase connection.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterable
 
 import pandas as pd
@@ -29,6 +29,7 @@ class BacktestConfig:
     holding_bars: int = 5
     fee_pct: float = 0.001
     min_score: float = 0.0
+    max_entry_staleness_minutes: int = 2
 
     def __post_init__(self):
         if self.initial_capital <= 0:
@@ -39,6 +40,8 @@ class BacktestConfig:
             raise ValueError("holding_bars must be positive")
         if self.fee_pct < 0:
             raise ValueError("fee_pct must be non-negative")
+        if self.max_entry_staleness_minutes < 0:
+            raise ValueError("max_entry_staleness_minutes must be non-negative")
 
 
 def _normalize_signal_type(value: object) -> str:
@@ -74,7 +77,8 @@ def run_backtest(
     """Run a deterministic MVP backtest from feature and signal records.
 
     Assumptions:
-    - each signal opens a single trade at the latest feature close at or before signal time;
+    - each intraday signal opens at the latest feature close at or before signal
+      time only when it is within ``max_entry_staleness_minutes``;
     - the trade exits after ``holding_bars`` future feature rows for the same symbol/timeframe;
     - overlapping trades for the same symbol are skipped to keep accounting simple.
     """
@@ -119,6 +123,9 @@ def run_backtest(
         if eligible.empty:
             continue
         entry_idx = int(eligible.index[-1])
+        entry_time = candles.iloc[entry_idx]["time"]
+        if key[1] != "1d" and signal["time"] - entry_time > timedelta(minutes=config.max_entry_staleness_minutes):
+            continue
         exit_idx = entry_idx + config.holding_bars
         if exit_idx >= len(candles):
             continue

@@ -4,6 +4,7 @@ from src.intraday_value import calculate_trade_value
 
 SUPPORTED_TIMEFRAMES = {'1m', '5m', '15m', '60m', '1d'}
 INTRADAY_TIMEFRAMES = {'1m', '5m', '15m', '60m'}
+RETURN_TOLERANCE_MINUTES = {1: 1, 5: 2, 15: 2}
 
 
 def _fill_missing_value_from_ohlcv(df: pd.DataFrame) -> pd.Series:
@@ -99,6 +100,41 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
     return macd_line, macd_signal, macd_hist
 
 
+def _time_aware_return(out: pd.DataFrame, horizon_minutes: int) -> pd.Series:
+    """Return versus the latest observed candle at/before the wall-clock target.
+
+    References are restricted to the same Vietnam trading date and morning or
+    afternoon session. A bounded tolerance prevents stale prices from filling
+    no-trade/source gaps indefinitely. The backward lookup can never look ahead.
+    """
+    tolerance = pd.Timedelta(minutes=RETURN_TOLERANCE_MINUTES[horizon_minutes])
+    target_delta = pd.Timedelta(minutes=horizon_minutes)
+    local_time = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh')
+    date_keys = local_time.dt.date
+    session_keys = (local_time.dt.hour >= 12).astype(int)
+    result = pd.Series(float('nan'), index=out.index, dtype='float64')
+
+    for indexes in out.groupby([date_keys, session_keys], sort=False).groups.values():
+        positions = list(indexes)
+        times = out.loc[positions, 'time'].reset_index(drop=True)
+        closes = out.loc[positions, 'close'].reset_index(drop=True)
+        targets = times - target_delta
+        reference_positions = times.searchsorted(targets, side='right') - 1
+        valid = reference_positions >= 0
+        if valid.any():
+            candidate_rows = reference_positions[valid]
+            candidate_times = times.iloc[candidate_rows].reset_index(drop=True)
+            valid_targets = targets[valid].reset_index(drop=True)
+            within_tolerance = (valid_targets - candidate_times) <= tolerance
+            output_positions = pd.Series(positions)[valid].reset_index(drop=True)[within_tolerance]
+            reference_closes = closes.iloc[candidate_rows].reset_index(drop=True)[within_tolerance]
+            current_closes = closes[pd.Series(valid).to_numpy()].reset_index(drop=True)[within_tolerance]
+            result.loc[output_positions.to_list()] = (
+                current_closes.to_numpy() / reference_closes.to_numpy() - 1
+            )
+    return result
+
+
 def _build_daily_prev_close_map(daily_df: pd.DataFrame | None) -> dict:
     if daily_df is None or daily_df.empty:
         return {}
@@ -154,9 +190,9 @@ def compute_intraday_features(df: pd.DataFrame, timeframe: str, daily_df: pd.Dat
     if out['time'].duplicated().any():
         raise ValueError("Duplicate time detected in feature input")
     date_key = out['time'].dt.tz_convert('Asia/Ho_Chi_Minh').dt.date
-    out['return_1m'] = out.groupby(date_key)['close'].pct_change(1) if timeframe == '1m' else pd.NA
-    out['return_5m'] = out.groupby(date_key)['close'].pct_change(5 if timeframe == '1m' else 1) if timeframe in {'1m', '5m'} else pd.NA
-    out['return_15m'] = out.groupby(date_key)['close'].pct_change(15 if timeframe == '1m' else 3 if timeframe == '5m' else 1) if timeframe in {'1m', '5m', '15m'} else pd.NA
+    out['return_1m'] = _time_aware_return(out, 1) if timeframe == '1m' else pd.NA
+    out['return_5m'] = _time_aware_return(out, 5) if timeframe in {'1m', '5m'} else pd.NA
+    out['return_15m'] = _time_aware_return(out, 15) if timeframe in {'1m', '5m', '15m'} else pd.NA
     out = _add_common_features(out, date_key, daily_df, reset_volume_by_day=True)
     cum_value = out.groupby(date_key)['value'].cumsum()
     cum_volume = out.groupby(date_key)['volume'].cumsum()
