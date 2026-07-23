@@ -1,5 +1,7 @@
 # Data pipelines
 
+[English](README.md) | [Tiếng Việt](README.vi.md)
+
 Production ingest được tách thành các tầng fetch, mapping, tích hợp validation, persistence và orchestration rõ ràng. Daily và intraday là hai pipeline độc lập; EOD chỉ chạy tuần tự và kiểm tra completeness.
 
 ## Cây thư mục và trách nhiệm
@@ -18,12 +20,12 @@ src/pipeline/
 ├── intraday_ingest.py        # batch orchestrator intraday public
 ├── fetch_one_day.py          # wrapper/re-export compatibility mỏng
 ├── eod.py                    # daily -> intraday -> completeness
+├── backfill.py               # orchestration khoảng ngày, mỗi ngày trong tuần gọi EOD
 ├── ingest_check.py           # báo cáo completeness/consistency
 ├── date_utils.py             # parse/kiểm tra ngày thị trường Việt Nam
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
 ├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
-├── backfill.py               # compatibility flow lịch sử có scope
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
@@ -56,7 +58,7 @@ Public entrypoint: `run_intraday_ingest()` trong `intraday_ingest.py`; CLI `pyth
 3. `intraday_fetcher.py` gọi SSI `IntradayOhlc` resolution 1.
 4. `intraday_mapper.py` hiểu timestamp nguồn theo `Asia/Ho_Chi_Minh`, đổi sang UTC, loại timestamp sai và tạo raw/clean candidate.
 5. Mapper chỉ tạo `timeframe='1m'`; `value` là ước tính `round(close * volume)` và giữ `None` nếu đầu vào thiếu/sai.
-6. `intraday_service.py` ghi raw evidence qua `intraday_persistence.py`, gọi validator record/batch hiện có, deduplicate theo `(symbol, timeframe, time)` khi validator báo trùng, rồi ghi clean hợp lệ.
+6. `intraday_service.py` ghi raw evidence qua `intraday_persistence.py`, gọi validator record/batch hiện có, deduplicate theo `(symbol,timeframe,time)` khi validator báo trùng, rồi ghi clean hợp lệ.
 
 Timeframe intraday cao hơn chỉ được aggregate trong feature pipeline và không ghi vào `stock_intraday`.
 
@@ -74,6 +76,20 @@ daily ingest -> intraday ingest -> kiểm tra completeness -> OK/PARTIAL/FAILED
 
 EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không chạy signal và không chạy backtest.
 
+## Trình tự backfill
+
+Public entrypoint: `run_backfill_pipeline()` trong `backfill.py`; CLI:
+
+```bash
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+```
+
+Backfill validate khoảng lịch sử bao gồm cả ngày đầu/cuối, bỏ thứ Bảy và Chủ nhật, sau đó gọi `run_eod_pipeline()` cho từng ngày còn lại. Summary của từng ngày được giữ nguyên và summary toàn khoảng đếm số ngày `OK`, `PARTIAL`, `FAILED`. Backfill không nhân đôi code ingest và không chạy feature, signal hay backtest.
+
+Backfill hiện dùng cùng toàn bộ danh sách mã active như EOD; chưa mở scope theo symbol. Ngày trong tuần chỉ là ứng viên theo lịch, vì vậy ngày lễ hoặc SSI trả rỗng sẽ được EOD báo đúng trạng thái và không bao giờ được thay bằng dữ liệu giả.
+
+Tài liệu đầy đủ: [`docs/backfill/README.vi.md`](../../docs/backfill/README.vi.md).
+
 ## Raw, clean, validation và persistence
 
 | Dataset | Tạo record | Tích hợp validation | Ghi dữ liệu |
@@ -87,6 +103,8 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 
 `fetch_one_day.py` được giữ làm compatibility module mỏng cho import cũ và script có scope rõ. File re-export helper fetcher/mapper legacy và compose daily/intraday service public; không còn implementation mapping, validation hay persistence trùng lặp. Code mới phải import module theo tầng tương ứng.
 
+Tên hàm legacy `backfill()` vẫn được giữ làm wrapper quanh `run_backfill_pipeline()`. Python function vẫn nhận chuỗi ngày ISO cũ, nhưng từ chối backfill theo symbol và ngày tương lai vì không thuộc contract EOD production. `scripts/backfill_sample.py` đã deprecated và chỉ gọi lại pipeline backfill chính.
+
 ## Error và retry
 
 - Fetcher trả kết quả SSI và không nuốt lỗi service/DB.
@@ -95,6 +113,7 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 - Service gắn context symbol/date và giữ summary contract hiện có.
 - Retry HTTP có giới hạn vẫn thuộc `src/ssi/api.py`; retry/backoff DB có giới hạn vẫn thuộc `src/database/client.py`.
 - Persistence tiếp tục dùng DB public methods và conflict keys hiện có.
+- Backfill bắt lỗi tại ranh giới từng ngày, ghi ngày/lỗi vào summary toàn khoảng và tiếp tục ngày sau; EOD summary lỗi không bị che mất.
 
 ## Chạy test
 
@@ -104,7 +123,9 @@ python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
 python -m pytest -q tests/validation/test_intraday_validator.py
 python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
+python -m pytest -q tests/pipeline/test_backfill_pipeline.py
+python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q
 ```
 
-Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. Các bước downstream này chỉ chạy bằng command explicit.
+Ingest và backfill không bao giờ tự tính feature, sinh signal hoặc chạy backtest. Các bước downstream này chỉ chạy bằng command explicit.
