@@ -96,6 +96,8 @@ python main.py init
 python main.py daily [DD/MM/YYYY] --symbols SSI HPG
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
 python main.py eod [DD/MM/YYYY] --symbols SSI HPG
+python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
@@ -107,7 +109,9 @@ Hành vi hiện tại:
 - `daily`: chỉ ingest daily SSI; không ingest intraday hoặc tính feature.
 - `intraday-ingest`: ghi `IntradayOhlc` resolution 1 vào raw/clean intraday.
 - `eod`: daily ingest → intraday ingest → completeness validation.
-- `backfill`: delegate tuần tự từng ngày thường trong khoảng bao gồm hai đầu sang `eod`; báo cáo cuối tuần và không tự chạy feature downstream.
+- `backfill-daily`: chỉ ingest daily trong khoảng bao gồm hai đầu; giữ hành vi index daily hiện có.
+- `backfill-intraday`: chỉ ingest intraday 1m; dùng daily context hiện có nhưng không tự tạo.
+- `backfill`: chạy xong nhánh daily → nhánh intraday → completeness từng ngày; không tự chạy feature downstream.
 - `features`: feature pipeline riêng, hỗ trợ chạy lại.
 - `intraday`: alias legacy tính intraday feature; không lấy candle mới.
 - `streaming-ingest`: chạy giới hạn và read-only nếu không có `--write`.
@@ -141,4 +145,4 @@ Signal và backtest hiện là code research/MVP, chưa được xem là logic s
 
 ### Phạm vi mã cổ phiếu cho ingest dữ liệu nguồn
 
-`daily`, `intraday-ingest`, `eod` và `backfill` nhận `--symbols` với ít nhất một giá trị. Khi bỏ qua option, pipeline dùng mọi mã từ nguồn master hiện có. Giá trị explicit được strip, đổi thành chữ hoa và loại trùng theo thứ tự xuất hiện đầu tiên; scope explicit rỗng là không hợp lệ. Scope cổ phiếu của daily không tắt đồng bộ index hay ingest index hằng ngày. EOD truyền cùng một scope cho daily, intraday và completeness cổ phiếu; backfill dùng lại scope đó cho mọi ngày. Count quan sát index và market context khác vẫn theo toàn ngày. Command `intraday` legacy vẫn là alias feature, không phải ingest candle. Ingest dữ liệu nguồn không tự chạy feature, signal hay backtest.
+`daily`, `intraday-ingest`, `eod`, `backfill-daily`, `backfill-intraday` và `backfill` nhận `--symbols` với ít nhất một giá trị. Khi bỏ qua option, pipeline dùng mọi mã từ nguồn master hiện có. Giá trị explicit được strip, đổi thành chữ hoa và loại trùng theo thứ tự xuất hiện đầu tiên; scope explicit rỗng là không hợp lệ. Scope cổ phiếu của daily không tắt đồng bộ index hay ingest index hằng ngày. EOD truyền cùng một scope cho daily, intraday và completeness cổ phiếu; backfill dùng lại scope đó cho mọi ngày. Count quan sát index và market context khác vẫn theo toàn ngày. Command `intraday` legacy vẫn là alias feature, không phải ingest candle. Ingest dữ liệu nguồn không tự chạy feature, signal hay backtest.

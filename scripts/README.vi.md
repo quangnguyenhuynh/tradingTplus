@@ -27,7 +27,7 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 | `check_ingest.py` | `READ-ONLY` | Báo completeness ingest theo ngày. |
 | `eod_dry_run.py` | `READ-ONLY` | Kiểm tra trạng thái EOD không ghi database. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Kiểm tra hoặc ghi đúng một mã/một ngày. |
-| `backfill_sample.py` | `WRITES DB` | Delegate deprecated sang backfill production dựa trên EOD; bắt buộc khoảng ngày bao gồm hai đầu. |
+| `backfill_sample.py` | `WRITES DB` | Delegate deprecated sang backfill production kết hợp; bắt buộc khoảng ngày bao gồm hai đầu. |
 | `run_features.py` | `WRITES DB` | Chạy feature pipeline riêng. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Thu snapshot streaming có giới hạn. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Thu quote/orderbook snapshot từ streaming payload được hỗ trợ. |
@@ -56,4 +56,4 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 
 Chạy command từ root repo và đọc `--help` trước mọi tool có khả năng ghi.
 
-Dùng `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` cho production. Sample deprecated nhận `--symbols` tùy chọn nhưng không có future override, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).
+Dùng `python main.py backfill-daily`, `backfill-intraday`, hoặc `backfill` kết hợp với khoảng ngày explicit cho production. Sample deprecated nhận `--symbols` tùy chọn nhưng không có future override, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).

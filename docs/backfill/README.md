@@ -1,60 +1,43 @@
 # Production source-data backfill
 
-## Purpose and architecture
+## Architecture
 
-Backfill reruns the existing Phase 0 EOD source-data contract for an inclusive historical range:
+TradingTPlus exposes three independent Phase 0 range pipelines:
 
 ```text
-each weekday candidate
-→ run_eod_pipeline(DD/MM/YYYY) exactly once
-→ daily ingest
-→ intraday 1m ingest
-→ ingest completeness check
-→ OK / PARTIAL / FAILED
+run_daily_backfill_pipeline()    -> daily ingest for every eligible date
+run_intraday_backfill_pipeline() -> 1m intraday ingest for every eligible date
+run_backfill_pipeline()          -> complete daily branch -> complete intraday branch
+                                  -> completeness check for every eligible date
 ```
 
-Backfill contains no SSI fetch, mapping, validation, persistence, feature, signal, or backtest implementation. A weekday is only a calendar candidate; SSI empty responses on holidays or non-trading days remain visible in the delegated EOD summary and are never replaced with fabricated rows or zero values.
+None runs features, signals, or backtests. Weekday holidays are not guessed: SSI empty responses and missing data remain observable, with no fabricated rows or silent zero replacement.
 
-## CLI and examples
-
-Both endpoints are required and inclusive:
+## Commands
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
-python main.py backfill --from-date DD/MM/YYYY --to-date DD/MM/YYYY
+python main.py backfill-daily --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill-intraday --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 ```
 
-Example:
+`--from-date` and `--to-date` are aliases. Ranges use `DD/MM/YYYY`, include both endpoints, reject future/reversed ranges, run dates sequentially, and skip/report Saturdays and Sundays. A weekend-only range is an `OK` no-op.
 
-```bash
-python main.py backfill --from 10/07/2026 --to 14/07/2026
-```
+Explicit symbols are stripped, uppercased, and deduplicated in first-seen order once before processing; an empty explicit scope is invalid. Omission uses current master symbols.
 
-Dates are parsed in the product's Vietnam-market date format. Future dates and reversed ranges are rejected. Calendar dates are visited sequentially; Saturdays and Sundays are skipped and reported in `skipped_weekend_dates`. A weekend-only range is a successful no-op with `processed_days=0` and `status=OK`.
+## Branch behavior and data impact
 
-## Data affected and reruns
+- **`backfill-daily`** runs only historical daily ingest. It preserves daily index synchronization and index daily ingest, so an intentional run may write `raw_daily`, `stock_daily`, `index_daily`, and existing index master/context tables. `--symbols` scopes stock ingest only. It does not run intraday ingest or completeness.
+- **`backfill-intraday`** runs only historical SSI 1m intraday ingest and may write `raw_intraday` and `stock_intraday` with only `timeframe='1m'`. It reads existing `stock_daily` context when available; missing context remains visible as `PARTIAL`. It never runs daily ingest or completeness automatically.
+- **`backfill`** runs the complete daily branch before the complete intraday branch, then reads source tables through scoped completeness checking for each eligible date. It retains both branch summaries and creates combined `backfill-day` summaries using EOD-compatible status rules. It does not call EOD directly.
 
-An intentional run can affect exactly the same tables as sequential EOD commands: `raw_daily`, `stock_daily`, `index_daily`, related index master tables, `raw_intraday`, and `stock_intraday` with `timeframe='1m'`. Completeness validation reads the resulting source tables. Actual writes depend on SSI responses and the existing EOD services.
+Each branch records a date-level exception and continues later dates. Combined completeness exceptions are also recorded without discarding branch results. Range status is `OK` when every processed date is `OK`, `FAILED` when every date failed, and `PARTIAL` for mixed statuses or any partial date. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`/runtime failure, and `2` for invalid arguments.
 
-Existing persistence conflict keys make normal EOD reruns use the current idempotency contracts; backfill adds no alternative persistence behavior. Verify one historical trading date before expanding a range. No production backfill runs automatically after deployment.
+No production backfill runs automatically after deployment, and no historical rerun is required solely because these commands are deployed. Run only an explicitly authorized date/symbol repair scope.
 
-Features, signals, and backtests **do not run automatically**. Run an explicit downstream pipeline only after source data and completeness have been verified.
+## Compatibility
 
-## Summary and status contract
-
-The JSON range summary contains `flow`, `from_date`, `to_date`, `requested_calendar_days`, `processed_days`, `skipped_weekend_days`, `skipped_weekend_dates`, `ok_days`, `partial_days`, `failed_days`, `error_count`, `errors`, `day_summaries`, and `status`. Successful EOD summaries are retained unchanged. An exception is caught at its date boundary, recorded with its date and message, and later dates continue.
-
-- `OK`: every processed day is `OK` (including the documented zero-processed-day no-op).
-- `FAILED`: every processed day is `FAILED`.
-- `PARTIAL`: statuses are mixed, or at least one processed day is `PARTIAL`.
-
-Exit codes are `0` for `OK` or `PARTIAL`, `1` for `FAILED` or an unhandled runtime failure, and `2` for invalid CLI arguments or date ranges.
-
-## Compatibility and limitations
-
-`src.pipeline.backfill.backfill(...)` remains as a deprecated wrapper. It accepts legacy ISO dates and optional symbol scope for import compatibility, converts dates, and delegates to `run_backfill_pipeline()`; future-date overrides remain rejected. `scripts/backfill_sample.py` is also deprecated and delegates to the production pipeline.
-
-Backfill skips only weekends, not exchange holidays. It does not provide parallel execution, automatic retry beyond the bounded existing SSI/database client behavior, automatic feature computation, or a transaction spanning multiple dates. A date-level failure may leave the same partial writes as an interrupted EOD run; inspect the retained summary and rerun safely.
+`backfill(...)` remains deprecated, accepts legacy ISO dates, rejects `allow_future=True`, and delegates to `run_backfill_pipeline()`. `scripts/backfill_sample.py` remains a deprecated delegate to the combined command.
 
 ## Tests
 
@@ -64,7 +47,3 @@ python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```
-
-## Symbol scope
-
-Use `--symbols SSI HPG` to apply one normalized explicit stock scope to every EOD date. Values are stripped, uppercased, and deduplicated in first-seen order; the option requires at least one value. Omission retains the existing all-master-symbol behavior. EOD applies the scope consistently to daily stock ingest, intraday ingest, and stock completeness, while daily index context remains independent. Summary fields expose `symbol_scope`, `requested_symbols`, `symbols`, and `symbol_count`.

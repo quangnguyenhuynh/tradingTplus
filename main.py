@@ -7,6 +7,8 @@ Production commands:
   python main.py daily [DD/MM/YYYY]
   python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
   python main.py eod [DD/MM/YYYY]
+  python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
+  python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 1m 5m 15m]
@@ -21,7 +23,7 @@ import json
 import sys
 from typing import Any
 
-from src.pipeline import init_symbols, daily_run, run_backfill_pipeline, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
+from src.pipeline import init_symbols, daily_run, run_backfill_pipeline, run_daily_backfill_pipeline, run_eod_pipeline, run_intraday_backfill_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
 from src.engine.feature_engine import run_feature_engine_with_summary
 from src.pipeline.symbol_scope import normalize_symbol_scope
 
@@ -54,10 +56,15 @@ def build_parser() -> argparse.ArgumentParser:
     eod.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
     eod.add_argument("--symbols", nargs="+", default=None, help="Stock symbols for daily, intraday, and completeness; omitted means all master symbols")
 
-    backfill = sub.add_parser("backfill", help="Inclusive EOD source-data backfill; no features/signals/backtests")
-    backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date DD/MM/YYYY")
-    backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date DD/MM/YYYY")
-    backfill.add_argument("--symbols", nargs="+", default=None, help="Stock symbols used for every date; omitted means all master symbols")
+    for command, help_text in (
+        ("backfill-daily", "Inclusive daily-only source-data backfill; no completeness/features/signals/backtests"),
+        ("backfill-intraday", "Inclusive 1m intraday-only source-data backfill; no daily/completeness/features/signals/backtests"),
+        ("backfill", "Inclusive daily + intraday source-data backfill with completeness; no features/signals/backtests"),
+    ):
+        command_parser = sub.add_parser(command, help=help_text)
+        command_parser.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date DD/MM/YYYY")
+        command_parser.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date DD/MM/YYYY")
+        command_parser.add_argument("--symbols", nargs="+", default=None, help="Stock symbols used for every date; omitted means all master symbols")
 
     features = sub.add_parser("features", help="Explicit feature pipeline; supports target date reruns/backfills")
     features.add_argument("--mode", choices=["incremental", "full"], default="incremental")
@@ -104,8 +111,13 @@ def main(argv: list[str] | None = None) -> int:
             summary = run_eod_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
             _print_summary(summary)
             return _status_to_exit(summary)
-        if args.command == "backfill":
-            summary = run_backfill_pipeline(args.from_date, args.to_date, symbols=normalize_symbol_scope(args.symbols))
+        if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:
+            runner = {
+                "backfill-daily": run_daily_backfill_pipeline,
+                "backfill-intraday": run_intraday_backfill_pipeline,
+                "backfill": run_backfill_pipeline,
+            }[args.command]
+            summary = runner(args.from_date, args.to_date, symbols=normalize_symbol_scope(args.symbols))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features":
