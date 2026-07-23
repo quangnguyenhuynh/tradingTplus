@@ -8,6 +8,7 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 - Tiếng Việt: [README.vi.md](README.vi.md)
 - REST inspector: [ssi_api_inspector/README.vi.md](ssi_api_inspector/README.vi.md)
 - Streaming inspector: [ssi_streaming_inspector/README.vi.md](ssi_streaming_inspector/README.vi.md)
+- Backfill production: [../docs/backfill/README.vi.md](../docs/backfill/README.vi.md)
 
 ## Nhãn an toàn
 
@@ -27,7 +28,7 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 | `check_ingest.py` | `READ-ONLY` | Báo completeness ingest theo ngày. |
 | `eod_dry_run.py` | `READ-ONLY` | Kiểm tra trạng thái EOD không ghi database. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Kiểm tra hoặc ghi đúng một mã/một ngày. |
-| `backfill_sample.py` | `WRITES DB` | Backfill theo khoảng ngày và symbol rõ ràng. |
+| `backfill_sample.py` | `WRITES DB` | Wrapper deprecated cho backfill theo chuẩn EOD, toàn thị trường và theo khoảng ngày. Nên dùng `python main.py backfill`. |
 | `run_features.py` | `WRITES DB` | Chạy feature pipeline riêng. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Thu snapshot streaming có giới hạn. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Thu quote/orderbook snapshot từ streaming payload được hỗ trợ. |
@@ -48,7 +49,7 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 ## Quy tắc
 
 - Không nối ingest → feature → signal → backtest trong một script tiện lợi.
-- Script ghi dữ liệu phải bắt buộc phạm vi symbol/date rõ ràng.
+- Tool ghi dữ liệu phải có phạm vi rõ ràng để kiểm tra. Backfill production cố ý chạy toàn thị trường nên bắt buộc truyền khoảng ngày bao gồm ngày đầu và ngày cuối.
 - Không in secret, token hoặc nội dung `.env`.
 - Không tạo dòng giả cho cuối tuần, ngày nghỉ, response rỗng hoặc endpoint không hỗ trợ.
 - `stock_intraday` chỉ lưu `1m`; timeframe feature cao hơn được aggregate về sau.
