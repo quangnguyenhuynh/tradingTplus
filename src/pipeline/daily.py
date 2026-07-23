@@ -4,7 +4,6 @@ from typing import Any
 from src.database.client import SupabaseClient
 from src.ssi.api import SSIApi
 from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
-from src.pipeline.index_data import fetch_daily_indexes
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
 
@@ -26,7 +25,7 @@ def run_daily_ingest(
     date: str | None = None,
     symbols: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Ingest SSI end-of-day data only; does not ingest intraday candles or compute features."""
+    """Ingest SSI DailyStockPrice for stocks only; never ingest market indexes."""
     date = _resolve_daily_date(date)
     db = SupabaseClient()
     active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
@@ -42,6 +41,7 @@ def run_daily_ingest(
             'total_foreign': 0,
             'index_daily_count': 0,
             'error_count': 0,
+            'error_type_counts': {},
             'errors': [],
             'status': 'FAILED',
         }
@@ -63,9 +63,8 @@ def run_daily_ingest(
             errors.append({'symbol': symbol, 'error_type': 'API_ERROR', 'error': str(e)})
             print(f"    ❌ {symbol}: {e}")
 
-    index_count = fetch_daily_indexes(date, ssi=ssi, db=db)
     status = 'OK' if not errors else 'FAILED' if len(errors) >= len(active_symbols) else 'PARTIAL'
-    print(f"\n✅ Hoàn thành daily ingest! stock_daily rows: {total_daily_rows}; index_daily: {index_count}; errors: {len(errors)}")
+    print(f"\n✅ Hoàn thành daily stock ingest! stock_daily rows: {total_daily_rows}; errors: {len(errors)}")
     print("ℹ️ Intraday ingest and feature engine disabled in daily task.")
     return {
         'date': date,
@@ -76,7 +75,9 @@ def run_daily_ingest(
         # Normal daily ingest no longer writes foreign_trading. Retained for compatibility;
         # a future breaking cleanup may remove this key.
         'total_foreign': 0,
-        'index_daily_count': index_count,
+        # Deprecated compatibility key. Stock-only daily ingest never queries or
+        # writes index_daily; remove this key in a future breaking release.
+        'index_daily_count': 0,
         'error_count': len(errors),
         'error_type_counts': error_type_counts,
         'errors': errors,

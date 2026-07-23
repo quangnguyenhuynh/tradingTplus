@@ -144,7 +144,7 @@ def run_daily_backfill_pipeline(
     to_date: str,
     symbols: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Run only daily ingest for each weekday in an inclusive date range."""
+    """Run stock-only DailyStockPrice ingest for each weekday in a date range."""
     date_range = _resolve_range(from_date, to_date)
     requested_symbols = normalize_symbol_scope(symbols)
     return _run_ingest_backfill(
@@ -194,7 +194,7 @@ def run_backfill_pipeline(
     to_date: str,
     symbols: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Run daily range, intraday range, then per-date completeness checks."""
+    """Run stock daily, stock intraday, then stock completeness for each date."""
     date_range = _resolve_range(from_date, to_date)
     requested_symbols = normalize_symbol_scope(symbols)
 

@@ -125,8 +125,8 @@ Tất cả feature
 ### `daily`
 
 - Một `DailyStockPrice` request mỗi symbol/date được reuse cho `raw_daily`, `stock_daily` và foreign fields.
-- `DailyIndex` ghi `index_daily`.
-- Chỉ ghi `raw_daily`, `stock_daily` và `index_daily`; không gọi master endpoints và không ghi/đồng bộ `indexes` hoặc `index_components`.
+- Chỉ gọi `DailyStockPrice`; không gọi `DailyIndex`, `IndexList` hoặc `IndexComponents`.
+- Chỉ ghi `raw_daily`, `stock_daily`; không ghi `index_daily`, `indexes` hoặc `index_components`.
 - Không gọi `IntradayOhlc`.
 - Không tính feature/signal/backtest.
 
@@ -181,8 +181,7 @@ DailyStockPrice
     ├── raw_daily
     └── stock_daily (canonical, bao gồm foreign daily/room)
 
-DailyIndex
-    └── index_daily
+`DailyIndex`/`index_daily` không thuộc daily, EOD hoặc backfill stock-only. Schema và dữ liệu index cũ vẫn được giữ nguyên.
 ```
 
 `DailyOhlc` chỉ dùng inspector/cross-check.

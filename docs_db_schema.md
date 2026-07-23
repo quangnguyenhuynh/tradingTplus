@@ -134,7 +134,7 @@ order by tablename, indexname;
 - `securities` stores full SSI `SecuritiesDetails` metadata. The legacy `symbols` table remains for compatibility and init syncs both tables.
 - `stock_daily` is the primary daily source for T+ / swing research. It stores the full `DailyStockPrice` payload including OHLC, reference/ceiling/floor, adjusted close, match/deal/traded volume and value, foreign buy/sell/net fields, current room, and trade counts.
 - `raw_daily` stores hashed raw `DailyStockPrice` JSON for debugging and backfills.
-- `indexes`, `index_components`, and `index_daily` store SSI index metadata, constituents, and `DailyIndex` market context.
+- `indexes`, `index_components`, and `index_daily` retain SSI index metadata, constituents, and historical `DailyIndex` market context. Their schema/data is preserved, but stock-only daily, EOD, and backfill flows no longer write them; only `sync-master-data`/`init` may update index master tables.
 - `stock_intraday` remains the 1m timing source only (`timeframe='1m'`).
 - Future feature work should split `daily_features` from `intraday_features`; this ingest task does not add feature calculations.
 - `DailyOHLC` is only a secondary cross-check source. `DailyStockPrice` remains the canonical daily source.
