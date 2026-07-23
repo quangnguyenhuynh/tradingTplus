@@ -56,4 +56,4 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 
 Chạy command từ root repo và đọc `--help` trước mọi tool có khả năng ghi.
 
-Dùng `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` cho production. Sample deprecated không có override symbol/future, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).
+Dùng `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` cho production. Sample deprecated nhận `--symbols` tùy chọn nhưng không có future override, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).

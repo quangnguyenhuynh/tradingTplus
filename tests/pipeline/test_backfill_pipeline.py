@@ -11,7 +11,7 @@ def _summary(date_text: str, status: str = "OK") -> dict:
 
 def test_calls_eod_once_for_each_weekday_and_preserves_summaries(monkeypatch):
     calls = []
-    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value: calls.append(value) or _summary(value))
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value, symbols=None: calls.append(value) or _summary(value))
     result = pipeline.run_backfill_pipeline("10/07/2026", "14/07/2026")
     assert calls == ["10/07/2026", "13/07/2026", "14/07/2026"]
     assert result["day_summaries"] == [_summary(value) for value in calls]
@@ -24,14 +24,14 @@ def test_calls_eod_once_for_each_weekday_and_preserves_summaries(monkeypatch):
 
 def test_mixed_and_partial_statuses_produce_partial(monkeypatch):
     statuses = iter(["OK", "FAILED", "PARTIAL"])
-    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value: _summary(value, next(statuses)))
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value, symbols=None: _summary(value, next(statuses)))
     result = pipeline.run_backfill_pipeline("13/07/2026", "15/07/2026")
     assert (result["ok_days"], result["failed_days"], result["partial_days"]) == (1, 1, 1)
     assert result["status"] == "PARTIAL"
 
 
 def test_all_failed_produces_failed(monkeypatch):
-    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value: _summary(value, "FAILED"))
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value, symbols=None: _summary(value, "FAILED"))
     result = pipeline.run_backfill_pipeline("13/07/2026", "14/07/2026")
     assert result["failed_days"] == 2
     assert result["status"] == "FAILED"
@@ -40,7 +40,7 @@ def test_all_failed_produces_failed(monkeypatch):
 def test_exception_is_recorded_and_later_dates_continue(monkeypatch):
     calls = []
 
-    def run(value):
+    def run(value, symbols=None):
         calls.append(value)
         if value == "13/07/2026":
             raise RuntimeError("SSI unavailable")
@@ -61,13 +61,13 @@ def test_reversed_range_is_rejected():
 
 
 def test_future_range_is_rejected(monkeypatch):
-    monkeypatch.setattr(pipeline, "validate_not_future", lambda value: (_ for _ in ()).throw(ValueError("future")))
+    monkeypatch.setattr(pipeline, "validate_not_future", lambda value, symbols=None: (_ for _ in ()).throw(ValueError("future")))
     with pytest.raises(ValueError, match="future"):
         pipeline.run_backfill_pipeline("13/07/2026", "13/07/2026")
 
 
 def test_weekend_only_range_is_successful_noop(monkeypatch):
-    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value: pytest.fail("EOD must not run on weekends"))
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda value, symbols=None: pytest.fail("EOD must not run on weekends"))
     result = pipeline.run_backfill_pipeline("18/07/2026", "19/07/2026")
     assert result["processed_days"] == 0
     assert result["skipped_weekend_days"] == 2
@@ -77,19 +77,39 @@ def test_weekend_only_range_is_successful_noop(monkeypatch):
 
 def test_compatibility_wrapper_delegates_and_converts_iso_dates(monkeypatch):
     captured = {}
-    monkeypatch.setattr(pipeline, "run_backfill_pipeline", lambda start, end: captured.update(start=start, end=end) or {"status": "OK"})
+    monkeypatch.setattr(pipeline, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "OK"})
     with pytest.deprecated_call():
         result = pipeline.backfill("2026-07-13", "2026-07-14")
-    assert captured == {"start": "13/07/2026", "end": "14/07/2026"}
+    assert captured == {"start": "13/07/2026", "end": "14/07/2026", "symbols": None}
     assert result == {"status": "OK"}
 
 
-def test_compatibility_wrapper_rejects_unsupported_scope():
-    with pytest.deprecated_call(), pytest.raises(ValueError, match="symbol-scoped"):
-        pipeline.backfill("2026-07-13", "2026-07-14", symbols=["SSI"])
+def test_compatibility_wrapper_accepts_symbol_scope(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(pipeline, "run_backfill_pipeline", lambda start, end, symbols=None: captured.update(start=start, end=end, symbols=symbols) or {"status": "OK"})
+    with pytest.deprecated_call():
+        pipeline.backfill("2026-07-13", "2026-07-14", symbols=["ssi", " SSI "])
+    assert captured["symbols"] == ["ssi", " SSI "]
 
 
 def test_module_has_no_duplicate_ingest_dependencies():
     source = open(pipeline.__file__, encoding="utf-8").read()
     for forbidden in ("SSIApi", "SupabaseClient", "fetch_one_day", "feature_engine", "signal", "backtest"):
         assert forbidden not in source
+
+
+def test_explicit_scope_is_normalized_once_and_passed_to_every_eod(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda date, symbols=None: calls.append((date, symbols)) or _summary(date))
+    result = pipeline.run_backfill_pipeline("13/07/2026", "14/07/2026", symbols=["ssi", " HPG ", "SSI"])
+    assert calls == [("13/07/2026", ["SSI", "HPG"]), ("14/07/2026", ["SSI", "HPG"])]
+    assert calls[0][1] is calls[1][1]
+    assert result["symbol_scope"] == "EXPLICIT"
+    assert result["requested_symbols"] == ["SSI", "HPG"]
+    assert result["symbol_count"] == 2
+
+
+def test_invalid_scope_fails_before_first_eod_call(monkeypatch):
+    monkeypatch.setattr(pipeline, "run_eod_pipeline", lambda *args, **kwargs: pytest.fail("EOD must not run"))
+    with pytest.raises(ValueError):
+        pipeline.run_backfill_pipeline("13/07/2026", "14/07/2026", symbols=[])

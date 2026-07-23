@@ -20,7 +20,7 @@ Backfill contains no SSI fetch, mapping, validation, persistence, feature, signa
 Both endpoints are required and inclusive:
 
 ```bash
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from-date DD/MM/YYYY --to-date DD/MM/YYYY
 ```
 
@@ -52,9 +52,9 @@ Exit codes are `0` for `OK` or `PARTIAL`, `1` for `FAILED` or an unhandled runti
 
 ## Compatibility and limitations
 
-`src.pipeline.backfill.backfill(...)` remains as a deprecated wrapper. It accepts legacy ISO dates for import compatibility, converts them, and delegates to `run_backfill_pipeline()`; symbol-scoped and future-date overrides are rejected because EOD does not support those contracts. `scripts/backfill_sample.py` is also deprecated and delegates to the production pipeline.
+`src.pipeline.backfill.backfill(...)` remains as a deprecated wrapper. It accepts legacy ISO dates and optional symbol scope for import compatibility, converts dates, and delegates to `run_backfill_pipeline()`; future-date overrides remain rejected. `scripts/backfill_sample.py` is also deprecated and delegates to the production pipeline.
 
-Backfill skips only weekends, not exchange holidays. It does not provide `--symbols`, parallel execution, automatic retry beyond the bounded existing SSI/database client behavior, automatic feature computation, or a transaction spanning multiple dates. A date-level failure may leave the same partial writes as an interrupted EOD run; inspect the retained summary and rerun safely.
+Backfill skips only weekends, not exchange holidays. It does not provide parallel execution, automatic retry beyond the bounded existing SSI/database client behavior, automatic feature computation, or a transaction spanning multiple dates. A date-level failure may leave the same partial writes as an interrupted EOD run; inspect the retained summary and rerun safely.
 
 ## Tests
 
@@ -64,3 +64,7 @@ python -m pytest -q tests/cli/test_cli_refactor.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
 python -m pytest -q
 ```
+
+## Symbol scope
+
+Use `--symbols SSI HPG` to apply one normalized explicit stock scope to every EOD date. Values are stripped, uppercased, and deduplicated in first-seen order; the option requires at least one value. Omission retains the existing all-master-symbol behavior. EOD applies the scope consistently to daily stock ingest, intraday ingest, and stock completeness, while daily index context remains independent. Summary fields expose `symbol_scope`, `requested_symbols`, `symbols`, and `symbol_count`.

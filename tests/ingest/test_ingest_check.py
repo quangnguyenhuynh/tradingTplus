@@ -32,6 +32,10 @@ class _Query:
         self.filters.append(("lt", key, value))
         return self
 
+    def in_(self, key, value):
+        self.filters.append(("in", key, tuple(value)))
+        return self
+
     def order(self, *_args, **_kwargs):
         return self
 
@@ -43,10 +47,17 @@ class _Query:
 
     def execute(self):
         self.db.executed.append((self.table, tuple(self.filters), self.select_args))
+        symbol_filter = next((set(values) for kind, key, values in self.filters if kind == "in" and key == "symbol"), None)
         if self.table == "stock_daily":
-            return _Result(data=[{"symbol": "SSI"}], count=1)
+            rows = self.db.daily_rows
+            if symbol_filter is not None:
+                rows = [row for row in rows if row["symbol"] in symbol_filter]
+            return _Result(data=rows, count=len(rows))
         if self.table == "stock_intraday":
-            return _Result(data=self.db.intraday_rows, count=len(self.db.intraday_rows))
+            rows = self.db.intraday_rows
+            if symbol_filter is not None:
+                rows = [row for row in rows if row["symbol"] in symbol_filter]
+            return _Result(data=rows, count=len(rows))
         if self.table == "orderbook_snapshot":
             return _Result(count=2)
         return _Result(count=0)
@@ -61,16 +72,18 @@ class _Client:
 
 
 class _DB:
-    def __init__(self, intraday_rows=None):
+    def __init__(self, intraday_rows=None, daily_rows=None, symbols=None):
         self.client = _Client(self)
         self.executed = []
         self.intraday_rows = intraday_rows or []
+        self.daily_rows = daily_rows if daily_rows is not None else [{"symbol": "SSI"}]
+        self.symbols = symbols or ["SSI"]
 
     def _with_retry(self, action, action_name, **_kwargs):
         return action()
 
     def get_symbols(self):
-        return ["SSI"]
+        return self.symbols
 
 
 def test_check_ingest_counts_orderbook_snapshots_in_vietnam_date_range(monkeypatch):
@@ -207,3 +220,29 @@ def test_completeness_duplicate_detection_is_unchanged():
 
     assert summary["duplicate_count"] == 1
     assert summary["status"] == "WARNING"
+
+
+def test_scoped_completeness_excludes_unrequested_symbols_and_keeps_index_market_level(monkeypatch):
+    times = _ssi_style_day_times()
+    rows = _intraday_rows(times) + [
+        {"symbol": "FPT", "time": value, "timeframe": "1m"} for value in times
+    ]
+    db = _DB(rows, daily_rows=[{"symbol": "SSI"}, {"symbol": "FPT"}], symbols=["SSI", "HPG", "FPT"])
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)
+
+    summary = ingest_check.check_ingest("20/07/2026", symbols=["ssi"])
+
+    assert summary["symbol_scope"] == "EXPLICIT"
+    assert summary["symbols"] == ["SSI"]
+    assert summary["symbol_count"] == 1
+    assert summary["stock_daily_count"] == 1
+    assert summary["stock_intraday_count"] == len(times)
+    assert summary["intraday_symbol_count"] == 1
+    assert summary["missing_stock_daily_symbols"] == []
+    assert summary["missing_intraday_symbols"] == []
+    assert [row["symbol"] for row in summary["per_symbol"]] == ["SSI"]
+    assert summary["index_daily_count"] == 0
+    scoped_queries = [entry for entry in db.executed if entry[0] in {"stock_daily", "stock_intraday"}]
+    assert all(("in", "symbol", ("SSI",)) in entry[1] for entry in scoped_queries)
+    index_query = next(entry for entry in db.executed if entry[0] == "index_daily")
+    assert not any(item[0] == "in" for item in index_query[1])

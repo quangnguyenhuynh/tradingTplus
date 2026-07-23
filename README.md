@@ -93,10 +93,10 @@ Never commit real credentials, access tokens, or `.env` contents.
 ```bash
 python main.py sync-master-data
 python main.py init
-python main.py daily [DD/MM/YYYY]
+python main.py daily [DD/MM/YYYY] --symbols SSI HPG
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
-python main.py eod [DD/MM/YYYY]
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py eod [DD/MM/YYYY] --symbols SSI HPG
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 python main.py streaming-ingest --symbols SSI --channels quote --timeout 60 --max-messages-per-channel 1
@@ -138,3 +138,7 @@ Schema changes require a migration in [`migrations/`](migrations/README.md). App
 ## Project status
 
 Signal and backtest code exists as research/MVP code but is not treated as validated product logic in Phase 0. Do not infer profitability, win rate, or production readiness from unverified data or historical documentation.
+
+### Stock symbol scope for source ingest
+
+`daily`, `intraday-ingest`, `eod`, and `backfill` accept `--symbols` with one or more values. Omission uses all symbols from the existing master source. Explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope is invalid. Daily stock scope does not disable index synchronization or daily index ingest. EOD passes one scope to daily, intraday, and stock completeness; backfill reuses it for every date. Index and other market-context observability counts remain date-level. The legacy `intraday` command remains a feature alias, not candle ingest. No source ingest command automatically runs features, signals, or backtests.
