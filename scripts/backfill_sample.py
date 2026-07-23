@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-"""Explicit, guarded sample backfill runner.
+"""Deprecated wrapper for the production full-market EOD-style backfill.
 
-This script writes to Supabase via the production backfill pipeline. It no longer
-contains hardcoded symbol/date defaults; pass all targets explicitly.
+Prefer:
+    python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -14,34 +15,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.pipeline.backfill import backfill
-from src.pipeline.date_utils import parse_iso_date, validate_not_future
+from src.pipeline.backfill import run_backfill_pipeline
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a small explicit backfill sample. Writes to Supabase.")
-    parser.add_argument("--from-date", required=True, help="Inclusive start date YYYY-MM-DD")
-    parser.add_argument("--to-date", required=True, help="Inclusive end date YYYY-MM-DD")
-    parser.add_argument("--symbols", nargs="+", required=True, help="Symbols to backfill, e.g. SSI FPT")
-    parser.add_argument("--force", action="store_true", help="Allow future dates after printing warning")
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Deprecated wrapper for the production EOD-style backfill. Writes to Supabase."
+    )
+    parser.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date DD/MM/YYYY")
+    parser.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date DD/MM/YYYY")
     args = parser.parse_args()
 
-    start = parse_iso_date(args.from_date)
-    end = parse_iso_date(args.to_date)
-    if start.date > end.date:
-        raise SystemExit("❌ --from-date must be <= --to-date")
-    if not args.force:
-        validate_not_future(start)
-        validate_not_future(end)
-
-    symbols = [symbol.upper() for symbol in args.symbols]
-    print("⚠️ BACKFILL SAMPLE WRITE CONFIRMATION")
-    print(f"   from_date: {start.iso}")
-    print(f"   to_date  : {end.iso}")
-    print(f"   symbols  : {', '.join(symbols)}")
-    print("   No hardcoded/default test date will be used.")
-    backfill(start.iso, end.iso, symbols, allow_future=args.force)
+    print("⚠️ scripts/backfill_sample.py is deprecated; prefer `python main.py backfill ...`.")
+    summary = run_backfill_pipeline(args.from_date, args.to_date)
+    print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    return 1 if summary.get("status") == "FAILED" else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
