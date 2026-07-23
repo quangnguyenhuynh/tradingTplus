@@ -12,6 +12,7 @@ Repository hiện ở **Phase 0: xây dựng và kiểm chứng dữ liệu**. �
 - Trạng thái repository: [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
 - Quyết định kiến trúc: [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
 - Hướng dẫn CLI: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
+- Backfill: [docs/backfill/README.vi.md](docs/backfill/README.vi.md)
 - Ghi chú database: [docs_db_schema.md](docs_db_schema.md)
 
 Khi tài liệu cũ mâu thuẫn với hành vi thực thi, code, schema, migration và test hiện tại là nguồn sự thật.
@@ -65,7 +66,7 @@ Các hợp đồng bắt buộc:
 
 Mỗi folder tracked có cặp tài liệu `README.md` tiếng Anh và `README.vi.md` tiếng Việt.
 
-Daily và intraday REST ingest đều có module riêng theo tầng `fetcher -> mapper -> tích hợp validator -> persistence -> service`. `daily.py` và `intraday_ingest.py` là hai batch orchestrator độc lập; `eod.py` chỉ chạy tuần tự hai pipeline rồi kiểm tra completeness. `fetch_one_day.py` legacy là compatibility wrapper mỏng, không phải implementation thứ hai. Xem [hướng dẫn module pipeline](src/pipeline/README.vi.md) để biết đầy đủ cây thư mục, ownership, retry và thứ tự chạy.
+Daily và intraday REST ingest đều có module riêng theo tầng `fetcher -> mapper -> tích hợp validator -> persistence -> service`. `daily.py` và `intraday_ingest.py` là hai batch orchestrator độc lập; `eod.py` chỉ chạy tuần tự hai pipeline rồi kiểm tra completeness. `backfill.py` dùng lại đúng contract EOD đó cho từng ngày trong tuần thuộc khoảng lịch sử explicit. `fetch_one_day.py` legacy là compatibility wrapper mỏng, không phải implementation thứ hai. Xem [hướng dẫn module pipeline](src/pipeline/README.vi.md) để biết đầy đủ cây thư mục, ownership, retry và thứ tự chạy.
 
 ## Cài đặt
 
@@ -95,6 +96,7 @@ python main.py init
 python main.py daily [DD/MM/YYYY]
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
 python main.py eod [DD/MM/YYYY]
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 python main.py streaming-ingest --symbols SSI --channels quote --timeout 60 --max-messages-per-channel 1
@@ -105,6 +107,7 @@ Hành vi hiện tại:
 - `daily`: chỉ ingest daily SSI; không ingest intraday hoặc tính feature.
 - `intraday-ingest`: ghi `IntradayOhlc` resolution 1 vào raw/clean intraday.
 - `eod`: daily ingest → intraday ingest → completeness validation.
+- `backfill`: lặp lại đúng contract EOD ingest/check cho từng ngày trong tuần thuộc khoảng explicit bao gồm ngày đầu/cuối; bỏ weekend và không chạy feature.
 - `features`: feature pipeline riêng, hỗ trợ chạy lại.
 - `intraday`: alias legacy tính intraday feature; không lấy candle mới.
 - `streaming-ingest`: chạy giới hạn và read-only nếu không có `--write`.
@@ -116,7 +119,7 @@ Bắt đầu từ [scripts/README.vi.md](scripts/README.vi.md). Hai SSI inspecto
 - [scripts/ssi_api_inspector/README.vi.md](scripts/ssi_api_inspector/README.vi.md)
 - [scripts/ssi_streaming_inspector/README.vi.md](scripts/ssi_streaming_inspector/README.vi.md)
 
-Tool debug/inspection phải ưu tiên read-only hoặc dry-run. Mọi thao tác ghi/xoá phải có phạm vi symbol/date rõ ràng.
+Tool debug/inspection phải ưu tiên read-only hoặc dry-run. Mọi thao tác ghi/xoá phải có phạm vi rõ ràng để kiểm tra; backfill toàn thị trường bắt buộc truyền khoảng ngày explicit.
 
 ## Test
 
