@@ -56,9 +56,13 @@ def run_daily_ingest(
             summary = fetch_daily_for_symbol_with_clients(ssi, db, symbol, date)
             total_daily_rows += int(summary.get('daily_rows') or 0)
             if summary.get('status') == 'FAILED':
-                errors.append({'symbol': symbol, 'error': '; '.join(summary.get('errors') or ['daily ingest failed'])})
+                errors.append({
+                    'symbol': symbol,
+                    'failure_type': summary.get('failure_type') or 'API_ERROR',
+                    'error': '; '.join(summary.get('errors') or ['daily ingest failed']),
+                })
         except Exception as e:
-            errors.append({'symbol': symbol, 'error': str(e)})
+            errors.append({'symbol': symbol, 'failure_type': 'API_ERROR', 'error': str(e)})
             print(f"    ❌ {symbol}: {e}")
 
     index_count = fetch_daily_indexes(date, ssi=ssi, db=db)

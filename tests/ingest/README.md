@@ -9,6 +9,8 @@ Tests for SSI daily/intraday normalization and ingest orchestration.
 - `test_daily_ingest_payload_reuse.py`: one `DailyStockPrice` payload reused for raw, clean, and foreign records.
 - `test_intraday_ingest_pipeline.py`: symbol scope, daily context, and partial status.
 - `test_ingest_check.py`: completeness-query date ranges and counts.
+- `test_ssi_api_contract.py`: endpoint page-size contract, bounded retry, response
+  envelope validation, empty-response handling, and daily symbol/date mismatch.
 
 ```bash
 python -m pytest -q tests/ingest

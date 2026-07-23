@@ -59,3 +59,28 @@ def test_intraday_explicit_empty_scope_is_invalid(monkeypatch):
     import pytest
     with pytest.raises(ValueError):
         intraday_ingest.run_intraday_ingest('10/07/2026', symbols=[])
+
+
+def test_intraday_batch_summary_keeps_failure_type(monkeypatch):
+    db = _DB()
+    monkeypatch.setattr(intraday_ingest, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_ingest, 'SSIApi', lambda: object())
+
+    def fake_fetch(*_args, **_kwargs):
+        return {
+            'status': 'FAILED',
+            'candles_received': 0,
+            'candles_valid': 0,
+            'candles_rejected': 0,
+            'failure_type': 'API_ERROR',
+            'errors': ['rate limited'],
+        }
+
+    monkeypatch.setattr(intraday_ingest, 'fetch_intraday_for_symbol_with_clients', fake_fetch)
+
+    summary = intraday_ingest.run_intraday_ingest('10/07/2026', symbols=['SSI'])
+
+    assert summary['status'] == 'FAILED'
+    assert summary['errors'] == [
+        {'symbol': 'SSI', 'failure_type': 'API_ERROR', 'error': 'rate limited'}
+    ]

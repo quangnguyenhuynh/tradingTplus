@@ -6,7 +6,12 @@ from src.database.client import SupabaseClient
 from src.pipeline.daily_fetcher import fetch_daily_price
 from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
 from src.pipeline.daily_persistence import persist_raw_daily, persist_stock_daily
-from src.ssi.api import SSIApi
+from src.ssi.api import (
+    SSIApi,
+    SSIDataMismatchError,
+    SSIEmptyResponseError,
+    SSIResponseError,
+)
 from src.validation.daily_validator import validate_daily_record
 from src.validation.logging_utils import log_validation_result
 
@@ -15,11 +20,31 @@ logger = logging.getLogger(__name__)
 
 def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol: str, date: str) -> dict[str, Any]:
     summary: dict[str, Any] = {"symbol": symbol, "date": date, "daily_valid": False, "daily_rows": 0, "daily_errors": 0, "daily_warnings": 0, "status": "FAILED", "errors": []}
-    daily = fetch_daily_price(ssi, symbol, date)
+    try:
+        daily = fetch_daily_price(ssi, symbol, date)
+    except SSIDataMismatchError as exc:
+        message = f"{symbol} {date}: MISMATCH: {exc}"
+        logger.error(message)
+        summary["errors"].append(message)
+        summary["failure_type"] = "MISMATCH"
+        return summary
+    except SSIEmptyResponseError as exc:
+        message = f"{symbol} {date}: EMPTY_RESPONSE: {exc}"
+        logger.error(message)
+        summary["errors"].append(message)
+        summary["failure_type"] = "EMPTY_RESPONSE"
+        return summary
+    except (SSIResponseError, ValueError, OSError) as exc:
+        message = f"{symbol} {date}: API_ERROR: {exc}"
+        logger.error(message)
+        summary["errors"].append(message)
+        summary["failure_type"] = "API_ERROR"
+        return summary
     if not daily:
-        message = f"{symbol}: không có dữ liệu ngày {date}"
+        message = f"{symbol} {date}: NO_DATA: SSI trả thành công nhưng không có bản ghi"
         logger.warning(message)
         summary["errors"].append(message)
+        summary["failure_type"] = "NO_DATA"
         return summary
     summary["daily_payload"] = daily
     persist_raw_daily(db, build_raw_daily_record(symbol, date, daily))

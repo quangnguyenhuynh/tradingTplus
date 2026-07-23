@@ -56,9 +56,13 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
             for key in totals:
                 totals[key] += int(summary.get(key) or 0)
             if summary.get('status') == 'FAILED':
-                errors.append({'symbol': symbol, 'error': '; '.join(summary.get('errors') or summary.get('warnings') or ['intraday ingest failed'])})
+                errors.append({
+                    'symbol': symbol,
+                    'failure_type': summary.get('failure_type') or 'API_ERROR',
+                    'error': '; '.join(summary.get('errors') or summary.get('warnings') or ['intraday ingest failed']),
+                })
         except Exception as exc:
-            errors.append({'symbol': symbol, 'error': str(exc)})
+            errors.append({'symbol': symbol, 'failure_type': 'API_ERROR', 'error': str(exc)})
             print(f"    ❌ {symbol}: {exc}")
     status = 'OK' if not errors else 'FAILED' if len(errors) >= len(active_symbols) else 'PARTIAL'
     if status == 'OK' and daily_context_missing:

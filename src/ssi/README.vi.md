@@ -20,6 +20,8 @@ Client cho SSI FastConnect Data REST và classic ASP.NET SignalR streaming.
 Project dùng các endpoint SSI có tài liệu như `AccessToken`, `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, `DailyStockPrice` ở nơi đã implement.
 
 - `DailyStockPrice` là nguồn daily chuẩn.
+- `DailyStockPrice` dùng mức tối đa đúng tài liệu là `PageSize=100`; các endpoint
+  khác giữ giới hạn riêng theo tài liệu, không dùng chung một page size toàn cục.
 - `DailyOhlc` chỉ để đối chiếu.
 - `IntradayOhlc` dùng resolution 1 cho dữ liệu intraday lưu DB.
 - Foreign trading derive từ field daily-stock-price.
@@ -29,8 +31,11 @@ Project dùng các endpoint SSI có tài liệu như `AccessToken`, `Securities`
 
 - Lấy credential từ cấu hình môi trường.
 - Không log consumer secret, bearer token hoặc authorization header.
-- Retry authentication theo chính sách có giới hạn.
+- Retry authentication, lỗi mạng tạm thời, HTTP 429/5xx và first page rỗng bất
+  thường theo chính sách có giới hạn.
 - Xử lý rõ response rỗng, sai hoặc đổi envelope.
+- Phân biệt response thành công có 0 bản ghi với lỗi API, `totalRecord` không nhất
+  quán và dữ liệu sai symbol/ngày.
 - Không tạo dòng giả khi SSI không trả dữ liệu.
 - Tool streaming phải có symbol/channel rõ ràng, timeout/số message giới hạn và mặc định read-only.
 

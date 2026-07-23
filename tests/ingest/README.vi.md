@@ -9,6 +9,8 @@ Test việc chuẩn hóa dữ liệu SSI daily/intraday và điều phối inges
 - `test_daily_ingest_payload_reuse.py`: tái sử dụng một payload `DailyStockPrice` cho raw, clean và foreign.
 - `test_intraday_ingest_pipeline.py`: phạm vi symbol, daily context và trạng thái partial.
 - `test_ingest_check.py`: khoảng ngày và số lượng trong truy vấn completeness.
+- `test_ssi_api_contract.py`: page size đúng contract endpoint, retry có giới hạn,
+  kiểm tra response envelope, xử lý response rỗng và mismatch symbol/ngày daily.
 
 ```bash
 python -m pytest -q tests/ingest

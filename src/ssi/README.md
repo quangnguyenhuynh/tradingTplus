@@ -20,6 +20,8 @@ Clients for SSI FastConnect Data REST and classic ASP.NET SignalR streaming.
 The project uses documented SSI endpoints such as `AccessToken`, `Securities`, `SecuritiesDetails`, `IndexComponents`, `IndexList`, `DailyOhlc`, `IntradayOhlc`, `DailyIndex`, and `DailyStockPrice` where implemented.
 
 - `DailyStockPrice` is the canonical daily source.
+- `DailyStockPrice` uses the documented maximum `PageSize=100`; other endpoints keep
+  their own documented limits instead of sharing one global page size.
 - `DailyOhlc` is for cross-checking.
 - `IntradayOhlc` is requested at resolution 1 for persisted intraday data.
 - Foreign trading is derived from daily-stock-price fields.
@@ -29,8 +31,11 @@ The project uses documented SSI endpoints such as `AccessToken`, `Securities`, `
 
 - Read credentials from environment configuration.
 - Never log consumer secrets, bearer tokens, or authorization headers.
-- Retry authentication only with a bounded policy.
+- Retry authentication, transient network failures, HTTP 429/5xx, and anomalous
+  empty first pages only with bounded policies.
 - Handle empty, invalid, and changed response envelopes explicitly.
+- Keep successful zero-record responses distinct from API errors, inconsistent
+  `totalRecord` responses, and symbol/date mismatches.
 - Do not fabricate rows when SSI returns no data.
 - Streaming tools must use explicit symbols/channels, bounded timeout/message counts, and read-only defaults.
 
