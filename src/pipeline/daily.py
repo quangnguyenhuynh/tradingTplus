@@ -51,14 +51,18 @@ def run_daily_ingest(
     sync_index_components(None, ssi=ssi, db=db)
     total_daily_rows = 0
     errors: list[dict[str, Any]] = []
+    error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}
     for symbol in active_symbols:
         try:
             summary = fetch_daily_for_symbol_with_clients(ssi, db, symbol, date)
             total_daily_rows += int(summary.get('daily_rows') or 0)
             if summary.get('status') == 'FAILED':
-                errors.append({'symbol': symbol, 'error': '; '.join(summary.get('errors') or ['daily ingest failed'])})
+                error_type = summary.get('error_type') or 'API_ERROR'
+                error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+                errors.append({'symbol': symbol, 'error_type': error_type, 'error': '; '.join(summary.get('errors') or ['daily ingest failed'])})
         except Exception as e:
-            errors.append({'symbol': symbol, 'error': str(e)})
+            error_type_counts['API_ERROR'] += 1
+            errors.append({'symbol': symbol, 'error_type': 'API_ERROR', 'error': str(e)})
             print(f"    ❌ {symbol}: {e}")
 
     index_count = fetch_daily_indexes(date, ssi=ssi, db=db)
@@ -76,6 +80,7 @@ def run_daily_ingest(
         'total_foreign': 0,
         'index_daily_count': index_count,
         'error_count': len(errors),
+        'error_type_counts': error_type_counts,
         'errors': errors,
         'status': status,
     }
