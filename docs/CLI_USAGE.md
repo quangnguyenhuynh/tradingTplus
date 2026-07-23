@@ -18,6 +18,8 @@ Required variables used by production flows include `SUPABASE_URL`, `SUPABASE_SE
 
 ## Recommended operating order
 
+For a normal EOD date:
+
 ```text
 sync-master-data
 → daily
@@ -25,6 +27,8 @@ sync-master-data
 → check/completeness or eod orchestration
 → features chạy riêng
 ```
+
+For an explicit historical range, use `backfill` instead of manually repeating `eod`, then inspect source data before running features separately.
 
 ## Quick distinction
 
@@ -34,6 +38,7 @@ sync-master-data
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
+| `backfill` | Run the EOD ingest/check contract for each weekday in a range | Daily then intraday per date | Same as repeated `eod` | symbol scope, future dates, features, signals, backtests |
 | `features` | Explicit deterministic feature pipeline | No | `features` | source ingest, signals, backtests |
 
 ## `sync-master-data`
@@ -171,6 +176,51 @@ python main.py eod 10/07/2026
 Public function: `src.pipeline.eod.run_eod_pipeline(date: str | None = None, *, timeframes=None, symbols=None) -> dict`.
 
 Summary fields include `daily_summary`, `intraday_summary`, `ingest_summary`, final `status`, `failures`, and `warnings`.
+
+## `backfill`
+
+Syntax:
+
+```bash
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+```
+
+Aliases:
+
+- `--from-date` for `--from`
+- `--to-date` for `--to`
+
+Behavior:
+
+1. Validate the inclusive date range.
+2. Reject future dates and ranges where `from > to`.
+3. Skip Saturdays and Sundays.
+4. Call the existing `run_eod_pipeline()` once for each remaining date.
+5. Keep the unchanged EOD summary for every processed date.
+6. Return range-level `OK`, `PARTIAL`, or `FAILED` counts and final status.
+
+A weekday is only a calendar candidate. Backfill does not create rows for exchange holidays or empty SSI responses; the delegated EOD run reports the actual result.
+
+Current scope is the same full active-symbol universe used by EOD. The production command intentionally has no `--symbols` option while EOD remains full-universe.
+
+Reads/writes: exactly the same paths as repeated `eod` runs for the requested dates.
+
+Does not: calculate features, generate signals, run backtests, accept future dates, or silently fabricate missing data.
+
+Example:
+
+```bash
+python main.py backfill --from 01/07/2026 --to 10/07/2026
+```
+
+Public function: `src.pipeline.backfill.run_backfill_pipeline(from_date: str, to_date: str) -> dict`.
+
+Summary fields include `from_date`, `to_date`, `requested_calendar_days`, `processed_days`, skipped weekend dates, `ok_days`, `partial_days`, `failed_days`, `errors`, `day_summaries`, and final `status`.
+
+Detailed documentation:
+
+- English: [`docs/backfill/README.md`](backfill/README.md)
+- Tiếng Việt: [`docs/backfill/README.vi.md`](backfill/README.vi.md)
 
 ## `features`
 
