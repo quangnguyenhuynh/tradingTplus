@@ -23,7 +23,7 @@ src/pipeline/
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
 ├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
-├── backfill.py               # compatibility flow lịch sử có scope
+├── backfill.py               # khoảng ngày thường -> orchestration EOD hiện có
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
@@ -74,6 +74,10 @@ daily ingest -> intraday ingest -> kiểm tra completeness -> OK/PARTIAL/FAILED
 
 EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không chạy signal và không chạy backtest.
 
+## Trình tự backfill
+
+`run_backfill_pipeline(from_date, to_date)` parse khoảng `DD/MM/YYYY` bao gồm hai đầu, bỏ qua và báo cáo cuối tuần, rồi gọi `run_eod_pipeline()` đúng một lần cho mỗi ngày thường ứng viên. Hàm giữ mọi summary EOD, ghi exception tại biên ngày, tiếp tục ngày sau và tổng hợp `OK`/`PARTIAL`/`FAILED` theo quy tắc xác định. Hàm không trực tiếp fetch, map, validate, persist hay gọi engine downstream. Xem [`docs/backfill/README.vi.md`](../../docs/backfill/README.vi.md).
+
 ## Raw, clean, validation và persistence
 
 | Dataset | Tạo record | Tích hợp validation | Ghi dữ liệu |
@@ -86,6 +90,8 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 ## Compatibility wrapper
 
 `fetch_one_day.py` được giữ làm compatibility module mỏng cho import cũ và script có scope rõ. File re-export helper fetcher/mapper legacy và compose daily/intraday service public; không còn implementation mapping, validation hay persistence trùng lặp. Code mới phải import module theo tầng tương ứng.
+
+Import legacy `backfill(...)` đã deprecated và delegate sang `run_backfill_pipeline()`; override symbol/future legacy không được hỗ trợ và sẽ bị từ chối.
 
 ## Error và retry
 
@@ -104,6 +110,7 @@ python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
 python -m pytest -q tests/validation/test_intraday_validator.py
 python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
+python -m pytest -q tests/pipeline/test_backfill_pipeline.py
 python -m pytest -q
 ```
 

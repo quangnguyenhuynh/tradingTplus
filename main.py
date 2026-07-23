@@ -7,6 +7,7 @@ Production commands:
   python main.py daily [DD/MM/YYYY]
   python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
   python main.py eod [DD/MM/YYYY]
+  python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 1m 5m 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 1m 5m 15m]
   python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
@@ -20,7 +21,7 @@ import json
 import sys
 from typing import Any
 
-from src.pipeline import init_symbols, daily_run, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
+from src.pipeline import init_symbols, daily_run, run_backfill_pipeline, run_eod_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
 from src.engine.feature_engine import run_feature_engine_with_summary
 
 
@@ -49,6 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     eod = sub.add_parser("eod", help="EOD orchestrator: daily ingest + intraday ingest + completeness validation only; no features")
     eod.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
+
+    backfill = sub.add_parser("backfill", help="Inclusive EOD source-data backfill; no features/signals/backtests")
+    backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date DD/MM/YYYY")
+    backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date DD/MM/YYYY")
 
     features = sub.add_parser("features", help="Explicit feature pipeline; supports target date reruns/backfills")
     features.add_argument("--mode", choices=["incremental", "full"], default="incremental")
@@ -94,6 +99,10 @@ def main(argv: list[str] | None = None) -> int:
             return _status_to_exit(summary)
         if args.command == "eod":
             summary = run_eod_pipeline(args.date)
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "backfill":
+            summary = run_backfill_pipeline(args.from_date, args.to_date)
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features":

@@ -12,6 +12,7 @@ The repository is currently in **Phase 0: data foundation and validation**. Data
 - Current repository state: [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
 - Architecture decisions: [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
 - CLI reference: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
+- Production backfill: [docs/backfill/README.md](docs/backfill/README.md)
 - Database notes: [docs_db_schema.md](docs_db_schema.md)
 
 Repository code, schema, migrations, and tests are the source of truth when an older document conflicts with executable behavior.
@@ -95,6 +96,7 @@ python main.py init
 python main.py daily [DD/MM/YYYY]
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
 python main.py eod [DD/MM/YYYY]
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 python main.py streaming-ingest --symbols SSI --channels quote --timeout 60 --max-messages-per-channel 1
@@ -105,6 +107,7 @@ Current behavior:
 - `daily`: daily SSI ingest only; no intraday candles or features.
 - `intraday-ingest`: SSI `IntradayOhlc` resolution 1 into raw/clean intraday only.
 - `eod`: daily ingest → intraday ingest → completeness validation.
+- `backfill`: inclusive weekday-by-weekday delegation to `eod`; weekends are reported and downstream features never run automatically.
 - `features`: explicit rerunnable feature pipeline.
 - `intraday`: legacy intraday-feature alias; it does not fetch candles.
 - `streaming-ingest`: bounded and read-only unless `--write` is supplied.
