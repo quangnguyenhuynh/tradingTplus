@@ -30,11 +30,11 @@ sync-master-data
 
 | Command | Purpose | SSI ingest? | Tables written | Does not do |
 | --- | --- | --- | --- | --- |
-| `daily` | Daily source ingest | `DailyStockPrice`, `DailyIndex` | `raw_daily`, `stock_daily`, `index_daily` | `foreign_trading`, intraday candles, features, signals, backtests |
+| `daily` | Stock daily source ingest | `DailyStockPrice` | `raw_daily`, `stock_daily` | market indexes, intraday candles, features, signals, backtests |
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
-| `backfill-daily` | Inclusive daily-only historical ingest | Once per weekday | Daily source/index tables | intraday, completeness, features, signals, backtests |
+| `backfill-daily` | Inclusive stock-daily historical ingest | `DailyStockPrice` per weekday | `raw_daily`, `stock_daily` | market indexes, intraday, completeness, features, signals, backtests |
 | `backfill-intraday` | Inclusive 1m intraday historical ingest | Once per weekday | Intraday raw/clean tables | daily, completeness, features, signals, backtests |
 | `backfill` | Daily range then intraday range and completeness | Branches then per-date checks | Both source-data layers | features, signals, backtests |
 | `features` | Explicit deterministic feature pipeline | No | `features` | source ingest, signals, backtests |
@@ -85,11 +85,11 @@ Positional parameters:
 
 Default behavior: all active symbols from `symbols` are processed.
 
-Reads DB: `symbols` when `--symbols` is omitted. Reads SSI: `DailyStockPrice` (including daily foreign and room fields) and `DailyIndex` only.
+Reads DB: `symbols` when `--symbols` is omitted. Reads SSI: `DailyStockPrice` only (including daily foreign and room fields).
 
-Writes: `raw_daily`, canonical `stock_daily` (including daily foreign and room fields), and `index_daily`. It does not synchronize or write `indexes`/`index_components`; normal daily ingest also does not write the legacy `foreign_trading` table.
+Writes: `raw_daily` and canonical `stock_daily` (including daily foreign and room fields). It does not call `DailyIndex`, `IndexList`, or `IndexComponents`; does not write `index_daily`, `indexes`, or `index_components`; and does not write the legacy `foreign_trading` table.
 
-Does not: call SSI `IntradayOhlc`, write `raw_intraday`/`stock_intraday`, calculate features, generate signals, or run backtests.
+Does not: call SSI `DailyIndex`, `IndexList`, `IndexComponents`, or `IntradayOhlc`; write market-index or intraday tables; calculate features; generate signals; or run backtests.
 
 Examples:
 
@@ -100,7 +100,7 @@ python main.py daily 10/07/2026 --symbols SSI HPG
 
 Public function: `src.pipeline.daily.run_daily_ingest(date: str | None = None, symbols: list[str] | tuple[str, ...] | None = None) -> dict`.
 
-Summary fields include `date`, `symbol_count`, `daily_valid_count`, `total_daily_rows`, `total_foreign`, `index_daily_count`, `errors`, and `status`. `total_foreign` is retained temporarily for compatibility and is always `0`; `total_candles` is also a deprecated compatibility key and is always `0` for daily-only ingest.
+Summary fields include `date`, `symbol_count`, `daily_valid_count`, `total_daily_rows`, `total_foreign`, `index_daily_count`, `errors`, and `status`. `total_foreign` is retained temporarily for compatibility and is always `0`; `total_candles` and `index_daily_count` are also deprecated compatibility keys and are always `0`; none is populated by a DB query.
 
 ## `intraday-ingest`
 
@@ -161,7 +161,7 @@ ingest completeness check
 OK / PARTIAL / FAILED
 ```
 
-Reads/writes: same as `daily` plus `intraday-ingest`; completeness reads canonical `stock_daily`, `stock_intraday`, `index_daily`, the legacy `foreign_trading` table, and related snapshot tables for counts. The legacy count is observability-only and is not a daily ingest write.
+Reads/writes: stock-only `daily` plus stock-only `intraday-ingest`; completeness evaluates canonical `stock_daily` and `stock_intraday`. The deprecated `index_daily_count` is static `0` and completeness never queries `index_daily`.
 
 Does not: calculate features, generate signals, or run backtests.
 
@@ -187,7 +187,7 @@ python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 
 All accept `--from-date`/`--to-date` aliases. Dates use `DD/MM/YYYY`; both endpoints are inclusive. Future/reversed ranges are rejected, weekends are skipped and reported, and a weekend-only range is an `OK` no-op. Weekday holidays are not guessed, so SSI empty responses remain observable.
 
-`backfill-daily` calls only daily ingest per eligible date, retaining `DailyIndex`/`index_daily` behavior without synchronizing index master data per date. `backfill-intraday` calls only 1m intraday ingest and uses existing daily context if available; missing context remains `PARTIAL` and does not trigger daily ingest. Combined `backfill` runs the complete daily branch before the complete intraday branch, then checks scoped completeness for every eligible date. It retains both branch summaries and EOD-compatible combined day summaries; it no longer calls EOD directly.
+`backfill-daily` calls only stock daily ingest (`DailyStockPrice`) per eligible date and never calls or writes market-index data. `backfill-intraday` calls only 1m intraday ingest and uses existing daily context if available; missing context remains `PARTIAL` and does not trigger daily ingest. Combined `backfill` runs the complete daily branch before the complete intraday branch, then checks scoped completeness for every eligible date. It retains both branch summaries and EOD-compatible combined day summaries; it no longer calls EOD directly.
 
 None of these commands runs features, signals, or backtests. Exceptions are recorded by date and later dates continue. No backfill runs automatically after deployment.
 
@@ -244,4 +244,4 @@ Public function: `src.pipeline.intraday.run_intraday_pipeline(snapshot_time: str
 
 `daily`, `intraday-ingest`, `eod`, `backfill-daily`, `backfill-intraday`, and `backfill` use `--symbols` with `nargs="+"`; the flag therefore requires at least one value. Explicit values are stripped, uppercased, deduplicated, and retain first-seen order. Omitting the option uses every symbol returned by the existing master-symbol source; an explicit empty or blank-only programmatic scope raises `ValueError` rather than falling back to all symbols. Explicit symbols are not silently dropped against an invented active/inactive rule; existing per-symbol SSI/service results report unavailable symbols.
 
-The scope limits stock ingest only. Daily index ingest still runs once; index master synchronization does not run. EOD passes the same scope to daily, intraday ingest, and completeness. Scoped completeness filters `stock_daily` and `stock_intraday` and evaluates only requested symbols; `index_daily_count`, legacy `foreign_trading_count`, and `orderbook_snapshot_count` remain date-level market-context observations. All backfill branches reuse one normalized explicit list for every date; combined backfill passes it to both branches and completeness. None of these commands runs features, signals, or backtests. The legacy `intraday` command is a feature alias and is not production candle ingest.
+The scope limits stock ingest. Market-index ingest never runs; index master synchronization remains exclusive to `sync-master-data` / `init`. EOD passes the same scope to daily, intraday ingest, and stock-only completeness. Scoped completeness filters `stock_daily` and `stock_intraday`; deprecated `index_daily_count` is a static `0` and never triggers a DB query. All backfill branches reuse one normalized explicit list for every date; combined backfill passes it to both branches and completeness. None of these commands runs features, signals, or backtests. The legacy `intraday` command is a feature alias and is not production candle ingest.

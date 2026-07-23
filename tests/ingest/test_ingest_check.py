@@ -222,7 +222,7 @@ def test_completeness_duplicate_detection_is_unchanged():
     assert summary["status"] == "WARNING"
 
 
-def test_scoped_completeness_excludes_unrequested_symbols_and_keeps_index_market_level(monkeypatch):
+def test_scoped_completeness_excludes_unrequested_symbols_and_never_queries_index(monkeypatch):
     times = _ssi_style_day_times()
     rows = _intraday_rows(times) + [
         {"symbol": "FPT", "time": value, "timeframe": "1m"} for value in times
@@ -244,5 +244,4 @@ def test_scoped_completeness_excludes_unrequested_symbols_and_keeps_index_market
     assert summary["index_daily_count"] == 0
     scoped_queries = [entry for entry in db.executed if entry[0] in {"stock_daily", "stock_intraday"}]
     assert all(("in", "symbol", ("SSI",)) in entry[1] for entry in scoped_queries)
-    index_query = next(entry for entry in db.executed if entry[0] == "index_daily")
-    assert not any(item[0] == "in" for item in index_query[1])
+    assert all(entry[0] != "index_daily" for entry in db.executed)

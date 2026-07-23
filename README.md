@@ -107,10 +107,10 @@ python main.py streaming-ingest --symbols SSI --channels quote --timeout 60 --ma
 Current behavior:
 
 - `sync-master-data` / `init`: read SSI `Securities`, `SecuritiesDetails`, `IndexList`, and `IndexComponents`; write `symbols`, `securities`, `indexes`, and `index_components`.
-- `daily`: read only SSI `DailyStockPrice` and `DailyIndex`; write `raw_daily`, `stock_daily`, and `index_daily` without synchronizing index master tables.
+- `daily`: read only SSI `DailyStockPrice`; write only `raw_daily` and `stock_daily`. It never calls or writes market-index data.
 - `intraday-ingest`: read SSI `IntradayOhlc` resolution 1 plus optional DB `stock_daily` context; write `raw_intraday` and 1m `stock_intraday` only.
 - `eod`: daily ingest → intraday ingest → completeness validation.
-- `backfill-daily`: inclusive daily-only range ingest; preserves current daily index behavior.
+- `backfill-daily`: inclusive stock-daily-only range ingest (`DailyStockPrice` → `raw_daily` + `stock_daily`).
 - `backfill-intraday`: inclusive intraday-only 1m ingest; uses existing daily context without creating it.
 - `backfill`: complete daily branch → complete intraday branch → per-date completeness; no downstream features run automatically.
 - `features`: explicit rerunnable feature pipeline.
@@ -146,4 +146,4 @@ Signal and backtest code exists as research/MVP code but is not treated as valid
 
 ### Stock symbol scope for source ingest
 
-`daily`, `intraday-ingest`, `eod`, `backfill-daily`, `backfill-intraday`, and `backfill` accept `--symbols` with one or more values. Omission uses all symbols from the existing master source. Explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope is invalid. Daily stock scope does not affect daily index ingest; master index synchronization remains exclusive to `sync-master-data` / `init`. EOD passes one scope to daily, intraday, and stock completeness; backfill reuses it for every date. Index and other market-context observability counts remain date-level. The legacy `intraday` command remains a feature alias, not candle ingest. No source ingest command automatically runs features, signals, or backtests.
+`daily`, `intraday-ingest`, `eod`, `backfill-daily`, `backfill-intraday`, and `backfill` accept `--symbols` with one or more values. Omission uses all symbols from the existing master source. Explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope is invalid. Daily, EOD, and backfill never ingest market indexes; index master synchronization remains exclusive to `sync-master-data` / `init`. EOD passes one scope to daily, intraday, and stock-only completeness; backfill reuses it for every date. The legacy `intraday` command remains a feature alias, not candle ingest. No source ingest command automatically runs features, signals, or backtests.

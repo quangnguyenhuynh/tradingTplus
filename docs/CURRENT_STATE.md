@@ -76,7 +76,7 @@ Không dùng signal/backtest MVP hiện tại để kết luận khả năng sin
 | Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
 | Intraday clean ingest | Implemented | Chỉ persist `timeframe='1m'`. |
 | Foreign trading | Implemented | Production daily reuse cùng `DailyStockPrice` payload, không fetch lặp. |
-| Daily index | Implemented | Ghi `index_daily`. |
+| Daily index | Legacy retained | Schema/data cũ được giữ; daily/EOD/backfill không còn ingest hoặc ghi `index_daily`. |
 | Daily validation | Implemented | Required field, OHLC, limits, volume/value và consistency. |
 | Intraday validation | Implemented | Record validation và batch validation. |
 | Completeness | Partial | Daily/intraday là điều kiện chính; index/foreign/orderbook mới là count tham khảo. |
@@ -126,11 +126,10 @@ SSI DailyStockPrice — một request cho mỗi symbol/date
     ├── validate daily mapper
     └── stock_daily nếu valid, bao gồm foreign daily/room fields
 
-SSI DailyIndex
-    └── index_daily
+Market-index daily ingest is outside the stock-only daily/EOD/backfill contract. Existing `index_daily` schema/data remains untouched.
 ```
 
-`daily` chỉ đọc SSI `DailyStockPrice` và `DailyIndex`, rồi ghi `raw_daily`, `stock_daily` và `index_daily`. Pipeline không gọi `IndexList`, `IndexComponents`, `Securities` hoặc `SecuritiesDetails`; không ghi/đồng bộ `indexes` hay `index_components`; không gọi `IntradayOhlc`; không ghi `raw_intraday`/`stock_intraday`; và không chạy feature/signal/backtest.
+`daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `indexes`, `index_components`, `raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
 
 Khi không truyền ngày, command dùng `latest_previous_weekday` theo logic hiện tại. Đây là weekday-based default, chưa phải exchange holiday calendar.
 
@@ -566,7 +565,7 @@ Overall status hiện dựa chủ yếu trên:
 - missing symbol;
 - duplicate/gap intraday.
 
-`index_daily_count`, legacy `foreign_trading_count` và `orderbook_snapshot_count` được query thật nhưng chưa ảnh hưởng đầy đủ đến overall status. Canonical daily completeness phải dựa trên `stock_daily`, không dựa trên legacy count này.
+Completeness chỉ đánh giá `stock_daily` và `stock_intraday` cùng missing/incomplete theo symbol. `index_daily_count` deprecated là giá trị tĩnh `0` và không query `index_daily`; các legacy observability count khác không ảnh hưởng status.
 
 Completeness chưa bao phủ đầy đủ:
 

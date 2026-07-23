@@ -71,7 +71,6 @@ class _DB:
 def _patch_daily_dependencies(monkeypatch, ssi, db):
     monkeypatch.setattr(daily_mod, "SSIApi", lambda: ssi)
     monkeypatch.setattr(daily_mod, "SupabaseClient", lambda: db)
-    monkeypatch.setattr(daily_mod, "fetch_daily_indexes", lambda date, ssi, db: 0)
 
 
 def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):

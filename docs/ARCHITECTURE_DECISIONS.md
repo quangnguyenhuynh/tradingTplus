@@ -1,5 +1,19 @@
 # Architecture Decisions
 
+## Stock-only historical ingest boundary
+
+Phase 0 historical source ingest is stock-only. `daily` and `backfill-daily`
+call SSI `DailyStockPrice` and write only `raw_daily`/`stock_daily`;
+`intraday-ingest` and `backfill-intraday` call `IntradayOhlc` resolution 1 and
+write only `raw_intraday`/`stock_intraday`. EOD and combined backfill compose
+those stock pipelines with stock-only completeness checks. They never call
+`DailyIndex`, `IndexList`, or `IndexComponents`, and never write
+`index_daily`, `indexes`, or `index_components`.
+
+Existing market-index schema and historical rows remain intact. Index master
+synchronization remains an explicit responsibility of `sync-master-data` /
+`init`; no replacement market-index command is introduced by this decision.
+
 ## Purpose
 
 Tài liệu này ghi lại các quyết định kiến trúc đang áp dụng cho Trading T+.
