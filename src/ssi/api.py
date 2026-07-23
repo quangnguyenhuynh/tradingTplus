@@ -1,9 +1,23 @@
+import logging
 import time
 from typing import Any
 
 import requests
 
 from src.config import config
+
+logger = logging.getLogger(__name__)
+
+DAILY_STOCK_PRICE_PAGE_SIZE = 100
+SSI_MAX_HTTP_ATTEMPTS = 3
+
+
+class SSIEmptyResponseError(RuntimeError):
+    """SSI returned a successful HTTP response without a response body."""
+
+
+class SSIDataMismatchError(RuntimeError):
+    """SSI returned rows, but none matched the requested source identity."""
 
 
 def _get_case_insensitive(data: dict[str, Any], *keys: str) -> Any:
@@ -48,7 +62,7 @@ class SSIApi:
             raise
         token = data.get("data", {}).get("accessToken")
         if not token:
-            print(f"❌ Response không có accessToken: {data}")
+            print("❌ SSI authentication response does not contain an access token")
             raise RuntimeError("Không tìm thấy accessToken")
         self.token = token
         print("✅ Đã đăng nhập SSI thành công")
@@ -59,13 +73,32 @@ class SSIApi:
         return {"Authorization": f"Bearer {self.token}", "Accept": "application/json"}
 
     def _get_with_retry(self, url: str, params: dict[str, Any], timeout: int = 30) -> requests.Response:
-        resp = requests.get(url, headers=self._headers(), params=params, timeout=timeout)
-        if resp.status_code == 401:
-            print("🔄 SSI token hết hạn, đang đăng nhập lại...")
-            self._login()
-            resp = requests.get(url, headers=self._headers(), params=params, timeout=timeout)
-        resp.raise_for_status()
-        return resp
+        refreshed_token = False
+        for attempt in range(1, SSI_MAX_HTTP_ATTEMPTS + 1):
+            try:
+                resp = requests.get(url, headers=self._headers(), params=params, timeout=timeout)
+                if resp.status_code == 401 and not refreshed_token:
+                    refreshed_token = True
+                    print("🔄 SSI token hết hạn, đang đăng nhập lại...")
+                    self._login()
+                    continue
+                resp.raise_for_status()
+                return resp
+            except requests.RequestException as exc:
+                status_code = exc.response.status_code if exc.response is not None else None
+                retryable = status_code in {429, 500, 502, 503, 504} or status_code is None
+                if attempt >= SSI_MAX_HTTP_ATTEMPTS or not retryable:
+                    raise
+                sleep_sec = 0.5 * (2 ** (attempt - 1))
+                logger.warning(
+                    "SSI request retry %s/%s after %.1fs (status=%s)",
+                    attempt,
+                    SSI_MAX_HTTP_ATTEMPTS,
+                    sleep_sec,
+                    status_code or "connection-error",
+                )
+                time.sleep(sleep_sec)
+        raise RuntimeError("SSI request retry loop ended unexpectedly")
 
     def _extract_items(self, data: dict[str, Any]) -> list[dict]:
         if isinstance(data.get("dataList"), list):
@@ -95,7 +128,13 @@ class SSIApi:
         while True:
             page_params = {**base_params, "pageIndex": page_index, "pageSize": page_size}
             resp = self._get_with_retry(url, page_params)
-            data = resp.json() if resp.text else {}
+            if not resp.text or not resp.text.strip():
+                raise SSIEmptyResponseError("SSI returned an empty HTTP response")
+            data = resp.json()
+            if not isinstance(data, dict) or not any(
+                isinstance(data.get(key), list) for key in ("dataList", "data", "items")
+            ):
+                raise SSIEmptyResponseError("SSI response does not contain a data list")
             items = self._extract_items(data)
             if total_record is None:
                 total_record = self._extract_total_record(data)
@@ -168,11 +207,11 @@ class SSIApi:
         return items[0] if items else None
 
     def get_daily_price_items(self, symbol: str, date: str) -> list[dict]:
-        try:
-            return self._get_all_pages(config.SSI_DAILY_STOCK_PRICE_URL, {"Symbol": symbol, "FromDate": date, "ToDate": date}, page_size=1000)
-        except (requests.RequestException, ValueError) as e:
-            print(f"⚠️ Lỗi daily price {symbol}: {e}")
-            return []
+        return self._get_all_pages(
+            config.SSI_DAILY_STOCK_PRICE_URL,
+            {"Symbol": symbol, "FromDate": date, "ToDate": date},
+            page_size=DAILY_STOCK_PRICE_PAGE_SIZE,
+        )
 
     def get_daily_price(self, symbol: str, date: str) -> dict | None:
         from src.pipeline.date_utils import parse_ddmmyyyy
@@ -185,18 +224,20 @@ class SSIApi:
             if str(item_symbol or "").upper() == requested_symbol and item_date == requested_iso:
                 return item
         if items:
-            print(f"⚠️ SSI daily price returned no matching item for symbol={symbol} date={date}; clean data will be skipped")
+            raise SSIDataMismatchError(
+                f"DailyStockPrice returned no matching row for symbol={symbol} date={date}"
+            )
         return None
 
     def get_daily_prices_for_date(self, date: str, market: str | None = None) -> list[dict]:
         params: dict[str, Any] = {"FromDate": date, "ToDate": date}
         if market:
             params["Market"] = market
-        try:
-            return self._get_all_pages(config.SSI_DAILY_STOCK_PRICE_URL, params, page_size=1000)
-        except (requests.RequestException, ValueError) as e:
-            print(f"⚠️ Lỗi daily prices date={date}: {e}")
-            return []
+        return self._get_all_pages(
+            config.SSI_DAILY_STOCK_PRICE_URL,
+            params,
+            page_size=DAILY_STOCK_PRICE_PAGE_SIZE,
+        )
 
 
     def get_foreign_trading(self, symbol: str | None = None, date: str | None = None, market: str | None = None) -> list[dict]:
@@ -244,8 +285,4 @@ class SSIApi:
 
     def get_intraday(self, symbol: str, date: str) -> list[dict]:
         params = {"Symbol": symbol, "FromDate": date, "ToDate": date, "resolution": "1"}
-        try:
-            return self._get_all_pages(config.SSI_INTRADAY_OHLC_URL, params, page_size=1000)
-        except (requests.RequestException, ValueError) as e:
-            print(f"⚠️ Lỗi intraday {symbol}: {e}")
-            return []
+        return self._get_all_pages(config.SSI_INTRADAY_OHLC_URL, params, page_size=1000)

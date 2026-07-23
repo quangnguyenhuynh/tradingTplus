@@ -44,6 +44,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
     trading_date = trading_date_iso(resolved_date)
     totals = {'candles_received': 0, 'candles_valid': 0, 'candles_rejected': 0}
     errors: list[dict[str, str]] = []
+    error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}
     daily_context_missing: list[str] = []
     per_symbol: list[dict[str, Any]] = []
     for symbol in active_symbols:
@@ -56,9 +57,12 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
             for key in totals:
                 totals[key] += int(summary.get(key) or 0)
             if summary.get('status') == 'FAILED':
-                errors.append({'symbol': symbol, 'error': '; '.join(summary.get('errors') or summary.get('warnings') or ['intraday ingest failed'])})
+                error_type = summary.get('error_type') or 'API_ERROR'
+                error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+                errors.append({'symbol': symbol, 'error_type': error_type, 'error': '; '.join(summary.get('errors') or summary.get('warnings') or ['intraday ingest failed'])})
         except Exception as exc:
-            errors.append({'symbol': symbol, 'error': str(exc)})
+            error_type_counts['API_ERROR'] += 1
+            errors.append({'symbol': symbol, 'error_type': 'API_ERROR', 'error': str(exc)})
             print(f"    ❌ {symbol}: {exc}")
     status = 'OK' if not errors else 'FAILED' if len(errors) >= len(active_symbols) else 'PARTIAL'
     if status == 'OK' and daily_context_missing:
@@ -70,6 +74,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
         'daily_context_missing_count': len(daily_context_missing),
         'daily_context_missing_symbols': daily_context_missing,
         'error_count': len(errors),
+        'error_type_counts': error_type_counts,
         'errors': errors,
         'per_symbol': per_symbol,
         'status': status,
