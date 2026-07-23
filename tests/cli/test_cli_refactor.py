@@ -80,8 +80,37 @@ def test_fetch_one_day_default_is_dry_run():
 
 def test_main_has_no_old_debug_commands():
     source = Path("main.py").read_text()
-    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"', '"backfill"']:
+    for old in ["check-ingest", "eod-dry-run", "snapshot-orderbook", "snapshot-stream", '"test"']:
         assert old not in source
+
+
+def test_backfill_cli_passes_exact_dates(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: captured.update(start=start, end=end) or {"status": "OK"})
+    assert main.main(["backfill", "--from", "10/07/2026", "--to", "14/07/2026"]) == 0
+    assert captured == {"start": "10/07/2026", "end": "14/07/2026"}
+
+
+def test_backfill_cli_aliases_work(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: captured.update(start=start, end=end) or {"status": "PARTIAL"})
+    assert main.main(["backfill", "--from-date", "10/07/2026", "--to-date", "10/07/2026"]) == 0
+    assert captured == {"start": "10/07/2026", "end": "10/07/2026"}
+
+
+def test_backfill_cli_requires_both_dates(capsys):
+    assert main.main(["backfill", "--from", "10/07/2026"]) == 2
+    assert "required" in capsys.readouterr().err
+
+
+def test_backfill_cli_failed_summary_returns_one(monkeypatch):
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: {"status": "FAILED"})
+    assert main.main(["backfill", "--from", "10/07/2026", "--to", "10/07/2026"]) == 1
+
+
+def test_backfill_cli_invalid_range_returns_two(monkeypatch):
+    monkeypatch.setattr(main, "run_backfill_pipeline", lambda start, end: (_ for _ in ()).throw(ValueError("from_date must be <= to_date")))
+    assert main.main(["backfill", "--from", "11/07/2026", "--to", "10/07/2026"]) == 2
 
 
 def test_streaming_ingest_cli_is_dry_run_by_default(monkeypatch):

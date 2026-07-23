@@ -12,6 +12,7 @@ Repository hiện ở **Phase 0: xây dựng và kiểm chứng dữ liệu**. �
 - Trạng thái repository: [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
 - Quyết định kiến trúc: [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
 - Hướng dẫn CLI: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
+- Backfill production: [docs/backfill/README.vi.md](docs/backfill/README.vi.md)
 - Ghi chú database: [docs_db_schema.md](docs_db_schema.md)
 
 Khi tài liệu cũ mâu thuẫn với hành vi thực thi, code, schema, migration và test hiện tại là nguồn sự thật.
@@ -95,6 +96,7 @@ python main.py init
 python main.py daily [DD/MM/YYYY]
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
 python main.py eod [DD/MM/YYYY]
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 1m 5m 15m 60m 1d
 python main.py intraday --symbols SSI HPG
 python main.py streaming-ingest --symbols SSI --channels quote --timeout 60 --max-messages-per-channel 1
@@ -105,6 +107,7 @@ Hành vi hiện tại:
 - `daily`: chỉ ingest daily SSI; không ingest intraday hoặc tính feature.
 - `intraday-ingest`: ghi `IntradayOhlc` resolution 1 vào raw/clean intraday.
 - `eod`: daily ingest → intraday ingest → completeness validation.
+- `backfill`: delegate tuần tự từng ngày thường trong khoảng bao gồm hai đầu sang `eod`; báo cáo cuối tuần và không tự chạy feature downstream.
 - `features`: feature pipeline riêng, hỗ trợ chạy lại.
 - `intraday`: alias legacy tính intraday feature; không lấy candle mới.
 - `streaming-ingest`: chạy giới hạn và read-only nếu không có `--write`.

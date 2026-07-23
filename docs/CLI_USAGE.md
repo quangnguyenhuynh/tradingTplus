@@ -34,6 +34,7 @@ sync-master-data
 | `intraday-ingest` | 1m intraday candle ingest | `IntradayOhlc` resolution `1` | `raw_intraday`, `stock_intraday` (`timeframe='1m'`) | daily writes, foreign/index writes, features, signals, backtests |
 | `intraday` | Legacy intraday feature alias | No | `features` via feature engine | SSI candle ingest, `1d` features |
 | `eod` | Orchestrate Phase 0 EOD ingest/check | Daily then intraday | Same as `daily` + `intraday-ingest` | features, signals, backtests |
+| `backfill` | Inclusive historical EOD orchestration | Once per weekday | Same as sequential `eod` runs | symbol scope, features, signals, backtests |
 | `features` | Explicit deterministic feature pipeline | No | `features` | source ingest, signals, backtests |
 
 ## `sync-master-data`
@@ -171,6 +172,22 @@ python main.py eod 10/07/2026
 Public function: `src.pipeline.eod.run_eod_pipeline(date: str | None = None, *, timeframes=None, symbols=None) -> dict`.
 
 Summary fields include `daily_summary`, `intraday_summary`, `ingest_summary`, final `status`, `failures`, and `warnings`.
+
+## `backfill`
+
+Syntax:
+
+```bash
+python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+```
+
+`--from-date` and `--to-date` are aliases. Both dates are required and inclusive. The command rejects future or reversed ranges, walks calendar dates sequentially, reports and skips weekends, and delegates every remaining weekday exactly once to `run_eod_pipeline()`. Weekday holidays and SSI empty responses are not skipped or fabricated; EOD reports their actual completeness status. A weekend-only range is an `OK` no-op.
+
+Writes: exactly the potential writes of sequential EOD runs (`raw_daily`, `stock_daily`, `index_daily` and related index master data, `raw_intraday`, `stock_intraday` 1m). It does not calculate features or run signals/backtests. There is no `--symbols` because EOD has no symbol scope.
+
+The range summary retains each EOD result and reports weekend dates, status counts, and date-level exceptions. Exceptions do not stop later dates. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`/runtime failure, and `2` for invalid arguments/ranges. See [the bilingual backfill guide](backfill/README.md).
+
+Public function: `src.pipeline.backfill.run_backfill_pipeline(from_date: str, to_date: str) -> dict`.
 
 ## `features`
 

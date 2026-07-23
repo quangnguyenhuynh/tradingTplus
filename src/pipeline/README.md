@@ -23,7 +23,7 @@ src/pipeline/
 ├── init_symbols.py           # master-data synchronization
 ├── index_data.py             # index master/daily ingest
 ├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
-├── backfill.py               # explicitly scoped historical compatibility flow
+├── backfill.py               # weekday range -> existing EOD orchestration
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
@@ -74,6 +74,10 @@ daily ingest -> intraday ingest -> ingest completeness check -> OK/PARTIAL/FAILE
 
 EOD preserves the daily and intraday service boundaries. It does not calculate features and does not run signals or backtests.
 
+## Backfill execution
+
+`run_backfill_pipeline(from_date, to_date)` parses an inclusive `DD/MM/YYYY` range, skips and reports weekends, and invokes `run_eod_pipeline()` exactly once for every weekday candidate. It retains every EOD summary, records exceptions at the date boundary, continues later dates, and deterministically aggregates `OK`/`PARTIAL`/`FAILED`. It contains no direct fetch, mapping, validation, persistence, or downstream-engine logic. See [`docs/backfill/README.md`](../../docs/backfill/README.md).
+
 ## Raw, clean, validation, and persistence ownership
 
 | Dataset | Record creation | Validation integration | Persistence |
@@ -86,6 +90,8 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 ## Compatibility wrapper
 
 `fetch_one_day.py` remains a thin compatibility module for existing imports and the explicitly scoped script. It re-exports legacy mapper/fetcher helpers and composes the public daily and intraday services; it contains no duplicate mapping, validation, or persistence implementation. New code should import the relevant layered module directly.
+
+The legacy `backfill(...)` import is deprecated and delegates to `run_backfill_pipeline()`; unsupported legacy symbol/future overrides are rejected.
 
 ## Errors and retries
 
@@ -104,6 +110,7 @@ python -m pytest -q tests/ingest/test_intraday_ingest_pipeline.py
 python -m pytest -q tests/validation/test_intraday_validator.py
 python -m pytest -q tests/ingest/test_ingest_check.py
 python -m pytest -q tests/pipeline/test_eod_pipeline.py
+python -m pytest -q tests/pipeline/test_backfill_pipeline.py
 python -m pytest -q
 ```
 

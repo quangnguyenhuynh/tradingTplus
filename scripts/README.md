@@ -27,7 +27,7 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 | `check_ingest.py` | `READ-ONLY` | Report ingest completeness for a date. |
 | `eod_dry_run.py` | `READ-ONLY` | Inspect EOD readiness without database writes. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Inspect or write exactly one symbol/day. |
-| `backfill_sample.py` | `WRITES DB` | Scoped date-range/symbol backfill. |
+| `backfill_sample.py` | `WRITES DB` | Deprecated delegate to EOD-based production backfill; explicit inclusive dates required. |
 | `run_features.py` | `WRITES DB` | Run the feature pipeline explicitly. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Capture bounded streaming snapshots. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Capture quote/orderbook snapshots from supported streaming payloads. |
@@ -55,3 +55,5 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 - Do not evaluate profitability while Phase 0 data remains unverified.
 
 Run commands from the repository root and use `--help` before any write-capable tool.
+
+Use `python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY` for production. The deprecated sample has no symbol/future override, delegates to the same pipeline, skips weekends, and never runs features, signals, or backtests automatically. See [`docs/backfill/README.md`](../docs/backfill/README.md).
