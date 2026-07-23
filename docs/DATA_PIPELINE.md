@@ -118,13 +118,15 @@ Tất cả feature
 
 ### `sync-master-data` / `init`
 
-- Đồng bộ symbols, securities, indexes và index components.
+- Đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`.
+- Ghi `symbols`, `securities`, `indexes` và `index_components`.
 - Không ingest history hoặc tính feature.
 
 ### `daily`
 
 - Một `DailyStockPrice` request mỗi symbol/date được reuse cho `raw_daily`, `stock_daily` và foreign fields.
 - `DailyIndex` ghi `index_daily`.
+- Chỉ ghi `raw_daily`, `stock_daily` và `index_daily`; không gọi master endpoints và không ghi/đồng bộ `indexes` hoặc `index_components`.
 - Không gọi `IntradayOhlc`.
 - Không tính feature/signal/backtest.
 
@@ -133,6 +135,7 @@ Tất cả feature
 - Gọi SSI `IntradayOhlc` resolution `1`.
 - Ghi `raw_intraday` và `stock_intraday` với `timeframe='1m'`.
 - Có thể đọc optional `stock_daily` context.
+- Chỉ đọc SSI `IntradayOhlc` resolution `1`; daily context đến từ database, không được fetch lại từ SSI.
 - Không gọi `DailyStockPrice` hoặc ghi daily tables.
 - Không tính feature/signal/backtest.
 

@@ -114,6 +114,24 @@ def test_daily_branch_does_not_call_other_branches_or_completeness(monkeypatch):
     assert pipeline.run_daily_backfill_pipeline("13/07/2026", "13/07/2026")["status"] == "OK"
 
 
+def test_multi_day_daily_backfill_never_synchronizes_master_data(monkeypatch):
+    calls = []
+
+    def daily(date, symbols=None):
+        calls.append(date)
+        return _daily(date)
+
+    monkeypatch.setattr(pipeline, "run_daily_ingest", daily)
+    # Master synchronization is intentionally not an orchestration dependency.
+    assert not hasattr(pipeline, "sync_indexes")
+    assert not hasattr(pipeline, "sync_index_components")
+
+    result = pipeline.run_daily_backfill_pipeline("13/07/2026", "15/07/2026", symbols=["SSI"])
+
+    assert calls == ["13/07/2026", "14/07/2026", "15/07/2026"]
+    assert result["processed_days"] == 3
+
+
 def test_intraday_branch_preserves_partial_status_and_calls_nothing_else(monkeypatch):
     monkeypatch.setattr(pipeline, "run_intraday_ingest", lambda date, symbols=None: _intraday(date, "PARTIAL") | {"daily_context_missing_count": 1})
     monkeypatch.setattr(pipeline, "run_daily_ingest", lambda *a, **k: pytest.fail("daily must not run"))

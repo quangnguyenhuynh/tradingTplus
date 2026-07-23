@@ -43,7 +43,7 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `p
 5. `daily_service.py` gọi validator `validate_daily_record` hiện có.
 6. Chỉ clean candidate hợp lệ mới được ghi vào `stock_daily` qua `daily_persistence.py`.
 7. Các field mua, bán, net và room khối ngoại cuối ngày nằm trong row `stock_daily`; daily ingest thông thường không ghi `foreign_trading`.
-8. `daily.py` xử lý index độc lập.
+8. `daily.py` xử lý `DailyIndex` độc lập và ghi `index_daily`; không đồng bộ `indexes` hoặc `index_components`.
 
 `stock_daily` là nguồn canonical cho dữ liệu daily, bao gồm dữ liệu giao dịch khối ngoại và room cuối ngày. `foreign_trading` là bảng legacy và không còn được daily ingest ghi dữ liệu mới; helper compatibility explicit vẫn được giữ lại. Snapshot khối ngoại intraday vẫn là streaming dataset riêng.
 
@@ -118,4 +118,4 @@ Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. 
 
 ## Scope mã cổ phiếu dùng chung
 
-`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday` và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Ingest index và `index_daily_count` vẫn là market context, không lọc bằng mã cổ phiếu.
+`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday` và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Ingest `DailyIndex` và `index_daily_count` vẫn là market context, không lọc bằng mã cổ phiếu; đồng bộ index master chỉ thuộc `sync-master-data` / `init`.

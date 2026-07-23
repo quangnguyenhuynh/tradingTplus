@@ -1,0 +1,47 @@
+import importlib
+
+init_symbols = importlib.import_module("src.pipeline.init_symbols")
+
+
+def test_master_data_sync_keeps_all_master_endpoints(monkeypatch):
+    calls = []
+
+    class SSI:
+        def get_symbols(self):
+            calls.append(("Securities", None))
+            return [{"Symbol": "SSI", "Market": "HOSE", "StockName": "SSI"}]
+
+        def get_security_details(self, market=None):
+            calls.append(("SecuritiesDetails", market))
+            return []
+
+        def get_index_list(self, exchange=None):
+            calls.append(("IndexList", exchange))
+            return [{"IndexCode": "VNINDEX", "Exchange": exchange}]
+
+        def get_index_components(self, index_code):
+            calls.append(("IndexComponents", index_code))
+            return []
+
+    class DB:
+        def upsert_symbols(self, records):
+            assert records
+
+        def upsert_securities(self, records):
+            assert records
+
+        def upsert_indexes(self, records):
+            assert records
+
+        def upsert_index_components(self, records):
+            raise AssertionError("empty components must not be written")
+
+    monkeypatch.setattr(init_symbols, "SSIApi", SSI)
+    monkeypatch.setattr(init_symbols, "SupabaseClient", DB)
+
+    init_symbols.init_symbols()
+
+    assert ("Securities", None) in calls
+    assert [value for endpoint, value in calls if endpoint == "SecuritiesDetails"] == ["HOSE", "HNX", "UPCOM", "DER"]
+    assert [value for endpoint, value in calls if endpoint == "IndexList"] == ["HOSE", "HNX", "UPCOM"]
+    assert any(endpoint == "IndexComponents" for endpoint, _ in calls)
