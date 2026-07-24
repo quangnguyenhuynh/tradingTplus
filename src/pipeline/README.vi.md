@@ -121,8 +121,8 @@ Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. 
 `daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday` và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Symbol explicit được giữ thay vì âm thầm loại bỏ vì repository không có hợp đồng validation active/inactive riêng đáng tin cậy. EOD truyền cùng scope cho cả ba bước dữ liệu nguồn, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. `index_daily_count` deprecated luôn bằng `0` và không query DB; đồng bộ index master chỉ thuộc `sync-master-data` / `init`.
 # Timestamp tại persistence boundary
 
-Các timestamp persistence của pipeline do application tạo bằng UTC có timezone.
+Các timestamp persistence của pipeline do application tạo theo `Asia/Ho_Chi_Minh`, ở dạng ISO 8601 với offset `+07:00` rõ ràng.
 `time`, `source_time` và `trading_date` vẫn giữ nguyên nghĩa thời điểm/ngày từ
 nguồn. `created_at` là lần insert đầu tiên và không bị reset khi conflict;
 `updated_at`, `fetched_at`, `received_at`, `last_updated_at` ghi nhận hành động app
-tương ứng gần nhất. Default theo clock DB chỉ còn là fallback tương thích.
+tương ứng gần nhất. Migration loại bỏ default theo clock DB; pipeline bắt buộc gửi các field này.

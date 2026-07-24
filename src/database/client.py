@@ -12,7 +12,7 @@ from supabase import create_client
 
 from src.config import config
 from src.intraday_value import calculate_trade_value
-from src.utils.time_utils import utc_now_iso
+from src.utils.time_utils import app_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +193,7 @@ class SupabaseClient:
     @classmethod
     def _stamp_write_timestamps(cls, table_name: str, records, now_iso: str | None = None):
         """Copy records and add application-controlled persistence timestamps."""
-        stamp = now_iso or utc_now_iso()
+        stamp = now_iso or app_now_iso()
         stamped = [dict(record) for record in records]
         for record in stamped:
             if table_name in cls._CREATED_AT_TABLES:
@@ -213,7 +213,7 @@ class SupabaseClient:
             return
 
         records = self._sanitize_for_json(
-            self._stamp_write_timestamps(table_name, records, utc_now_iso())
+            self._stamp_write_timestamps(table_name, records, app_now_iso())
         )
         use_on_conflict = bool(on_conflict)
 

@@ -1,12 +1,15 @@
-"""Timezone-safe application clock helpers."""
-from datetime import datetime, timezone
+"""Timezone-safe application clock helpers for persistence audit fields."""
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+APP_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
-def utc_now() -> datetime:
-    """Return the current time as a timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
+def app_now() -> datetime:
+    """Return the current application time as an aware Vietnam datetime."""
+    return datetime.now(APP_TZ)
 
 
-def utc_now_iso() -> str:
-    """Return the current timezone-aware UTC time in ISO 8601 form."""
-    return utc_now().isoformat()
+def app_now_iso() -> str:
+    """Return application time as ISO 8601 with the explicit ``+07:00`` offset."""
+    return app_now().isoformat()

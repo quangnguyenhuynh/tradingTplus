@@ -237,9 +237,9 @@ Signal và backtest hiện là code MVP/research:
 Chi tiết trạng thái và known issues xem [CURRENT_STATE.md](CURRENT_STATE.md).
 # Write timestamp contract
 
-At each persistence boundary, the application uses one timezone-aware UTC clock
-value for the logical write. Source candle/snapshot `time`, `source_time`, and
+At each persistence boundary, the application uses one timezone-aware `Asia/Ho_Chi_Minh` clock with an explicit `+07:00` offset for the logical write. Source candle/snapshot `time`, `source_time`, and
 `trading_date` are never replaced by that value. New rows receive `created_at`;
 conflict updates omit it so reruns/backfills preserve the first insert time.
 Mutable source rows receive `updated_at`, raw fetches receive `fetched_at`, stream
-messages retain app `received_at`, and feature rows receive `last_updated_at`.
+messages retain app `received_at`, and feature rows receive `last_updated_at`. Database
+clock defaults are removed for these fields, so writers must send them explicitly.

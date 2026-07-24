@@ -164,10 +164,10 @@ order by tablename, indexname;
 Issue #73 adds/reconciles `stream_raw_snapshot`, `stream_quote_snapshot`, `stream_trade_snapshot`, `stream_foreign_snapshot`, `stream_index_snapshot`, `stream_status_snapshot`, and `stream_bar_snapshot`. Raw rows use a stable `payload_hash` conflict key and keep `received_at` separate from nullable source `time`/`source_time`; clean tables use exact unique indexes matching the application `on_conflict` keys.
 # Application-controlled write timestamps
 
-TradingTPlus pipeline writes use timezone-aware Python UTC timestamps rather than
+TradingTPlus pipeline writes use timezone-aware Python `Asia/Ho_Chi_Minh` timestamps with an explicit `+07:00` offset rather than
 the database server clock as their primary source. `time`/`source_time` remain
 market or source-event times and `trading_date` remains the Vietnam trading date.
 `created_at` is the first insert time and is preserved on reruns; `updated_at` is
 the latest app upsert time; `fetched_at` is raw fetch time; `received_at` is stream
 receipt time; and `last_updated_at` is feature calculation/upsert time. Database
-`now()` defaults remain compatibility fallbacks for legacy/manual writers only.
+`now()` defaults are removed for the scoped pipeline audit columns; writers must send them explicitly.

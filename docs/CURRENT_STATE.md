@@ -1101,6 +1101,6 @@ Cho đến khi các điều kiện trên đạt, project vẫn ở Phase 0.
 
 Primary daily, intraday, master-data, optional foreign/order-book, streaming,
 feature, and data-quality write paths stamp persistence timestamps in application
-code with timezone-aware UTC values. PostgreSQL `now()` defaults are retained only
-as backward-compatible fallbacks. The database client uses a preserve-safe
+code with timezone-aware `Asia/Ho_Chi_Minh` values carrying an explicit `+07:00`
+offset. PostgreSQL `now()` defaults are removed for these audit fields. The database client uses a preserve-safe
 insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.

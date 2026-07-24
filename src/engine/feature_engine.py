@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.database.client import SupabaseClient
-from src.utils.time_utils import utc_now_iso
+from src.utils.time_utils import app_now_iso
 from src.engine.feature_calculator import (
     INTRADAY_TIMEFRAMES,
     SUPPORTED_TIMEFRAMES,
@@ -63,7 +63,7 @@ def _build_feature_records(df: pd.DataFrame, symbol: str, timeframe: str) -> lis
     if df.empty:
         return []
 
-    last_updated_at = utc_now_iso()
+    last_updated_at = app_now_iso()
     out = df[['time'] + FEATURE_COLUMNS].copy()
     out.insert(0, 'symbol', symbol)
     out.insert(1, 'timeframe', timeframe)
