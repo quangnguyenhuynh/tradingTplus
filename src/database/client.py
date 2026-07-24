@@ -12,6 +12,7 @@ from supabase import create_client
 
 from src.config import config
 from src.intraday_value import calculate_trade_value
+from src.utils.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,30 @@ class SupabaseClient:
         "indexes",
         "index_components",
         "index_daily",
+    }
+    _CREATED_AT_TABLES = {
+        "symbols",
+        "raw_daily",
+        "stock_daily",
+        "stock_intraday",
+        "orderbook_snapshot",
+        "stream_raw_snapshot",
+        "stream_quote_snapshot",
+        "stream_trade_snapshot",
+        "stream_foreign_snapshot",
+        "stream_index_snapshot",
+        "stream_status_snapshot",
+        "stream_bar_snapshot",
+        "data_quality_logs",
+    }
+    _UPDATED_AT_TABLES = {
+        "stock_daily",
+        "stock_intraday",
+        "securities",
+        "indexes",
+        "index_components",
+        "foreign_trading",
+        "orderbook_snapshot",
     }
 
     def __new__(cls):
@@ -165,11 +190,31 @@ class SupabaseClient:
             return match.group(1)
         return None
 
+    @classmethod
+    def _stamp_write_timestamps(cls, table_name: str, records, now_iso: str | None = None):
+        """Copy records and add application-controlled persistence timestamps."""
+        stamp = now_iso or utc_now_iso()
+        stamped = [dict(record) for record in records]
+        for record in stamped:
+            if table_name in cls._CREATED_AT_TABLES:
+                record.setdefault("created_at", stamp)
+            if table_name in cls._UPDATED_AT_TABLES:
+                record["updated_at"] = stamp
+            if table_name == "raw_intraday":
+                record["fetched_at"] = stamp
+            if table_name == "stream_raw_snapshot":
+                record.setdefault("received_at", stamp)
+            if table_name == "features":
+                record["last_updated_at"] = stamp
+        return stamped
+
     def _upsert_in_batches(self, table_name: str, records, on_conflict: str | None = None, batch_size: int = 500):
         if not records:
             return
 
-        records = self._sanitize_for_json(records)
+        records = self._sanitize_for_json(
+            self._stamp_write_timestamps(table_name, records, utc_now_iso())
+        )
         use_on_conflict = bool(on_conflict)
 
         for i in range(0, len(records), batch_size):
@@ -192,7 +237,25 @@ class SupabaseClient:
             )
 
             def _do_upsert():
-                query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if use_on_conflict else self.client.table(table_name).upsert(chunk)
+                if table_name in self._CREATED_AT_TABLES and use_on_conflict:
+                    # First insert new rows with the app timestamp without touching conflicts.
+                    self.client.table(table_name).upsert(
+                        chunk,
+                        on_conflict=on_conflict,
+                        ignore_duplicates=True,
+                    ).execute()
+                    # Then update all mutable fields while omitting created_at. Existing rows
+                    # retain their original creation time; newly inserted rows keep the stamp.
+                    update_chunk = [
+                        {key: value for key, value in row.items() if key != "created_at"}
+                        for row in chunk
+                    ]
+                    query = self.client.table(table_name).upsert(
+                        update_chunk,
+                        on_conflict=on_conflict,
+                    )
+                else:
+                    query = self.client.table(table_name).upsert(chunk, on_conflict=on_conflict) if use_on_conflict else self.client.table(table_name).upsert(chunk)
                 return query.execute()
 
             try:
@@ -237,7 +300,7 @@ class SupabaseClient:
         self._upsert_in_batches('raw_intraday', records, on_conflict='symbol,time,data_hash', batch_size=200)
 
     def upsert_symbols(self, symbols):
-        self._upsert_in_batches('symbols', symbols)
+        self._upsert_in_batches('symbols', symbols, on_conflict='symbol')
 
     def upsert_securities(self, records):
         self._upsert_in_batches('securities', records, on_conflict='symbol')
@@ -284,13 +347,16 @@ class SupabaseClient:
 
         logger.info("Start ingest %s intraday records", len(records))
 
-        for record in records:
+        normalized_records = []
+        for source_record in records:
+            record = dict(source_record)
             record['time'] = pd.to_datetime(record['time'], utc=True).isoformat()
             if 'value' not in record or record.get('value') is None:
                 record['value'] = calculate_trade_value(record.get('close'), record.get('volume'))
+            normalized_records.append(record)
 
         buckets = defaultdict(list)
-        for record in records:
+        for record in normalized_records:
             dt = datetime.fromisoformat(record['time'].replace('Z', '+00:00'))
             buckets[dt.strftime('%Y-%m')].append(record)
 

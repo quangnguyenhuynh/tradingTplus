@@ -1,10 +1,9 @@
 import logging
-from datetime import datetime
-
 import pandas as pd
 
 from src.database.client import SupabaseClient
 from src.engine.feature_engine import FEATURE_COLUMNS, calculate_features_for_symbol
+from src.utils.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +25,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
     feature_df = pd.DataFrame(feature_res.data or [])
 
     logs = []
+    created_at = utc_now_iso()
     expected = _expected_bars_for_1m()
     actual = len(intraday_df)
     missing = max(expected - actual, 0)
@@ -39,7 +39,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
         'missing_count': missing,
         'expected_count': expected,
         'actual_count': actual,
-        'created_at': datetime.utcnow().isoformat(),
+        'created_at': created_at,
     })
 
     if not intraday_df.empty:
@@ -54,7 +54,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
             'missing_count': null_close + null_volume,
             'expected_count': 0,
             'actual_count': null_close + null_volume,
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': created_at,
         })
 
     if not feature_df.empty:
@@ -70,7 +70,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
             'missing_count': feature_nulls,
             'expected_count': 0,
             'actual_count': feature_nulls,
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': created_at,
         })
 
     db._upsert_in_batches('data_quality_logs', logs, batch_size=500)
