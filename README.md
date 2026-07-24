@@ -11,6 +11,7 @@ The repository is currently in **Phase 0: data foundation and validation**. Data
 - Project overview: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)
 - Current repository state: [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
 - Architecture decisions: [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
+- Data conventions: [docs/DATA_CONVENTIONS.md](docs/DATA_CONVENTIONS.md)
 - CLI reference: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
 - Production backfill: [docs/backfill/README.md](docs/backfill/README.md)
 - Database notes: [docs_db_schema.md](docs_db_schema.md)

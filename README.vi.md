@@ -11,6 +11,7 @@ Repository hiện ở **Phase 0: xây dựng và kiểm chứng dữ liệu**. �
 - Tổng quan dự án: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)
 - Trạng thái repository: [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
 - Quyết định kiến trúc: [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
+- Quy ước dữ liệu: [docs/DATA_CONVENTIONS.vi.md](docs/DATA_CONVENTIONS.vi.md)
 - Hướng dẫn CLI: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
 - Backfill production: [docs/backfill/README.vi.md](docs/backfill/README.vi.md)
 - Ghi chú database: [docs_db_schema.md](docs_db_schema.md)
