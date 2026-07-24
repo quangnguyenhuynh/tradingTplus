@@ -225,6 +225,15 @@ Dates and timestamps
 
 Use Asia/Ho_Chi_Minh for market-session interpretation and user-facing dates. Store timestamps consistently, normally in UTC.
 
+`stock_intraday.time` is the market/candle timestamp and is the source of truth for
+intraday ordering, aggregation, completeness, features, signals, backtests, and
+live alerts. A UTC `timestamptz` display is an equivalent representation, not a
+data error. Convert it to `Asia/Ho_Chi_Minh` for session logic; keep it
+timezone-aware, never manually add seven hours, and never substitute audit fields
+such as `created_at`, `updated_at`, `fetched_at`, `received_at`, or
+`last_updated_at`. See `docs/DATA_CONVENTIONS.md` and
+`docs/DATA_CONVENTIONS.vi.md`.
+
 A previous weekday is not automatically a trading day. Validation must detect holidays and empty market responses.
 
 * Parse source timestamps explicitly.
