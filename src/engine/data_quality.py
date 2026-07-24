@@ -3,7 +3,7 @@ import pandas as pd
 
 from src.database.client import SupabaseClient
 from src.engine.feature_engine import FEATURE_COLUMNS, calculate_features_for_symbol
-from src.utils.time_utils import utc_now_iso
+from src.utils.time_utils import app_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
     feature_df = pd.DataFrame(feature_res.data or [])
 
     logs = []
-    created_at = utc_now_iso()
+    created_at = app_now_iso()
     expected = _expected_bars_for_1m()
     actual = len(intraday_df)
     missing = max(expected - actual, 0)

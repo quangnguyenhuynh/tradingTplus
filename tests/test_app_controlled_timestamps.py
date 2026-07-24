@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 from src.database.client import SupabaseClient
-from src.utils.time_utils import utc_now, utc_now_iso
+from src.utils.time_utils import APP_TZ, app_now, app_now_iso
 
 
 class _Query:
@@ -36,13 +36,13 @@ def _db():
     return db
 
 
-def test_utc_clock_is_timezone_aware_and_parseable():
-    now = utc_now()
-    parsed = datetime.fromisoformat(utc_now_iso())
-    assert now.tzinfo is not None
-    assert now.utcoffset().total_seconds() == 0
+def test_app_clock_is_timezone_aware_vietnam_time_and_parseable():
+    now = app_now()
+    parsed = datetime.fromisoformat(app_now_iso())
+    assert now.tzinfo is APP_TZ
+    assert now.utcoffset() == timedelta(hours=7)
     assert parsed.tzinfo is not None
-    assert parsed.utcoffset().total_seconds() == 0
+    assert parsed.utcoffset() == timedelta(hours=7)
 
 
 def test_timestamp_stamping_copies_input_and_preserves_source_fields():
@@ -97,9 +97,45 @@ def test_table_specific_timestamps_are_app_controlled():
         assert SupabaseClient._stamp_write_timestamps(table, [{"value": 1}], stamp)[0][field] == stamp
 
 
+def test_daily_and_intraday_payloads_have_all_audit_fields_before_upsert():
+    stamp = "2026-07-24T14:35:10+07:00"
+
+    raw_daily = SupabaseClient._stamp_write_timestamps("raw_daily", [{}], stamp)[0]
+    stock_daily = SupabaseClient._stamp_write_timestamps("stock_daily", [{}], stamp)[0]
+    raw_intraday = SupabaseClient._stamp_write_timestamps("raw_intraday", [{}], stamp)[0]
+    candle = {"time": "2026-07-24T02:00:00Z", "timeframe": "1m", "value": 25000}
+    stock_intraday = SupabaseClient._stamp_write_timestamps("stock_intraday", [candle], stamp)[0]
+
+    assert raw_daily["created_at"] == stamp
+    assert stock_daily["created_at"] == stock_daily["updated_at"] == stamp
+    assert raw_intraday["fetched_at"] == stamp
+    assert stock_intraday["created_at"] == stock_intraday["updated_at"] == stamp
+    assert stock_intraday["time"] == candle["time"]
+    assert stock_intraday["timeframe"] == "1m"
+    assert stock_intraday["value"] == candle["value"]
+
+
+def test_streaming_payloads_keep_source_time_separate_from_write_time():
+    stamp = "2026-07-24T14:35:10+07:00"
+    source = {
+        "time": "2026-07-24T07:35:00+00:00",
+        "source_time": "2026-07-24T07:35:00+00:00",
+        "received_at": "2026-07-24T14:35:09+07:00",
+    }
+
+    raw = SupabaseClient._stamp_write_timestamps("stream_raw_snapshot", [source], stamp)[0]
+    clean = SupabaseClient._stamp_write_timestamps("stream_quote_snapshot", [source], stamp)[0]
+
+    assert raw["received_at"] == source["received_at"]
+    assert raw["created_at"] == stamp
+    assert clean["created_at"] == stamp
+    assert raw["time"] == clean["time"] == source["time"]
+    assert raw["source_time"] == clean["source_time"] == source["source_time"]
+
+
 def test_feature_wrapper_stamps_missing_last_updated_at():
     db = _db()
     source = {"symbol": "SSI", "timeframe": "1m", "time": "2026-07-24T02:00:00Z"}
     db.upsert_features([source])
     assert source.get("last_updated_at") is None
-    assert datetime.fromisoformat(db.client.calls[0][1][0]["last_updated_at"]).tzinfo == timezone.utc
+    assert datetime.fromisoformat(db.client.calls[0][1][0]["last_updated_at"]).utcoffset() == timedelta(hours=7)

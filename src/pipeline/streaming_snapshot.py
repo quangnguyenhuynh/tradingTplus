@@ -8,6 +8,7 @@ from typing import Any
 
 from src.config import config
 from src.database.client import SupabaseClient
+from src.utils.time_utils import app_now
 from src.ssi.streaming import SSIStreamingClient, normalize_stream_payload
 from src.validation.models import ValidationIssue
 from src.validation.streaming_validator import validate_stream_record
@@ -119,7 +120,7 @@ def _common_price_fields(payload: dict[str, Any], snapshot_time: datetime) -> di
 
 
 def build_raw_stream_record(channel: str, payload: dict[str, Any], received_at: datetime | None = None, validation_status: str = "PENDING", validation_issues: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    received_at = received_at or datetime.now(timezone.utc)
+    received_at = received_at or app_now()
     if received_at.tzinfo is None:
         received_at = received_at.replace(tzinfo=timezone.utc)
     dt = _parse_stream_time(payload)
@@ -128,7 +129,7 @@ def build_raw_stream_record(channel: str, payload: dict[str, Any], received_at: 
 
 
 def build_quote_snapshot_record(payload: dict[str, Any], snapshot_time: datetime | None = None) -> dict[str, Any] | None:
-    snapshot_time = snapshot_time or datetime.now(timezone.utc)
+    snapshot_time = snapshot_time or app_now()
     symbol = _get_any(payload, "Symbol", "symbol")
     if not symbol:
         return None
@@ -158,14 +159,14 @@ def build_quote_snapshot_record(payload: dict[str, Any], snapshot_time: datetime
 
 def build_trade_snapshot_record(payload: dict[str, Any], snapshot_time: datetime | None = None) -> dict[str, Any] | None:
     symbol = _get_any(payload, "Symbol", "symbol")
-    return {"symbol": str(symbol).upper(), **_common_price_fields(payload, snapshot_time or datetime.now(timezone.utc))} if symbol else None
+    return {"symbol": str(symbol).upper(), **_common_price_fields(payload, snapshot_time or app_now())} if symbol else None
 
 
 def build_foreign_snapshot_record(payload: dict[str, Any], snapshot_time: datetime | None = None) -> dict[str, Any] | None:
     symbol = _get_any(payload, "Symbol", "symbol")
     if not symbol:
         return None
-    dt = _parse_stream_time(payload, snapshot_time or datetime.now(timezone.utc))
+    dt = _parse_stream_time(payload, snapshot_time or app_now())
     trading_date = _parse_trading_date(_get_any(payload, "TradingDate", "tradingDate"))
     buy_vol = _to_int(_get_any(payload, "ForeignBuyVol", "BuyVol", "FBuyVol"))
     sell_vol = _to_int(_get_any(payload, "ForeignSellVol", "SellVol", "FSellVol"))
@@ -178,7 +179,7 @@ def build_index_snapshot_record(payload: dict[str, Any], snapshot_time: datetime
     index_code = _get_any(payload, "IndexId", "IndexID", "indexid", "IndexCode")
     if not index_code:
         return None
-    dt = _parse_stream_time(payload, snapshot_time or datetime.now(timezone.utc))
+    dt = _parse_stream_time(payload, snapshot_time or app_now())
     trading_date = _parse_trading_date(_get_any(payload, "TradingDate", "tradingDate"))
     fields = {"index_value": ("IndexValue",), "index_val_est": ("IndexValEst",), "prior_index_value": ("PriorIndexValue",), "change": ("Change",), "ratio_change": ("RatioChange",), "total_trade": ("TotalTrade",), "total_qtty": ("TotalQtty",), "total_value": ("TotalValue",), "total_qtty_pt": ("TotalQttyPT",), "total_value_pt": ("TotalValuePT",), "total_qtty_od": ("TotalQttyOD",), "total_value_od": ("TotalValueOD",), "all_qty": ("AllQty",), "all_value": ("AllValue",), "advances": ("Advances",), "no_changes": ("NoChanges",), "declines": ("Declines",), "ceilings": ("Ceilings",), "floors": ("Floors",)}
     rec: dict[str, Any] = {"index_code": str(index_code).upper(), "time": _iso(dt), "trading_date": trading_date.isoformat() if trading_date else None, "exchange": _get_any(payload, "Exchange"), "market": _get_any(payload, "Market"), "index_type": _get_any(payload, "IndexType"), "index_name": _get_any(payload, "IndexName"), "trading_session": _get_any(payload, "TradingSession"), "raw": payload}
@@ -240,7 +241,7 @@ def run_streaming_ingest(symbols: list[str], indexes: list[str], channels: list[
     if max_messages_per_channel <= 0 or max_messages_per_channel > 1000:
         raise ValueError("max_messages_per_channel must be between 1 and 1000")
     requested = build_streaming_channels(symbols, indexes, channels)
-    started = datetime.now(timezone.utc)
+    started = app_now()
     client = client or SSIStreamingClient()
     raw_records=[]; clean = {"quote": [], "trade": [], "foreign": [], "index": [], "status": [], "bar": []}
     invalid_counts: dict[str, int] = {}; failures: list[str] = []
@@ -260,7 +261,7 @@ def run_streaming_ingest(symbols: list[str], indexes: list[str], channels: list[
                 matched = next((ch for ch in requested if ch.upper() in candidates), None)
                 if not matched: continue
                 latest[matched] = content
-                received_at = datetime.now(timezone.utc)
+                received_at = app_now()
                 stype = _channel_type(matched, str(norm.get("RType") or norm.get("DataType") or ""))
                 builder = {"F": build_status_snapshot_record, "X-QUOTE": build_quote_snapshot_record, "X-TRADE": build_trade_snapshot_record, "R": build_foreign_snapshot_record, "MI": build_index_snapshot_record, "B": build_bar_snapshot_record}.get(stype)
                 rec = builder(content, received_at) if builder else None
@@ -279,7 +280,7 @@ def run_streaming_ingest(symbols: list[str], indexes: list[str], channels: list[
         failures.append(str(exc))
     finally:
         client.close()
-    ended = datetime.now(timezone.utc)
+    ended = app_now()
     raw_received = len(raw_records)
     return {"status": _status_from_counts(raw_received, sum(invalid_counts.values()), failures, requested), "write": write, "requested_channels": requested, "subscribed_channels": getattr(client, "subscribed_channels", []), "raw_received": raw_received, "raw_written": len(raw_records) if write and not failures else 0, "clean_valid": {k: len(v) for k, v in clean.items()}, "clean_written": {k: (len(v) if write and not failures else 0) for k, v in clean.items()}, "invalid": invalid_counts, "warning_count": sum(1 for r in raw_records if r.get("validation_status") == "WARNING"), "empty_channels": [ch for ch in requested if ch not in latest], "failure_stage": "runtime" if failures else None, "failure_reason": failures[0] if failures else None, "start_time": _iso(started), "end_time": _iso(ended), "elapsed_sec": round((ended-started).total_seconds(), 3)}
 
@@ -290,7 +291,7 @@ def snapshot_market_stream(symbols: list[str], indexes: list[str] = ["VNINDEX", 
     try:
         client.connect()
         latest = client.collect_latest_by_channels(channels, timeout_sec=timeout_sec, debug=debug)
-        snap = datetime.now(timezone.utc)
+        snap = app_now()
         for channel, payload in latest.items():
             norm = normalize_stream_payload(payload)
             content = norm.get("raw") if isinstance(norm.get("raw"), dict) else payload
