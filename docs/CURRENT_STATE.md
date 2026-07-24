@@ -1097,3 +1097,10 @@ Cho đến khi các điều kiện trên đạt, project vẫn ở Phase 0.
 - [AGENTS.md](../AGENTS.md)
 - [Database Schema Notes](../docs_db_schema.md)
 - [Repository README](../README.md)
+# Application write clocks (2026-07-24)
+
+Primary daily, intraday, master-data, optional foreign/order-book, streaming,
+feature, and data-quality write paths stamp persistence timestamps in application
+code with timezone-aware UTC values. PostgreSQL `now()` defaults are retained only
+as backward-compatible fallbacks. The database client uses a preserve-safe
+insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.

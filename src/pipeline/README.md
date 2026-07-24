@@ -119,3 +119,10 @@ Ingest commands never automatically calculate features, generate signals, or run
 ## Shared stock-symbol scope
 
 `daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. The deprecated `index_daily_count` is always `0` without a DB query; index master synchronization remains exclusive to `sync-master-data` / `init`.
+# Persistence timestamps
+
+Pipeline persistence timestamps are application-controlled, timezone-aware UTC.
+Market `time`, `source_time`, and `trading_date` keep source semantics. `created_at`
+means first insert and is preserved on conflict; `updated_at`, `fetched_at`,
+`received_at`, and `last_updated_at` describe the latest corresponding app action.
+Database clock defaults are fallback compatibility only.
