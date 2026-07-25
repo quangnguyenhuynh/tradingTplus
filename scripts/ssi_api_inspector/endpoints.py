@@ -37,7 +37,7 @@ ENDPOINTS: dict[str, Endpoint] = {
     "index-list": Endpoint("index-list", "IndexList", "GET", config.SSI_INDEX_LIST_URL, True, lambda a: {"Exchange": a.exchange, **_paging(a)}),
     "daily-ohlc": Endpoint("daily-ohlc", "DailyOhlc", "GET", config.SSI_DAILY_OHLC_URL, True, lambda a: {"Symbol": a.symbol, "FromDate": a.date, "ToDate": a.date, **_paging(a), **_ascending(a)}),
     "intraday-ohlc": Endpoint("intraday-ohlc", "IntradayOhlc", "GET", config.SSI_INTRADAY_OHLC_URL, True, lambda a: {"Symbol": a.symbol, "FromDate": a.date, "ToDate": a.date, **_paging(a), "resolution": 1, **_ascending(a)}),
-    "daily-index": Endpoint("daily-index", "DailyIndex", "GET", config.SSI_DAILY_INDEX_URL, True, lambda a: {"IndexCode": a.index_code, "FromDate": a.date, "ToDate": a.date, **_paging(a)}),
+    "daily-index": Endpoint("daily-index", "DailyIndex", "GET", config.SSI_DAILY_INDEX_URL, True, lambda a: {"IndexId": a.index_code, "FromDate": a.date, "ToDate": a.date, **_paging(a)}),
     "daily-stock-price": Endpoint("daily-stock-price", "DailyStockPrice", "GET", config.SSI_DAILY_STOCK_PRICE_URL, True, lambda a: {"Symbol": a.symbol, "FromDate": a.date, "ToDate": a.date, **_paging(a), "Market": a.market}),
 }
 
