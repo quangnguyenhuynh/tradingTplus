@@ -11,8 +11,8 @@ Deterministic feature computation plus downstream signal/backtest research code.
 
 | File | Current role |
 | --- | --- |
-| `feature_engine.py` | Loads clean data, aggregates timeframes, runs calculations, and persists `features`. |
-| `feature_calculator.py` | Indicator and feature formulas. |
+| `feature_engine.py` | Deprecated import shim to `src.features.runner`; contains no implementation. |
+| `feature_calculator.py` | Deprecated import shim to `src.features.common`; contains no implementation. |
 | `data_quality.py` | Data-quality checks used by engine workflows. |
 | `signal_engine.py` | Rule-based signal MVP/research engine. |
 | `backtest_engine.py` | Backtest MVP/research engine. |
@@ -52,3 +52,5 @@ python -m pytest -q tests/legacy/test_backtest_engine.py
 ```
 
 When a feature formula changes, document the old/new formula, affected timeframes, historical-row impact, backfill need, and tests.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

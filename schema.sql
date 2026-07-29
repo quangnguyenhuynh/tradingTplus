@@ -143,17 +143,21 @@ CREATE TABLE IF NOT EXISTS "public"."features" (
     "symbol" "text" NOT NULL,
     "timeframe" "text" NOT NULL,
     "time" timestamp with time zone NOT NULL,
-    "rsi" double precision,
-    "macd" double precision,
-    "atr" double precision,
-    "volume_spike" boolean,
-    "last_updated_at" timestamp with time zone DEFAULT "now"(),
-    "ema_20" double precision,
-    "ema_50" double precision,
-    "vwap" double precision,
-    "bb_upper" double precision,
-    "bb_lower" double precision,
-    "close" double precision
+    "open" double precision, "high" double precision, "low" double precision, "close" double precision,
+    "volume" bigint, "value" bigint,
+    "return_1m" double precision, "return_5m" double precision, "return_15m" double precision,
+    "return_from_open" double precision, "return_from_prev_close" double precision,
+    "ema9" double precision, "ema20" double precision, "ema50" double precision,
+    "ema9_above_ema20" boolean, "ema20_above_ema50" boolean,
+    "rsi14" double precision, "macd" double precision, "macd_signal" double precision, "macd_histogram" double precision,
+    "volume_ma20" double precision, "volume_ratio" double precision,
+    "value_ma20" double precision, "value_ratio" double precision,
+    "high_20_bars" double precision, "low_20_bars" double precision,
+    "close_above_high_20" boolean, "close_below_low_20" boolean,
+    "vwap_intraday" double precision, "close_above_vwap" boolean, "distance_to_vwap_pct" double precision,
+    "candle_range" double precision, "candle_body" double precision,
+    "candle_body_pct" double precision, "close_position_in_candle" double precision,
+    "last_updated_at" timestamp with time zone NOT NULL
 );
 
 

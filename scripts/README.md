@@ -57,3 +57,5 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 Run commands from the repository root and use `--help` before any write-capable tool.
 
 Use `python main.py backfill-daily`, `backfill-intraday`, or combined `backfill` with explicit inclusive dates for production. The deprecated sample accepts optional `--symbols` but no future override, delegates to the same pipeline, skips weekends, and never runs features, signals, or backtests automatically. See [`docs/backfill/README.md`](../docs/backfill/README.md).
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

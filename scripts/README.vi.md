@@ -57,3 +57,5 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 Chạy command từ root repo và đọc `--help` trước mọi tool có khả năng ghi.
 
 Dùng `python main.py backfill-daily`, `backfill-intraday`, hoặc `backfill` kết hợp với khoảng ngày explicit cho production. Sample deprecated nhận `--symbols` tùy chọn nhưng không có future override, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).
+
+> Cập nhật feature (issue #99): implementation thuộc `src/features/`. Dùng `features-daily` và `features-intraday` tách theo nguồn; `features` và `intraday` là route tương thích. Intraday chỉ ghi bucket đã đóng, dùng open daily chính thức, indicator/high-low liên tục, baseline volume/value bucket tương ứng 20 ngày quan sát trước và flag nullable. Xem `src/features/README.vi.md`.

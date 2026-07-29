@@ -24,7 +24,11 @@ import sys
 from typing import Any
 
 from src.pipeline import init_symbols, daily_run, run_backfill_pipeline, run_daily_backfill_pipeline, run_eod_pipeline, run_intraday_backfill_pipeline, run_intraday_pipeline, run_intraday_ingest, run_streaming_ingest
-from src.engine.feature_engine import run_feature_engine_with_summary
+from src.features import (
+    run_daily_features_with_summary,
+    run_feature_engine_with_summary,
+    run_intraday_features_with_summary,
+)
 from src.pipeline.symbol_scope import normalize_symbol_scope
 
 
@@ -71,6 +75,18 @@ def build_parser() -> argparse.ArgumentParser:
     features.add_argument("--date", default=None, help="Target date DD/MM/YYYY for incremental mode")
     features.add_argument("--symbols", nargs="*", default=None, help="Symbols to process; omitted means all symbols")
     features.add_argument("--timeframes", nargs="*", default=None, help="Feature timeframes: 1m 5m 15m 60m 1d")
+
+    features_daily = sub.add_parser("features-daily", help="Explicit stock_daily-only feature pipeline")
+    features_daily.add_argument("--mode", choices=["incremental", "full"], default="incremental")
+    features_daily.add_argument("--date", default=None, help="Target date for incremental mode")
+    features_daily.add_argument("--symbols", nargs="*", default=None)
+
+    features_intraday = sub.add_parser("features-intraday", help="Explicit closed-candle intraday feature pipeline")
+    features_intraday.add_argument("--mode", choices=["incremental", "full"], default="incremental")
+    features_intraday.add_argument("--date", default=None, help="Target date for incremental mode")
+    features_intraday.add_argument("--symbols", nargs="*", default=None)
+    features_intraday.add_argument("--timeframes", nargs="*", default=["1m", "5m", "15m", "60m"])
+    features_intraday.add_argument("--as-of", default=None, help="Safe cutoff: HH:MM Vietnam time or timezone-aware timestamp")
 
     intraday = sub.add_parser("intraday", help="Legacy alias for `features --mode incremental --timeframes 1m 5m 15m`; does not ingest candles")
     intraday.add_argument("--snapshot-time", default=None, help="Optional snapshot marker; defaults to current VN time")
@@ -127,6 +143,21 @@ def main(argv: list[str] | None = None) -> int:
                 mode=args.mode,
                 timeframes=tuple(args.timeframes) if args.timeframes else None,
                 target_date=args.date,
+            )
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "features-daily":
+            summary = run_daily_features_with_summary(
+                symbols=normalize_symbol_scope(args.symbols), mode=args.mode, target_date=args.date,
+            )
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "features-intraday":
+            if "1d" in args.timeframes:
+                raise ValueError("features-intraday accepts only 1m, 5m, 15m, and 60m")
+            summary = run_intraday_features_with_summary(
+                symbols=normalize_symbol_scope(args.symbols), mode=args.mode,
+                timeframes=tuple(args.timeframes), target_date=args.date, as_of=args.as_of,
             )
             _print_summary(summary)
             return _status_to_exit(summary)

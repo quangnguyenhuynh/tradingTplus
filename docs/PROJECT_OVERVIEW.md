@@ -888,3 +888,5 @@ python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
 `python main.py eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
 
 `python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

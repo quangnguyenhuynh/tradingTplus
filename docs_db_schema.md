@@ -171,3 +171,7 @@ market or source-event times and `trading_date` remains the Vietnam trading date
 the latest app upsert time; `fetched_at` is raw fetch time; `received_at` is stream
 receipt time; and `last_updated_at` is feature calculation/upsert time. Database
 `now()` defaults are removed for the scoped pipeline audit columns; writers must send them explicitly.
+
+### Legacy feature columns removed (2026-07-29)
+
+Migration `20260729_drop_legacy_feature_columns.sql` removes `rsi`, `atr`, `ema_20`, `ema_50`, `vwap`, `bb_upper`, `bb_lower`, and `volume_spike`. The canonical 35 values documented above, `last_updated_at`, and `(symbol,timeframe,time)` identity remain.

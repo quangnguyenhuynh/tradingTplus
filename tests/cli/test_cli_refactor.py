@@ -51,7 +51,7 @@ def test_eod_default_timeframes_include_1d():
 
 
 def test_intraday_does_not_call_daily_ingest(monkeypatch):
-    monkeypatch.setattr(intraday, "run_feature_engine_with_summary", lambda **kwargs: {"status": "OK", "total_records": 3, "errors": []})
+    monkeypatch.setattr(intraday, "run_intraday_features_with_summary", lambda **kwargs: {"status": "OK", "total_records": 3, "errors": []})
     summary = intraday.run_intraday_pipeline(symbols=["SSI"])
     assert summary["status"] == "OK"
     assert summary["total_records"] == 3
@@ -186,3 +186,18 @@ def test_ingest_commands_reject_symbols_flag_without_values():
         ["backfill-intraday", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
     ]
     assert [main.main(command) for command in commands] == [2, 2, 2, 2, 2, 2]
+
+
+def test_features_daily_routes_source_specific_runner(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, 'run_daily_features_with_summary', lambda **kwargs: captured.update(kwargs) or {'status': 'OK'})
+    assert main.main(['features-daily', '--mode', 'incremental', '--date', '10/07/2026', '--symbols', 'ssi']) == 0
+    assert captured == {'symbols': ['SSI'], 'mode': 'incremental', 'target_date': '10/07/2026'}
+
+
+def test_features_intraday_routes_and_rejects_daily(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, 'run_intraday_features_with_summary', lambda **kwargs: captured.update(kwargs) or {'status': 'OK'})
+    assert main.main(['features-intraday', '--date', '10/07/2026', '--symbols', 'ssi', '--timeframes', '5m', '--as-of', '14:30']) == 0
+    assert captured['timeframes'] == ('5m',) and captured['as_of'] == '14:30'
+    assert main.main(['features-intraday', '--timeframes', '1d']) == 2

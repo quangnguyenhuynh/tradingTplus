@@ -11,8 +11,8 @@ Tính feature deterministic cùng code signal/backtest research downstream.
 
 | File | Vai trò hiện tại |
 | --- | --- |
-| `feature_engine.py` | Đọc clean data, aggregate timeframe, tính và ghi `features`. |
-| `feature_calculator.py` | Công thức indicator và feature. |
+| `feature_engine.py` | Shim import deprecated tới `src.features.runner`; không chứa implementation. |
+| `feature_calculator.py` | Shim import deprecated tới `src.features.common`; không chứa implementation. |
 | `data_quality.py` | Kiểm tra chất lượng dữ liệu cho engine. |
 | `signal_engine.py` | Signal engine rule-based dạng MVP/research. |
 | `backtest_engine.py` | Backtest engine dạng MVP/research. |
@@ -52,3 +52,5 @@ python -m pytest -q tests/legacy/test_backtest_engine.py
 ```
 
 Khi đổi công thức feature, phải ghi công thức cũ/mới, timeframe bị ảnh hưởng, dữ liệu lịch sử, nhu cầu backfill và test.
+
+> Cập nhật feature (issue #99): implementation thuộc `src/features/`. Dùng `features-daily` và `features-intraday` tách theo nguồn; `features` và `intraday` là route tương thích. Intraday chỉ ghi bucket đã đóng, dùng open daily chính thức, indicator/high-low liên tục, baseline volume/value bucket tương ứng 20 ngày quan sát trước và flag nullable. Xem `src/features/README.vi.md`.

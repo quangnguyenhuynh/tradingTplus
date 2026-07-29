@@ -1104,3 +1104,5 @@ feature, and data-quality write paths stamp persistence timestamps in applicatio
 code with timezone-aware `Asia/Ho_Chi_Minh` values carrying an explicit `+07:00`
 offset. PostgreSQL `now()` defaults are removed for these audit fields. The database client uses a preserve-safe
 insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
