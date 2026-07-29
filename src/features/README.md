@@ -1,7 +1,6 @@
 # Feature Package
 
-This package computes features from clean database tables only. It does not call
-SSI APIs, ingest source data, generate signals, run backtests, or send alerts.
+This package computes features from clean database tables only. It does not call SSI APIs, ingest source data, generate signals, run backtests, or send alerts.
 
 All persisted feature rows use one table:
 
@@ -17,124 +16,93 @@ features(symbol, timeframe, time, ...)
 
 ## Persisted timeframe policy
 
-Production persistence is intentionally limited to:
+Production persists only:
 
-- `1d`: main T+3/T+5 context from `stock_daily`;
-- `15m`: entry timing and intraday confirmation;
-- `60m`: broader intraday confirmation.
+- `1d` from `stock_daily`;
+- `15m` and `60m` aggregated in memory from clean `stock_intraday` 1m candles.
 
-`stock_intraday` still stores canonical `1m` candles. Those 1m candles are the
-source used to aggregate 15m and 60m bars in memory. The production feature
-runners reject persistence for `1m` and `5m`.
-
-This distinction is important:
-
-```text
-1m source candles: required and persisted in stock_intraday
-1m/5m feature rows: not persisted in features
-```
-
-Lower-level aggregation/calculator functions may still support research and
-offline tests, but public runners under `src.features` enforce the production
-persistence policy.
-
-## Daily and intraday flows
-
-| Flow | Reads from | Writes timeframe | Purpose |
-| --- | --- | --- | --- |
-| Daily feature | `stock_daily` | `1d` | Trend, momentum, daily liquidity, and price structure for T+3/T+5. |
-| Intraday feature | `stock_intraday` 1m plus daily context | `15m`, `60m` | Intraday confirmation and entry timing. |
-
-Rules:
-
-- daily features are never calculated from intraday data;
-- 15m/60m bars are aggregated from clean 1m candles in memory;
-- aggregated bars are not written back to `stock_intraday`;
-- both flows write to the same `features` table;
-- feature execution remains separate from ingest, signals, and backtests.
+Feature rows for `1m` and `5m` are rejected. Canonical 1m source candles remain stored in `stock_intraday`.
 
 ## File responsibilities
 
 | File | Responsibility |
 | --- | --- |
 | `daily.py` | Read `stock_daily`, compute `1d`, write `features`. |
-| `intraday.py` | Read clean 1m, aggregate bars, keep closed buckets, compute intraday features. |
+| `intraday.py` | Read clean 1m, aggregate closed 15m/60m buckets, compute intraday features. |
+| `backfill.py` | Inclusive date-range feature recomputation with historical warm-up; write only the requested range. |
 | `common.py` | Shared formulas and dataframe helpers. |
-| `runtime.py` | Shared DB reads, serialization, upsert, date helpers, and summaries. |
-| `runner.py` | Historical compatibility router and lower-level compatibility functions. |
-| `policy.py` | Public production timeframe defaults and rejection of 1m/5m feature writes. |
+| `runtime.py` | DB reads, serialization, upsert, date helpers, and summaries. |
+| `runner.py` | Compatibility router and lower-level compatibility functions. |
+| `policy.py` | Public production timeframe defaults and persistence validation. |
 
-Public production imports should come from `src.features`, not directly from
-`src.features.runner` or `src.features.intraday`.
+Production imports should come from `src.features`.
 
-## CLI
+## CLI scopes
 
-Daily feature for one date:
+The source-specific commands support exactly one scope per run.
 
-```bash
-python main.py features-daily --mode incremental --date 10/07/2026 --symbols SSI HPG
-```
-
-Intraday feature for one date:
+### One target date
 
 ```bash
-python main.py features-intraday --mode incremental --date 10/07/2026 --symbols SSI HPG --timeframes 15m 60m
+python main.py features-daily --date 10/07/2026 --symbols SSI HPG
+python main.py features-intraday --date 10/07/2026 --symbols SSI HPG --timeframes 15m 60m
 ```
 
-Current-day closed-bucket cutoff:
+For a current-day closed-bucket cutoff:
 
 ```bash
-python main.py features-intraday --mode incremental --date 10/07/2026 --as-of 14:30 --symbols SSI
+python main.py features-intraday --date 10/07/2026 --as-of 14:30 --symbols SSI
 ```
 
-Full recomputation:
+### Inclusive date range
+
+```bash
+python main.py features-daily \
+  --from 01/07/2026 \
+  --to 29/07/2026 \
+  --symbols SSI HPG
+```
+
+```bash
+python main.py features-intraday \
+  --from 01/07/2026 \
+  --to 29/07/2026 \
+  --symbols SSI HPG \
+  --timeframes 15m 60m
+```
+
+Range mode reads source history through the end date, computes indicators once with earlier observations available for warm-up, then upserts only feature rows inside the inclusive requested range.
+
+### Full history
 
 ```bash
 python main.py features-daily --mode full --symbols SSI HPG
 python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 60m
 ```
 
-Compatibility router:
+## Scope validation
 
-```bash
-python main.py features --mode incremental --date 10/07/2026 --symbols SSI --timeframes 15m 60m 1d
-```
+The CLI returns exit code `2` when:
 
-Legacy alias:
+- only one of `--from` or `--to` is supplied;
+- `--date` is combined with `--from/--to`;
+- `--mode full` is combined with `--date` or `--from/--to`;
+- `--as-of` is used with range mode;
+- incremental mode has neither `--date` nor `--from/--to`;
+- the date range is reversed or ends in the future.
 
-```bash
-python main.py intraday --symbols SSI --timeframes 15m 60m
-```
+## Correctness and safety
 
-The following production commands are invalid and return exit code `2`:
-
-```bash
-python main.py features-intraday --timeframes 1m
-python main.py features-intraday --timeframes 5m
-python main.py features --timeframes 1m 5m 1d
-```
-
-To ingest canonical 1m source candles, use:
-
-```bash
-python main.py intraday-ingest 10/07/2026 --symbols SSI
-```
-
-## Correctness notes
-
-- Intraday writes only closed candles/buckets.
-- Intraday EMA/RSI/MACD continue across observed dates.
-- Intraday VWAP resets daily.
-- `volume_ma20`/`value_ma20` use the same local bucket from prior observed dates.
+- Daily features are never calculated from intraday data.
+- 15m/60m bars are aggregated from clean 1m in memory and are not written back to `stock_intraday`.
+- Intraday writes only closed buckets.
+- EMA/RSI/MACD have prior history available for warm-up.
 - Missing inputs remain `NULL`; they are not forced to zero or `False`.
-- Intraday `return_from_open` uses official `stock_daily.open_price` context.
 - `stock_intraday.value` remains an estimate based on `round(close * volume)`.
+- Feature execution remains separate from ingest, signals, and backtests.
 
 ## Database impact
 
-No schema migration is required for this policy change. Existing `features`
-rows with timeframe `1m` or `5m` are not deleted automatically. Removing them
-must be a separate, explicitly scoped database operation after review.
+Migration: none.
 
-No source-data backfill is required. Recompute only `1d`, `15m`, and `60m`
-features when a formula change requires it.
+Range and full runs write only to `features`. Source tables are read-only. No source-data backfill is triggered automatically.
