@@ -20,8 +20,9 @@ on:
         required: false
         type: string
       timeframes:
-        description: "Optional space-separated timeframes, e.g. 1m 5m 15m 60m 1d"
+        description: "Optional persisted feature timeframes: 15m 60m 1d"
         required: false
+        default: "15m 60m 1d"
         type: string
 
 jobs:
