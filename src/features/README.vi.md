@@ -1,8 +1,6 @@
 # Feature package
 
-Thư mục này chỉ tính feature từ dữ liệu sạch trong database. Nó không gọi API
-SSI, không ingest dữ liệu nguồn, không tạo signal, không chạy backtest và không
-gửi cảnh báo.
+Thư mục này chỉ tính feature từ dữ liệu sạch trong database. Nó không gọi API SSI, không ingest dữ liệu nguồn, không tạo signal, không chạy backtest và không gửi cảnh báo.
 
 Mọi feature được lưu chung vào một bảng:
 
@@ -18,124 +16,93 @@ features(symbol, timeframe, time, ...)
 
 ## Chính sách timeframe được lưu
 
-Production chỉ lưu ba timeframe:
+Production chỉ lưu:
 
-- `1d`: bối cảnh chính cho T+3/T+5, lấy từ `stock_daily`;
-- `15m`: timing điểm vào và xác nhận trong phiên;
-- `60m`: xác nhận intraday ở mức ổn định hơn.
+- `1d` từ `stock_daily`;
+- `15m` và `60m` được aggregate trong memory từ nến clean `stock_intraday` 1m.
 
-`stock_intraday` vẫn phải lưu nến clean `1m`. Nến 1m là nguồn chuẩn để aggregate
-15m và 60m trong memory. Các public feature runner sẽ từ chối ghi feature
-`1m` và `5m` vào bảng `features`.
-
-Cần phân biệt rõ:
-
-```text
-Nến nguồn 1m: bắt buộc lưu trong stock_intraday
-Feature 1m/5m: không lưu trong features
-```
-
-Các hàm calculator/aggregate cấp thấp vẫn có thể tồn tại phục vụ nghiên cứu và
-offline test, nhưng public runner qua `src.features` phải tuân thủ chính sách
-production.
-
-## Luồng daily và intraday
-
-| Luồng | Nguồn đọc | Timeframe ghi | Mục đích |
-| --- | --- | --- | --- |
-| Daily feature | `stock_daily` | `1d` | Xu hướng, động lượng, thanh khoản daily và cấu trúc giá cho T+3/T+5. |
-| Intraday feature | `stock_intraday` 1m cùng daily context | `15m`, `60m` | Xác nhận trong phiên và chọn thời điểm vào. |
-
-Quy tắc:
-
-- không tính feature daily từ intraday;
-- 15m/60m luôn aggregate từ clean 1m trong memory;
-- không ghi nến aggregate ngược vào `stock_intraday`;
-- hai luồng cùng ghi bảng `features`;
-- ingest, feature, signal và backtest vẫn là các pipeline tách biệt.
+Feature `1m` và `5m` bị từ chối ghi. Nến nguồn chuẩn `1m` vẫn được lưu trong `stock_intraday`.
 
 ## Trách nhiệm từng file
 
 | File | Trách nhiệm |
 | --- | --- |
 | `daily.py` | Đọc `stock_daily`, tính `1d`, ghi `features`. |
-| `intraday.py` | Đọc clean 1m, aggregate, lọc bucket đã đóng, tính intraday feature. |
+| `intraday.py` | Đọc clean 1m, aggregate bucket 15m/60m đã đóng và tính intraday feature. |
+| `backfill.py` | Tính lại feature theo khoảng ngày, có warm-up từ lịch sử trước đó và chỉ ghi phần nằm trong khoảng yêu cầu. |
 | `common.py` | Công thức và helper dataframe dùng chung. |
 | `runtime.py` | Đọc DB, serialize, upsert, xử lý ngày và summary. |
-| `runner.py` | Router tương thích cũ và các hàm compatibility cấp thấp. |
-| `policy.py` | Default production và chặn ghi feature 1m/5m. |
+| `runner.py` | Router tương thích và các hàm compatibility cấp thấp. |
+| `policy.py` | Default production và validation timeframe được phép lưu. |
 
-Code production nên import từ `src.features`, không gọi trực tiếp
-`src.features.runner` hoặc `src.features.intraday` để bỏ qua policy.
+Code production nên import từ `src.features`.
 
-## CLI
+## Các phạm vi chạy CLI
 
-Feature daily một ngày:
+Mỗi lần chạy command feature chỉ được chọn một phạm vi.
 
-```bash
-python main.py features-daily --mode incremental --date 10/07/2026 --symbols SSI HPG
-```
-
-Feature intraday một ngày:
+### Một ngày cụ thể
 
 ```bash
-python main.py features-intraday --mode incremental --date 10/07/2026 --symbols SSI HPG --timeframes 15m 60m
+python main.py features-daily --date 10/07/2026 --symbols SSI HPG
+python main.py features-intraday --date 10/07/2026 --symbols SSI HPG --timeframes 15m 60m
 ```
 
 Giới hạn bucket đã đóng trong ngày hiện tại:
 
 ```bash
-python main.py features-intraday --mode incremental --date 10/07/2026 --as-of 14:30 --symbols SSI
+python main.py features-intraday --date 10/07/2026 --as-of 14:30 --symbols SSI
 ```
 
-Chạy full:
+### Backfill theo khoảng ngày bao gồm cả hai đầu
+
+```bash
+python main.py features-daily \
+  --from 01/07/2026 \
+  --to 29/07/2026 \
+  --symbols SSI HPG
+```
+
+```bash
+python main.py features-intraday \
+  --from 01/07/2026 \
+  --to 29/07/2026 \
+  --symbols SSI HPG \
+  --timeframes 15m 60m
+```
+
+Range mode đọc dữ liệu nguồn đến hết ngày `to`, tính indicator một lần với phần lịch sử trước đó để warm-up, sau đó chỉ upsert các row feature nằm trong khoảng yêu cầu.
+
+### Toàn bộ lịch sử
 
 ```bash
 python main.py features-daily --mode full --symbols SSI HPG
 python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 60m
 ```
 
-Router tương thích:
+## Validation phạm vi
 
-```bash
-python main.py features --mode incremental --date 10/07/2026 --symbols SSI --timeframes 15m 60m 1d
-```
+CLI trả exit code `2` khi:
 
-Alias legacy:
+- chỉ có một trong hai tham số `--from` hoặc `--to`;
+- dùng `--date` chung với `--from/--to`;
+- dùng `--mode full` chung với `--date` hoặc `--from/--to`;
+- dùng `--as-of` với range mode;
+- incremental mode không có `--date` hoặc `--from/--to`;
+- khoảng ngày bị đảo hoặc ngày kết thúc nằm trong tương lai.
 
-```bash
-python main.py intraday --symbols SSI --timeframes 15m 60m
-```
+## Quy tắc correctness và an toàn
 
-Các command sau không hợp lệ và trả exit code `2`:
-
-```bash
-python main.py features-intraday --timeframes 1m
-python main.py features-intraday --timeframes 5m
-python main.py features --timeframes 1m 5m 1d
-```
-
-Muốn lấy nến nguồn 1m thì dùng:
-
-```bash
-python main.py intraday-ingest 10/07/2026 --symbols SSI
-```
-
-## Quy tắc correctness
-
-- Intraday chỉ ghi candle/bucket đã đóng.
-- EMA/RSI/MACD intraday chạy liên tục qua các ngày quan sát.
-- VWAP intraday reset theo ngày.
-- `volume_ma20`/`value_ma20` dùng bucket cùng giờ của các ngày quan sát trước.
+- Không tính feature daily từ intraday.
+- 15m/60m luôn aggregate từ clean 1m trong memory và không ghi ngược vào `stock_intraday`.
+- Intraday chỉ ghi bucket đã đóng.
+- EMA/RSI/MACD có lịch sử trước đó để warm-up.
 - Thiếu input giữ `NULL`, không ép thành 0 hoặc `False`.
-- `return_from_open` intraday dùng `stock_daily.open_price` chính thức.
 - `stock_intraday.value` vẫn là giá trị ước tính `round(close * volume)`.
+- Ingest, feature, signal và backtest vẫn là các pipeline tách biệt.
 
 ## Ảnh hưởng database
 
-Thay đổi này không cần migration schema. Các row feature `1m` hoặc `5m` đã tồn
-tại không bị tự động xóa. Việc xóa phải là một thao tác database riêng, có phạm
-vi rõ ràng và được review trước.
+Migration: none.
 
-Không cần backfill dữ liệu nguồn. Chỉ chạy lại feature `1d`, `15m`, `60m` khi
-công thức thay đổi và cần đồng bộ lịch sử.
+Range và full chỉ ghi bảng `features`. Các bảng nguồn chỉ được đọc. Không tự động backfill dữ liệu nguồn.
