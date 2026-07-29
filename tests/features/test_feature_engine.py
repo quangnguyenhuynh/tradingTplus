@@ -167,6 +167,45 @@ def test_timestamp_conversion_utc_in_records():
     assert recs[0]['time'].endswith('Z')
 
 
+def test_feature_records_serialize_bigint_payload_as_python_int():
+    df = pd.DataFrame([_mk_row('2026-07-29T07:30:00Z', 1)])
+    feats = fe.compute_feature_dataframe(df)
+    feats.loc[0, 'volume'] = 22578100.0
+    feats.loc[0, 'value'] = 436778860000.0
+
+    record = feature_runtime.build_feature_records(feats, 'SSI', '1d')[0]
+
+    assert record['volume'] == 22578100
+    assert record['value'] == 436778860000
+    assert type(record['volume']) is int
+    assert type(record['value']) is int
+
+
+def test_feature_records_preserve_missing_bigint_payload_as_none():
+    df = pd.DataFrame([_mk_row('2026-07-29T07:30:00Z', 1)])
+    feats = fe.compute_feature_dataframe(df)
+    feats.loc[0, 'volume'] = pd.NA
+    feats.loc[0, 'value'] = float('nan')
+
+    record = feature_runtime.build_feature_records(feats, 'SHB', '1d')[0]
+
+    assert record['volume'] is None
+    assert record['value'] is None
+
+
+def test_feature_records_reject_fractional_bigint_payload_with_context():
+    df = pd.DataFrame([_mk_row('2026-07-29T07:30:00Z', 1)])
+    feats = fe.compute_feature_dataframe(df)
+    feats['value'] = feats['value'].astype(float)
+    feats.loc[0, 'value'] = 1000.25
+
+    with pytest.raises(
+        ValueError,
+        match=r"column=value value=1000\.25 symbol=SSI timeframe=1d time=",
+    ):
+        feature_runtime.build_feature_records(feats, 'SSI', '1d')
+
+
 def test_aggregate_timeframe_builds_5m_bars_from_1m_source():
     rows = []
     base = pd.Timestamp('2026-05-20T02:00:00Z')

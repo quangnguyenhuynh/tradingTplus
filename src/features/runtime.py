@@ -20,6 +20,33 @@ VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 UTC_TZ = ZoneInfo("UTC")
 SOURCE_TIMEFRAME = "1m"
 DEFAULT_FEATURE_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")
+BIGINT_FEATURE_COLUMNS = frozenset({"volume", "value"})
+
+
+def _serialize_bigint_feature(
+    value,
+    column: str,
+    symbol: str,
+    timeframe: str,
+    time,
+) -> int | None:
+    if value is None or value is pd.NA or value is pd.NaT or pd.isna(value):
+        return None
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError(
+            f"Invalid bigint feature column={column} value={value!r} "
+            f"symbol={symbol} timeframe={timeframe} time={time}"
+        )
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        numeric = float(value)
+        if np.isfinite(numeric) and numeric.is_integer():
+            return int(numeric)
+    raise ValueError(
+        f"Invalid bigint feature column={column} value={value!r} "
+        f"symbol={symbol} timeframe={timeframe} time={time}"
+    )
 
 
 def normalize_target_date(target_date=None) -> date:
@@ -65,13 +92,11 @@ def build_feature_records(
     out.insert(1, "timeframe", timeframe)
     out["time"] = pd.to_datetime(out["time"], utc=True, errors="coerce")
 
-    numeric_cols = [
+    float_cols = [
         "open",
         "high",
         "low",
         "close",
-        "volume",
-        "value",
         "return_1m",
         "return_5m",
         "return_15m",
@@ -97,8 +122,8 @@ def build_feature_records(
         "candle_body_pct",
         "close_position_in_candle",
     ]
-    out[numeric_cols] = out[numeric_cols].round(6)
-    out[numeric_cols] = out[numeric_cols].replace(
+    out[float_cols] = out[float_cols].round(6)
+    out[float_cols] = out[float_cols].replace(
         [float("inf"), float("-inf")],
         pd.NA,
     )
@@ -109,7 +134,15 @@ def build_feature_records(
     for row in out.to_dict("records"):
         clean_row = {}
         for key, value in row.items():
-            if value is pd.NA or value is pd.NaT:
+            if key in BIGINT_FEATURE_COLUMNS:
+                clean_row[key] = _serialize_bigint_feature(
+                    value,
+                    key,
+                    symbol,
+                    timeframe,
+                    row.get("time"),
+                )
+            elif value is pd.NA or value is pd.NaT:
                 clean_row[key] = None
             elif isinstance(value, (float, np.floating)):
                 numeric = float(value)
