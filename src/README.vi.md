@@ -17,13 +17,14 @@ Python package chứa tích hợp SSI, persistence, validation, pipeline và cá
 | [`database/`](database/README.vi.md) | Đọc/ghi Supabase. |
 | [`validation/`](validation/README.vi.md) | Validation record raw/clean. |
 | [`pipeline/`](pipeline/README.vi.md) | Orchestration production và các luồng ingest. |
-| [`engine/`](engine/README.vi.md) | Tính feature và engine research downstream. |
+| [`features/`](features/README.vi.md) | Tính và chạy feature daily/intraday tách theo nguồn. |
+| [`engine/`](engine/README.vi.md) | Signal/backtest research downstream và utility legacy. |
 
 ## Chiều phụ thuộc
 
 ```text
 SSI clients → pipelines → validation/database
-clean database data → feature engine → signal/backtest research khi chạy riêng
+clean database data → features → signal/backtest research khi chạy riêng
 ```
 
 Ingest không được tự động gọi feature, signal hoặc backtest. Code research downstream không được sửa hoặc ghi đè dữ liệu nguồn.
@@ -39,5 +40,3 @@ Ingest không được tự động gọi feature, signal hoặc backtest. Code 
 ## Phát triển
 
 Chỉ sửa đúng phạm vi, giữ public function và schema contract, xử lý lỗi API/database rõ ràng và tạo migration khi đổi schema. Chạy test nhỏ liên quan trước rồi `python -m pytest -q` khi phù hợp.
-
-> Cập nhật feature (issue #99): implementation thuộc `src/features/`. Dùng `features-daily` và `features-intraday` tách theo nguồn; `features` và `intraday` là route tương thích. Intraday chỉ ghi bucket đã đóng, dùng open daily chính thức, indicator/high-low liên tục, baseline volume/value bucket tương ứng 20 ngày quan sát trước và flag nullable. Xem `src/features/README.vi.md`.

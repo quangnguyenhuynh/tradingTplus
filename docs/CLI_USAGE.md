@@ -220,7 +220,13 @@ Writes: `features`.
 
 Does not: ingest source data, generate signals, or run backtests.
 
-Public function: `src.engine.feature_engine.run_feature_engine_with_summary(...) -> dict`.
+Preferred public functions:
+
+- `src.features.daily.run_daily_features_with_summary(...) -> dict`
+- `src.features.intraday.run_intraday_features_with_summary(...) -> dict`
+
+Compatibility function:
+`src.features.runner.run_feature_engine_with_summary(...) -> dict`.
 
 ## `intraday` legacy alias
 

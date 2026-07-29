@@ -1,6 +1,18 @@
 # Feature package
 
-`common.py` owns shared deterministic math, nullable comparisons, the 35-column contract and serialization primitives. `daily.py` exposes daily calculation/execution; `intraday.py` exposes 1m preparation, observed-only aggregation, closed-bucket filtering and intraday execution; `runner.py` owns bounded pagination, symbol/error summaries and the deprecated mixed orchestrator. The old `src.engine.feature_*` modules are import-only compatibility shims.
+## Ownership
+
+| File | Responsibility |
+| --- | --- |
+| `common.py` | Shared deterministic math, nullable comparisons, indicator helpers, and the canonical 35-value contract. |
+| `daily.py` | `stock_daily` mapping, 1d calculation, per-symbol execution, and daily summary. |
+| `intraday.py` | 1m preparation, observed aggregation, intraday calculation, closed-bucket filtering, per-symbol execution, and intraday summary. |
+| `runtime.py` | Shared date/timeframe normalization, bounded DB reads, serialization/upsert, logging, and source-run summaries. |
+| `runner.py` | Deprecated mixed router and narrow compatibility wrappers only; no source implementation. |
+
+The obsolete `src.engine.feature_engine` and
+`src.engine.feature_calculator` shims were removed. New imports must use
+`src.features` or the source-specific modules.
 
 ## Sources and formulas
 
@@ -21,6 +33,13 @@ python main.py features-intraday --date 10/07/2026 --as-of 14:30 --symbols SSI
 ```
 
 `features` remains a deprecated mixed router; `intraday` remains its incremental intraday alias. No feature command calls SSI, ingest, signals, backtests or alerts. All flows write only `features`, keyed by `(symbol,timeframe,time)`.
+
+The source-specific public imports are:
+
+```python
+from src.features.daily import run_daily_features_with_summary
+from src.features.intraday import run_intraday_features_with_summary
+```
 
 Migration `20260729_drop_legacy_feature_columns.sql` removes eight unused legacy columns. Apply it manually after review. Raw/clean data is unaffected. A manual full daily/intraday canonical backfill is required after deployment. Audit old possibly-open rows read-only and scope any cleanup separately.
 

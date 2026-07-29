@@ -7,13 +7,13 @@ Tài liệu này mô tả trạng thái hiện tại của repository Trading T+
 Last reviewed against repository code:
 
 ```text
-18/07/2026
+29/07/2026
 ```
 
-Repository commit dùng để đối chiếu:
+Mốc repository dùng để đối chiếu:
 
 ```text
-59e36b1310c4e435f1c426bd2d19276262f47922
+dev sau PR #100 (base cleanup: 2f342b2)
 ```
 
 Phạm vi đã đọc và đối chiếu gồm:
@@ -23,6 +23,7 @@ Phạm vi đã đọc và đối chiếu gồm:
 - `src/pipeline/`;
 - `src/database/client.py`;
 - `src/validation/`;
+- `src/features/`;
 - `src/engine/`;
 - `schema.sql` và các migration liên quan;
 - `tests/`;
@@ -666,19 +667,22 @@ Không ghi candle aggregate ngược vào `stock_intraday`.
 
 ## Incremental mode
 
-Hiện tải:
+Daily và intraday đã có execution path riêng:
 
-- target-date intraday rows;
-- tối đa 300 intraday warm-up rows;
-- tối đa 150 daily rows.
+- daily chỉ đọc `stock_daily`;
+- intraday đọc `stock_intraday(timeframe='1m')` và daily context;
+- trong Phase 0, hai luồng đọc toàn bộ history sẵn có tới target date để tránh
+  warm-up cố định thiếu dữ liệu cho EMA/RSI/MACD ở 15m/60m;
+- chỉ output thuộc target date được upsert;
+- intraday chỉ ghi bucket đã đóng theo cutoff Việt Nam.
 
-Feature được tính trên warm-up + target data nhưng chỉ upsert output trong target date.
-
-Chưa có evidence đầy đủ rằng 300 rows đủ cho mọi intraday timeframe hoặc future feature.
+Thiết kế all-history ưu tiên tính đúng và full/incremental parity ở Phase 0, đổi
+lại chi phí query/RAM cao hơn.
 
 ## Full mode
 
-Function hiện fetch paginated từ database nhưng vẫn gom toàn bộ intraday history của từng symbol vào một list/DataFrame trước khi tính.
+Function hiện fetch paginated từ database nhưng vẫn gom toàn bộ intraday history
+của từng symbol vào một list/DataFrame trước khi tính.
 
 Do đó:
 
@@ -686,15 +690,17 @@ Do đó:
 - không giới hạn tổng memory mỗi symbol;
 - chưa phù hợp backfill toàn universe/lịch sử lớn nếu chưa đo RAM, runtime và upsert duration.
 
-## Chưa được chứng minh
+## Kiểm chứng và giới hạn còn lại
 
-- full và incremental tương đương trên overlapping rows;
-- aggregation không vượt lunch/session boundary trong mọi case;
-- aggregate timestamp đúng semantic mong muốn;
-- incomplete current bar được xử lý đúng;
-- formula đã đối chiếu với nguồn thứ hai;
+Offline test hiện kiểm tra overlap của full/incremental calculator, không vượt
+lunch/date boundary, nullable flag, closed bucket và các hằng số RSI/MACD độc
+lập. Vẫn còn cần kiểm chứng production/read-only đối với:
+
+- session/holiday/halt thực tế;
+- độ đầy đủ daily context;
+- performance all-history trên toàn universe;
 - feature versioning;
-- null behavior sau warm-up.
+- đối chiếu thêm EMA/RSI/MACD với nguồn thị trường thứ hai.
 
 ---
 
@@ -709,9 +715,8 @@ src/engine/signal/
 
 Strategy modules hiện gồm reversal, breakout và trend.
 
-Signal engine hiện là MVP cũ và chưa tương thích current feature schema.
-
-Query hiện yêu cầu:
+Signal entrypoint cũ hiện đã fail-fast và không query/generate signal. Các class
+strategy legacy còn giữ lại để redesign sau, nhưng vẫn tham chiếu:
 
 ```text
 rsi

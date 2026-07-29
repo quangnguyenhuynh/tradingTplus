@@ -58,7 +58,8 @@ Non-negotiable contracts:
 | `src/pipeline/` | Master data, ingest, EOD, validation orchestration, backfill, and snapshots. |
 | `src/database/` | Supabase access and persistence contracts. |
 | `src/validation/` | Daily, intraday, and streaming validation. |
-| `src/engine/` | Feature computation and downstream research/MVP engines. |
+| `src/features/` | Source-isolated daily/intraday feature calculation and execution. |
+| `src/engine/` | Downstream signal/backtest research and legacy quality utilities. |
 | `scripts/` | Manual, smoke, debug, inspection, and maintenance tools. |
 | `migrations/` | Versioned additive database changes. |
 | `sql/` | Explicit operational SQL utilities. |

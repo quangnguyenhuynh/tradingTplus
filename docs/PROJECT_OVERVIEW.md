@@ -463,15 +463,23 @@ Mọi thay đổi schema phải có migration.
 
 ---
 
-## 6. Feature engine
+## 6. Feature package
 
 Thư mục:
 
 ```text
-src/engine/
+src/features/
 ```
 
-Feature engine hiện:
+Phân chia chính:
+
+- `common.py`: contract và phép toán dùng chung;
+- `daily.py`: tính/chạy feature `1d` từ `stock_daily`;
+- `intraday.py`: aggregate, tính và chỉ ghi bucket intraday đã đóng;
+- `runtime.py`: đọc/ghi DB, chuẩn hóa ngày/timeframe và summary dùng chung;
+- `runner.py`: mixed compatibility router mỏng.
+
+Feature package hiện:
 
 - đọc `stock_daily` cho timeframe `1d`;
 - đọc `stock_intraday` cho intraday;
@@ -494,6 +502,9 @@ Các nhóm feature hiện có:
 - breakout flags;
 - intraday VWAP;
 - candle structure.
+
+`src/engine/` không còn sở hữu feature. Hai shim feature cũ đã bị xóa;
+folder này chỉ giữ signal/backtest research và utility legacy.
 
 ---
 

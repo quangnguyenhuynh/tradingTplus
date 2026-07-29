@@ -1,6 +1,18 @@
 # Package feature
 
-`common.py` chứa phép toán thuần dùng chung, so sánh nullable, hợp đồng 35 cột và primitive serialize. `daily.py` công khai tính/chạy daily; `intraday.py` công khai chuẩn hóa 1m, aggregate observed-only, lọc bucket đã đóng và chạy intraday; `runner.py` quản lý phân trang hữu hạn, summary theo mã/lỗi và mixed orchestrator đã deprecated. Hai module `src.engine.feature_*` cũ chỉ là shim import tương thích.
+## Phân chia trách nhiệm
+
+| File | Trách nhiệm |
+| --- | --- |
+| `common.py` | Phép toán deterministic dùng chung, so sánh nullable, helper indicator và hợp đồng 35 giá trị canonical. |
+| `daily.py` | Mapping `stock_daily`, tính 1d, chạy theo mã và summary daily. |
+| `intraday.py` | Chuẩn hóa 1m, aggregate observed, tính intraday, lọc bucket đóng, chạy theo mã và summary intraday. |
+| `runtime.py` | Chuẩn hóa ngày/timeframe, đọc DB có phân trang hữu hạn, serialize/upsert, log và summary dùng chung. |
+| `runner.py` | Chỉ còn mixed router deprecated và compatibility wrapper mỏng; không chứa implementation theo nguồn. |
+
+Hai shim cũ `src.engine.feature_engine` và
+`src.engine.feature_calculator` đã bị xóa. Import mới phải dùng `src.features`
+hoặc module tách theo nguồn.
 
 ## Nguồn và công thức
 
@@ -21,6 +33,13 @@ python main.py features-intraday --date 10/07/2026 --as-of 14:30 --symbols SSI
 ```
 
 `features` là mixed router tương thích đã deprecated; `intraday` vẫn là alias incremental intraday. Feature command không gọi SSI/ingest/signal/backtest/alert. Mọi luồng chỉ ghi `features`, key `(symbol,timeframe,time)`.
+
+Public import tách theo nguồn:
+
+```python
+from src.features.daily import run_daily_features_with_summary
+from src.features.intraday import run_intraday_features_with_summary
+```
 
 Migration `20260729_drop_legacy_feature_columns.sql` xóa tám cột legacy không còn dùng và phải apply thủ công sau review. Raw/clean không đổi. Sau deploy cần full backfill canonical daily/intraday thủ công. Chỉ audit read-only các row cũ có thể từng ghi khi bucket mở; cleanup phải được duyệt và scope riêng.
 

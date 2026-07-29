@@ -1,11 +1,11 @@
+import ast
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from src.features.common import FEATURE_COLUMNS, calculate_macd, calculate_rsi, nullable_comparison
-from src.features.intraday import compute_intraday_features
-from src.features.runner import filter_closed_buckets
+from src.features.intraday import compute_intraday_features, filter_closed_buckets
 
 
 def _row(time, close=10.0, volume=100):
@@ -55,3 +55,27 @@ def test_migration_and_schema_contract():
     feature_block = schema.split('CREATE TABLE IF NOT EXISTS "public"."features"', 1)[1].split(');', 1)[0]
     for column in FEATURE_COLUMNS:
         assert f'"{column}"' in feature_block
+
+
+def test_feature_package_has_source_owners_without_legacy_engine_shims():
+    assert not Path("src/engine/feature_calculator.py").exists()
+    assert not Path("src/engine/feature_engine.py").exists()
+
+    daily_source = Path("src/features/daily.py").read_text()
+    intraday_source = Path("src/features/intraday.py").read_text()
+    runner_source = Path("src/features/runner.py").read_text()
+
+    assert "def compute_daily_features(" in daily_source
+    assert "def calculate_daily_features_for_symbol(" in daily_source
+    assert "def compute_intraday_features(" in intraday_source
+    assert "def calculate_intraday_features_for_symbol(" in intraday_source
+
+    runner_tree = ast.parse(runner_source)
+    function_names = [
+        node.name
+        for node in runner_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    assert len(function_names) == len(set(function_names))
+    assert "def _fetch_stock_intraday_paginated(" not in runner_source
+    assert "def _fetch_stock_daily_rows(" not in runner_source
