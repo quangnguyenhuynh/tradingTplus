@@ -1,5 +1,10 @@
 """Deterministic, source-isolated feature calculation and execution."""
 
+from .backfill import (
+    normalize_feature_range,
+    run_daily_feature_backfill,
+    run_intraday_feature_backfill,
+)
 from .common import FEATURE_COLUMNS, INTRADAY_TIMEFRAMES, SUPPORTED_TIMEFRAMES
 from .daily import compute_daily_features
 from .intraday import (
@@ -32,9 +37,12 @@ __all__ = [
     "compute_daily_features",
     "compute_intraday_features",
     "filter_closed_buckets",
+    "normalize_feature_range",
+    "run_daily_feature_backfill",
     "run_daily_features_with_summary",
     "run_feature_engine",
     "run_feature_engine_with_summary",
+    "run_intraday_feature_backfill",
     "run_intraday_features_with_summary",
     "validate_intraday_persisted_timeframes",
     "validate_persisted_timeframes",
