@@ -1,27 +1,12 @@
 #!/usr/bin/env python3
 """TradingTPlus production CLI.
 
-Production commands:
-  python main.py sync-master-data
-  python main.py init
-  python main.py daily [DD/MM/YYYY]
-  python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
-  python main.py eod [DD/MM/YYYY]
-  python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
-  python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
-  python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
-  python main.py features-daily [--date DD/MM/YYYY] [--symbols SSI HPG]
-  python main.py features-intraday [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m]
-  python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m 1d]
-  python main.py intraday [--symbols SSI HPG] [--timeframes 15m 60m]
-  python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
+Feature commands support three explicit scopes:
+- incremental one date: --date DD/MM/YYYY
+- inclusive range backfill: --from DD/MM/YYYY --to DD/MM/YYYY
+- all history: --mode full
 
-Feature persistence policy:
-- stock_intraday keeps canonical 1m source candles;
-- the features table persists only 1d, 15m, and 60m;
-- 1m and 5m feature writes are rejected.
-
-Exit codes: 0=OK/PARTIAL, 1=FAILED, 2=invalid arguments.
+Persisted feature timeframes remain limited to 1d, 15m, and 60m.
 """
 from __future__ import annotations
 
@@ -33,8 +18,10 @@ from typing import Any
 from src.features import (
     DEFAULT_PERSISTED_FEATURE_TIMEFRAMES,
     PERSISTED_INTRADAY_TIMEFRAMES,
+    run_daily_feature_backfill,
     run_daily_features_with_summary,
     run_feature_engine_with_summary,
+    run_intraday_feature_backfill,
     run_intraday_features_with_summary,
 )
 from src.pipeline import (
@@ -60,6 +47,42 @@ def _print_summary(summary: Any) -> None:
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
 
 
+def _add_range_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--from",
+        "--from-date",
+        dest="from_date",
+        default=None,
+        help="Inclusive start date DD/MM/YYYY for range backfill",
+    )
+    parser.add_argument(
+        "--to",
+        "--to-date",
+        dest="to_date",
+        default=None,
+        help="Inclusive end date DD/MM/YYYY for range backfill",
+    )
+
+
+def _validate_feature_scope(args) -> str:
+    has_date = bool(args.date)
+    has_from = bool(args.from_date)
+    has_to = bool(args.to_date)
+    has_range = has_from or has_to
+
+    if has_from != has_to:
+        raise ValueError("--from and --to must be provided together")
+    if has_date and has_range:
+        raise ValueError("--date cannot be combined with --from/--to")
+    if args.mode == "full" and (has_date or has_range):
+        raise ValueError("--mode full cannot be combined with --date or --from/--to")
+    if getattr(args, "as_of", None) and has_range:
+        raise ValueError("--as-of is only valid for a one-date incremental run")
+    if args.mode == "incremental" and not has_date and not has_range:
+        raise ValueError("incremental feature mode requires --date or --from/--to")
+    return "range" if has_range else args.mode
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TradingTPlus production flows")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -68,109 +91,52 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="Alias for sync-master-data")
 
     daily = sub.add_parser(
-        "daily",
-        help="Daily SSI ingest only; no features/signals/backtests",
+        "daily", help="Daily SSI ingest only; no features/signals/backtests"
     )
     daily.add_argument(
         "date",
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
-    daily.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="Stock symbols to ingest; omitted means all master symbols",
-    )
+    daily.add_argument("--symbols", nargs="+", default=None)
 
     intraday_ingest = sub.add_parser(
         "intraday-ingest",
-        help="Production SSI IntradayOhlc 1m ingest only; no features/signals/backtests",
+        help="SSI IntradayOhlc 1m ingest only; no features/signals/backtests",
     )
-    intraday_ingest.add_argument(
-        "date",
-        nargs="?",
-        help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
-    )
-    intraday_ingest.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="Symbols to ingest; omitted means all master symbols",
-    )
+    intraday_ingest.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY")
+    intraday_ingest.add_argument("--symbols", nargs="+", default=None)
 
     eod = sub.add_parser(
         "eod",
-        help="EOD orchestrator: daily ingest + intraday ingest + completeness validation only; no features",
+        help="Daily ingest + intraday ingest + completeness; no features",
     )
-    eod.add_argument(
-        "date",
-        nargs="?",
-        help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
-    )
-    eod.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="Stock symbols for daily, intraday, and completeness; omitted means all master symbols",
-    )
+    eod.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY")
+    eod.add_argument("--symbols", nargs="+", default=None)
 
     for command, help_text in (
-        (
-            "backfill-daily",
-            "Inclusive daily-only source-data backfill; no completeness/features/signals/backtests",
-        ),
-        (
-            "backfill-intraday",
-            "Inclusive 1m intraday-only source-data backfill; no daily/completeness/features/signals/backtests",
-        ),
-        (
-            "backfill",
-            "Inclusive daily + intraday source-data backfill with completeness; no features/signals/backtests",
-        ),
+        ("backfill-daily", "Inclusive daily source-data backfill"),
+        ("backfill-intraday", "Inclusive 1m intraday source-data backfill"),
+        ("backfill", "Inclusive daily + intraday source-data backfill"),
     ):
         command_parser = sub.add_parser(command, help=help_text)
         command_parser.add_argument(
-            "--from",
-            "--from-date",
-            dest="from_date",
-            required=True,
-            help="Inclusive start date DD/MM/YYYY",
+            "--from", "--from-date", dest="from_date", required=True
         )
         command_parser.add_argument(
-            "--to",
-            "--to-date",
-            dest="to_date",
-            required=True,
-            help="Inclusive end date DD/MM/YYYY",
+            "--to", "--to-date", dest="to_date", required=True
         )
-        command_parser.add_argument(
-            "--symbols",
-            nargs="+",
-            default=None,
-            help="Stock symbols used for every date; omitted means all master symbols",
-        )
+        command_parser.add_argument("--symbols", nargs="+", default=None)
 
     features = sub.add_parser(
         "features",
         help="Compatibility feature router; persists only 1d, 15m, and 60m",
     )
     features.add_argument(
-        "--mode",
-        choices=["incremental", "full"],
-        default="incremental",
+        "--mode", choices=["incremental", "full"], default="incremental"
     )
-    features.add_argument(
-        "--date",
-        default=None,
-        help="Target date DD/MM/YYYY for incremental mode",
-    )
-    features.add_argument(
-        "--symbols",
-        nargs="*",
-        default=None,
-        help="Symbols to process; omitted means all symbols",
-    )
+    features.add_argument("--date", default=None)
+    features.add_argument("--symbols", nargs="*", default=None)
     features.add_argument(
         "--timeframes",
         nargs="*",
@@ -180,34 +146,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     features_daily = sub.add_parser(
         "features-daily",
-        help="Explicit stock_daily-only 1d feature pipeline",
+        help="stock_daily-only 1d feature pipeline with date/range/full scopes",
     )
     features_daily.add_argument(
-        "--mode",
-        choices=["incremental", "full"],
-        default="incremental",
+        "--mode", choices=["incremental", "full"], default="incremental"
     )
-    features_daily.add_argument(
-        "--date",
-        default=None,
-        help="Target date for incremental mode",
-    )
+    features_daily.add_argument("--date", default=None)
+    _add_range_arguments(features_daily)
     features_daily.add_argument("--symbols", nargs="*", default=None)
 
     features_intraday = sub.add_parser(
         "features-intraday",
-        help="Explicit closed-candle 15m/60m feature pipeline from clean 1m source",
+        help="Closed-candle 15m/60m features from clean 1m source",
     )
     features_intraday.add_argument(
-        "--mode",
-        choices=["incremental", "full"],
-        default="incremental",
+        "--mode", choices=["incremental", "full"], default="incremental"
     )
-    features_intraday.add_argument(
-        "--date",
-        default=None,
-        help="Target date for incremental mode",
-    )
+    features_intraday.add_argument("--date", default=None)
+    _add_range_arguments(features_intraday)
     features_intraday.add_argument("--symbols", nargs="*", default=None)
     features_intraday.add_argument(
         "--timeframes",
@@ -218,47 +174,25 @@ def build_parser() -> argparse.ArgumentParser:
     features_intraday.add_argument(
         "--as-of",
         default=None,
-        help="Safe cutoff: HH:MM Vietnam time or timezone-aware timestamp",
+        help="One-date cutoff: HH:MM Vietnam time or timezone-aware timestamp",
     )
 
     intraday = sub.add_parser(
         "intraday",
-        help="Legacy alias for incremental 15m/60m feature calculation; does not ingest candles",
+        help="Legacy alias for incremental 15m/60m feature calculation",
     )
+    intraday.add_argument("--snapshot-time", default=None)
+    intraday.add_argument("--symbols", nargs="*", default=None)
     intraday.add_argument(
-        "--snapshot-time",
-        default=None,
-        help="Optional snapshot marker; defaults to current VN time",
-    )
-    intraday.add_argument(
-        "--symbols",
-        nargs="*",
-        default=None,
-        help="Symbols to process; omitted means all symbols",
-    )
-    intraday.add_argument(
-        "--timeframes",
-        nargs="*",
-        default=list(PERSISTED_INTRADAY_TIMEFRAMES),
-        help="Persisted intraday feature timeframes: 15m 60m",
+        "--timeframes", nargs="*", default=list(PERSISTED_INTRADAY_TIMEFRAMES)
     )
 
     streaming = sub.add_parser(
         "streaming-ingest",
-        help="Bounded SSI streaming ingest; dry-run/read-only unless --write is passed",
+        help="Bounded SSI streaming ingest; dry-run unless --write is passed",
     )
-    streaming.add_argument(
-        "--symbols",
-        nargs="*",
-        default=[],
-        help="Explicit symbols; never defaults to ALL",
-    )
-    streaming.add_argument(
-        "--indexes",
-        nargs="*",
-        default=[],
-        help="Explicit index codes for index channel",
-    )
+    streaming.add_argument("--symbols", nargs="*", default=[])
+    streaming.add_argument("--indexes", nargs="*", default=[])
     streaming.add_argument(
         "--channels",
         nargs="*",
@@ -271,22 +205,11 @@ def build_parser() -> argparse.ArgumentParser:
             "index",
             "realtime-bar",
         ],
-        help="Streaming channel groups to subscribe",
     )
     streaming.add_argument("--timeout", type=int, default=60)
     streaming.add_argument("--max-messages-per-channel", type=int, default=1)
-    streaming.add_argument(
-        "--write",
-        action="store_true",
-        default=False,
-        help="Persist raw and valid clean rows; omitted means dry-run/read-only",
-    )
-    streaming.add_argument(
-        "--debug",
-        action="store_true",
-        default=False,
-        help="Print sanitized debug summaries only",
-    )
+    streaming.add_argument("--write", action="store_true", default=False)
+    streaming.add_argument("--debug", action="store_true", default=False)
     return parser
 
 
@@ -303,26 +226,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "daily":
             summary = daily_run(
-                args.date,
-                symbols=normalize_symbol_scope(args.symbols),
+                args.date, symbols=normalize_symbol_scope(args.symbols)
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "intraday-ingest":
+        elif args.command == "intraday-ingest":
             summary = run_intraday_ingest(
-                args.date,
-                symbols=normalize_symbol_scope(args.symbols),
+                args.date, symbols=normalize_symbol_scope(args.symbols)
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "eod":
+        elif args.command == "eod":
             summary = run_eod_pipeline(
-                args.date,
-                symbols=normalize_symbol_scope(args.symbols),
+                args.date, symbols=normalize_symbol_scope(args.symbols)
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:
+        elif args.command in {"backfill-daily", "backfill-intraday", "backfill"}:
             runner = {
                 "backfill-daily": run_daily_backfill_pipeline,
                 "backfill-intraday": run_intraday_backfill_pipeline,
@@ -333,44 +247,51 @@ def main(argv: list[str] | None = None) -> int:
                 args.to_date,
                 symbols=normalize_symbol_scope(args.symbols),
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "features":
+        elif args.command == "features":
             summary = run_feature_engine_with_summary(
                 symbols=normalize_symbol_scope(args.symbols),
                 mode=args.mode,
                 timeframes=tuple(args.timeframes),
                 target_date=args.date,
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "features-daily":
-            summary = run_daily_features_with_summary(
-                symbols=normalize_symbol_scope(args.symbols),
-                mode=args.mode,
-                target_date=args.date,
-            )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "features-intraday":
-            summary = run_intraday_features_with_summary(
-                symbols=normalize_symbol_scope(args.symbols),
-                mode=args.mode,
-                timeframes=tuple(args.timeframes),
-                target_date=args.date,
-                as_of=args.as_of,
-            )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "intraday":
+        elif args.command == "features-daily":
+            scope = _validate_feature_scope(args)
+            symbols = normalize_symbol_scope(args.symbols)
+            if scope == "range":
+                summary = run_daily_feature_backfill(
+                    args.from_date, args.to_date, symbols=symbols
+                )
+            else:
+                summary = run_daily_features_with_summary(
+                    symbols=symbols,
+                    mode=args.mode,
+                    target_date=args.date,
+                )
+        elif args.command == "features-intraday":
+            scope = _validate_feature_scope(args)
+            symbols = normalize_symbol_scope(args.symbols)
+            if scope == "range":
+                summary = run_intraday_feature_backfill(
+                    args.from_date,
+                    args.to_date,
+                    symbols=symbols,
+                    timeframes=tuple(args.timeframes),
+                )
+            else:
+                summary = run_intraday_features_with_summary(
+                    symbols=symbols,
+                    mode=args.mode,
+                    timeframes=tuple(args.timeframes),
+                    target_date=args.date,
+                    as_of=args.as_of,
+                )
+        elif args.command == "intraday":
             summary = run_intraday_pipeline(
                 snapshot_time=args.snapshot_time,
                 symbols=normalize_symbol_scope(args.symbols),
                 timeframes=tuple(args.timeframes),
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "streaming-ingest":
+        elif args.command == "streaming-ingest":
             summary = run_streaming_ingest(
                 symbols=[symbol.upper() for symbol in args.symbols],
                 indexes=[index.upper() for index in args.indexes],
@@ -380,16 +301,18 @@ def main(argv: list[str] | None = None) -> int:
                 write=args.write,
                 debug=args.debug,
             )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        parser.error(f"Unsupported command: {args.command}")
+        else:
+            parser.error(f"Unsupported command: {args.command}")
+            return 2
+
+        _print_summary(summary)
+        return _status_to_exit(summary)
     except ValueError as exc:
         print(f"❌ Invalid arguments: {exc}", file=sys.stderr)
         return 2
     except Exception as exc:
         print(f"❌ {args.command} failed: {exc}", file=sys.stderr)
         return 1
-    return 2
 
 
 if __name__ == "__main__":
