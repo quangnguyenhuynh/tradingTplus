@@ -112,3 +112,5 @@ Trước khi làm completeness, feature, signal, backtest hoặc live alert:
 
 Các quy ước này chỉ là tài liệu. Không cần migration, thay đổi dữ liệu hoặc
 backfill.
+
+Feature aggregate giữ `stock_intraday.time` làm bucket start theo giờ Việt Nam biểu diễn UTC. Production feature chỉ ghi bucket đã đóng theo biên phiên phù hợp; partial aggregate quan sát được không chứng minh bucket đã đóng.

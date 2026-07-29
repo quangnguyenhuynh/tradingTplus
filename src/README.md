@@ -39,3 +39,5 @@ Ingest must not call the feature, signal, or backtest engines automatically. Dow
 ## Development
 
 Keep changes scoped, preserve public functions and schema contracts, handle API/database errors explicitly, and add migrations for schema changes. Run targeted tests followed by `python -m pytest -q` when practical.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

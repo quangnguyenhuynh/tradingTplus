@@ -8,8 +8,8 @@ from typing import Any
 
 import pandas as pd
 
-from src.engine.feature_calculator import aggregate_timeframe, compute_daily_features, compute_intraday_features
-from src.engine.feature_engine import FEATURE_COLUMNS, _normalize_timeframes
+from src.features.common import aggregate_timeframe, compute_daily_features, compute_intraday_features
+from src.features.runner import FEATURE_COLUMNS, _normalize_timeframes
 from src.pipeline.daily_fetcher import fetch_daily_price
 from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
 from src.pipeline.intraday_fetcher import fetch_intraday_candles

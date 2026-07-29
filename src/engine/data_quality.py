@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 
 from src.database.client import SupabaseClient
-from src.engine.feature_engine import FEATURE_COLUMNS, calculate_features_for_symbol
+from src.features.runner import FEATURE_COLUMNS, calculate_features_for_symbol
 from src.utils.time_utils import app_now_iso
 
 logger = logging.getLogger(__name__)

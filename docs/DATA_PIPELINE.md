@@ -243,3 +243,5 @@ conflict updates omit it so reruns/backfills preserve the first insert time.
 Mutable source rows receive `updated_at`, raw fetches receive `fetched_at`, stream
 messages retain app `received_at`, and feature rows receive `last_updated_at`. Database
 clock defaults are removed for these fields, so writers must send them explicitly.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

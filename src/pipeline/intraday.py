@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from src.engine.feature_engine import run_feature_engine_with_summary
+from src.features import run_intraday_features_with_summary
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 DEFAULT_INTRADAY_TIMEFRAMES = ("1m", "5m", "15m")
@@ -22,14 +22,14 @@ def run_intraday_pipeline(
         raise ValueError("Legacy intraday alias must not calculate 1d features; use `features --timeframes 1d`.")
     feature_symbols = [s.upper() for s in symbols] if symbols else None
     print(f"⚠️ {LEGACY_INTRADAY_WARNING}")
-    summary = run_feature_engine_with_summary(
+    summary = run_intraday_features_with_summary(
         symbols=feature_symbols,
         mode="incremental",
         timeframes=feature_timeframes,
     )
     return {
+        **summary,
         "flow": "intraday",
         "snapshot_time": resolved_snapshot,
         "legacy_warning": LEGACY_INTRADAY_WARNING,
-        **summary,
     }

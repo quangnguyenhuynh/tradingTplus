@@ -1,9 +1,3 @@
 # Test feature
 
-Test việc tính feature deterministic và ghi dữ liệu đúng theo timeframe.
-
-Phạm vi gồm đọc nguồn 1m, aggregate 5m/15m/60m, feature 1d từ `stock_daily`, warm-up history, pagination, lọc target date, breakout không look-ahead, reset theo phiên và hợp đồng một bảng `features`.
-
-```bash
-python -m pytest -q tests/features
-```
+Bao phủ package daily/intraday riêng, cách ly nguồn, aggregate observed và chỉ ghi bucket đóng, warm-up/parity all-history Phase 0, indicator/high-low liên tục, baseline bucket tương ứng các ngày trước, VWAP reset daily, open chính thức, flag nullable, reference indicator cố định độc lập, shim tương thích và hợp đồng migration/schema.

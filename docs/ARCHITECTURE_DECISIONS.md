@@ -1833,3 +1833,5 @@ Consequences:
 - Feature computation, signal generation, and backtesting remain explicit downstream stages.
 
 No schema change is required for this split.
+
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

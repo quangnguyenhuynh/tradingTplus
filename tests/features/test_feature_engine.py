@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import src.engine.feature_engine as fe
-import src.engine.feature_calculator as fc
+import src.features.runner as fe
+import src.features.common as fc
 
 
 class _Result:
@@ -312,19 +312,16 @@ def test_daily_breakout_uses_previous_20_bars_without_lookahead():
     assert bool(feats.iloc[-1]['close_above_high_20']) is True
 
 
-def test_intraday_vwap_and_volume_ma20_reset_each_day():
+def test_intraday_vwap_resets_daily_and_volume_ma20_uses_prior_same_bucket_dates():
     rows = []
-    for d in ['2026-05-20', '2026-05-21']:
-        base = pd.Timestamp(f'{d}T02:00:00Z')
-        for i in range(21):
-            rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
+    for day in pd.date_range('2026-04-01', periods=21, freq='D'):
+        rows.append(_mk_row(day.strftime('%Y-%m-%dT02:00:00Z'), day.day))
 
     feats = fe.compute_intraday_features(pd.DataFrame(rows), timeframe='1m')
 
-    second_day = feats.iloc[21:]
-    assert pd.isna(second_day.iloc[18]['volume_ma20'])
-    assert second_day.iloc[19]['volume_ma20'] == sum(100 + i for i in range(20)) / 20
-    assert second_day.iloc[0]['vwap_intraday'] == second_day.iloc[0]['value'] / second_day.iloc[0]['volume']
+    assert pd.isna(feats.iloc[19]['volume_ma20'])
+    assert feats.iloc[20]['volume_ma20'] == pytest.approx(feats.iloc[:20]['volume'].mean())
+    assert feats.iloc[20]['vwap_intraday'] == feats.iloc[20]['value'] / feats.iloc[20]['volume']
 
 
 def test_return_columns_match_timeframe_semantics():
