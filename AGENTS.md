@@ -395,8 +395,8 @@ Run targeted tests first, then broader tests when practical.
 
 Typical commands:
 
-pytest -q tests/test_feature_engine.py
-pytest -q tests/test_cli_refactor.py tests/test_eod_pipeline.py
+pytest -q tests/features/test_feature_engine.py
+pytest -q tests/cli/test_cli_refactor.py tests/pipeline/test_eod_pipeline.py
 pytest -q tests/validation
 pytest -q
 python -m compileall main.py src scripts

@@ -58,7 +58,8 @@ Các hợp đồng bắt buộc:
 | `src/pipeline/` | Master data, ingest, EOD, validation orchestration, backfill và snapshot. |
 | `src/database/` | Truy cập Supabase và hợp đồng ghi dữ liệu. |
 | `src/validation/` | Validation daily, intraday và streaming. |
-| `src/engine/` | Tính feature và các engine research/MVP downstream. |
+| `src/features/` | Tính và chạy feature daily/intraday tách theo nguồn. |
+| `src/engine/` | Signal/backtest research downstream và utility quality legacy. |
 | `scripts/` | Tool manual, smoke, debug, inspector và maintenance. |
 | `migrations/` | Thay đổi database có version. |
 | `sql/` | SQL vận hành chạy có chủ đích. |

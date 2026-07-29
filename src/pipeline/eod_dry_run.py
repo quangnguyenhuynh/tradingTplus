@@ -8,8 +8,10 @@ from typing import Any
 
 import pandas as pd
 
-from src.features.common import aggregate_timeframe, compute_daily_features, compute_intraday_features
-from src.features.runner import FEATURE_COLUMNS, _normalize_timeframes
+from src.features.common import FEATURE_COLUMNS
+from src.features.daily import compute_daily_features
+from src.features.intraday import aggregate_timeframe, compute_intraday_features
+from src.features.runtime import normalize_timeframes
 from src.pipeline.daily_fetcher import fetch_daily_price
 from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
 from src.pipeline.intraday_fetcher import fetch_intraday_candles
@@ -131,7 +133,7 @@ def _build_symbol_summary(ssi: SSIApi, date: str, symbol: str, timeframes: list[
     source_df = pd.DataFrame(stock_intraday_records)
     daily_df = pd.DataFrame([stock_daily_record]) if stock_daily_record else None
     last_feature_df = pd.DataFrame()
-    for timeframe in _normalize_timeframes(timeframes):
+    for timeframe in normalize_timeframes(timeframes):
         if timeframe == "1d":
             feature_df = compute_daily_features(daily_df) if daily_df is not None else pd.DataFrame()
         else:
@@ -190,7 +192,7 @@ def run_eod_dry_run(
     target_date = date or latest_previous_weekday()
     requested_symbols = [symbol.upper() for symbol in (symbols or DEFAULT_SYMBOLS)]
     requested_timeframes = list(timeframes or DEFAULT_TIMEFRAMES)
-    _normalize_timeframes(requested_timeframes)
+    normalize_timeframes(requested_timeframes)
 
     ssi = SSIApi()
     summary = {

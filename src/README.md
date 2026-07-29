@@ -17,13 +17,14 @@ Python package containing SSI integration, persistence, validation, pipelines, a
 | [`database/`](database/README.md) | Supabase reads and writes. |
 | [`validation/`](validation/README.md) | Raw/clean record validation. |
 | [`pipeline/`](pipeline/README.md) | Production orchestration and ingest flows. |
-| [`engine/`](engine/README.md) | Feature computation and downstream research engines. |
+| [`features/`](features/README.md) | Daily/intraday feature calculation and explicit execution. |
+| [`engine/`](engine/README.md) | Downstream signal/backtest research and legacy utilities. |
 
 ## Dependency direction
 
 ```text
 SSI clients → pipelines → validation/database
-clean database data → feature engine → optional research signal/backtest code
+clean database data → features → optional research signal/backtest code
 ```
 
 Ingest must not call the feature, signal, or backtest engines automatically. Downstream research code must not repair or overwrite source data.
@@ -39,5 +40,3 @@ Ingest must not call the feature, signal, or backtest engines automatically. Dow
 ## Development
 
 Keep changes scoped, preserve public functions and schema contracts, handle API/database errors explicitly, and add migrations for schema changes. Run targeted tests followed by `python -m pytest -q` when practical.
-
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

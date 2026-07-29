@@ -13,7 +13,9 @@ Tài liệu này tổng hợp schema Supabase mà code hiện tại đang **đ�
 - `trading_signals`
 - `backtest_data`
 
-Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`, `src/engine/feature_engine.py`, `src/engine/signal_engine.py`, `scripts/check_supabase.py`.
+Nguồn suy luận: các lệnh `table('...')` trong `src/database/client.py`,
+`src/features/runtime.py`, các module execution trong `src/features/`,
+`src/engine/backtest_engine.py` và `scripts/check_supabase.py`.
 
 ## 2) Cột tối thiểu theo từng bảng
 

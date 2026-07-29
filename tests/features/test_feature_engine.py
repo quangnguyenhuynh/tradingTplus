@@ -8,6 +8,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import src.features.runner as fe
 import src.features.common as fc
+import src.features.daily as daily_flow
+import src.features.intraday as intraday_flow
+import src.features.runtime as feature_runtime
 
 
 class _Result:
@@ -70,11 +73,13 @@ class _DB:
         self.rows = rows
         self.daily_rows = daily_rows or []
         self.upsert_calls = []
+        self.table_calls = []
 
     def get(self):
         return self
 
     def table(self, name):
+        self.table_calls.append(name)
         if name == 'stock_daily':
             return _Query(self.daily_rows)
         return _Query(self.rows)
@@ -105,7 +110,7 @@ def test_full_mode_paginates_over_1000_rows(monkeypatch):
         rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
 
     db = _DB(rows)
-    monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_flow, 'SupabaseClient', lambda: db)
 
     upserted = fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m'])
     assert upserted == 1205
@@ -125,8 +130,8 @@ def test_incremental_mode_uses_today_and_warmup(monkeypatch):
             return t if tz is None else t.astimezone(tz)
 
     db = _DB(rows)
-    monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
-    monkeypatch.setattr(fe, 'datetime', _FixedDatetime)
+    monkeypatch.setattr(intraday_flow, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(feature_runtime, 'datetime', _FixedDatetime)
 
     upserted = fe.calculate_features_for_symbol_incremental('SSI', timeframes=['1m'], warmup_bars=2)
     assert upserted == 2
@@ -136,9 +141,23 @@ def test_incremental_mode_uses_today_and_warmup(monkeypatch):
 
 def test_no_rows_returns_zero(monkeypatch):
     db = _DB([])
-    monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_flow, 'SupabaseClient', lambda: db)
     assert fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m']) == 0
     assert fe.calculate_features_for_symbol_incremental('SSI', timeframes=['1m']) == 0
+
+
+def test_daily_execution_reads_only_stock_daily(monkeypatch):
+    db = _DB([], daily_rows=[_mk_daily("2026-05-20", 1)])
+    monkeypatch.setattr(daily_flow, "SupabaseClient", lambda: db)
+
+    count = daily_flow.calculate_daily_features_for_symbol(
+        "SSI",
+        mode="full",
+    )
+
+    assert count == 1
+    assert db.table_calls == ["stock_daily"]
+    assert [call[0] for call in db.upsert_calls] == ["features"]
 
 
 def test_timestamp_conversion_utc_in_records():
@@ -197,7 +216,7 @@ def test_full_mode_derives_higher_timeframe_features_without_writing_stock_intra
         rows.append(_mk_row((base + pd.Timedelta(minutes=i)).strftime('%Y-%m-%dT%H:%M:%SZ'), i))
 
     db = _DB(rows)
-    monkeypatch.setattr(fe, 'SupabaseClient', lambda: db)
+    monkeypatch.setattr(intraday_flow, 'SupabaseClient', lambda: db)
 
     upserted = fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m', '5m'])
 

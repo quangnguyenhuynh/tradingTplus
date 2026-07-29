@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
-from src.features.runner import DEFAULT_FEATURE_TIMEFRAMES, run_feature_engine
+from src.features.runner import run_feature_engine
+from src.features.runtime import DEFAULT_FEATURE_TIMEFRAMES
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run feature engine manually")
