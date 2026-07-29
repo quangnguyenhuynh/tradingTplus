@@ -10,8 +10,8 @@ Production commands:
   python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
-  python main.py features-daily [--date DD/MM/YYYY] [--symbols SSI HPG]
-  python main.py features-intraday [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m]
+  python main.py features-daily (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
+  python main.py features-intraday (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 15m 60m]
   python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
@@ -33,8 +33,10 @@ from typing import Any
 from src.features import (
     DEFAULT_PERSISTED_FEATURE_TIMEFRAMES,
     PERSISTED_INTRADAY_TIMEFRAMES,
+    run_daily_feature_backfill,
     run_daily_features_with_summary,
     run_feature_engine_with_summary,
+    run_intraday_feature_backfill,
     run_intraday_features_with_summary,
 )
 from src.pipeline import (
@@ -192,6 +194,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Target date for incremental mode",
     )
+    features_daily.add_argument(
+        "--from",
+        "--from-date",
+        dest="from_date",
+        default=None,
+        help="Inclusive range start date DD/MM/YYYY",
+    )
+    features_daily.add_argument(
+        "--to",
+        "--to-date",
+        dest="to_date",
+        default=None,
+        help="Inclusive range end date DD/MM/YYYY",
+    )
     features_daily.add_argument("--symbols", nargs="*", default=None)
 
     features_intraday = sub.add_parser(
@@ -207,6 +223,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--date",
         default=None,
         help="Target date for incremental mode",
+    )
+    features_intraday.add_argument(
+        "--from",
+        "--from-date",
+        dest="from_date",
+        default=None,
+        help="Inclusive range start date DD/MM/YYYY",
+    )
+    features_intraday.add_argument(
+        "--to",
+        "--to-date",
+        dest="to_date",
+        default=None,
+        help="Inclusive range end date DD/MM/YYYY",
     )
     features_intraday.add_argument("--symbols", nargs="*", default=None)
     features_intraday.add_argument(
@@ -290,6 +320,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _feature_execution_scope(args: argparse.Namespace) -> str:
+    """Validate and identify the requested single-date, range, or full run."""
+    has_from = args.from_date is not None
+    has_to = args.to_date is not None
+    if has_from != has_to:
+        raise ValueError("--from and --to must be provided together")
+    has_range = has_from and has_to
+    if args.date is not None and has_range:
+        raise ValueError("--date cannot be combined with --from/--to")
+    if args.mode == "full" and (args.date is not None or has_range):
+        raise ValueError("--mode full cannot be combined with --date or --from/--to")
+    if getattr(args, "as_of", None) is not None and has_range:
+        raise ValueError("--as-of cannot be used with a date range")
+    if args.mode == "full":
+        return "full"
+    if has_range:
+        return "range"
+    if args.date is not None:
+        return "date"
+    raise ValueError("incremental mode requires --date or --from/--to")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -345,21 +397,41 @@ def main(argv: list[str] | None = None) -> int:
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features-daily":
-            summary = run_daily_features_with_summary(
-                symbols=normalize_symbol_scope(args.symbols),
-                mode=args.mode,
-                target_date=args.date,
-            )
+            scope = _feature_execution_scope(args)
+            symbols = normalize_symbol_scope(args.symbols)
+            if scope == "range":
+                summary = run_daily_feature_backfill(
+                    args.from_date,
+                    args.to_date,
+                    symbols=symbols,
+                )
+            else:
+                summary = run_daily_features_with_summary(
+                    symbols=symbols,
+                    mode=args.mode,
+                    target_date=args.date,
+                )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features-intraday":
-            summary = run_intraday_features_with_summary(
-                symbols=normalize_symbol_scope(args.symbols),
-                mode=args.mode,
-                timeframes=tuple(args.timeframes),
-                target_date=args.date,
-                as_of=args.as_of,
-            )
+            scope = _feature_execution_scope(args)
+            symbols = normalize_symbol_scope(args.symbols)
+            timeframes = tuple(args.timeframes)
+            if scope == "range":
+                summary = run_intraday_feature_backfill(
+                    args.from_date,
+                    args.to_date,
+                    symbols=symbols,
+                    timeframes=timeframes,
+                )
+            else:
+                summary = run_intraday_features_with_summary(
+                    symbols=symbols,
+                    mode=args.mode,
+                    timeframes=timeframes,
+                    target_date=args.date,
+                    as_of=args.as_of,
+                )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "intraday":

@@ -76,6 +76,15 @@ Feature daily một ngày:
 python main.py features-daily --mode incremental --date 10/07/2026 --symbols SSI HPG
 ```
 
+Backfill khoảng gồm cả hai đầu (indicator dùng lịch sử trước khoảng để warm-up nhưng chỉ ghi row trong khoảng):
+
+```bash
+python main.py features-daily --from 01/07/2026 --to 29/07/2026 --symbols SSI HPG
+python main.py features-intraday --from 01/07/2026 --to 29/07/2026 --symbols SSI HPG --timeframes 15m 60m
+```
+
+`--from-date` và `--to-date` vẫn là alias. `--as-of` chỉ hợp lệ với một `--date`, không dùng cho range. Các bảng nguồn chỉ được đọc; range chỉ upsert `features` và không yêu cầu backfill dữ liệu nguồn.
+
 Feature intraday một ngày:
 
 ```bash

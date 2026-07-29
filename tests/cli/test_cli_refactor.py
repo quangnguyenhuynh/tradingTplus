@@ -198,6 +198,6 @@ def test_features_daily_routes_source_specific_runner(monkeypatch):
 def test_features_intraday_routes_and_rejects_daily(monkeypatch):
     captured = {}
     monkeypatch.setattr(main, 'run_intraday_features_with_summary', lambda **kwargs: captured.update(kwargs) or {'status': 'OK'})
-    assert main.main(['features-intraday', '--date', '10/07/2026', '--symbols', 'ssi', '--timeframes', '5m', '--as-of', '14:30']) == 0
-    assert captured['timeframes'] == ('5m',) and captured['as_of'] == '14:30'
+    assert main.main(['features-intraday', '--date', '10/07/2026', '--symbols', 'ssi', '--timeframes', '15m', '--as-of', '14:30']) == 0
+    assert captured['timeframes'] == ('15m',) and captured['as_of'] == '14:30'
     assert main.main(['features-intraday', '--timeframes', '1d']) == 2
