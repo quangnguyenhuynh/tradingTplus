@@ -89,6 +89,12 @@ python main.py features-daily \
   --symbols SSI HPG
 ```
 
+Inclusive range backfill:
+
+```bash
+python main.py features-daily --from 01/07/2026 --to 29/07/2026 --symbols SSI HPG
+```
+
 Full recomputation:
 
 ```bash
@@ -122,6 +128,16 @@ python main.py features-intraday \
   --date 10/07/2026 \
   --as-of 14:30 \
   --symbols SSI \
+  --timeframes 15m 60m
+```
+
+Inclusive range backfill:
+
+```bash
+python main.py features-intraday \
+  --from 01/07/2026 \
+  --to 29/07/2026 \
+  --symbols SSI HPG \
   --timeframes 15m 60m
 ```
 

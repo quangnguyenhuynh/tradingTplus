@@ -88,8 +88,12 @@ python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 Feature chạy riêng và có chủ đích:
 
 ```bash
-python main.py features-daily --mode incremental --date DD/MM/YYYY --symbols SSI HPG
-python main.py features-intraday --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m
+python main.py features-daily --date DD/MM/YYYY --symbols SSI HPG
+python main.py features-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py features-daily --mode full --symbols SSI HPG
+python main.py features-intraday --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m
+python main.py features-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m
+python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 60m
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m 1d
 ```
 
