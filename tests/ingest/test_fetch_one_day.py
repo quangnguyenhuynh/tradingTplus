@@ -218,6 +218,17 @@ def test_build_stock_daily_record_accepts_matching_payload_symbol_and_date():
     assert record['trading_date'] == '2026-06-18'
 
 
+def test_build_stock_daily_record_maps_zero_price_context_placeholders_to_null():
+    daily = _daily() | {'RefPrice': 0, 'CeilingPrice': '0', 'FloorPrice': 0.0}
+
+    record = fod.build_stock_daily_record('SSI', '18/06/2026', daily)
+
+    assert record['ref_price'] is None
+    assert record['ceiling_price'] is None
+    assert record['floor_price'] is None
+    assert record['raw'] is daily
+
+
 def test_build_intraday_records_missing_daily_context_keeps_limits_null():
     _raw_records, clean_records = fod.build_intraday_records('SSI', '18/06/2026', None, [_candle('09:15:00')])
     assert clean_records[0]['reference_price'] is None

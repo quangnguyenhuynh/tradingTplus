@@ -30,6 +30,12 @@ def to_nullable_float(value: Any) -> float | None:
         return None
 
 
+def to_nullable_reference_price(value: Any) -> float | None:
+    """Map missing, invalid, and SSI zero placeholders to unknown price context."""
+    number = to_nullable_float(value)
+    return None if number == 0 else number
+
+
 def payload_symbol(payload: dict) -> str | None:
     value = get_payload_value(payload, "Symbol", "symbol", "Ticker", "StockSymbol")
     return str(value).upper() if value not in (None, "") else None
@@ -81,6 +87,8 @@ def build_stock_daily_record(symbol: str, date: str, daily: dict) -> dict | None
     }
     record = {"symbol": symbol, "trading_date": requested_date, "raw": daily}
     record.update({output: to_nullable_float(get_payload_value(daily, *keys)) for output, keys in mapping.items()})
+    for field in ("ref_price", "ceiling_price", "floor_price"):
+        record[field] = to_nullable_reference_price(record[field])
     return record
 
 

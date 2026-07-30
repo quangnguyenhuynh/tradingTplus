@@ -489,6 +489,8 @@ Nếu daily validation error:
 - `stock_daily` không được ghi;
 - production `intraday-ingest` vẫn là pipeline riêng và không bị chặn tự động bởi lỗi daily này.
 
+`ref_price`, `ceiling_price` và `floor_price` là price context nullable: field thiếu hoặc placeholder `0` từ SSI được lưu `NULL` ở clean row và các check phụ thuộc được bỏ qua. Khi đủ context, dải OHLC đồng nhất nằm hoàn toàn cùng một phía ngoài source limits được báo warning để giữ row corporate action; vi phạm limit đơn lẻ và lỗi OHLC thực sự sai vẫn blocking. Raw payload không bị sửa.
+
 ## 2. Intraday record validation
 
 Kiểm tra:

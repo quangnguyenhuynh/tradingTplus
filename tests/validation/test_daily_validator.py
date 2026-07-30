@@ -60,14 +60,46 @@ def test_negative_volume():
 
 def test_ref_outside_floor_ceiling():
     result = validate_daily_record(rec(ref_price=13))
-    assert not result.is_valid
+    assert result.is_valid
     assert "DAILY_INVALID_PRICE_BOUNDS" in codes(result)
+    assert all(issue.severity == "warning" for issue in result.warnings if issue.code == "DAILY_INVALID_PRICE_BOUNDS")
 
 
 def test_close_above_ceiling():
     result = validate_daily_record(rec(close_price=13, highest_price=13))
     assert not result.is_valid
     assert "DAILY_PRICE_OUTSIDE_LIMIT" in codes(result)
+
+
+def test_coherent_corporate_action_prices_outside_limits_are_warnings():
+    result = validate_daily_record(
+        rec(ref_price=20, ceiling_price=22, floor_price=18)
+    )
+
+    assert result.is_valid
+    assert "DAILY_PRICE_OUTSIDE_LIMIT" in codes(result)
+    assert all(issue.severity == "warning" for issue in result.warnings if issue.code == "DAILY_PRICE_OUTSIDE_LIMIT")
+
+
+def test_missing_price_context_is_valid_and_skips_dependent_checks():
+    result = validate_daily_record(rec(ref_price=None, ceiling_price=None, floor_price=None))
+
+    assert result.is_valid
+    assert "DAILY_REQUIRED_FIELD_MISSING" not in codes(result)
+    assert "DAILY_INVALID_PRICE_BOUNDS" not in codes(result)
+    assert "DAILY_PRICE_OUTSIDE_LIMIT" not in codes(result)
+    assert "DAILY_PRICE_CHANGE_MISMATCH" not in codes(result)
+    assert "DAILY_PERCENT_CHANGE_MISMATCH" not in codes(result)
+
+
+def test_corporate_action_bounds_warning_does_not_hide_invalid_ohlc():
+    result = validate_daily_record(
+        rec(ref_price=20, ceiling_price=22, floor_price=18, highest_price=10, close_price=11)
+    )
+
+    assert not result.is_valid
+    assert "DAILY_PRICE_OUTSIDE_LIMIT" in codes(result)
+    assert "DAILY_INVALID_OHLC" in [issue.code for issue in result.errors]
 
 
 def test_price_change_mismatch_warning():

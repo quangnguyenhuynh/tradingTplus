@@ -38,10 +38,10 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `p
 
 1. Resolve và validate ngày theo thị trường Việt Nam.
 2. `daily_fetcher.py` gọi SSI `DailyStockPrice` đúng một lần cho mỗi mã.
-3. `daily_mapper.py` tạo record giữ payload nguồn cho `raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`.
+3. `daily_mapper.py` tạo record giữ payload nguồn cho `raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`, còn placeholder `0` của SSI cho giá tham chiếu/trần/sàn trở thành `NULL` ở clean data mà không thay đổi raw payload.
 4. `daily_service.py` ghi raw evidence qua `daily_persistence.py`.
 5. `daily_service.py` gọi validator `validate_daily_record` hiện có.
-6. Chỉ clean candidate hợp lệ mới được ghi vào `stock_daily` qua `daily_persistence.py`.
+6. Clean candidate hợp lệ được ghi vào `stock_daily` qua `daily_persistence.py`. Price context bị thiếu không chặn row OHLCV hợp lệ; dải OHLC đồng nhất nằm hoàn toàn cùng một phía ngoài source limits được giữ dưới dạng corporate-action warning, còn vi phạm limit đơn lẻ vẫn blocking.
 7. Các field mua, bán, net và room khối ngoại cuối ngày nằm trong row `stock_daily`; daily ingest thông thường không ghi `foreign_trading`.
 8. `daily.py` không gọi `DailyIndex`, `IndexList`, `IndexComponents` và không ghi `index_daily`, `indexes`, `index_components`.
 
