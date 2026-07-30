@@ -122,6 +122,36 @@ def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(
     assert summary["total_foreign"] == 0
 
 
+def test_daily_ingest_keeps_valid_ohlcv_when_price_context_is_zero(monkeypatch):
+    payload = _daily(RefPrice=0, CeilingPrice="0", FloorPrice=0.0)
+    ssi = _SSI(payload)
+    db = _DB()
+    _patch_daily_dependencies(monkeypatch, ssi, db)
+
+    summary = daily_mod.run_daily_ingest("18/06/2026")
+
+    assert summary["status"] == "OK"
+    assert summary["error_count"] == 0
+    assert db.raw_daily_records[0]["payload"] is payload
+    assert payload["RefPrice"] == 0
+    assert db.stock_daily_records[0]["ref_price"] is None
+    assert db.stock_daily_records[0]["ceiling_price"] is None
+    assert db.stock_daily_records[0]["floor_price"] is None
+
+
+def test_daily_ingest_keeps_corporate_action_price_limit_warning(monkeypatch):
+    payload = _daily(RefPrice="20", CeilingPrice="22", FloorPrice="18")
+    ssi = _SSI(payload)
+    db = _DB()
+    _patch_daily_dependencies(monkeypatch, ssi, db)
+
+    summary = daily_mod.run_daily_ingest("18/06/2026")
+
+    assert summary["status"] == "OK"
+    assert summary["error_count"] == 0
+    assert db.stock_daily_records
+
+
 def test_fetch_foreign_for_symbol_independent_call_still_fetches_daily_stock_price():
     payload = _daily(ForeignBuyVolTotal="", ForeignSellVolTotal="5")
     ssi = _SSI(payload)

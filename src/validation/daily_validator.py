@@ -7,7 +7,7 @@ from src.validation.models import ValidationIssue, ValidationResult
 PRICE_TOLERANCE = 1e-6
 REQUIRED_FIELDS = [
     "symbol", "trading_date", "open_price", "highest_price", "lowest_price",
-    "close_price", "ref_price", "ceiling_price", "floor_price",
+    "close_price",
 ]
 OPTIONAL_MARKET_FIELDS = ["total_match_vol", "total_match_val", "total_traded_vol", "total_traded_value"]
 PRICE_FIELDS = [
@@ -85,12 +85,25 @@ def validate_daily_record(record: dict) -> ValidationResult:
 
     floor = _num(record.get("floor_price")); ref = _num(record.get("ref_price")); ceiling = _num(record.get("ceiling_price"))
     if None not in (floor, ref, ceiling) and not (floor - PRICE_TOLERANCE <= ref <= ceiling + PRICE_TOLERANCE):
-        errors.append(_issue("DAILY_INVALID_PRICE_BOUNDS", "ref_price must be between floor_price and ceiling_price", "error", "ref_price", ref, f"{floor} <= ref_price <= {ceiling}"))
+        warnings.append(_issue("DAILY_INVALID_PRICE_BOUNDS", "ref_price is outside floor_price and ceiling_price; this may reflect a corporate action", "warning", "ref_price", ref, f"{floor} <= ref_price <= {ceiling}"))
     if None not in (floor, ceiling):
+        ohlc_values = [value for value in (o, h, l, c) if value is not None]
+        corporate_action_candidate = len(ohlc_values) == 4 and (
+            all(value < floor - PRICE_TOLERANCE for value in ohlc_values)
+            or all(value > ceiling + PRICE_TOLERANCE for value in ohlc_values)
+        )
         for field in ["open_price", "highest_price", "lowest_price", "close_price"]:
             value = _num(record.get(field))
             if value is not None and not (floor - PRICE_TOLERANCE <= value <= ceiling + PRICE_TOLERANCE):
-                errors.append(_issue("DAILY_PRICE_OUTSIDE_LIMIT", f"{field} is outside daily price limits", "error", field, value, f"{floor} <= {field} <= {ceiling}"))
+                issue = _issue(
+                    "DAILY_PRICE_OUTSIDE_LIMIT",
+                    f"{field} is outside daily price limits" + ("; all OHLC prices are on the same side, which may reflect a corporate action" if corporate_action_candidate else ""),
+                    "warning" if corporate_action_candidate else "error",
+                    field,
+                    value,
+                    f"{floor} <= {field} <= {ceiling}",
+                )
+                (warnings if corporate_action_candidate else errors).append(issue)
 
     if None not in (c, ref):
         pc = _num(record.get("price_change"))

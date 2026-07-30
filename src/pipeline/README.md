@@ -38,10 +38,10 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed b
 
 1. Resolve and validate the requested Vietnam-market date.
 2. `daily_fetcher.py` calls SSI `DailyStockPrice` once per symbol.
-3. `daily_mapper.py` creates the source-preserving `raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`.
+3. `daily_mapper.py` creates the source-preserving `raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`; SSI `0` placeholders for reference, ceiling, and floor prices become clean `NULL` without changing the raw payload.
 4. `daily_service.py` persists raw evidence through `daily_persistence.py`.
 5. `daily_service.py` invokes the existing `validate_daily_record` validator.
-6. Only valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`.
+6. Valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`. Missing price context does not block an otherwise valid OHLCV row; a coherent OHLC range wholly on one side of source limits is retained as a corporate-action warning, while isolated limit violations remain blocking.
 7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `foreign_trading`.
 8. `daily.py` never calls `DailyIndex`, `IndexList`, or `IndexComponents`, and never writes `index_daily`, `indexes`, or `index_components`.
 
