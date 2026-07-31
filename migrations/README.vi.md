@@ -29,3 +29,7 @@ Các thay đổi SQL có version cho schema Supabase/PostgreSQL của Trading T+
 ## An toàn
 
 Không chạy SQL destructive diện rộng khi chưa có phạm vi table/date/symbol chính xác, phương án backup và task rõ ràng. Không giả định schema production đã giống migration mới nhất nếu chưa kiểm tra.
+
+## Storage signal/backtest đã retire
+
+`20260731_drop_legacy_signal_backtest.sql` là migration cleanup đã được phê duyệt rõ ràng. Migration chỉ destructive với hai bảng legacy đã retire; export row trước deployment nếu cần lưu audit. Raw, clean và feature data không bị ảnh hưởng, và không cần backfill.

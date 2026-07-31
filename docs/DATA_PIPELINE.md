@@ -227,12 +227,7 @@ Raw stream giữ payload, receive time và validation status/issues. Clean strea
 
 ## 7. Downstream boundaries
 
-Signal và backtest hiện là code MVP/research:
-
-- không tự chạy sau ingest hoặc feature;
-- không sửa raw/clean data;
-- không được dùng để kết luận lợi nhuận;
-- phải redesign sau khi Phase 0 data/feature có evidence.
+Signal và backtest legacy đã bị xóa. Hiện không có đường chạy executable hoặc storage contract active cho hai tầng này. Chúng sẽ được redesign trong phase riêng sau khi Phase 0 có evidence; ingest không tự chạy feature và feature không tự chạy downstream logic.
 
 Chi tiết trạng thái và known issues xem [CURRENT_STATE.md](CURRENT_STATE.md).
 # Write timestamp contract

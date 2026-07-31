@@ -29,3 +29,7 @@ Repository migrations are not automatically applied by the Python application.
 ## Safety
 
 Never run broad destructive SQL without exact table/date/symbol scope, a verified backup plan, and an explicit task. Do not assume production schema matches the latest repository migration until it is checked.
+
+## Retired signal/backtest storage
+
+`20260731_drop_legacy_signal_backtest.sql` is an explicitly approved cleanup migration. It is destructive only to the retired legacy tables; export their rows before deployment if audit retention is required. It does not affect raw, clean, or feature data, and requires no backfill.

@@ -30,18 +30,14 @@ validation và completeness
     ↓
 features
     ↓
-signals
-    ↓
-backtests
-    ↓
-alerts
+nghiên cứu downstream trong tương lai (chưa triển khai)
 ```
 
 Các quy tắc bắt buộc:
 
 - Pipeline daily và intraday tách biệt.
 - Raw data và clean data tách biệt.
-- Ingest không tự động tính feature, signal hoặc backtest.
+- Ingest không tự động tính feature. Feature không tự động chạy logic signal hoặc backtest.
 - `stock_daily` là nguồn chuẩn cho feature `1d`.
 - `stock_intraday` chỉ lưu nến nguồn chuẩn `timeframe='1m'`.
 - Feature production chỉ lưu `1d`, `15m`, `60m`.
@@ -129,4 +125,4 @@ Không cần migration schema. Các row `features` timeframe `1m` hoặc `5m` đ
 
 ## Trạng thái dự án
 
-Signal và backtest hiện vẫn là code research/MVP, chưa phải logic sản phẩm đã được kiểm chứng trong Phase 0. Không suy luận lợi nhuận hoặc độ sẵn sàng production từ dữ liệu chưa kiểm chứng.
+Code signal và backtest MVP legacy đã được xóa. Hai tầng này sẽ được thiết kế lại ở phase sau khi hợp đồng data và feature được kiểm chứng; hiện không có đường chạy signal hoặc backtest.

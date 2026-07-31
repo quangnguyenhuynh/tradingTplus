@@ -18,7 +18,6 @@ Offline unit, contract, regression, CLI, migration-text, validation, and pipelin
 | [`inspectors/`](inspectors/README.md) | Read-only SSI REST and streaming inspector tests. |
 | [`pipeline/`](pipeline/README.md) | EOD orchestration and dry-run behavior. |
 | [`cli/`](cli/README.md) | Production CLI and script-entrypoint contracts. |
-| [`legacy/`](legacy/README.md) | Explicitly labeled research/MVP tests that are not yet validated T+ behavior. |
 
 `conftest.py` adds the repository root to `sys.path` so tests remain import-stable after being grouped into subdirectories.
 
@@ -30,7 +29,6 @@ python -m pytest -q tests/features
 python -m pytest -q tests/validation
 python -m pytest -q tests/streaming tests/inspectors
 python -m pytest -q tests/pipeline tests/cli
-python -m pytest -q tests/legacy
 python -m pytest -q
 python -m compileall main.py src scripts tests
 ```
@@ -43,6 +41,6 @@ python -m compileall main.py src scripts tests
 - Tests must not write production data.
 - Every production data-quality bug should receive a deterministic regression test.
 - Do not weaken validation merely to accept an unexplained source anomaly.
-- Keep legacy/research behavior clearly separated from Phase 0 data-foundation guarantees.
+- Do not add signal/backtest tests until a later explicit contract-design phase.
 
 GitHub Actions runs the complete pytest suite for pull requests and pushes to `dev`.

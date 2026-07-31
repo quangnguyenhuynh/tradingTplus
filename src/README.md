@@ -1,6 +1,6 @@
 # Application source
 
-Python package containing SSI integration, persistence, validation, pipelines, and research engines.
+Python package containing SSI integration, persistence, validation, pipelines, and deterministic features.
 
 ## Documentation
 
@@ -18,16 +18,16 @@ Python package containing SSI integration, persistence, validation, pipelines, a
 | [`validation/`](validation/README.md) | Raw/clean record validation. |
 | [`pipeline/`](pipeline/README.md) | Production orchestration and ingest flows. |
 | [`features/`](features/README.md) | Daily/intraday feature calculation and explicit execution. |
-| [`engine/`](engine/README.md) | Downstream signal/backtest research and legacy utilities. |
+| [`engine/`](engine/README.md) | Legacy manual data-quality utility; no signal/backtest implementation. |
 
 ## Dependency direction
 
 ```text
 SSI clients → pipelines → validation/database
-clean database data → features → optional research signal/backtest code
+clean database data → explicit feature pipelines
 ```
 
-Ingest must not call the feature, signal, or backtest engines automatically. Downstream research code must not repair or overwrite source data.
+Ingest must not call feature computation automatically. Feature execution has no automatic signal/backtest stage; those legacy implementations were removed pending a later redesign.
 
 ## Data contracts
 

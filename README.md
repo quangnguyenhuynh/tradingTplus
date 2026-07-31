@@ -34,18 +34,14 @@ validation and completeness
     ↓
 features
     ↓
-signals
-    ↓
-backtests
-    ↓
-alerts
+future downstream research (not implemented)
 ```
 
 Non-negotiable rules:
 
 - Daily and intraday pipelines remain separate.
 - Raw and clean data remain separate.
-- Ingest does not automatically compute features, signals, or backtests.
+- Ingest does not automatically compute features. Feature execution does not automatically run signal or backtest logic.
 - `stock_daily` is the canonical source for `1d` features.
 - `stock_intraday` persists only canonical `timeframe='1m'` source candles.
 - Persisted feature timeframes are only `1d`, `15m`, and `60m`.
@@ -138,6 +134,6 @@ explicitly scoped database operation. Source data does not require backfill.
 
 ## Project status
 
-Signal and backtest code remains research/MVP code and is not validated product
-logic in Phase 0. Do not infer profitability or production readiness from
-unverified data.
+The legacy signal and backtest MVP code has been removed. These layers will be
+redesigned in a later phase after data and feature contracts are verified; no
+executable signal or backtest path is currently provided.
