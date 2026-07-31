@@ -16,8 +16,11 @@ Repository-level product, architecture, state, CLI, and database documentation.
 | `DATA_PIPELINE.md` | Current separation of master, daily, intraday, streaming, validation, and feature flows. |
 | `ARCHITECTURE_DECISIONS.md` | Accepted pipeline and data-contract decisions. |
 | `CLI_USAGE.md` | Production and operational command reference. |
+| `DATA_CONVENTIONS.md` / `DATA_CONVENTIONS.vi.md` | English/Vietnamese timestamp, session, missing-data, unit, and provenance rules. |
+| [`backfill/`](backfill/README.md) | Source-data backfill behavior, safety, and commands. |
 
-Additional database notes currently live in the repository root as `docs_db_schema.md`.
+The executable database contract is [`../schema.sql`](../schema.sql), with change
+history and deployment SQL documented under [`../migrations/`](../migrations/README.md).
 
 ## Documentation rules
 
@@ -30,4 +33,6 @@ Additional database notes currently live in the repository root as `docs_db_sche
 
 ## Maintenance
 
-`CURRENT_STATE.md` and `DATA_PIPELINE.md` were reconciled with the daily/intraday split, payload reuse, completeness query, feature contract, and streaming-ingest implementation on 18/07/2026. Re-review point-in-time documents whenever production behavior changes.
+Re-review point-in-time documents whenever production behavior changes. Treat
+their embedded review dates as assessment dates, not as proof of the deployed
+production schema.

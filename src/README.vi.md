@@ -19,6 +19,7 @@ Python package chứa tích hợp SSI, persistence, validation, pipeline và fea
 | [`pipeline/`](pipeline/README.vi.md) | Orchestration production và các luồng ingest. |
 | [`features/`](features/README.vi.md) | Tính và chạy feature daily/intraday tách theo nguồn. |
 | [`engine/`](engine/README.vi.md) | Utility data-quality manual legacy; không có implementation signal/backtest. |
+| [`utils/`](utils/README.vi.md) | Helper dùng chung cho thời gian thị trường Việt Nam có timezone. |
 
 ## Chiều phụ thuộc
 

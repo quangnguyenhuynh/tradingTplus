@@ -16,7 +16,7 @@ checks take priority over signals, backtests, profitability, or AI optimization.
 - Data conventions: [docs/DATA_CONVENTIONS.md](docs/DATA_CONVENTIONS.md)
 - CLI reference: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
 - Feature package: [src/features/README.md](src/features/README.md)
-- Database notes: [docs_db_schema.md](docs_db_schema.md)
+- Database contract: [schema.sql](schema.sql) and [migrations/](migrations/README.md)
 
 Code, schema, migrations, and tests are the source of truth when older documents
 conflict with executable behavior.

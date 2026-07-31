@@ -1813,7 +1813,8 @@ Mô tả phương án và lý do không chọn.
 - [Current State](CURRENT_STATE.md)
 - [Data Pipeline](DATA_PIPELINE.md)
 - [AGENTS.md](../AGENTS.md)
-- [Database Schema](../docs_db_schema.md)
+- [Schema snapshot](../schema.sql)
+- [Database migrations](../migrations/README.md)
 - [README](../README.md)
 ---
 

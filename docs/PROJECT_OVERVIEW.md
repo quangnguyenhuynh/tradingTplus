@@ -571,7 +571,7 @@ Các thành phần liên quan:
 ```text
 schema.sql
 migrations/
-docs_db_schema.md
+migrations/README.md
 ```
 
 Vai trò:
@@ -876,7 +876,8 @@ Project được xem là đi đúng hướng khi:
 - [Architecture Decisions](ARCHITECTURE_DECISIONS.md)
 - [Data Pipeline](DATA_PIPELINE.md)
 - [AGENTS.md](../AGENTS.md)
-- [Database Schema](../docs_db_schema.md)
+- [Database migrations](../migrations/README.md)
+- [Schema snapshot](../schema.sql)
 - [README](../README.md)
 ---
 
