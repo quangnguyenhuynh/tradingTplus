@@ -325,7 +325,7 @@ Command này hiện:
 
 Đây là mục tiêu của các phase sau.
 
-Flow dự kiến:
+Flow tương lai dự kiến (chưa triển khai):
 
 ```text
 validated data
@@ -341,7 +341,9 @@ strategy review
 alert
 ```
 
-Signal, backtest và alert không tự động chạy sau ingest hoặc feature nếu task không yêu cầu.
+Signal/backtest legacy đã bị xóa. Hiện không có command hoặc callable path cho
+hai tầng này; chúng không tự động chạy sau ingest hoặc feature và sẽ được thiết
+kế lại trong phase riêng.
 
 ---
 
@@ -504,7 +506,7 @@ Các nhóm feature hiện có:
 - candle structure.
 
 `src/engine/` không còn sở hữu feature. Hai shim feature cũ đã bị xóa;
-folder này chỉ giữ signal/backtest research và utility legacy.
+folder này chỉ giữ utility data-quality manual legacy; signal/backtest executable đã bị xóa để chờ phase thiết kế mới.
 
 ---
 
@@ -556,7 +558,7 @@ Test bao phủ các nhóm như:
 - intraday validator;
 - database behavior;
 - intraday value;
-- signal/backtest MVP khi có liên quan.
+- chưa có test signal/backtest vì implementation legacy đã bị xóa.
 
 Không báo task hoàn thành nếu chưa chạy test phù hợp.
 

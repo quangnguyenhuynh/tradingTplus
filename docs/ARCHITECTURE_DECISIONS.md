@@ -80,7 +80,7 @@ Các trạng thái được sử dụng:
 | ADR-020 | Foreign trading được derive từ `DailyStockPrice` | Implemented |
 | ADR-021 | Order book không được giả định có public REST endpoint | Implemented |
 | ADR-022 | Signal và backtest không tự chạy sau ingest hoặc feature | Implemented |
-| ADR-023 | Signal và backtest hiện tại chỉ là MVP/research | Accepted |
+| ADR-023 | Signal/backtest MVP legacy (đã xóa) | Superseded |
 | ADR-024 | Daily context là nền chính cho quyết định T+3/T+5 | Accepted |
 | ADR-025 | Alert tương lai phải ít, có lý do và không spam | Accepted |
 
@@ -933,7 +933,7 @@ Order-book data chỉ lấy từ:
 
 ---
 
-## ADR-022 — Signal và backtest chạy bằng job riêng
+## ADR-022 — Signal và backtest không tự động chạy
 
 ### Status
 
@@ -959,27 +959,26 @@ trừ khi một explicit orchestration task yêu cầu.
 ### Consequences
 
 - Production CLI hiện chưa tự động gọi signal/backtest.
-- Signal có thể rerun sau khi sửa rule.
-- Backtest có thể rerun theo strategy version.
+- Implementation tương lai phải hỗ trợ rerun bằng explicit job.
 - Data issue không tự tạo hàng loạt signal sai.
 
 ---
 
-## ADR-023 — Signal và backtest hiện tại chỉ là MVP/research
+## ADR-023 — Signal và backtest MVP legacy (đã xóa)
 
 ### Status
 
-`Accepted`
+`Superseded`
 
 ### Context
 
-Signal engine hiện có dấu hiệu dùng feature schema cũ.
+Signal engine legacy đã dùng feature schema cũ trước khi bị xóa ngày 31/07/2026.
 
-Backtest hiện dùng `holding_bars`, chưa phải T+3/T+5 trading sessions.
+Backtest legacy đã dùng `holding_bars`, không phải T+3/T+5 trading sessions, và hiện đã bị xóa.
 
 ### Decision
 
-Current signal/backtest code không được xem là production-ready.
+Không còn signal/backtest executable hoặc active storage contract; thiết kế mới được deferred tới sau Phase 0.
 
 ### Consequences
 
@@ -987,7 +986,7 @@ Current signal/backtest code không được xem là production-ready.
 - Không tối ưu strategy trên code MVP.
 - Cần redesign signal contract sau Phase 0.
 - Cần T+ session-based backtest riêng.
-- Mọi kết quả hiện tại chỉ mang ý nghĩa thử nghiệm kỹ thuật.
+- Không có kết quả runtime hiện tại vì executable legacy đã bị xóa.
 
 ---
 
@@ -1501,7 +1500,7 @@ Cần chốt:
 
 ### Default until decided
 
-Không sửa signal engine ngoài explicit signal-design task.
+Không tạo signal implementation mới ngoài explicit signal-design task sau Phase 0.
 
 ---
 
@@ -1557,7 +1556,7 @@ Cần chốt:
 
 ### Default until decided
 
-Current `holding_bars` MVP không được xem là T+ backtest chính thức.
+MVP `holding_bars` đã bị xóa; không có T+ backtest chính thức.
 
 ---
 

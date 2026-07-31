@@ -1,6 +1,6 @@
 # Mã nguồn ứng dụng
 
-Python package chứa tích hợp SSI, persistence, validation, pipeline và các engine research.
+Python package chứa tích hợp SSI, persistence, validation, pipeline và feature deterministic.
 
 ## Tài liệu
 
@@ -18,16 +18,16 @@ Python package chứa tích hợp SSI, persistence, validation, pipeline và cá
 | [`validation/`](validation/README.vi.md) | Validation record raw/clean. |
 | [`pipeline/`](pipeline/README.vi.md) | Orchestration production và các luồng ingest. |
 | [`features/`](features/README.vi.md) | Tính và chạy feature daily/intraday tách theo nguồn. |
-| [`engine/`](engine/README.vi.md) | Signal/backtest research downstream và utility legacy. |
+| [`engine/`](engine/README.vi.md) | Utility data-quality manual legacy; không có implementation signal/backtest. |
 
 ## Chiều phụ thuộc
 
 ```text
 SSI clients → pipelines → validation/database
-clean database data → features → signal/backtest research khi chạy riêng
+clean database data → feature pipeline chạy explicit
 ```
 
-Ingest không được tự động gọi feature, signal hoặc backtest. Code research downstream không được sửa hoặc ghi đè dữ liệu nguồn.
+Ingest không được tự động gọi feature. Feature không có bước signal/backtest tự động; các implementation legacy đã bị xóa để chờ thiết kế lại ở phase sau.
 
 ## Hợp đồng dữ liệu
 

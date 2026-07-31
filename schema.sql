@@ -118,27 +118,6 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
-CREATE TABLE IF NOT EXISTS "public"."backtest_data" (
-    "symbol" "text" NOT NULL,
-    "timeframe" "text" NOT NULL,
-    "time" timestamp with time zone NOT NULL,
-    "open" double precision,
-    "high" double precision,
-    "low" double precision,
-    "close" double precision,
-    "volume" bigint,
-    "rsi" double precision,
-    "macd" double precision,
-    "atr" double precision,
-    "orderbook_imbalance" double precision,
-    "pressure_score" double precision,
-    "foreign_net_vol" bigint
-);
-
-
-ALTER TABLE "public"."backtest_data" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."features" (
     "symbol" "text" NOT NULL,
     "timeframe" "text" NOT NULL,
@@ -1319,37 +1298,6 @@ CREATE TABLE IF NOT EXISTS "public"."symbols" (
 ALTER TABLE "public"."symbols" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."trading_signals" (
-    "id" bigint NOT NULL,
-    "symbol" "text",
-    "timeframe" "text",
-    "time" timestamp with time zone,
-    "signal_type" "text",
-    "score" double precision,
-    "reason" "jsonb",
-    "suggestion" "text",
-    "bucket_time" time without time zone,
-    "created_at" timestamp with time zone DEFAULT "now"()
-);
-
-
-ALTER TABLE "public"."trading_signals" OWNER TO "postgres";
-
-
-CREATE SEQUENCE IF NOT EXISTS "public"."trading_signals_id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE "public"."trading_signals_id_seq" OWNER TO "postgres";
-
-
-ALTER SEQUENCE "public"."trading_signals_id_seq" OWNED BY "public"."trading_signals"."id";
-
-
 
 ALTER TABLE ONLY "public"."stock_intraday" ATTACH PARTITION "public"."stock_intraday_2023_01" FOR VALUES FROM ('2023-01-01 00:00:00+00') TO ('2023-02-01 00:00:00+00');
 
@@ -1551,12 +1499,7 @@ ALTER TABLE ONLY "public"."raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"
 
 
 
-ALTER TABLE ONLY "public"."trading_signals" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."trading_signals_id_seq"'::"regclass");
 
-
-
-ALTER TABLE ONLY "public"."backtest_data"
-    ADD CONSTRAINT "backtest_data_pkey" PRIMARY KEY ("symbol", "timeframe", "time");
 
 
 
@@ -1830,21 +1773,11 @@ ALTER TABLE ONLY "public"."symbols"
 
 
 
-ALTER TABLE ONLY "public"."trading_signals"
-    ADD CONSTRAINT "trading_signals_pkey" PRIMARY KEY ("id");
 
 
 
-ALTER TABLE ONLY "public"."trading_signals"
-    ADD CONSTRAINT "trading_signals_symbol_signal_type_bucket_time_key" UNIQUE ("symbol", "signal_type", "bucket_time");
 
 
-
-CREATE INDEX "idx_backtest_symbol_time" ON "public"."backtest_data" USING "btree" ("symbol", "timeframe", "time" DESC);
-
-
-
-CREATE INDEX "idx_backtest_time" ON "public"."backtest_data" USING "btree" ("time" DESC);
 
 
 
@@ -2456,9 +2389,6 @@ ALTER INDEX "public"."idx_intraday_symbol_time" ATTACH PARTITION "public"."stock
 
 
 
-ALTER TABLE ONLY "public"."backtest_data"
-    ADD CONSTRAINT "backtest_data_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
-
 
 
 ALTER TABLE ONLY "public"."features"
@@ -2672,11 +2602,6 @@ GRANT ALL ON FUNCTION "public"."create_partition_if_not_exists"("p_table" "text"
 
 
 
-
-
-GRANT ALL ON TABLE "public"."backtest_data" TO "anon";
-GRANT ALL ON TABLE "public"."backtest_data" TO "authenticated";
-GRANT ALL ON TABLE "public"."backtest_data" TO "service_role";
 
 
 
@@ -3016,15 +2941,7 @@ GRANT ALL ON TABLE "public"."symbols" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."trading_signals" TO "anon";
-GRANT ALL ON TABLE "public"."trading_signals" TO "authenticated";
-GRANT ALL ON TABLE "public"."trading_signals" TO "service_role";
 
-
-
-GRANT ALL ON SEQUENCE "public"."trading_signals_id_seq" TO "anon";
-GRANT ALL ON SEQUENCE "public"."trading_signals_id_seq" TO "authenticated";
-GRANT ALL ON SEQUENCE "public"."trading_signals_id_seq" TO "service_role";
 
 
 

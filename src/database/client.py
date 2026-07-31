@@ -40,7 +40,6 @@ class SupabaseClient:
     _CRITICAL_ON_CONFLICT_TABLES = {
         "stock_intraday",
         "features",
-        "backtest_data",
         "foreign_trading",
         "orderbook_snapshot",
         "stream_raw_snapshot",
@@ -50,7 +49,6 @@ class SupabaseClient:
         "stream_index_snapshot",
         "stream_status_snapshot",
         "stream_bar_snapshot",
-        "trading_signals",
         "securities",
         "stock_daily",
         "raw_daily",
@@ -434,9 +432,6 @@ class SupabaseClient:
 
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')
-
-    def upsert_backtest(self, records):
-        self._upsert_in_batches('backtest_data', records, on_conflict='symbol,timeframe,time')
 
     def get_symbols(self):
         result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")

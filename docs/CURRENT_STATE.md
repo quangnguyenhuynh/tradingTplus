@@ -60,7 +60,7 @@ Thứ tự ưu tiên hiện tại:
 7. Backtest.
 8. Tối ưu chiến lược và AI.
 
-Không dùng signal/backtest MVP hiện tại để kết luận khả năng sinh lợi.
+Không có signal/backtest executable trong Phase 0; hai tầng này chờ thiết kế lại sau khi data/feature được kiểm chứng.
 
 ---
 
@@ -85,8 +85,7 @@ Không dùng signal/backtest MVP hiện tại để kết luận khả năng sin
 | Feature intraday | Implemented | `1m`, `5m`, `15m`, `60m`; timeframe cao aggregate từ 1m. |
 | Incremental feature | Implemented | Target date, warm-up và scoped upsert. |
 | Full feature | Implemented, có rủi ro RAM | Toàn bộ history từng symbol vẫn được giữ trong memory. |
-| Signal engine | MVP cũ, không production-ready | Feature names, check times và conflict key chưa phù hợp current contract. |
-| Backtest engine | MVP/research | Dùng future bars, chưa phải T+1/T+3/T+5 trading sessions. |
+| Signal/backtest | Removed/deferred | Legacy executable code and storage contracts were removed; redesign follows Phase 0 verification. |
 | Streaming ingest | Implemented, live chưa kiểm chứng | Dry-run mặc định; raw/clean snapshot tách biệt. |
 | Test offline | Passing tại mốc review | GitHub Actions Python 3.11 pass cho merge commit trước task này. |
 | Alert scheduler | Not started | Chưa có production scheduler tại 09:30, 11:30, 13:30, 14:30. |
@@ -706,109 +705,11 @@ lập. Vẫn còn cần kiểm chứng production/read-only đối với:
 
 ---
 
-## Signal engine
+## Signal and backtest status
 
-Code hiện có:
+The legacy signal strategies, disabled signal entrypoint, bar-based MVP backtest, and their tests have been removed. There is currently no executable signal or backtest path and no active storage contract for these layers.
 
-```text
-src/engine/signal_engine.py
-src/engine/signal/
-```
-
-Strategy modules hiện gồm reversal, breakout và trend.
-
-Signal entrypoint cũ hiện đã fail-fast và không query/generate signal. Các class
-strategy legacy còn giữ lại để redesign sau, nhưng vẫn tham chiếu:
-
-```text
-rsi
-ema_20
-ema_50
-bb_upper
-volume_spike
-```
-
-Trong khi current feature output dùng các field như:
-
-```text
-rsi14
-ema20
-ema50
-```
-
-`bb_upper` và `volume_spike` không có trong current feature output.
-
-Check times trong code:
-
-```text
-09:45
-10:30
-13:45
-14:30
-```
-
-Mục tiêu sản phẩm:
-
-```text
-09:30
-11:30
-13:30
-14:30
-```
-
-Signal upsert hiện dùng:
-
-```text
-symbol,signal_type,bucket_time
-```
-
-trong khi record có cả `timeframe` và `time`. Schema/migration thực tế phải được kiểm tra trước khi redesign.
-
-Kết luận:
-
-```text
-NOT PRODUCTION READY
-```
-
-Signal không được tự động gọi sau ingest hoặc feature.
-
----
-
-## Backtest engine
-
-MVP hiện hỗ trợ:
-
-- long/short direction;
-- initial capital;
-- position-size percentage;
-- `holding_bars`;
-- fee percentage;
-- minimum score;
-- skip overlapping trade cùng symbol/timeframe;
-- PnL, return, win rate, max drawdown, simple Sharpe;
-- in-memory test không cần Supabase.
-
-Entry hiện dùng feature close mới nhất tại hoặc trước signal time. Exit dùng feature row sau `holding_bars`.
-
-Đây không phải T+ backtest vì chưa xử lý:
-
-- T+1/T+3/T+5 theo trading sessions;
-- next-session execution;
-- price limit và khả năng khớp lệnh;
-- slippage, tax, lot size;
-- liquidity;
-- holiday calendar;
-- missing future row;
-- corporate action/adjusted price;
-- portfolio-level allocation.
-
-`run_backtest_engine` hiện load feature và signal trong cùng target date, phù hợp hơn với intraday bar MVP.
-
-Kết luận:
-
-```text
-MVP / RESEARCH ONLY
-```
+They remain deferred future phases. New contracts must be designed explicitly only after Phase 0 data and feature verification; feature execution does not trigger either layer.
 
 ---
 
@@ -873,7 +774,6 @@ Test hiện bao phủ các nhóm:
 - ingest completeness;
 - feature engine;
 - intraday value;
-- backtest MVP;
 - SSI REST inspector;
 - SSI streaming inspector;
 - streaming ingest;
@@ -899,8 +799,8 @@ Các test còn cần bổ sung/củng cố:
 - raw_intraday missing-constraint fail-fast;
 - large pagination/memory benchmark;
 - streaming count khi max messages > 1;
-- T+ session-based outcomes;
-- redesigned signal schema compatibility.
+- future T+ session-based outcome contract tests;
+- future redesigned signal schema contract tests.
 
 ---
 
@@ -948,13 +848,15 @@ Warm-up, full/incremental equivalence, incomplete bar và session aggregation c�
 
 Toàn bộ history từng symbol nằm trong RAM. Mức độ: **MEDIUM**.
 
-## 8. Signal contract cũ
+## 8. Signal contract deferred
 
-Feature names, check times và conflict key không phù hợp. Mức độ: **HIGH**, nhưng chưa phải ưu tiên trước Phase 0 data validation.
+Không có implementation hoặc storage contract active. Việc thiết kế sớm trước
+khi data/feature được kiểm chứng có mức rủi ro **HIGH**.
 
-## 9. Backtest chưa phải T+
+## 9. Backtest contract deferred
 
-Future bars không tương đương T+ trading sessions. Mức độ: **HIGH** nếu dùng sai để đánh giá chiến lược.
+Không có implementation hoặc storage contract active. Thiết kế tương lai phải
+dùng trading sessions; mức rủi ro **HIGH** nếu dùng calendar/bar count thay thế.
 
 ## 10. Streaming live reliability và message-count stop condition
 
@@ -966,7 +868,7 @@ Code phụ thuộc table, column, unique index, RPC và partition. Mức độ: 
 
 ## 12. Premature strategy conclusions
 
-Repository có signal/backtest MVP dễ tạo cảm giác đã sẵn sàng tối ưu lợi nhuận. Thực tế project vẫn Phase 0. Mức độ: **HIGH**.
+Repository không có signal/backtest executable; thiết kế tương lai vẫn có rủi ro bị bắt đầu quá sớm. Thực tế project vẫn Phase 0. Mức độ: **HIGH**.
 
 ---
 

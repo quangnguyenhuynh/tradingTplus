@@ -1,34 +1,11 @@
-# Downstream research engines
+# Legacy engine utilities
 
-This package contains signal/backtest research code and a legacy data-quality
-utility. Deterministic feature calculation is owned by
-[`src/features/`](../features/README.md).
+This package now contains only `data_quality.py`, a manual legacy quality/recompute utility. Deterministic feature calculation is owned by [`src/features/`](../features/README.md).
 
-## Files
+The legacy signal strategies, disabled signal entrypoint, and MVP backtest engine were removed during Phase 0 because they depended on obsolete feature contracts. There is no executable signal or backtest path. Both layers will receive new contracts in a later, explicit design phase after data and features are verified.
 
-| Path | Current role |
-| --- | --- |
-| `signal_engine.py` | Disabled legacy signal entrypoint; fails fast because its old rules require removed feature columns. |
-| [`signal/`](signal/README.md) | Legacy rule classes retained for later redesign; not wired into production. |
-| `backtest_engine.py` | Backtest MVP/research engine, invoked separately. |
-| `data_quality.py` | Legacy manual quality/recompute utility; not part of the production ingest or feature CLI. |
-
-The removed `feature_engine.py` and `feature_calculator.py` compatibility shims
-must not be recreated. Import feature APIs from `src.features`, or use the
-source-specific modules:
-
-```python
-from src.features.daily import run_daily_features_with_summary
-from src.features.intraday import run_intraday_features_with_summary
-```
-
-Signal and backtest code is downstream of validated features. It must run
-separately, must not repair source data, and must not be treated as validated
-profitability evidence during Phase 0.
-
-## Tests
+Ingest does not calculate features automatically, and feature execution does not trigger any downstream research stage.
 
 ```bash
 python -m pytest -q tests/features
-python -m pytest -q tests/legacy/test_backtest_engine.py
 ```
