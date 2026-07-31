@@ -93,6 +93,22 @@ python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m 1d
 ```
 
+Feature có ba semantics tách biệt:
+
+- **Full** đọc toàn bộ lịch sử nguồn trong scope, tính lại và upsert toàn bộ kết
+  quả; không delete feature cũ trước.
+- **Incremental** đọc watermark `features.time` mới nhất riêng cho từng
+  symbol/timeframe. Daily dùng warm-up 5 năm từ `stock_daily`; intraday dùng 250
+  phiên giao dịch thực tế gần nhất từ nến clean 1m. Pipeline tính trên toàn bộ
+  window đã load nhưng chỉ ghi row sau watermark đến target date (hoặc chỉ
+  target date nếu chưa có watermark).
+- **Replace / rebuild-clean** dành riêng cho rebuild atomic có scope chính xác.
+  CLI bắt buộc đúng một symbol, một timeframe và đủ hai mốc range. Repo chưa có
+  RPC replace atomic đã kiểm chứng, nên request đủ scope vẫn fail-safe mà không
+  delete hay write row nào. Tạm dùng `full` non-destructive.
+
+Range command vẫn là backfill explicit. Ingest không tự gọi bất kỳ feature mode nào.
+
 Alias legacy chỉ ghi feature 15m/60m:
 
 ```bash

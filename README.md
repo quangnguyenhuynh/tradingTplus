@@ -97,6 +97,24 @@ python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 
 python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m 1d
 ```
 
+Feature execution has three explicit semantics:
+
+- **Full** loads the complete selected source history, recomputes it, and
+  upserts every result. It never deletes existing feature rows first.
+- **Incremental** reads the latest `features.time` watermark independently for
+  each symbol/timeframe. Daily uses five years of `stock_daily` warm-up;
+  intraday uses the latest 250 observed trading sessions of clean 1m candles.
+  Calculation uses the complete loaded window, but writes only rows after the
+  watermark through the target date (or only the target date when no watermark
+  exists).
+- **Replace / rebuild-clean** is reserved for an atomic, precisely scoped
+  rebuild. The CLI requires exactly one symbol, one timeframe, and both range
+  bounds. This repository has no verified atomic replace RPC yet, so a complete
+  request fails safely without deleting or writing anything. Use non-destructive
+  `full` until that database contract is implemented.
+
+Range commands remain explicit backfills. No feature mode is invoked by ingest.
+
 The legacy alias persists only 15m/60m features:
 
 ```bash

@@ -20,6 +20,8 @@ from .runtime import (
     VN_TZ,
     date_bounds_for_daily_context,
     fetch_stock_daily_rows,
+    fetch_feature_watermark,
+    fetch_intraday_trading_session_window,
     fetch_stock_intraday_paginated,
     filter_output_by_time,
     log_feature_run,
@@ -269,6 +271,7 @@ def calculate_intraday_features_for_symbol(
     as_of=None,
     upsert_batch_size=1000,
     records_by_timeframe=None,
+    warmup_sessions=250,
 ):
     """Read canonical 1m data and write closed intraday feature rows."""
     normalized = normalize_timeframes(
@@ -286,13 +289,16 @@ def calculate_intraday_features_for_symbol(
         filter_start, filter_end, _ = target_utc_bounds(target)
         end = filter_end.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Phase 0 correctness: read all available prior 1m history so EWM
-    # full/incremental output matches without persisted indicator state.
-    rows = fetch_stock_intraday_paginated(
-        db,
-        symbol,
-        lt_time=end,
-        order_desc=False,
+    watermarks = {
+        timeframe: fetch_feature_watermark(db, symbol, timeframe)
+        for timeframe in normalized
+    } if target is not None else {timeframe: None for timeframe in normalized}
+    rows = (
+        fetch_intraday_trading_session_window(
+            db, symbol, end, trading_sessions=warmup_sessions
+        )
+        if target is not None
+        else fetch_stock_intraday_paginated(db, symbol, order_desc=False)
     )
     if not rows:
         return 0
@@ -331,7 +337,11 @@ def calculate_intraday_features_for_symbol(
         )
         output = filter_output_by_time(
             computed,
-            filter_start,
+            (
+                watermarks[timeframe] + pd.Timedelta(nanoseconds=1)
+                if watermarks[timeframe] is not None
+                else filter_start
+            ),
             filter_end,
         )
         count = upsert_feature_frame(

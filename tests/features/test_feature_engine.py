@@ -69,9 +69,10 @@ class _Query:
 
 
 class _DB:
-    def __init__(self, rows, daily_rows=None):
+    def __init__(self, rows, daily_rows=None, feature_rows=None):
         self.rows = rows
         self.daily_rows = daily_rows or []
+        self.feature_rows = feature_rows or []
         self.upsert_calls = []
         self.table_calls = []
 
@@ -82,6 +83,8 @@ class _DB:
         self.table_calls.append(name)
         if name == 'stock_daily':
             return _Query(self.daily_rows)
+        if name == 'features':
+            return _Query(self.feature_rows)
         return _Query(self.rows)
 
     def _with_retry(self, action, action_name=None):
@@ -345,6 +348,33 @@ def _mk_daily(date: str, i: int):
         'total_traded_vol': 1000 + i,
         'total_traded_value': 10000 + i,
     }
+
+
+def test_daily_incremental_matches_full_after_watermark(monkeypatch):
+    dates = pd.bdate_range("2026-01-02", periods=100)
+    rows = [_mk_daily(value.date().isoformat(), i + 1) for i, value in enumerate(dates)]
+
+    full_db = _DB([], daily_rows=rows)
+    monkeypatch.setattr(daily_flow, "SupabaseClient", lambda: full_db)
+    daily_flow.calculate_daily_features_for_symbol("SSI", mode="full")
+    full_records = full_db.upsert_calls[0][1]
+
+    watermark = full_records[79]["time"]
+    incremental_db = _DB(
+        [], daily_rows=rows, feature_rows=[{"time": watermark}]
+    )
+    monkeypatch.setattr(daily_flow, "SupabaseClient", lambda: incremental_db)
+    daily_flow.calculate_daily_features_for_symbol(
+        "SSI", mode="incremental", target_date=dates[-1].date()
+    )
+    incremental_records = incremental_db.upsert_calls[0][1]
+    expected = [record for record in full_records if record["time"] > watermark]
+
+    comparable = lambda records: [
+        {key: value for key, value in record.items() if key != "last_updated_at"}
+        for record in records
+    ]
+    assert comparable(incremental_records) == comparable(expected)
 
 
 def test_daily_features_are_computed_from_stock_daily_and_vwap_is_null():

@@ -39,6 +39,7 @@ from src.features import (
     run_intraday_feature_backfill,
     run_intraday_features_with_summary,
 )
+from src.features.runtime import atomic_replace_features
 from src.pipeline import (
     daily_run,
     init_symbols,
@@ -186,7 +187,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     features_daily.add_argument(
         "--mode",
-        choices=["incremental", "full"],
+        choices=["incremental", "full", "replace", "rebuild-clean"],
         default="incremental",
     )
     features_daily.add_argument(
@@ -216,7 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     features_intraday.add_argument(
         "--mode",
-        choices=["incremental", "full"],
+        choices=["incremental", "full", "replace", "rebuild-clean"],
         default="incremental",
     )
     features_intraday.add_argument(
@@ -329,6 +330,12 @@ def _feature_execution_scope(args: argparse.Namespace) -> str:
     has_range = has_from and has_to
     if args.date is not None and has_range:
         raise ValueError("--date cannot be combined with --from/--to")
+    if args.mode in {"replace", "rebuild-clean"}:
+        if args.date is not None or not has_range:
+            raise ValueError(
+                "replace/rebuild-clean requires --from and --to, not --date"
+            )
+        return "replace"
     if args.mode == "full" and (args.date is not None or has_range):
         raise ValueError("--mode full cannot be combined with --date or --from/--to")
     if getattr(args, "as_of", None) is not None and has_range:
@@ -399,6 +406,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "features-daily":
             scope = _feature_execution_scope(args)
             symbols = normalize_symbol_scope(args.symbols)
+            if scope == "replace":
+                atomic_replace_features(
+                    symbols=symbols,
+                    timeframes=("1d",),
+                    start=args.from_date,
+                    end=args.to_date,
+                )
             if scope == "range":
                 summary = run_daily_feature_backfill(
                     args.from_date,
@@ -417,6 +431,13 @@ def main(argv: list[str] | None = None) -> int:
             scope = _feature_execution_scope(args)
             symbols = normalize_symbol_scope(args.symbols)
             timeframes = tuple(args.timeframes)
+            if scope == "replace":
+                atomic_replace_features(
+                    symbols=symbols,
+                    timeframes=timeframes,
+                    start=args.from_date,
+                    end=args.to_date,
+                )
             if scope == "range":
                 summary = run_intraday_feature_backfill(
                     args.from_date,
