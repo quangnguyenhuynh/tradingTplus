@@ -82,7 +82,7 @@ Không có signal/backtest executable trong Phase 0; hai tầng này chờ thi�
 | Intraday validation | Implemented | Record validation và batch validation. |
 | Completeness | Partial | Daily/intraday là điều kiện chính; index/foreign/orderbook mới là count tham khảo. |
 | Feature `1d` | Implemented | Nguồn từ `stock_daily`. |
-| Feature intraday | Implemented | `1m`, `5m`, `15m`, `60m`; timeframe cao aggregate từ 1m. |
+| Feature intraday | Implemented | Chỉ persist `15m`, `60m`; cả hai aggregate từ clean 1m trong memory. |
 | Incremental feature | Implemented | Target date, warm-up và scoped upsert. |
 | Full feature | Implemented, có rủi ro RAM | Toàn bộ history từng symbol vẫn được giữ trong memory. |
 | Signal/backtest | Removed/deferred | Legacy executable code and storage contracts were removed; redesign follows Phase 0 verification. |
@@ -206,7 +206,7 @@ python main.py features \
   --mode incremental \
   --date DD/MM/YYYY \
   --symbols SSI HPG \
-  --timeframes 1m 5m 15m 60m 1d
+  --timeframes 15m 60m 1d
 ```
 
 Supported modes:
@@ -214,13 +214,12 @@ Supported modes:
 ```text
 incremental
 full
+replace / rebuild-clean (guarded; no atomic backend configured)
 ```
 
 Supported timeframes:
 
 ```text
-1m
-5m
 15m
 60m
 1d
@@ -238,7 +237,7 @@ Command này:
 
 - đọc `stock_intraday` đã có;
 - chạy incremental feature;
-- mặc định dùng `1m`, `5m`, `15m`;
+- mặc định chỉ persist `15m`, `60m`;
 - không ingest SSI candle;
 - không tính `1d`.
 
@@ -647,8 +646,6 @@ Nguồn dữ liệu:
 | Timeframe | Source |
 | --- | --- |
 | `1d` | `stock_daily` |
-| `1m` | `stock_intraday` 1m |
-| `5m` | aggregate từ 1m |
 | `15m` | aggregate từ 1m |
 | `60m` | aggregate từ 1m |
 
@@ -672,13 +669,18 @@ Daily và intraday đã có execution path riêng:
 
 - daily chỉ đọc `stock_daily`;
 - intraday đọc `stock_intraday(timeframe='1m')` và daily context;
-- trong Phase 0, hai luồng đọc toàn bộ history sẵn có tới target date để tránh
-  warm-up cố định thiếu dữ liệu cho EMA/RSI/MACD ở 15m/60m;
-- chỉ output thuộc target date được upsert;
+- đọc watermark riêng theo symbol/timeframe;
+- daily dùng warm-up 5 năm, intraday dùng mặc định 250 phiên giao dịch quan sát
+  được (cấu hình hợp lệ 200-250), thay vì bắt buộc đọc toàn bộ history;
+- chỉ output sau watermark đến target date được upsert; nếu chưa có watermark,
+  chỉ output target date được ghi;
 - intraday chỉ ghi bucket đã đóng theo cutoff Việt Nam.
 
-Thiết kế all-history ưu tiên tính đúng và full/incremental parity ở Phase 0, đổi
-lại chi phí query/RAM cao hơn.
+Full vẫn đọc toàn history; incremental dùng warm-up bounded để giảm query/RAM.
+
+Replace/rebuild-clean bắt buộc đúng một symbol, một persisted timeframe và đủ
+start/end. Vì chưa có transaction/RPC atomic đã kiểm chứng, implementation hiện
+fail-safe trước mọi delete/write thay vì tạo mode nguy hiểm.
 
 ## Full mode
 

@@ -266,6 +266,111 @@ def fetch_stock_intraday_paginated(
     return rows_all
 
 
+def fetch_feature_watermark(
+    db: SupabaseClient,
+    symbol: str,
+    timeframe: str,
+) -> pd.Timestamp | None:
+    """Return the newest persisted feature time for one exact feature stream."""
+    query = (
+        db.get()
+        .table("features")
+        .select("time")
+        .eq("symbol", symbol)
+        .eq("timeframe", timeframe)
+        .order("time", desc=True)
+        .range(0, 0)
+    )
+    result = db._with_retry(
+        lambda current_query=query: current_query.execute(),
+        action_name=f"fetch feature watermark {symbol} {timeframe}",
+    )
+    rows = result.data or []
+    if not rows:
+        return None
+    value = pd.to_datetime(rows[0].get("time"), errors="coerce", utc=True)
+    if pd.isna(value):
+        raise ValueError(
+            f"Invalid feature watermark symbol={symbol} timeframe={timeframe}"
+        )
+    return value
+
+
+def fetch_intraday_trading_session_window(
+    db: SupabaseClient,
+    symbol: str,
+    lt_time: str,
+    trading_sessions: int = 250,
+    page_size: int = 1000,
+) -> list[dict]:
+    """Fetch newest 1m rows through at most N observed VN trading dates."""
+    if not 200 <= trading_sessions <= 250:
+        raise ValueError("intraday warm-up must be between 200 and 250 sessions")
+    offset = 0
+    rows: list[dict] = []
+    observed: list[date] = []
+    while len(observed) < trading_sessions:
+        query = (
+            db.get().table("stock_intraday")
+            .select("time, open, high, low, close, volume, value")
+            .eq("symbol", symbol).eq("timeframe", SOURCE_TIMEFRAME)
+            .lt("time", lt_time).order("time", desc=True)
+            .range(offset, offset + page_size - 1)
+        )
+        result = db._with_retry(
+            lambda current_query=query: current_query.execute(),
+            action_name=f"fetch intraday warm-up {symbol} offset={offset}",
+        )
+        page = result.data or []
+        if not page:
+            break
+        for row in page:
+            stamp = pd.to_datetime(row.get("time"), errors="coerce", utc=True)
+            if pd.isna(stamp):
+                raise ValueError(f"Invalid intraday warm-up timestamp symbol={symbol}")
+            local_date = stamp.tz_convert(VN_TZ).date()
+            if local_date not in observed:
+                if len(observed) == trading_sessions:
+                    break
+                observed.append(local_date)
+            rows.append(row)
+        if len(page) < page_size:
+            break
+        offset += page_size
+    return list(reversed(rows))
+
+
+def validate_replace_scope(
+    symbols,
+    timeframes,
+    start,
+    end,
+) -> tuple[str, str]:
+    """Guard destructive rebuild requests before any database operation."""
+    normalized_symbols = tuple(symbols or ())
+    normalized_timeframes = tuple(timeframes or ())
+    if (
+        len(normalized_symbols) != 1
+        or len(normalized_timeframes) != 1
+        or start is None
+        or end is None
+    ):
+        raise ValueError(
+            "replace/rebuild-clean requires exactly one symbol, one timeframe, "
+            "--from, and --to"
+        )
+    return str(normalized_symbols[0]).upper(), str(normalized_timeframes[0])
+
+
+def atomic_replace_features(*, symbols, timeframes, start, end) -> None:
+    """Fail safely until an atomic transaction/RPC contract is available."""
+    validate_replace_scope(symbols, timeframes, start, end)
+    raise RuntimeError(
+        "Atomic feature replace is not configured; no feature rows were deleted "
+        "or written. Use full mode for non-destructive scoped recomputation."
+    )
+
+
 def log_feature_run(
     symbol: str,
     timeframe: str,

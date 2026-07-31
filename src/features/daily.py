@@ -10,6 +10,7 @@ from .common import _add_common_features
 from .runtime import (
     filter_output_by_time,
     fetch_stock_daily_rows,
+    fetch_feature_watermark,
     log_feature_run,
     normalize_target_date,
     run_source_summary,
@@ -92,13 +93,22 @@ def calculate_daily_features_for_symbol(
     """Read only stock_daily and write canonical 1d feature rows."""
     db = SupabaseClient()
     target = normalize_target_date(target_date) if mode == "incremental" else None
-    rows = fetch_stock_daily_rows(db, symbol, end_date=target)
+    watermark = fetch_feature_watermark(db, symbol, "1d") if target else None
+    start_date = None
+    if target is not None:
+        anchor = watermark or pd.Timestamp(target, tz="UTC")
+        start_date = (anchor - pd.DateOffset(years=5)).date()
+    rows = fetch_stock_daily_rows(
+        db, symbol, start_date=start_date, end_date=target
+    )
     if not rows:
         return 0
 
     frame = compute_daily_features(pd.DataFrame(rows))
     if target is not None:
         start, end, _ = target_utc_bounds(target)
+        if watermark is not None:
+            start = watermark + pd.Timedelta(nanoseconds=1)
         frame = filter_output_by_time(frame, start, end)
     count = upsert_feature_frame(
         db,
