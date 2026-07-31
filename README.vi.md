@@ -13,7 +13,7 @@ Repository hiện ở **Phase 0: xây dựng và kiểm chứng dữ liệu**. �
 - Quy ước dữ liệu: [docs/DATA_CONVENTIONS.vi.md](docs/DATA_CONVENTIONS.vi.md)
 - Hướng dẫn CLI: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
 - Tài liệu feature: [src/features/README.vi.md](src/features/README.vi.md)
-- Ghi chú database: [docs_db_schema.md](docs_db_schema.md)
+- Hợp đồng database: [schema.sql](schema.sql) và [migrations/](migrations/README.vi.md)
 
 Khi tài liệu cũ mâu thuẫn với hành vi thực thi, code, schema, migration và test hiện tại là nguồn sự thật.
 

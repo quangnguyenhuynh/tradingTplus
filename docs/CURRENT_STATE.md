@@ -1006,7 +1006,8 @@ Cho đến khi các điều kiện trên đạt, project vẫn ở Phase 0.
 - [Architecture Decisions](ARCHITECTURE_DECISIONS.md)
 - [CLI Usage](CLI_USAGE.md)
 - [AGENTS.md](../AGENTS.md)
-- [Database Schema Notes](../docs_db_schema.md)
+- [Schema snapshot](../schema.sql)
+- [Database migrations](../migrations/README.md)
 - [Repository README](../README.md)
 # Application write clocks (2026-07-24)
 

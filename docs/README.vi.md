@@ -16,8 +16,11 @@ Tài liệu cấp repository về sản phẩm, kiến trúc, trạng thái, CLI
 | `DATA_PIPELINE.md` | Luồng master, daily, intraday, streaming, validation và feature đang chạy. |
 | `ARCHITECTURE_DECISIONS.md` | Quyết định pipeline và hợp đồng dữ liệu đã chốt. |
 | `CLI_USAGE.md` | Hướng dẫn command production và vận hành. |
+| `DATA_CONVENTIONS.md` / `DATA_CONVENTIONS.vi.md` | Quy ước English/Tiếng Việt về timestamp, phiên, missing data, đơn vị và provenance. |
+| [`backfill/`](backfill/README.vi.md) | Hành vi, an toàn và command backfill dữ liệu nguồn. |
 
-Ghi chú database bổ sung hiện nằm ở root với tên `docs_db_schema.md`.
+Hợp đồng database thực thi nằm tại [`../schema.sql`](../schema.sql); lịch sử thay
+đổi và SQL triển khai được mô tả trong [`../migrations/`](../migrations/README.vi.md).
 
 ## Quy tắc tài liệu
 
@@ -30,4 +33,6 @@ Ghi chú database bổ sung hiện nằm ở root với tên `docs_db_schema.md`
 
 ## Bảo trì
 
-`CURRENT_STATE.md` và `DATA_PIPELINE.md` đã được đồng bộ với việc tách daily/intraday, reuse payload, completeness query, feature contract và streaming-ingest vào ngày 18/07/2026. Cần rà soát lại tài liệu trạng thái mỗi khi hành vi production thay đổi.
+Cần rà soát lại tài liệu trạng thái mỗi khi hành vi production thay đổi. Ngày
+review ghi trong từng tài liệu là ngày đánh giá, không phải bằng chứng rằng schema
+production đã áp dụng toàn bộ migration.

@@ -19,6 +19,7 @@ Python package containing SSI integration, persistence, validation, pipelines, a
 | [`pipeline/`](pipeline/README.md) | Production orchestration and ingest flows. |
 | [`features/`](features/README.md) | Daily/intraday feature calculation and explicit execution. |
 | [`engine/`](engine/README.md) | Legacy manual data-quality utility; no signal/backtest implementation. |
+| [`utils/`](utils/README.md) | Shared timezone-aware Vietnam market-time helpers. |
 
 ## Dependency direction
 
