@@ -104,6 +104,17 @@ python main.py features-daily --mode full --symbols SSI HPG
 python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 60m
 ```
 
+Full tính lại rồi upsert toàn bộ lịch sử đã chọn; không bao giờ delete trước.
+Incremental lấy watermark riêng cho từng symbol/timeframe, tính với warm-up 5
+năm daily hoặc 250 phiên intraday quan sát được, rồi chỉ ghi các row target. Khi
+chưa có watermark, pipeline chỉ ghi ngày target được yêu cầu. `1m` và `5m` chỉ
+là độ phân giải nguồn/calculator, không được persist làm feature timeframe.
+
+`replace` / `rebuild-clean` bắt buộc đúng một symbol, một persisted timeframe và
+đủ `--from`/`--to` với start không sau end. Vì chưa có backend atomic đã kiểm
+chứng, command hiện fail trước mọi write/delete; không được dùng nó như cleanup
+operation.
+
 Router tương thích:
 
 ```bash

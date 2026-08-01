@@ -695,9 +695,10 @@ Do đó:
 
 ## Kiểm chứng và giới hạn còn lại
 
-Offline test hiện kiểm tra overlap của full/incremental calculator, không vượt
-lunch/date boundary, nullable flag, closed bucket và các hằng số RSI/MACD độc
-lập. Vẫn còn cần kiểm chứng production/read-only đối với:
+Offline test hiện kiểm tra parity daily và persisted intraday giữa execution
+full/incremental trên dataset xác định, boundary 250 phiên warm-up, watermark,
+không vượt lunch/date boundary, nullable flag, closed bucket và các hằng số
+RSI/MACD độc lập. Vẫn còn cần kiểm chứng production/read-only đối với:
 
 - session/holiday/halt thực tế;
 - độ đầy đủ daily context;
@@ -794,7 +795,7 @@ Các test còn cần bổ sung/củng cố:
 
 - exact SSI sample payload fixtures có provenance;
 - holiday/non-trading-day classification;
-- full versus incremental feature equivalence;
+- full versus incremental equivalence trên dữ liệu production đủ dài;
 - session-aware 5m/15m/60m aggregation;
 - incomplete latest candle;
 - partition integration;

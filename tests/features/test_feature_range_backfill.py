@@ -131,6 +131,37 @@ def test_replace_scope_requires_exact_symbol_timeframe_and_range(kwargs):
         validate_replace_scope(**kwargs)
 
 
+@pytest.mark.parametrize("timeframe", ["1m", "5m", "tick"])
+def test_replace_scope_rejects_non_persisted_timeframe(timeframe):
+    with pytest.raises(ValueError, match="persisted feature timeframes"):
+        validate_replace_scope(
+            symbols=["SSI"], timeframes=[timeframe],
+            start="01/07/2026", end="02/07/2026",
+        )
+
+
+def test_replace_scope_rejects_blank_symbol_or_timeframe():
+    for symbols, timeframes in [([""], ["1d"]), (["SSI"], [""])]:
+        with pytest.raises(ValueError, match="requires exactly one symbol"):
+            validate_replace_scope(
+                symbols=symbols, timeframes=timeframes,
+                start="01/07/2026", end="02/07/2026",
+            )
+
+
+def test_replace_scope_normalizes_scope_and_rejects_reversed_timestamps():
+    assert validate_replace_scope(
+        symbols=[" ssi "], timeframes=["15m"],
+        start="2026-07-01T09:00:00+07:00",
+        end="2026-07-01T10:00:00+07:00",
+    ) == ("SSI", "15m")
+    with pytest.raises(ValueError, match="start must be <= end"):
+        validate_replace_scope(
+            symbols=["SSI"], timeframes=["60m"],
+            start="02/07/2026", end="01/07/2026",
+        )
+
+
 def test_atomic_replace_fails_without_deleting_when_backend_is_unavailable():
     with pytest.raises(RuntimeError, match="no feature rows were deleted"):
         atomic_replace_features(

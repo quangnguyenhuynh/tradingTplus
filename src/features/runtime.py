@@ -21,6 +21,7 @@ UTC_TZ = ZoneInfo("UTC")
 SOURCE_TIMEFRAME = "1m"
 DEFAULT_FEATURE_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")
 BIGINT_FEATURE_COLUMNS = frozenset({"volume", "value"})
+PERSISTED_REPLACE_TIMEFRAMES = frozenset({"1d", "15m", "60m"})
 
 
 def _serialize_bigint_feature(
@@ -347,11 +348,17 @@ def validate_replace_scope(
     end,
 ) -> tuple[str, str]:
     """Guard destructive rebuild requests before any database operation."""
-    normalized_symbols = tuple(symbols or ())
-    normalized_timeframes = tuple(timeframes or ())
+    normalized_symbols = tuple(
+        str(symbol).strip().upper() for symbol in (symbols or ())
+    )
+    normalized_timeframes = tuple(
+        str(timeframe).strip() for timeframe in (timeframes or ())
+    )
     if (
         len(normalized_symbols) != 1
         or len(normalized_timeframes) != 1
+        or not normalized_symbols[0]
+        or not normalized_timeframes[0]
         or start is None
         or end is None
     ):
@@ -359,7 +366,49 @@ def validate_replace_scope(
             "replace/rebuild-clean requires exactly one symbol, one timeframe, "
             "--from, and --to"
         )
-    return str(normalized_symbols[0]).upper(), str(normalized_timeframes[0])
+    timeframe = normalized_timeframes[0]
+    if timeframe not in PERSISTED_REPLACE_TIMEFRAMES:
+        raise ValueError(
+            "replace/rebuild-clean supports only persisted feature timeframes "
+            "1d, 15m, and 60m"
+        )
+
+    def parse_bound(value, name: str) -> pd.Timestamp:
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                raise ValueError(f"replace/rebuild-clean {name} cannot be empty")
+            try:
+                parsed_date = normalize_target_date(text)
+            except ValueError:
+                try:
+                    stamp = pd.Timestamp(text)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        f"replace/rebuild-clean {name} is not a valid date/time"
+                    ) from exc
+            else:
+                stamp = pd.Timestamp(parsed_date, tz=VN_TZ)
+        elif isinstance(value, date) and not isinstance(value, datetime):
+            stamp = pd.Timestamp(value, tz=VN_TZ)
+        else:
+            try:
+                stamp = pd.Timestamp(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"replace/rebuild-clean {name} is not a valid date/time"
+                ) from exc
+        if pd.isna(stamp):
+            raise ValueError(f"replace/rebuild-clean {name} is not a valid date/time")
+        if stamp.tzinfo is None:
+            stamp = stamp.tz_localize(VN_TZ)
+        return stamp.tz_convert(UTC_TZ)
+
+    start_stamp = parse_bound(start, "start")
+    end_stamp = parse_bound(end, "end")
+    if start_stamp > end_stamp:
+        raise ValueError("replace/rebuild-clean start must be <= end")
+    return normalized_symbols[0], timeframe
 
 
 def atomic_replace_features(*, symbols, timeframes, start, end) -> None:

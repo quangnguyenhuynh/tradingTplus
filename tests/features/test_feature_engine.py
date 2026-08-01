@@ -377,6 +377,123 @@ def test_daily_incremental_matches_full_after_watermark(monkeypatch):
     assert comparable(incremental_records) == comparable(expected)
 
 
+def test_daily_incremental_without_watermark_loads_five_years_and_writes_target(monkeypatch):
+    rows = [_mk_daily("2026-07-10", 1)]
+    db = _DB([], daily_rows=rows)
+    captured = {}
+    original_fetch = daily_flow.fetch_stock_daily_rows
+
+    def fetch(database, symbol, start_date=None, end_date=None, **kwargs):
+        captured.update(start_date=start_date, end_date=end_date)
+        return original_fetch(database, symbol, start_date, end_date, **kwargs)
+
+    monkeypatch.setattr(daily_flow, "SupabaseClient", lambda: db)
+    monkeypatch.setattr(daily_flow, "fetch_stock_daily_rows", fetch)
+    assert daily_flow.calculate_daily_features_for_symbol(
+        "SSI", mode="incremental", target_date="10/07/2026"
+    ) == 1
+    assert captured == {
+        "start_date": datetime(2021, 7, 10).date(),
+        "end_date": datetime(2026, 7, 10).date(),
+    }
+    assert {record["time"] for record in db.upsert_calls[0][1]} == {
+        "2026-07-09T17:00:00Z"
+    }
+
+
+def test_intraday_warmup_stops_at_250_observed_sessions():
+    dates = pd.bdate_range("2025-01-01", periods=251)
+    rows = [
+        _mk_row(
+            pd.Timestamp(day.date(), tz="Asia/Ho_Chi_Minh")
+            .replace(hour=9)
+            .tz_convert("UTC")
+            .strftime("%Y-%m-%dT%H:%M:%SZ"),
+            i,
+        )
+        for i, day in enumerate(dates)
+    ]
+    loaded = feature_runtime.fetch_intraday_trading_session_window(
+        _DB(rows), "SSI", "2027-01-01T00:00:00Z", trading_sessions=250,
+        page_size=37,
+    )
+    observed = (
+        pd.to_datetime([row["time"] for row in loaded], utc=True)
+        .tz_convert("Asia/Ho_Chi_Minh")
+        .date
+    )
+    assert len(set(observed)) == 250
+    assert min(observed) == dates[1].date()
+
+
+def test_feature_watermark_is_scoped_to_exact_symbol_and_timeframe():
+    filters = []
+
+    class WatermarkQuery(_Query):
+        def eq(self, column, value):
+            filters.append((column, value))
+            return self
+
+    class WatermarkDB(_DB):
+        def table(self, name):
+            assert name == "features"
+            return WatermarkQuery([{"time": "2026-07-10T03:00:00Z"}])
+
+    watermark = feature_runtime.fetch_feature_watermark(
+        WatermarkDB([]), "SSI", "15m"
+    )
+    assert filters == [("symbol", "SSI"), ("timeframe", "15m")]
+    assert watermark == pd.Timestamp("2026-07-10T03:00:00Z")
+
+
+def test_persisted_intraday_incremental_matches_full_target_rows(monkeypatch):
+    dates = pd.bdate_range("2026-03-02", periods=60)
+    rows = []
+    daily_rows = []
+    value = 0
+    for day in dates:
+        daily_rows.append(_mk_daily(day.date().isoformat(), value))
+        start = pd.Timestamp(day.date(), tz="Asia/Ho_Chi_Minh").replace(hour=9)
+        for minute in range(60):
+            rows.append(_mk_row(
+                (start + pd.Timedelta(minutes=minute)).tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                value,
+            ))
+            value += 1
+
+    full_db = _DB(rows, daily_rows=daily_rows)
+    monkeypatch.setattr(intraday_flow, "SupabaseClient", lambda: full_db)
+    intraday_flow.calculate_intraday_features_for_symbol(
+        "SSI", timeframes=["15m"], mode="full"
+    )
+    full_records = full_db.upsert_calls[0][1]
+    watermark = next(
+        record["time"] for record in reversed(full_records)
+        if record["time"] < full_records[-4]["time"]
+    )
+
+    incremental_db = _DB(
+        rows, daily_rows=daily_rows, feature_rows=[{"time": watermark}]
+    )
+    monkeypatch.setattr(intraday_flow, "SupabaseClient", lambda: incremental_db)
+    intraday_flow.calculate_intraday_features_for_symbol(
+        "SSI", timeframes=["15m"], mode="incremental",
+        target_date=dates[-1].date(),
+    )
+    incremental_records = incremental_db.upsert_calls[0][1]
+    target_start, target_end, _ = feature_runtime.target_utc_bounds(dates[-1].date())
+    expected = [
+        record for record in full_records
+        if pd.Timestamp(record["time"]) > pd.Timestamp(watermark)
+        and target_start <= pd.Timestamp(record["time"]) < target_end
+    ]
+    comparable = lambda records: [
+        {key: value for key, value in record.items() if key != "last_updated_at"}
+        for record in records
+    ]
+    assert comparable(incremental_records) == comparable(expected)
+
+
 def test_daily_features_are_computed_from_stock_daily_and_vwap_is_null():
     daily = pd.DataFrame([_mk_daily(f'2026-05-{day:02d}', day) for day in range(1, 25)])
 

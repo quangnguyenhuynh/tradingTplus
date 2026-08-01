@@ -109,7 +109,8 @@ Feature execution has three explicit semantics:
   exists).
 - **Replace / rebuild-clean** is reserved for an atomic, precisely scoped
   rebuild. The CLI requires exactly one symbol, one timeframe, and both range
-  bounds. This repository has no verified atomic replace RPC yet, so a complete
+  bounds, accepts only `1d`/`15m`/`60m`, and rejects `start > end`. This
+  repository has no verified atomic replace RPC yet, so a complete
   request fails safely without deleting or writing anything. Use non-destructive
   `full` until that database contract is implemented.
 
