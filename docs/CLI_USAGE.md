@@ -78,6 +78,22 @@ Policy by source:
 Feature persistence for `1m` and `5m` is rejected. Clean 1m source candles are
 still required and remain stored in `stock_intraday`.
 
+## Feature execution modes
+
+- `incremental` reads the newest watermark independently for every requested
+  `symbol + timeframe`, calculates over bounded source context, and upserts only
+  rows after that watermark through the target date. With no watermark, only
+  target-date rows are written. The bounded context is five years of
+  `stock_daily` for `1d` and, by default, 250 observed trading sessions of clean
+  1m candles for `15m`/`60m`.
+- `full` reads all selected source history, recalculates it, and upserts every
+  selected result. It does **not** delete old feature rows first and is not a
+  replace operation.
+- `replace` / `rebuild-clean` requires exactly one non-empty symbol, one of
+  `1d`/`15m`/`60m`, and valid start/end bounds with `start <= end`. The current
+  repository has no verified atomic transaction/RPC for this operation, so even
+  a valid request fails safely before any database write or delete.
+
 ## `features-daily`
 
 One target date:

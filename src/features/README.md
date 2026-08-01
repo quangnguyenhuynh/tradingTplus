@@ -103,6 +103,18 @@ python main.py features-daily --mode full --symbols SSI HPG
 python main.py features-intraday --mode full --symbols SSI HPG --timeframes 15m 60m
 ```
 
+Full recalculates and upserts all selected history; it never deletes first.
+Incremental resolves a watermark for each symbol/timeframe, calculates with
+five years of daily warm-up or 250 observed intraday sessions, and writes only
+the target rows. If no watermark exists, it writes only the requested target
+date. `1m` and `5m` remain calculator/source granularities and cannot be
+persisted as feature timeframes.
+
+`replace` / `rebuild-clean` requires exactly one symbol, one persisted
+timeframe, and `--from`/`--to` with start not later than end. Because no verified
+atomic replace backend exists, the command currently fails before every write
+or delete; it must not be treated as an operational cleanup command.
+
 Compatibility router:
 
 ```bash

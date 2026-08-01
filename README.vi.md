@@ -103,7 +103,8 @@ Feature có ba semantics tách biệt:
   window đã load nhưng chỉ ghi row sau watermark đến target date (hoặc chỉ
   target date nếu chưa có watermark).
 - **Replace / rebuild-clean** dành riêng cho rebuild atomic có scope chính xác.
-  CLI bắt buộc đúng một symbol, một timeframe và đủ hai mốc range. Repo chưa có
+  CLI bắt buộc đúng một symbol, một timeframe thuộc `1d`/`15m`/`60m`, đủ hai
+  mốc range và `start <= end`. Repo chưa có
   RPC replace atomic đã kiểm chứng, nên request đủ scope vẫn fail-safe mà không
   delete hay write row nào. Tạm dùng `full` non-destructive.
 

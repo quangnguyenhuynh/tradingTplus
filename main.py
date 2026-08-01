@@ -162,6 +162,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=["incremental", "full"],
         default="incremental",
+        help=(
+            "incremental uses per-stream watermarks and bounded warm-up; "
+            "full recomputes and upserts all selected history without deleting"
+        ),
     )
     features.add_argument(
         "--date",
@@ -189,6 +193,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=["incremental", "full", "replace", "rebuild-clean"],
         default="incremental",
+        help=(
+            "incremental uses a 5-year warm-up; full is non-destructive upsert; "
+            "replace/rebuild-clean requires exact scope and currently fails safe"
+        ),
     )
     features_daily.add_argument(
         "--date",
@@ -219,6 +227,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=["incremental", "full", "replace", "rebuild-clean"],
         default="incremental",
+        help=(
+            "incremental uses 250 observed sessions; full is non-destructive "
+            "upsert; replace/rebuild-clean requires exact scope and fails safe"
+        ),
     )
     features_intraday.add_argument(
         "--date",
