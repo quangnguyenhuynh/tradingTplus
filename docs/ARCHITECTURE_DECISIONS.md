@@ -63,7 +63,7 @@ Các trạng thái được sử dụng:
 | ADR-003 | Tách raw data và clean data | Implemented |
 | ADR-004 | `stock_daily` là nguồn canonical cho timeframe `1d` | Implemented |
 | ADR-005 | `stock_intraday` chỉ lưu timeframe `1m` | Implemented |
-| ADR-006 | `5m`, `15m`, `60m` được aggregate từ `1m` trong feature pipeline | Implemented |
+| ADR-006 | `5m`, `15m`, `60m` có thể aggregate từ `1m`; production chỉ persist feature `15m`, `60m` | Implemented |
 | ADR-007 | Giữ một bảng `features` có cột `timeframe` | Implemented |
 | ADR-008 | Intraday value dùng `round(close * volume)` và được xem là ước tính | Implemented |
 | ADR-009 | Không biến dữ liệu thiếu thành `0` nếu chưa có rule | Accepted |
@@ -361,6 +361,8 @@ Các timeframe:
 ### Consequences
 
 - Không ghi aggregate bar ngược vào `stock_intraday`.
+- Production chỉ persist feature `15m`, `60m`; calculator `5m` không đồng
+  nghĩa với việc persist feature `5m`.
 - Feature pipeline chịu trách nhiệm về:
   - resampling;
   - session boundary;
