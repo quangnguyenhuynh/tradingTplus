@@ -316,7 +316,8 @@ Command này hiện:
 
 - không gọi SSI để ingest candle mới;
 - chỉ đọc dữ liệu đã có trong `stock_intraday`;
-- mặc định tính feature `1m`, `5m`, `15m`;
+- chỉ persist feature `15m`, `60m`, aggregate từ nến clean `1m`;
+- không persist feature `1m` hoặc `5m`;
 - không tính `1d`.
 
 ---

@@ -100,10 +100,10 @@ stock_daily
     └── feature 1d
 
 stock_intraday 1m
-    ├── feature 1m
-    ├── aggregate 5m  → feature 5m
     ├── aggregate 15m → feature 15m
     └── aggregate 60m → feature 60m
+
+Feature 1m/5m không được persist trong production.
 
 Tất cả feature
     └── features
@@ -202,10 +202,12 @@ IntradayOhlc resolution=1
 
 ```text
 stock_daily → features 1d
-stock_intraday 1m → features 1m/5m/15m/60m
+stock_intraday 1m → aggregate trong feature pipeline → features 15m/60m
 ```
 
 Tất cả timeframe nằm trong một bảng `features` với key `(symbol, timeframe, time)`.
+Production chỉ persist `1d`, `15m`, `60m`; `1m` là timeframe nguồn clean và
+feature `1m`/`5m` bị public runner từ chối.
 
 ### Streaming
 
