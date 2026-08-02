@@ -109,10 +109,7 @@ Feature execution has three explicit semantics:
   exists).
 - **Replace / rebuild-clean** is reserved for an atomic, precisely scoped
   rebuild. The CLI requires exactly one symbol, one timeframe, and both range
-  bounds, accepts only `1d`/`15m`/`60m`, and rejects `start > end`. This
-  repository has no verified atomic replace RPC yet, so a complete
-  request fails safely without deleting or writing anything. Use non-destructive
-  `full` until that database contract is implemented.
+  bounds, accepts only `1d`/`15m`/`60m`, and rejects `start > end`. The application computes and validates before one atomic RPC; deploy the new migration before use.
 
 Range commands remain explicit backfills. No feature mode is invoked by ingest.
 
@@ -156,3 +153,6 @@ explicitly scoped database operation. Source data does not require backfill.
 The legacy signal and backtest MVP code has been removed. These layers will be
 redesigned in a later phase after data and feature contracts are verified; no
 executable signal or backtest path is currently provided.
+
+### Feature rebuild contract
+Feature daily reads paginate all matching `stock_daily` rows. `full` remains non-destructive upsert; `incremental` uses per-stream watermarks with five years of daily or 250 observed intraday-session warm-up; `replace` (`rebuild-clean`) computes and validates one exact symbol/timeframe/inclusive Vietnam-date range before one atomic RPC. Empty incremental output is a successful no-op. Deploy `migrations/20260802_atomic_replace_features.sql` before using replace.

@@ -104,9 +104,7 @@ Feature có ba semantics tách biệt:
   target date nếu chưa có watermark).
 - **Replace / rebuild-clean** dành riêng cho rebuild atomic có scope chính xác.
   CLI bắt buộc đúng một symbol, một timeframe thuộc `1d`/`15m`/`60m`, đủ hai
-  mốc range và `start <= end`. Repo chưa có
-  RPC replace atomic đã kiểm chứng, nên request đủ scope vẫn fail-safe mà không
-  delete hay write row nào. Tạm dùng `full` non-destructive.
+  mốc range và `start <= end`. Application compute và validate trước đúng một RPC atomic; phải deploy migration mới trước khi dùng.
 
 Range command vẫn là backfill explicit. Ingest không tự gọi bất kỳ feature mode nào.
 
@@ -143,3 +141,6 @@ Không cần migration schema. Các row `features` timeframe `1m` hoặc `5m` đ
 ## Trạng thái dự án
 
 Code signal và backtest MVP legacy đã được xóa. Hai tầng này sẽ được thiết kế lại ở phase sau khi hợp đồng data và feature được kiểm chứng; hiện không có đường chạy signal hoặc backtest.
+
+### Contract rebuild feature
+Daily feature phân trang toàn bộ row `stock_daily` phù hợp. `full` vẫn upsert không delete; `incremental` dùng watermark riêng với warm-up daily 5 năm hoặc intraday 250 phiên quan sát; `replace` (`rebuild-clean`) compute và validate đúng một symbol/timeframe/range ngày Việt Nam inclusive trước một RPC atomic. Incremental không có output là no-op thành công. Phải deploy `migrations/20260802_atomic_replace_features.sql` trước khi dùng replace.

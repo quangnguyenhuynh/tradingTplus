@@ -1837,3 +1837,11 @@ Consequences:
 No schema change is required for this split.
 
 > Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+
+## ADR-020 — Scoped feature replacement is one atomic RPC
+
+### Status
+Implemented in code and migration; production deployment of the 2026-08-02 migration remains an operator action.
+
+### Decision
+`full` is a non-destructive upsert. `replace`/`rebuild-clean` accepts one exact symbol, one persisted timeframe, and inclusive Vietnam dates, computes and validates all replacement rows before mutation, and calls `public.replace_features_atomic` once with a half-open UTC range. The service-role-only function validates again, deletes only that range, inserts all rows in the same transaction, and never falls back to application delete/upsert.

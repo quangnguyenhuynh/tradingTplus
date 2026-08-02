@@ -33,3 +33,6 @@ Never run broad destructive SQL without exact table/date/symbol scope, a verifie
 ## Retired signal/backtest storage
 
 `20260731_drop_legacy_signal_backtest.sql` is an explicitly approved cleanup migration. It is destructive only to the retired legacy tables; export their rows before deployment if audit retention is required. It does not affect raw, clean, or feature data, and requires no backfill.
+
+## 20260802_atomic_replace_features.sql
+Creates the service-role-only `public.replace_features_atomic(text,text,timestamptz,timestamptz,jsonb)` RPC. It validates an exact symbol, persisted timeframe, half-open UTC range, and non-empty in-scope unique replacement rows before deleting and inserting in one transaction. Applying the migration changes no feature rows. Deploy it before the application code that enables replace. Verification and rollback SQL are included in the migration; rollback drops only the function and does not restore/alter feature rows.

@@ -162,17 +162,37 @@ def test_replace_scope_normalizes_scope_and_rejects_reversed_timestamps():
         )
 
 
-def test_atomic_replace_fails_without_deleting_when_backend_is_unavailable():
-    with pytest.raises(RuntimeError, match="no feature rows were deleted"):
-        atomic_replace_features(
-            symbols=["SSI"], timeframes=["1d"],
-            start="01/07/2026", end="02/07/2026",
-        )
+def test_atomic_replace_computes_before_one_rpc(monkeypatch):
+    from src.features import runtime
+
+    class DB:
+        calls = []
+        def health_check(self): return True
+        def atomic_replace_features(self, **kwargs):
+            self.calls.append(kwargs)
+            return {"deleted_rows": 1, "replaced_rows": len(kwargs["replacement_rows"])}
+
+    db = DB()
+    monkeypatch.setattr(runtime, "SupabaseClient", lambda: db)
+    monkeypatch.setattr(runtime, "fetch_stock_daily_rows", lambda *_a, **_k: [{
+        "trading_date": "2026-07-01", "open_price": 10, "highest_price": 11,
+        "lowest_price": 9, "close_price": 10.5, "total_traded_vol": 100,
+        "total_traded_value": 1050,
+    }])
+    result = atomic_replace_features(
+        symbols=["SSI"], timeframes=["1d"],
+        start="01/07/2026", end="02/07/2026",
+    )
+    assert result["status"] == "OK"
+    assert len(db.calls) == 1
+    assert db.calls[0]["start_utc"].startswith("2026-06-30T17:00:00")
+    assert db.calls[0]["end_exclusive_utc"].startswith("2026-07-02T17:00:00")
 
 
-def test_replace_cli_rejects_missing_scope_and_safe_fails_complete_scope():
+def test_replace_cli_rejects_missing_scope_and_routes_complete_scope(monkeypatch):
     assert main.main(["features-daily", "--mode", "replace"]) == 2
+    monkeypatch.setattr(main, "atomic_replace_features", lambda **_kwargs: {"status": "OK"})
     assert main.main([
         "features-daily", "--mode", "replace", "--from", "01/07/2026",
         "--to", "02/07/2026", "--symbols", "SSI",
-    ]) == 1
+    ]) == 0

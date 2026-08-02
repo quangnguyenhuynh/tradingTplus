@@ -214,7 +214,7 @@ Supported modes:
 ```text
 incremental
 full
-replace / rebuild-clean (guarded; no atomic backend configured)
+replace / rebuild-clean (atomic exact-scope RPC; new migration requires operator deployment)
 ```
 
 Supported timeframes:
@@ -679,8 +679,7 @@ Daily và intraday đã có execution path riêng:
 Full vẫn đọc toàn history; incremental dùng warm-up bounded để giảm query/RAM.
 
 Replace/rebuild-clean bắt buộc đúng một symbol, một persisted timeframe và đủ
-start/end. Vì chưa có transaction/RPC atomic đã kiểm chứng, implementation hiện
-fail-safe trước mọi delete/write thay vì tạo mode nguy hiểm.
+start/end. Implementation compute và validate toàn bộ replacement trước khi gọi đúng một transaction/RPC atomic theo exact scope; migration mới cần operator deploy trước khi dùng.
 
 ## Full mode
 
@@ -1019,3 +1018,11 @@ offset. PostgreSQL `now()` defaults are removed for these audit fields. The data
 insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.
 
 > Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+
+## Issue #110 feature runtime update (2026-08-02)
+
+The repository owner confirms that every migration already present on `dev` before this task was applied to production. This is **operator-confirmed migration status**, not a live read-only schema-drift verification; this task did not query production schema. The new `20260802_atomic_replace_features.sql` migration was not applied by this task and must be deployed before replace mode is used.
+
+Daily feature reads now paginate `stock_daily`; incremental daily retains a five-year warm-up. Intraday incremental retains 250 observed trading sessions (configurable 200–250), not calendar days/bars. Full remains non-destructive; incremental no-output is an `OK` no-op; scoped replace computes and validates before one atomic service-role RPC. Historical corrections are not automatically detected without source-version metadata, so operators must request exact scoped replace/full work separately.
+
+Known deferred Phase 0 risks remain: raw intraday lineage/full source-payload redesign and completeness/trading-calendar redesign are not part of this change. Issue #110 completion does not mean Phase 0 is complete.
