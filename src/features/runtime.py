@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -178,30 +178,66 @@ def fetch_stock_daily_rows(
     end_date: date | str | None = None,
     order_desc: bool = False,
     limit_total: int | None = None,
+    page_size: int = 1000,
 ) -> list[dict]:
-    query = (
-        db.get()
-        .table("stock_daily")
-        .select(
-            "trading_date, open_price, highest_price, lowest_price, close_price, "
-            "total_traded_vol, total_traded_value, total_match_vol, total_match_val"
-        )
-        .eq("symbol", symbol)
-        .order("trading_date", desc=order_desc)
-    )
-    if start_date is not None:
-        query = query.gte("trading_date", str(start_date))
-    if end_date is not None:
-        query = query.lte("trading_date", str(end_date))
-    if limit_total is not None:
-        query = query.range(0, limit_total - 1)
+    """Read all matching daily rows without relying on PostgREST's row cap.
 
-    result = db._with_retry(
-        lambda current_query=query: current_query.execute(),
-        action_name=f"fetch stock_daily {symbol}",
+    Descending reads are used to obtain the newest N source rows, but this
+    function preserves the calculator contract by returning those rows oldest
+    first.
+    """
+    if page_size <= 0:
+        raise ValueError("page_size must be greater than zero")
+    if limit_total is not None and limit_total < 0:
+        raise ValueError("limit_total must be non-negative")
+    if limit_total == 0:
+        return []
+
+    offset = 0
+    page_number = 0
+    rows_all: list[dict] = []
+    while limit_total is None or len(rows_all) < limit_total:
+        requested = page_size
+        if limit_total is not None:
+            requested = min(requested, limit_total - len(rows_all))
+        query = (
+            db.get().table("stock_daily")
+            .select(
+                "trading_date, open_price, highest_price, lowest_price, close_price, "
+                "total_traded_vol, total_traded_value, total_match_vol, total_match_val"
+            )
+            .eq("symbol", symbol)
+        )
+        if start_date is not None:
+            query = query.gte("trading_date", str(start_date))
+        if end_date is not None:
+            query = query.lte("trading_date", str(end_date))
+        query = query.order("trading_date", desc=order_desc).range(
+            offset, offset + requested - 1
+        )
+        page_number += 1
+        result = db._with_retry(
+            lambda current_query=query: current_query.execute(),
+            action_name=(
+                f"fetch stock_daily symbol={symbol} page={page_number} "
+                f"offset={offset}"
+            ),
+        )
+        page = result.data or []
+        rows_all.extend(page)
+        logger.info(
+            "stock_daily page symbol=%s page=%s offset=%s requested=%s rows=%s",
+            symbol, page_number, offset, requested, len(page),
+        )
+        if len(page) < requested:
+            break
+        offset += len(page)
+
+    logger.info(
+        "stock_daily fetch complete symbol=%s pages=%s rows=%s start=%s end=%s desc=%s limit=%s",
+        symbol, page_number, len(rows_all), start_date, end_date, order_desc, limit_total,
     )
-    rows = result.data or []
-    return list(reversed(rows)) if order_desc else rows
+    return list(reversed(rows_all)) if order_desc else rows_all
 
 
 def date_bounds_for_daily_context(
@@ -367,6 +403,10 @@ def validate_replace_scope(
             "--from, and --to"
         )
     timeframe = normalized_timeframes[0]
+    if normalized_symbols[0] in {"*", "%", "ALL"} or any(
+        marker in normalized_symbols[0] for marker in ("*", "%", ",")
+    ):
+        raise ValueError("replace/rebuild-clean requires one exact symbol without wildcards")
     if timeframe not in PERSISTED_REPLACE_TIMEFRAMES:
         raise ValueError(
             "replace/rebuild-clean supports only persisted feature timeframes "
@@ -411,13 +451,98 @@ def validate_replace_scope(
     return normalized_symbols[0], timeframe
 
 
-def atomic_replace_features(*, symbols, timeframes, start, end) -> None:
-    """Fail safely until an atomic transaction/RPC contract is available."""
-    validate_replace_scope(symbols, timeframes, start, end)
-    raise RuntimeError(
-        "Atomic feature replace is not configured; no feature rows were deleted "
-        "or written. Use full mode for non-destructive scoped recomputation."
+def replace_utc_bounds(start, end) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Convert inclusive Vietnam CLI dates to a half-open UTC interval."""
+    start_date = normalize_target_date(start)
+    end_date = normalize_target_date(end)
+    if start_date > end_date:
+        raise ValueError("replace/rebuild-clean start must be <= end")
+    return target_utc_bounds(start_date)[0], target_utc_bounds(end_date + timedelta(days=1))[0]
+
+
+def _validate_replacement_records(records, symbol, timeframe, start_utc, end_exclusive_utc):
+    if not records:
+        raise ValueError("replacement dataset is empty; refusing atomic replace")
+    required = {"symbol", "timeframe", "time", *FEATURE_COLUMNS}
+    keys: set[tuple[str, str, pd.Timestamp]] = set()
+    stamps = []
+    for index, row in enumerate(records):
+        missing = required - set(row)
+        if missing:
+            raise ValueError(f"replacement row {index} is missing columns: {sorted(missing)}")
+        if row["symbol"] != symbol or row["timeframe"] != timeframe:
+            raise ValueError(f"replacement row {index} is outside symbol/timeframe scope")
+        stamp = pd.to_datetime(row["time"], errors="coerce", utc=True)
+        if pd.isna(stamp) or not start_utc <= stamp < end_exclusive_utc:
+            raise ValueError(f"replacement row {index} has invalid or out-of-scope time")
+        key = (symbol, timeframe, stamp)
+        if key in keys:
+            raise ValueError("replacement dataset contains duplicate symbol/timeframe/time")
+        keys.add(key)
+        stamps.append(stamp)
+    return min(stamps), max(stamps)
+
+
+def atomic_replace_features(*, symbols, timeframes, start, end) -> dict:
+    """Compute a complete scoped dataset, then replace it with one atomic RPC."""
+    symbol, timeframe = validate_replace_scope(symbols, timeframes, start, end)
+    start_utc, end_exclusive_utc = replace_utc_bounds(start, end)
+    db = SupabaseClient()
+    if not db.health_check():
+        raise RuntimeError("Supabase health-check failed before atomic replace")
+
+    if timeframe == "1d":
+        from .daily import compute_daily_features
+        warmup_start = (start_utc - pd.DateOffset(years=5)).tz_convert(VN_TZ).date()
+        source_rows = fetch_stock_daily_rows(
+            db, symbol, start_date=warmup_start,
+            end_date=(end_exclusive_utc - pd.Timedelta(days=1)).tz_convert(VN_TZ).date(),
+        )
+        computed = compute_daily_features(pd.DataFrame(source_rows)) if source_rows else pd.DataFrame()
+        source_table = "stock_daily"
+    else:
+        from .intraday import aggregate_timeframe, compute_intraday_features, filter_closed_buckets, _resolve_as_of
+        warmup_rows = fetch_intraday_trading_session_window(
+            db, symbol, start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"), trading_sessions=250
+        )
+        target_rows = fetch_stock_intraday_paginated(
+            db, symbol,
+            gte_time=start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            lt_time=end_exclusive_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        source_rows = warmup_rows + target_rows
+        bounds = date_bounds_for_daily_context(source_rows)
+        daily_rows = fetch_stock_daily_rows(db, symbol, bounds[0], bounds[1]) if bounds else []
+        aggregated = aggregate_timeframe(pd.DataFrame(source_rows), timeframe) if source_rows else pd.DataFrame()
+        closed = filter_closed_buckets(
+            aggregated, timeframe,
+            _resolve_as_of((end_exclusive_utc - pd.Timedelta(days=1)).tz_convert(VN_TZ).date(), None),
+        ) if not aggregated.empty else aggregated
+        computed = compute_intraday_features(closed, timeframe, pd.DataFrame(daily_rows)) if not closed.empty else closed
+        source_table = "stock_intraday"
+
+    output = filter_output_by_time(computed, start_utc, end_exclusive_utc)
+    records = build_feature_records(output, symbol, timeframe)
+    min_time, max_time = _validate_replacement_records(
+        records, symbol, timeframe, start_utc, end_exclusive_utc
     )
+    logger.info(
+        "Atomic replace validated symbol=%s timeframe=%s source=%s source_rows=%s computed=%s selected=%s min=%s max=%s",
+        symbol, timeframe, source_table, len(source_rows), len(computed), len(records), min_time, max_time,
+    )
+    result = db.atomic_replace_features(
+        symbol=symbol, timeframe=timeframe,
+        start_utc=start_utc.isoformat(), end_exclusive_utc=end_exclusive_utc.isoformat(),
+        replacement_rows=records,
+    )
+    return {
+        "flow": "features-replace", "mode": "replace", "status": "OK",
+        "symbol": symbol, "timeframe": timeframe, "source_table": source_table,
+        "start_utc": start_utc.isoformat(), "end_exclusive_utc": end_exclusive_utc.isoformat(),
+        "source_rows": len(source_rows), "computed_rows": len(computed),
+        "selected_rows": len(records), "output_min_time": str(min_time),
+        "output_max_time": str(max_time), **result,
+    }
 
 
 def log_feature_run(
@@ -541,11 +666,7 @@ def run_source_summary(
             errors.append({"symbol": symbol, "error": str(exc)})
 
     failed = len(errors)
-    status = (
-        "FAILED"
-        if failed == len(symbols) or total == 0
-        else ("PARTIAL" if failed else "OK")
-    )
+    status = "FAILED" if symbols and failed == len(symbols) else ("PARTIAL" if failed else "OK")
     return {
         "flow": flow,
         "mode": mode,
@@ -554,6 +675,8 @@ def run_source_summary(
         "successful_symbols": successes,
         "failed_symbols": failed,
         "total_records": total,
+        "no_op": total == 0 and failed == 0,
+        "no_op_reason": "no source rows selected for write" if total == 0 and failed == 0 else None,
         "records_by_timeframe": records,
         "errors": errors,
         "status": status,

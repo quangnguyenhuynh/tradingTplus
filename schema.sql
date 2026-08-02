@@ -142,6 +142,35 @@ CREATE TABLE IF NOT EXISTS "public"."features" (
 
 ALTER TABLE "public"."features" OWNER TO "postgres";
 
+CREATE OR REPLACE FUNCTION "public"."replace_features_atomic"(
+    "p_symbol" text,
+    "p_timeframe" text,
+    "p_start_utc" timestamp with time zone,
+    "p_end_exclusive_utc" timestamp with time zone,
+    "p_replacement_rows" jsonb
+) RETURNS TABLE("deleted_count" bigint, "replaced_count" bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE v_deleted bigint; v_replaced bigint;
+BEGIN
+  IF p_symbol IS NULL OR btrim(p_symbol) = '' OR upper(btrim(p_symbol)) IN ('*','%','ALL') OR p_symbol ~ '[*,%]' THEN
+    RAISE EXCEPTION 'replace_features_atomic requires one exact symbol';
+  END IF;
+  IF p_timeframe NOT IN ('1d','15m','60m') THEN RAISE EXCEPTION 'invalid persisted timeframe'; END IF;
+  IF p_start_utc IS NULL OR p_end_exclusive_utc IS NULL OR p_start_utc >= p_end_exclusive_utc THEN RAISE EXCEPTION 'invalid half-open UTC range'; END IF;
+  IF p_replacement_rows IS NULL OR jsonb_typeof(p_replacement_rows) <> 'array' OR jsonb_array_length(p_replacement_rows) = 0 THEN RAISE EXCEPTION 'empty replacement dataset'; END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_replacement_rows) r WHERE r->>'symbol' IS DISTINCT FROM p_symbol OR r->>'timeframe' IS DISTINCT FROM p_timeframe OR nullif(r->>'time','') IS NULL OR (r->>'time')::timestamptz < p_start_utc OR (r->>'time')::timestamptz >= p_end_exclusive_utc) THEN RAISE EXCEPTION 'replacement row outside scope'; END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_replacement_rows) r GROUP BY r->>'symbol',r->>'timeframe',(r->>'time')::timestamptz HAVING count(*) > 1) THEN RAISE EXCEPTION 'duplicate replacement key'; END IF;
+  DELETE FROM public.features WHERE symbol=p_symbol AND timeframe=p_timeframe AND time>=p_start_utc AND time<p_end_exclusive_utc;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  INSERT INTO public.features SELECT x.* FROM jsonb_populate_recordset(NULL::public.features,p_replacement_rows) x;
+  GET DIAGNOSTICS v_replaced = ROW_COUNT;
+  IF v_replaced <> jsonb_array_length(p_replacement_rows) THEN RAISE EXCEPTION 'replacement count mismatch'; END IF;
+  RETURN QUERY SELECT v_deleted,v_replaced;
+END $$;
+REVOKE ALL ON FUNCTION "public"."replace_features_atomic"(text,text,timestamptz,timestamptz,jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION "public"."replace_features_atomic"(text,text,timestamptz,timestamptz,jsonb) TO service_role;
+
 
 CREATE TABLE IF NOT EXISTS "public"."foreign_trading" (
     "symbol" "text" NOT NULL,

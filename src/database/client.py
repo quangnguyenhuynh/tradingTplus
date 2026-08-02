@@ -433,6 +433,43 @@ class SupabaseClient:
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')
 
+    def atomic_replace_features(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        start_utc: str,
+        end_exclusive_utc: str,
+        replacement_rows: list[dict],
+    ) -> dict:
+        """Invoke the single-transaction scoped feature replacement RPC."""
+        rows = self._sanitize_for_json(replacement_rows)
+        response = self._with_retry(
+            lambda: self.client.rpc(
+                "replace_features_atomic",
+                {
+                    "p_symbol": symbol,
+                    "p_timeframe": timeframe,
+                    "p_start_utc": start_utc,
+                    "p_end_exclusive_utc": end_exclusive_utc,
+                    "p_replacement_rows": rows,
+                },
+            ).execute(),
+            action_name=(
+                "replace_features_atomic "
+                f"symbol={symbol} timeframe={timeframe} start={start_utc} "
+                f"end_exclusive={end_exclusive_utc} rows={len(rows)}"
+            ),
+        )
+        data = response.data or []
+        summary = data[0] if isinstance(data, list) and data else data
+        if not isinstance(summary, dict):
+            raise RuntimeError("replace_features_atomic returned an invalid summary")
+        return {
+            "deleted_rows": int(summary.get("deleted_count", 0)),
+            "replaced_rows": int(summary.get("replaced_count", 0)),
+        }
+
     def get_symbols(self):
         result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")
         return [row['symbol'] for row in result.data]

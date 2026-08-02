@@ -195,7 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="incremental",
         help=(
             "incremental uses a 5-year warm-up; full is non-destructive upsert; "
-            "replace/rebuild-clean requires exact scope and currently fails safe"
+            "replace/rebuild-clean atomically replaces one exact scope"
         ),
     )
     features_daily.add_argument(
@@ -229,7 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="incremental",
         help=(
             "incremental uses 250 observed sessions; full is non-destructive "
-            "upsert; replace/rebuild-clean requires exact scope and fails safe"
+            "upsert; replace/rebuild-clean atomically replaces one exact scope"
         ),
     )
     features_intraday.add_argument(
@@ -419,13 +419,13 @@ def main(argv: list[str] | None = None) -> int:
             scope = _feature_execution_scope(args)
             symbols = normalize_symbol_scope(args.symbols)
             if scope == "replace":
-                atomic_replace_features(
+                summary = atomic_replace_features(
                     symbols=symbols,
                     timeframes=("1d",),
                     start=args.from_date,
                     end=args.to_date,
                 )
-            if scope == "range":
+            elif scope == "range":
                 summary = run_daily_feature_backfill(
                     args.from_date,
                     args.to_date,
@@ -444,13 +444,13 @@ def main(argv: list[str] | None = None) -> int:
             symbols = normalize_symbol_scope(args.symbols)
             timeframes = tuple(args.timeframes)
             if scope == "replace":
-                atomic_replace_features(
+                summary = atomic_replace_features(
                     symbols=symbols,
                     timeframes=timeframes,
                     start=args.from_date,
                     end=args.to_date,
                 )
-            if scope == "range":
+            elif scope == "range":
                 summary = run_intraday_feature_backfill(
                     args.from_date,
                     args.to_date,

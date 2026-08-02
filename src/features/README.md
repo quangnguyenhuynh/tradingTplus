@@ -84,11 +84,9 @@ The CLI does not allow `--mode full` together with `--date` or `--from/--to`.
 Use the explicit range commands below to recompute a bounded date range without
 deleting old rows.
 
-### Replace / rebuild-clean is not operational
+### Replace / rebuild-clean is operational after migration deployment
 
-> **Current status:** replace/rebuild-clean cannot replace data yet. The CLI
-> validates the mandatory scope and then stops safely because the database has
-> no verified atomic replace operation. It deletes and writes nothing.
+> **Current status:** replace/rebuild-clean computes and validates the exact scoped dataset, then calls the service-role-only atomic RPC once.
 
 The required scope is exactly:
 
@@ -97,8 +95,7 @@ The required scope is exactly:
 - start date/time (`--from`);
 - end date/time (`--to`), with start not later than end.
 
-Missing or broad scope is rejected. A valid scope also ends with an explicit
-safe failure until atomic database support is implemented.
+Missing or broad scope is rejected. A valid non-empty dataset is sent in one atomic RPC after the migration is deployed.
 
 ## Which mode should I use?
 
@@ -106,8 +103,7 @@ safe failure until atomic database support is implemented.
 - **Recompute a historical range without deleting rows:** use an explicit
   `--from/--to` range command.
 - **Recompute all available selected history:** use `full`.
-- **Remove and replace known-bad rows:** use `replace` only after an atomic
-  replace backend is implemented and verified. It is unavailable now.
+- **Remove and replace known-bad rows:** deploy the atomic RPC migration, then use exact-scope `replace`.
 - Never use `full` expecting it to remove stale rows.
 
 ## Practical CLI guide
@@ -296,7 +292,7 @@ deserves investigation.
 - **NULL indicators at the beginning:** rolling calculations need warm-up.
   Verify source history before treating early NULLs as an error.
 - **Replace rejected:** it requires exactly one symbol, one timeframe, and both
-  bounds; even valid scope stops safely because atomic replace is unavailable.
+  bounds; deploy the RPC migration before submitting a valid replacement.
 - **Supabase failure:** install dependencies and provide `SUPABASE_URL` plus the
   appropriate Supabase key through the environment. Never put credentials in
   commands, logs, or this documentation.
@@ -318,3 +314,20 @@ deserves investigation.
 Documentation changes require no migration, database write, source-data
 backfill, or feature backfill. Existing `1m`/`5m` feature rows, if any, are not
 automatically removed; cleanup would require a separate reviewed operation.
+
+## Atomic scoped replace (Issue #110)
+
+| Mode | Source/warm-up | Mutation | Cleanup semantics |
+| --- | --- | --- | --- |
+| `full` | Complete selected history | Idempotent upsert | Never deletes stale rows. |
+| `incremental` | Per-symbol/timeframe watermark; daily 5 years; intraday 250 observed sessions | Writes only new/affected target rows; no source is a successful no-op | Does not detect historical corrections without source-version metadata. |
+| `replace` (`rebuild-clean` alias) | Computes warm-up plus one exact output range | One `replace_features_atomic` RPC after all rows validate | Atomically deletes and inserts only the exact symbol/timeframe/range. |
+
+Daily `stock_daily` reads are deterministically paginated by `trading_date`; newest-N reads remain oldest-first for calculators. Replace requires exactly one symbol, one of `1d`/`15m`/`60m`, and inclusive Vietnam `--from`/`--to` dates. The DB receives `[start_utc, end_exclusive_utc)`. Empty, duplicate, malformed, or out-of-scope output fails before mutation. There is no direct delete/upsert fallback.
+
+```bash
+python main.py features-daily --mode replace --from 01/07/2026 --to 31/07/2026 --symbols SSI
+python main.py features-intraday --mode rebuild-clean --from 01/07/2026 --to 31/07/2026 --symbols SSI --timeframes 15m
+```
+
+Deploy `migrations/20260802_atomic_replace_features.sql` before application code. Incremental intraday warm-up means 250 trading sessions actually observed in clean 1m data—not calendar days or bars. A run with no selected rows and no error is `status=OK`, `no_op=true`. Use scoped replace for known historical source corrections; use full for non-destructive recomputation.

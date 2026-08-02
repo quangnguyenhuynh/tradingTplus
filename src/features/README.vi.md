@@ -80,11 +80,9 @@ có row feature cũ nằm ngoài kết quả vừa tính, full giữ nguyên row
 CLI không cho dùng `--mode full` cùng `--date` hoặc `--from/--to`. Muốn tính lại
 một khoảng ngày nhưng không xóa row cũ, dùng command range bên dưới.
 
-### Replace / rebuild-clean chưa thể sử dụng
+### Replace / rebuild-clean hoạt động sau khi deploy migration
 
-> **Trạng thái hiện tại:** replace/rebuild-clean chưa phải chức năng có thể sử
-> dụng để thay dữ liệu. CLI chỉ kiểm tra scope bắt buộc rồi dừng an toàn vì
-> database chưa hỗ trợ atomic replace. Không row nào bị xóa hoặc ghi.
+> **Trạng thái hiện tại:** replace/rebuild-clean compute và validate dataset đúng scope, sau đó gọi đúng một RPC atomic chỉ dành cho service role.
 
 Scope bắt buộc gồm đúng:
 
@@ -93,8 +91,7 @@ Scope bắt buộc gồm đúng:
 - thời điểm/ngày bắt đầu (`--from`);
 - thời điểm/ngày kết thúc (`--to`), với start không sau end.
 
-Scope thiếu hoặc quá rộng bị từ chối. Scope hợp lệ vẫn kết thúc bằng lỗi an toàn
-rõ ràng cho đến khi atomic database operation được triển khai.
+Scope thiếu hoặc quá rộng bị từ chối. Dataset hợp lệ, không rỗng được gửi bằng đúng một RPC sau khi deploy migration.
 
 ## Nên dùng mode nào?
 
@@ -102,8 +99,7 @@ rõ ràng cho đến khi atomic database operation được triển khai.
 - **Tính lại một khoảng lịch sử mà không xóa row:** dùng command range
   `--from/--to`.
 - **Tính lại toàn bộ lịch sử đã chọn:** dùng `full`.
-- **Xóa và thay row sai:** chỉ dùng `replace` sau khi backend atomic replace đã
-  được triển khai và kiểm chứng. Hiện chức năng này chưa sẵn sàng.
+- **Xóa và thay row sai:** deploy migration RPC atomic rồi dùng `replace` với scope chính xác.
 - Không dùng `full` với kỳ vọng nó sẽ xóa row cũ.
 
 ## Hướng dẫn CLI thực tế
@@ -164,16 +160,14 @@ Command đầu đọc toàn bộ `stock_daily` đã chọn và upsert `1d`. Comm
 toàn bộ lịch sử clean 1m đã chọn và upsert feature `15m`/`60m` đã đóng. Không
 command nào xóa row hiện có.
 
-### Kiểm tra replace (dự kiến dừng an toàn)
+### Chạy replace atomic theo scope
 
 ```bash
 python main.py features-daily --mode replace --from 01/07/2026 --to 31/07/2026 --symbols SSI
 python main.py features-intraday --mode rebuild-clean --from 01/07/2026 --to 31/07/2026 --symbols SSI --timeframes 15m
 ```
 
-Hai command chỉ minh họa scope hợp lệ. Hiện chúng kiểm tra đúng một
-symbol/timeframe/range rồi trả lỗi atomic replace chưa được cấu hình. Pipeline
-không đọc dữ liệu để tính, không ghi và không xóa.
+Hai command compute và validate toàn bộ output đúng scope trước khi gọi đúng một RPC atomic; phải deploy migration trước.
 
 Command compatibility vẫn hỗ trợ nhiều persisted timeframe:
 
@@ -310,3 +304,20 @@ hoặc indicator đã ổn định bỗng thành `NULL` cần được điều t
 Thay đổi tài liệu không cần migration, không ghi database, không backfill dữ
 liệu nguồn và không backfill feature. Row feature `1m`/`5m` cũ nếu có không bị
 tự động xóa; cleanup cần một operation riêng được review.
+
+## Atomic replace theo scope (Issue #110)
+
+| Mode | Nguồn/warm-up | Mutation | Ý nghĩa cleanup |
+| --- | --- | --- | --- |
+| `full` | Toàn bộ history đã chọn | Upsert idempotent | Không xóa row stale. |
+| `incremental` | Watermark riêng symbol/timeframe; daily 5 năm; intraday 250 phiên quan sát | Chỉ ghi row target mới/bị ảnh hưởng; không có source là no-op thành công | Không tự phát hiện historical correction khi source không có version metadata. |
+| `replace` (alias `rebuild-clean`) | Compute warm-up cộng đúng output range | Một RPC `replace_features_atomic` sau khi validate toàn bộ | Atomically delete/insert đúng symbol/timeframe/range. |
+
+Read `stock_daily` được phân trang deterministic theo `trading_date`; newest-N vẫn trả oldest-first cho calculator. Replace bắt buộc đúng một symbol, một timeframe `1d`/`15m`/`60m`, và ngày Việt Nam inclusive `--from`/`--to`; DB nhận `[start_utc, end_exclusive_utc)`. Dataset rỗng, duplicate, sai schema hoặc ngoài scope dừng trước mutation; không fallback delete/upsert trực tiếp.
+
+```bash
+python main.py features-daily --mode replace --from 01/07/2026 --to 31/07/2026 --symbols SSI
+python main.py features-intraday --mode rebuild-clean --from 01/07/2026 --to 31/07/2026 --symbols SSI --timeframes 15m
+```
+
+Phải deploy `migrations/20260802_atomic_replace_features.sql` trước application code. Warm-up intraday là 250 phiên thực sự quan sát trong clean 1m, không phải ngày lịch hay bars. Không có row cần ghi và không lỗi trả `status=OK`, `no_op=true`. Dùng scoped replace cho historical correction đã biết; full chỉ recompute non-destructive.

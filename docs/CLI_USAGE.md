@@ -90,9 +90,7 @@ still required and remain stored in `stock_intraday`.
   selected result. It does **not** delete old feature rows first and is not a
   replace operation.
 - `replace` / `rebuild-clean` requires exactly one non-empty symbol, one of
-  `1d`/`15m`/`60m`, and valid start/end bounds with `start <= end`. The current
-  repository has no verified atomic transaction/RPC for this operation, so even
-  a valid request fails safely before any database write or delete.
+  `1d`/`15m`/`60m`, and valid start/end bounds with `start <= end`. The application validates all rows before one atomic RPC; deploy the RPC migration before use.
 
 ## `features-daily`
 
@@ -242,3 +240,18 @@ python -m pytest -q
 
 SSI and Supabase integration checks require credentials and should remain
 read-only unless an explicit scoped write test is intended.
+
+## Feature execution modes and atomic replace
+
+| Mode | Write behavior | When to use |
+| --- | --- | --- |
+| `full` | Upserts all computed output; never deletes stale rows. | Non-destructive complete recomputation. |
+| `incremental` | Uses each symbol/timeframe watermark and bounded warm-up; zero new rows is `OK`/no-op. | Routine feature updates. |
+| `replace` / `rebuild-clean` | Computes and validates first, then invokes one atomic scoped RPC. | Known historical corrections or scoped cleanup. |
+
+```bash
+python main.py features-daily --mode replace --from 01/07/2026 --to 31/07/2026 --symbols SSI
+python main.py features-intraday --mode replace --from 01/07/2026 --to 31/07/2026 --symbols SSI --timeframes 60m
+```
+
+`--from` and `--to` are inclusive Vietnam dates. They become `[start_utc, next-day-after-to_utc)` at the database boundary. Replace accepts one non-wildcard symbol and one persisted timeframe only. Daily source reads paginate by trading date and use five years of warm-up. Intraday uses 250 observed source sessions, not calendar days or bars. Incremental cannot discover old source corrections without version metadata; use scoped replace.
