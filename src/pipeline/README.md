@@ -85,6 +85,11 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 | `raw_daily` | `daily_mapper.py` | raw evidence is retained before clean validation | `daily_persistence.py` |
 | `stock_daily` | `daily_mapper.py` | `daily_service.py` + existing daily validator | `daily_persistence.py` |
 | `raw_intraday` | `intraday_mapper.py` | raw evidence is retained before clean validation | `intraday_persistence.py` |
+
+New raw intraday rows retain the complete source candle object in nullable
+`raw_intraday.payload JSONB`. Unknown and nested SSI fields are preserved;
+historical rows may be `NULL`. Clean `stock_intraday` is unchanged and no
+historical payload backfill is performed.
 | `stock_intraday` | `intraday_mapper.py` | `intraday_service.py` + existing intraday validators | `intraday_persistence.py` |
 
 ## Compatibility wrapper

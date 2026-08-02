@@ -1,5 +1,13 @@
 # Database migrations
 
+## 20260803 raw intraday source payload
+
+`20260803_add_raw_intraday_payload.sql` adds nullable `raw_intraday.payload JSONB`
+for the complete semantic SSI candle object written by new ingests. Historical
+rows remain `NULL`; this migration does not synthesize or backfill payloads and
+does not add a GIN index. Use the verification and rollback SQL embedded in the
+migration.
+
 Versioned SQL changes for the Trading T+ Supabase/PostgreSQL schema.
 
 ## Documentation

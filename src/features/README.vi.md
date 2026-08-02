@@ -44,7 +44,7 @@ không bao giờ tính feature `1d` chuẩn từ intraday và từ chối persis
 | --- | --- | --- | --- | --- |
 | `incremental` | Cập nhật hằng ngày hoặc backfill một khoảng ngày gồm cả hai đầu. | Target cùng lịch sử cần thiết để indicator đúng. | Chỉ row sau watermark đến target; nếu chưa có watermark thì chỉ ngày target. Command range chỉ ghi range được yêu cầu. | Không. Pipeline upsert. |
 | `full` | Tính lại toàn bộ lịch sử hiện có của symbol/timeframe được chọn. | Toàn bộ lịch sử nguồn đã chọn. | Mọi row tính được trong lịch sử đó. | Không. Pipeline upsert và giữ nguyên row nằm ngoài kết quả tính. |
-| `replace` / `rebuild-clean` | Trong tương lai, thay đúng một stream sai có giới hạn rõ ràng. Hiện chưa dùng vận hành. | Sẽ bắt buộc scope chính xác. | Không ghi gì trong implementation hiện tại. | Không. Dừng an toàn trước mọi delete/write. |
+| `replace` / `rebuild-clean` | Thay một stream sai có giới hạn chính xác sau khi migration RPC đã được verify trong môi trường đó. | Scope nguồn chính xác cùng warm-up deterministic. | Một range UTC nửa mở của đúng symbol/timeframe qua một RPC atomic. | Có, chỉ trong transaction RPC; insert lỗi sẽ rollback phần delete. |
 
 **Upsert** nghĩa là insert key chưa có hoặc update key trùng. Upsert không phải
 xóa toàn bộ rồi dựng lại.
@@ -61,9 +61,15 @@ biết output mới bắt đầu từ đâu.
 - `1d` đọc tối đa 5 năm từ `stock_daily`, neo tại watermark (hoặc target date
   nếu chưa có watermark);
 - `15m` và `60m` đọc tối đa 250 ngày giao dịch Việt Nam đã quan sát gần nhất từ
-  `stock_intraday` 1m, kết thúc tại target date;
+  `stock_intraday` 1m, kết thúc tại target date; mọi candle của phiên cũ nhất
+  được chọn vẫn được lấy đủ dù phiên đó vắt qua page boundary;
 - pipeline tính trên window đã load nhưng chỉ upsert vùng target mới hoặc bị
   ảnh hưởng.
+
+Reader PostgREST an toàn khi server cap thấp hơn page size yêu cầu: query dùng
+ordering ổn định, offset tăng theo số row thực trả và chỉ trang rỗng (hoặc exact
+limit) kết thúc việc đọc. Trang lặp làm fail rõ ràng thay vì loop hoặc âm thầm
+deduplicate.
 
 Ví dụ: giả sử `SSI/1d` có watermark **30/07/2026** và dữ liệu clean đã có
 **31/07/2026**. Lần chạy incremental target 31/07/2026 đọc thêm các row

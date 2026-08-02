@@ -15,6 +15,7 @@ class _Query:
         self.table = table
         self.filters = []
         self.select_args = None
+        self.range_args = None
 
     def select(self, *args, **kwargs):
         self.select_args = (args, kwargs)
@@ -39,7 +40,8 @@ class _Query:
     def order(self, *_args, **_kwargs):
         return self
 
-    def range(self, *_args, **_kwargs):
+    def range(self, *args, **_kwargs):
+        self.range_args = args
         return self
 
     def limit(self, *_args, **_kwargs):
@@ -52,11 +54,15 @@ class _Query:
             rows = self.db.daily_rows
             if symbol_filter is not None:
                 rows = [row for row in rows if row["symbol"] in symbol_filter]
+            if self.range_args:
+                rows = rows[self.range_args[0]:self.range_args[1] + 1]
             return _Result(data=rows, count=len(rows))
         if self.table == "stock_intraday":
             rows = self.db.intraday_rows
             if symbol_filter is not None:
                 rows = [row for row in rows if row["symbol"] in symbol_filter]
+            if self.range_args:
+                rows = rows[self.range_args[0]:self.range_args[1] + 1]
             return _Result(data=rows, count=len(rows))
         if self.table == "orderbook_snapshot":
             return _Result(count=2)

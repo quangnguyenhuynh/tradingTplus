@@ -47,17 +47,39 @@ def _vn_utc_range(validated) -> tuple[str, str]:
     return start_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ'), end_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None) -> set[str]:
-    query = db.client.table('stock_daily').select('symbol').eq('trading_date', date_iso)
-    if symbols is not None:
-        query = query.in_('symbol', symbols)
-    result = db._with_retry(lambda: query.execute(), action_name='stock_daily symbols')
-    return {row['symbol'] for row in (result.data or [])}
+def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None, page_size: int = 1000) -> set[str]:
+    if page_size <= 0:
+        raise ValueError('page_size must be greater than zero')
+    rows: list[dict] = []
+    offset = 0
+    previous_page: tuple | None = None
+    page_number = 0
+    while True:
+        query = db.client.table('stock_daily').select('symbol').eq('trading_date', date_iso)
+        if symbols is not None:
+            query = query.in_('symbol', symbols)
+        query = query.order('symbol').range(offset, offset + page_size - 1)
+        page_number += 1
+        result = db._with_retry(lambda q=query: q.execute(), action_name=f'fetch stock_daily symbols page={page_number} offset={offset}')
+        page = result.data or []
+        if not page:
+            break
+        identity = tuple(row.get('symbol') for row in page)
+        if identity == previous_page:
+            raise RuntimeError(f'Repeated PostgREST page table=stock_daily scope={date_iso} page={page_number} offset={offset} returned={len(page)}')
+        previous_page = identity
+        rows.extend(page)
+        offset += len(page)
+    return {row['symbol'] for row in rows}
 
 
 def _fetch_intraday_rows(db: SupabaseClient, start: str, end: str, symbols: list[str] | None = None, page_size: int = 1000) -> list[dict]:
+    if page_size <= 0:
+        raise ValueError('page_size must be greater than zero')
     rows: list[dict] = []
     offset = 0
+    page_number = 0
+    previous_page: tuple | None = None
     while True:
         query = (db.client.table('stock_intraday')
             .select('symbol,time,timeframe')
@@ -69,10 +91,13 @@ def _fetch_intraday_rows(db: SupabaseClient, start: str, end: str, symbols: list
         page = result.data or []
         if not page:
             break
+        page_number += 1
+        identity = tuple((row.get('symbol'), row.get('time')) for row in page)
+        if identity == previous_page:
+            raise RuntimeError(f'Repeated PostgREST page table=stock_intraday scope={start}:{end} page={page_number} offset={offset} returned={len(page)}')
+        previous_page = identity
         rows.extend(page)
-        if len(page) < page_size:
-            break
-        offset += page_size
+        offset += len(page)
     return rows
 
 

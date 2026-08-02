@@ -196,6 +196,7 @@ def fetch_stock_daily_rows(
     offset = 0
     page_number = 0
     rows_all: list[dict] = []
+    previous_page: tuple | None = None
     while limit_total is None or len(rows_all) < limit_total:
         requested = page_size
         if limit_total is not None:
@@ -224,13 +225,20 @@ def fetch_stock_daily_rows(
             ),
         )
         page = result.data or []
+        if not page:
+            break
+        page_identity = tuple(row.get("trading_date") for row in page)
+        if page_identity == previous_page:
+            raise RuntimeError(
+                f"Repeated PostgREST page table=stock_daily symbol={symbol} "
+                f"page={page_number} offset={offset} returned={len(page)}"
+            )
+        previous_page = page_identity
         rows_all.extend(page)
         logger.info(
             "stock_daily page symbol=%s page=%s offset=%s requested=%s rows=%s",
             symbol, page_number, offset, requested, len(page),
         )
-        if len(page) < requested:
-            break
         offset += len(page)
 
     logger.info(
@@ -266,10 +274,21 @@ def fetch_stock_intraday_paginated(
     page_size: int = 1000,
     limit_total: int | None = None,
 ) -> list[dict]:
+    if page_size <= 0:
+        raise ValueError("page_size must be greater than zero")
+    if limit_total is not None and limit_total < 0:
+        raise ValueError("limit_total must be non-negative")
+    if limit_total == 0:
+        return []
     offset = 0
     rows_all: list[dict] = []
+    page_number = 0
+    previous_page: tuple | None = None
 
-    while True:
+    while limit_total is None or len(rows_all) < limit_total:
+        requested = page_size
+        if limit_total is not None:
+            requested = min(requested, limit_total - len(rows_all))
         query = (
             db.get()
             .table("stock_intraday")
@@ -283,22 +302,29 @@ def fetch_stock_intraday_paginated(
             query = query.lt("time", lt_time)
         query = query.order("time", desc=order_desc).range(
             offset,
-            offset + page_size - 1,
+            offset + requested - 1,
         )
+        page_number += 1
         result = db._with_retry(
             lambda current_query=query: current_query.execute(),
-            action_name=f"fetch stock_intraday paginated {symbol} offset={offset}",
+            action_name=(f"fetch stock_intraday table=stock_intraday symbol={symbol} "
+                         f"page={page_number} offset={offset}"),
         )
         page_rows = result.data or []
         if not page_rows:
             break
+        page_identity = tuple(row.get("time") for row in page_rows)
+        if page_identity == previous_page:
+            raise RuntimeError(
+                f"Repeated PostgREST page table=stock_intraday symbol={symbol} "
+                f"page={page_number} offset={offset} returned={len(page_rows)}"
+            )
+        previous_page = page_identity
 
         rows_all.extend(page_rows)
         if limit_total is not None and len(rows_all) >= limit_total:
             return rows_all[:limit_total]
-        if len(page_rows) < page_size:
-            break
-        offset += page_size
+        offset += len(page_rows)
 
     return rows_all
 
@@ -343,10 +369,16 @@ def fetch_intraday_trading_session_window(
     """Fetch newest 1m rows through at most N observed VN trading dates."""
     if not 200 <= trading_sessions <= 250:
         raise ValueError("intraday warm-up must be between 200 and 250 sessions")
+    if page_size <= 0:
+        raise ValueError("page_size must be greater than zero")
     offset = 0
     rows: list[dict] = []
     observed: list[date] = []
-    while len(observed) < trading_sessions:
+    oldest_selected: date | None = None
+    previous_page: tuple | None = None
+    page_number = 0
+    done = False
+    while not done:
         query = (
             db.get().table("stock_intraday")
             .select("time, open, high, low, close, volume, value")
@@ -356,24 +388,34 @@ def fetch_intraday_trading_session_window(
         )
         result = db._with_retry(
             lambda current_query=query: current_query.execute(),
-            action_name=f"fetch intraday warm-up {symbol} offset={offset}",
+            action_name=(f"fetch intraday warm-up table=stock_intraday symbol={symbol} "
+                         f"page={page_number + 1} offset={offset}"),
         )
+        page_number += 1
         page = result.data or []
         if not page:
             break
+        page_identity = tuple(row.get("time") for row in page)
+        if page_identity == previous_page:
+            raise RuntimeError(
+                f"Repeated PostgREST page table=stock_intraday symbol={symbol} "
+                f"page={page_number} offset={offset} returned={len(page)}"
+            )
+        previous_page = page_identity
         for row in page:
             stamp = pd.to_datetime(row.get("time"), errors="coerce", utc=True)
             if pd.isna(stamp):
                 raise ValueError(f"Invalid intraday warm-up timestamp symbol={symbol}")
             local_date = stamp.tz_convert(VN_TZ).date()
             if local_date not in observed:
-                if len(observed) == trading_sessions:
+                if oldest_selected is not None and local_date < oldest_selected:
+                    done = True
                     break
                 observed.append(local_date)
+                if len(observed) == trading_sessions:
+                    oldest_selected = local_date
             rows.append(row)
-        if len(page) < page_size:
-            break
-        offset += page_size
+        offset += len(page)
     return list(reversed(rows))
 
 

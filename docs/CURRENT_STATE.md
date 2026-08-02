@@ -342,7 +342,8 @@ symbol,trading_date
 - UTC `time`;
 - `open`, `high`, `low`, `close`;
 - `volume`;
-- `data_hash`.
+- `data_hash`;
+- nullable `payload JSONB` chứa toàn bộ object candle SSI cho ingest mới.
 
 Nguồn:
 
@@ -358,7 +359,7 @@ symbol,time,data_hash
 
 Khoảng thiếu quan trọng:
 
-- không giữ full source candle JSON;
+- row lịch sử trước migration có thể có `payload = NULL` và task này không backfill;
 - không giữ request params, endpoint metadata, ingest run ID hoặc mapper version;
 - candle có timestamp lỗi bị bỏ qua hoàn toàn, nên raw layer không giữ được source evidence cho case đó.
 
@@ -604,9 +605,9 @@ Completeness chưa bao phủ đầy đủ:
 on_conflict = symbol,time,data_hash
 ```
 
-Nhưng `raw_intraday` hiện không nằm trong `_CRITICAL_ON_CONFLICT_TABLES`.
-
-Nếu production thiếu unique index tương ứng, generic database helper có thể fallback sang upsert không có explicit `on_conflict` thay vì fail-fast. Điều này cần được kiểm tra và xử lý trong task database riêng; tài liệu này không tự kết luận production đang duplicate.
+`raw_intraday` nằm trong `_CRITICAL_ON_CONFLICT_TABLES`; nếu production thiếu
+unique index tương ứng, ingest fail-fast thay vì fallback sang upsert không có
+explicit conflict key.
 
 ## Production schema chưa được xác nhận
 
@@ -798,7 +799,6 @@ Các test còn cần bổ sung/củng cố:
 - session-aware 5m/15m/60m aggregation;
 - incomplete latest candle;
 - partition integration;
-- raw_intraday missing-constraint fail-fast;
 - large pagination/memory benchmark;
 - streaming count khi max messages > 1;
 - future T+ session-based outcome contract tests;
@@ -822,13 +822,15 @@ Các mô tả/issue cũ sau không còn đúng với code hiện tại:
 
 ## Known issues and risks
 
-## 1. Raw intraday lineage chưa đầy đủ
+## 1. Raw intraday lineage lịch sử chưa đầy đủ
 
-Không có full source candle JSON và metadata ingest. Mức độ: **HIGH** đối với audit/remap lịch sử.
+Ingest mới giữ full source candle JSON, nhưng row lịch sử có thể `NULL` và vẫn
+chưa có request/run/mapper-version metadata. Không có backfill trong task này.
 
-## 2. `raw_intraday` chưa nằm trong critical conflict tables
+## 2. Production schema cần read-only verification
 
-Nếu unique index thiếu, helper có thể fallback không dùng explicit conflict key. Mức độ: **HIGH** cho idempotency; cần schema check trước khi kết luận dữ liệu thực tế bị ảnh hưởng.
+Code đã fail-fast conflict key, nhưng vẫn cần xác nhận migration payload và
+unique index thực tế trên linked project trước khi coi deployment hoàn tất.
 
 ## 3. Completeness overall chưa dùng đầy đủ index/foreign/orderbook
 

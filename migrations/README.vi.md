@@ -1,5 +1,13 @@
 # Database migrations
 
+## 20260803 payload nguồn intraday thô
+
+`20260803_add_raw_intraday_payload.sql` thêm cột nullable
+`raw_intraday.payload JSONB` để ingest mới giữ toàn bộ object candle SSI theo
+ngữ nghĩa JSON. Dữ liệu lịch sử tiếp tục là `NULL`; migration không dựng payload
+giả, không backfill và không tạo GIN index. SQL kiểm tra/rollback nằm trong file
+migration.
+
 Các thay đổi SQL có version cho schema Supabase/PostgreSQL của Trading T+.
 
 ## Tài liệu

@@ -196,7 +196,10 @@ IntradayOhlc resolution=1
     └── stock_intraday timeframe=1m
 ```
 
-`raw_intraday` hiện chưa giữ full source candle JSON. Đây là khoảng thiếu lineage cần quyết định bằng task schema riêng.
+Sau migration `20260803_add_raw_intraday_payload.sql`, ingest mới giữ toàn bộ
+object candle SSI theo ngữ nghĩa JSON trong `raw_intraday.payload JSONB` nullable.
+Row lịch sử có thể `NULL`; pipeline không dựng payload giả hoặc backfill, và
+`stock_intraday` clean không chứa payload này.
 
 ### Feature
 

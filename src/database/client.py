@@ -52,6 +52,7 @@ class SupabaseClient:
         "securities",
         "stock_daily",
         "raw_daily",
+        "raw_intraday",
         "indexes",
         "index_components",
         "index_daily",

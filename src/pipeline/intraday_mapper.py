@@ -78,7 +78,7 @@ def build_intraday_records(symbol: str, date: str, daily: dict | None, candles: 
         close = nullable_float(candle.get("Close"))
         base = {"symbol": symbol, "time": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"), "open": nullable_float(candle.get("Open")), "high": nullable_float(candle.get("High")), "low": nullable_float(candle.get("Low")), "close": close, "volume": volume}
         estimated_value = calculate_trade_value(close, volume)
-        raw_records.append({**base, "data_hash": hashlib.sha256(json.dumps(candle, sort_keys=True).encode()).hexdigest()})
+        raw_records.append({**base, "payload": candle, "data_hash": hashlib.sha256(json.dumps(candle, sort_keys=True).encode()).hexdigest()})
         clean_records.append({**base, "timeframe": "1m", "value": estimated_value, "reference_price": reference, "ceiling_price": ceiling, "floor_price": floor})
         if len(debug_samples) < 5:
             debug_samples.append({**base, "value": estimated_value, "value_type": type(estimated_value).__name__})

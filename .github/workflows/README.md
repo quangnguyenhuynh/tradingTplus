@@ -11,7 +11,7 @@ Automation for tests and explicit Trading T+ pipelines.
 
 | File | Trigger | Current command |
 | --- | --- | --- |
-| `tests.yml` | Pull requests and pushes to `dev` | `python -m pytest -q` on Python 3.11. |
+| `tests.yml` | Pull requests and pushes to `dev` | `python -m pytest -q` on Python 3.11, with a PostgreSQL 16 service and `TEST_DATABASE_URL`. |
 | `eod.yml` | Weekdays at 09:30 UTC (16:30 Vietnam time) and manual dispatch | `python main.py eod [date]`. |
 | `features.yml` | Manual dispatch only | Explicit `python main.py features ...`. |
 
@@ -20,6 +20,8 @@ Automation for tests and explicit Trading T+ pipelines.
 - `eod.yml` orchestrates daily ingest, intraday ingest, and completeness validation. It does not compute features.
 - `features.yml` is intentionally separate from ingest and supports explicit mode/date/symbol/timeframe inputs.
 - SSI/Supabase credentials are provided through repository secrets.
+- The atomic-replace PostgreSQL test is part of the main suite and must execute,
+  not skip, because `tests.yml` always supplies its test database.
 - Do not add automatic signal or backtest execution to ingest workflows without an explicit architecture task.
 
 ## Validation
