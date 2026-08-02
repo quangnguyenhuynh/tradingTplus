@@ -1,4 +1,5 @@
 import json
+import hashlib
 import logging
 import time
 from typing import Any
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 DAILY_STOCK_PRICE_PAGE_SIZE = 100
 SSI_MAX_HTTP_ATTEMPTS = 3
+SSI_MAX_PAGES_PER_REQUEST = 10_000
 
 
 class SSIEmptyResponseError(RuntimeError):
@@ -19,6 +21,10 @@ class SSIEmptyResponseError(RuntimeError):
 
 class SSIDataMismatchError(RuntimeError):
     """SSI returned rows, but none matched the requested source identity."""
+
+
+class SSIPaginationError(RuntimeError):
+    """SSI pagination cannot continue or terminate without risking bad data."""
 
 
 def _get_case_insensitive(data: dict[str, Any], *keys: str) -> Any:
@@ -110,28 +116,70 @@ class SSIApi:
             return data.get("items") or []
         return []
 
-    def _extract_total_record(self, data: dict[str, Any]) -> int | None:
-        for key in ("totalRecord", "totalRecords", "total", "TotalRecord"):
+    def _extract_total_record(self, data: dict[str, Any]) -> tuple[bool, int | None]:
+        for key in (
+            "totalRecord", "totalRecords", "totalrecord", "totalrecords",
+            "total", "TotalRecord",
+        ):
+            if key not in data or data.get(key) is None:
+                continue
             value = data.get(key)
-            if value is not None:
-                try:
-                    return int(value)
-                except (TypeError, ValueError):
-                    return None
-        return None
+            if isinstance(value, bool):
+                raise SSIPaginationError("SSI totalRecord must be a non-negative integer")
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError) as exc:
+                raise SSIPaginationError("SSI totalRecord must be a non-negative integer") from exc
+            if parsed < 0 or (isinstance(value, float) and not value.is_integer()):
+                raise SSIPaginationError("SSI totalRecord must be a non-negative integer")
+            return True, parsed
+        return False, None
 
-    def _get_all_pages(self, url: str, params: dict[str, Any] | None = None, page_size: int = 1000, sleep_sec: float = 0.1) -> list[dict]:
+    @staticmethod
+    def _page_identity(items: list[dict]) -> str:
+        """Return an order-independent identity while retaining duplicate multiplicity."""
+        rows = sorted(
+            json.dumps(item, sort_keys=True, separators=(",", ":"), default=str)
+            for item in items
+        )
+        return hashlib.sha256(json.dumps(rows, separators=(",", ":")).encode()).hexdigest()
+
+    def _get_all_pages(
+        self,
+        url: str,
+        params: dict[str, Any] | None = None,
+        page_size: int = 1000,
+        sleep_sec: float = 0.1,
+        *,
+        limit_total: int | None = None,
+        max_pages: int = SSI_MAX_PAGES_PER_REQUEST,
+    ) -> list[dict]:
         base_params = dict(params or {})
         all_items: list[dict] = []
         page_index = int(base_params.pop("pageIndex", 1) or 1)
         page_size = int(base_params.pop("pageSize", page_size) or page_size)
         if page_size <= 0:
             raise ValueError("page_size must be greater than zero")
+        if max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero")
+        if limit_total is not None and limit_total < 0:
+            raise ValueError("limit_total must be non-negative")
+        if limit_total == 0:
+            return []
         total_record: int | None = None
-        previous_page: tuple[str, ...] | None = None
+        total_record_present = False
+        seen_pages: set[str] = set()
+        pages_requested = 0
         while True:
+            if pages_requested >= max_pages:
+                raise SSIPaginationError(
+                    "SSI pagination safety bound reached "
+                    f"endpoint={url} page_index={page_index} page_size={page_size} "
+                    f"rows_collected={len(all_items)} total_record_present={total_record_present}"
+                )
             page_params = {**base_params, "pageIndex": page_index, "pageSize": page_size}
             resp = self._get_with_retry(url, page_params)
+            pages_requested += 1
             if not resp.text or not resp.text.strip():
                 raise SSIEmptyResponseError("SSI returned an empty HTTP response")
             data = resp.json()
@@ -140,27 +188,49 @@ class SSIApi:
             ):
                 raise SSIEmptyResponseError("SSI response does not contain a data list")
             items = self._extract_items(data)
-            if total_record is None:
-                total_record = self._extract_total_record(data)
+            page_has_total, page_total = self._extract_total_record(data)
+            if page_has_total:
+                total_record_present = True
+                if total_record is None:
+                    total_record = page_total
+                elif page_total != total_record:
+                    raise SSIPaginationError(
+                        f"SSI totalRecord changed endpoint={url} page_index={page_index}"
+                    )
+            if total_record is not None and len(all_items) > total_record:
+                raise SSIPaginationError(
+                    f"SSI rows exceed totalRecord endpoint={url} page_index={page_index}"
+                )
             if not items:
                 break
             # A provider may enforce a lower page cap than the requested size.
             # Therefore a short page is not EOF; only an empty page or the
             # advertised total is terminal.  Detect a provider that ignores
             # pageIndex rather than looping forever.
-            page_identity = tuple(
-                json.dumps(item, sort_keys=True, default=str) for item in items
-            )
-            if page_identity == previous_page:
-                raise RuntimeError(
-                    f"Repeated SSI page pageIndex={page_index} returned={len(items)}"
+            page_identity = self._page_identity(items)
+            if page_identity in seen_pages:
+                raise SSIPaginationError(
+                    f"Repeated/cyclic SSI page endpoint={url} page_index={page_index} "
+                    f"page_size={page_size} rows_collected={len(all_items)} "
+                    f"total_record_present={total_record_present}"
                 )
-            previous_page = page_identity
+            seen_pages.add(page_identity)
             all_items.extend(items)
-            if total_record is not None and len(all_items) >= total_record:
-                return all_items[:total_record]
+            if total_record is not None and len(all_items) > total_record:
+                raise SSIPaginationError(
+                    f"SSI rows exceed totalRecord endpoint={url} page_index={page_index}"
+                )
+            if limit_total is not None and len(all_items) >= limit_total:
+                return all_items[:limit_total]
+            if total_record is not None and len(all_items) == total_record:
+                return all_items
             page_index += 1
             time.sleep(sleep_sec)
+        if total_record is not None and len(all_items) != total_record:
+            raise SSIPaginationError(
+                f"SSI empty page before totalRecord endpoint={url} page_index={page_index} "
+                f"page_size={page_size} rows_collected={len(all_items)} total_record_present=True"
+            )
         return all_items
 
     def get_symbols(self) -> list[dict]:
