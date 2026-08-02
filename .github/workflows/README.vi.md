@@ -22,6 +22,8 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 - Credential SSI/Supabase lấy từ repository secrets.
 - Test PostgreSQL atomic replace thuộc main suite và không được skip vì
   `tests.yml` luôn cấp test database.
+- Parity lịch sử dài và mọi module regression pagination được collect bởi cùng
+  command `python -m pytest -q` không filter trên pull request và push `dev`.
 - Không tự động nối signal hoặc backtest vào workflow ingest nếu chưa có task kiến trúc rõ ràng.
 
 ## Kiểm tra

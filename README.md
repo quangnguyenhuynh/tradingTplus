@@ -156,3 +156,12 @@ executable signal or backtest path is currently provided.
 
 ### Feature rebuild contract
 Feature daily reads paginate all matching `stock_daily` rows. `full` remains non-destructive upsert; `incremental` uses per-stream watermarks with five years of daily or 250 observed intraday-session warm-up; `replace` (`rebuild-clean`) computes and validates one exact symbol/timeframe/inclusive Vietnam-date range before one atomic RPC. Empty incremental output is a successful no-op. Deploy `migrations/20260802_atomic_replace_features.sql` before using replace.
+
+Pagination continues after a short server-capped page, advances by the actual
+returned row count, and terminates on an empty page (or an exact requested
+limit). The complete oldest selected intraday session is retained even when it
+crosses a page boundary. Deterministic long-history tests compare every
+persisted column for `1d`, `15m`, and `60m`; see the
+[Phase 0 validation report](docs/phase0/PHASE0_VALIDATION_REPORT.md). Phase 0 is
+currently **BLOCKED**, not complete, because required SSI/live/production
+evidence is unavailable.

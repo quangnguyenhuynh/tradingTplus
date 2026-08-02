@@ -1021,10 +1021,19 @@ insert-ignore/update sequence so upsert reruns do not reset existing `created_at
 
 > Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
-## Issue #110 feature runtime update (2026-08-02)
+## Issue #110 Phase 0 closure review (2026-08-02)
 
-The repository owner confirms that every migration already present on `dev` before this task was applied to production. This is **operator-confirmed migration status**, not a live read-only schema-drift verification; this task did not query production schema. The new `20260802_atomic_replace_features.sql` migration was not applied by this task and must be deployed before replace mode is used.
+The reviewed repository commit is `f80244bb350d3876762532241e372e0f0d2d1f71`
+plus the closure-gate changes described in
+`docs/phase0/PHASE0_VALIDATION_REPORT.md`. Production migration status remains
+unknown because this environment has no linked Supabase project or read-only
+credentials. Do not infer deployment from migration files.
 
 Daily feature reads now paginate `stock_daily`; incremental daily retains a five-year warm-up. Intraday incremental retains 250 observed trading sessions (configurable 200–250), not calendar days/bars. Full remains non-destructive; incremental no-output is an `OK` no-op; scoped replace computes and validates before one atomic service-role RPC. Historical corrections are not automatically detected without source-version metadata, so operators must request exact scoped replace/full work separately.
 
-Known deferred Phase 0 risks remain: raw intraday lineage/full source-payload redesign and completeness/trading-calendar redesign are not part of this change. Issue #110 completion does not mean Phase 0 is complete.
+New intraday ingest rows now preserve the complete semantic SSI candle object in
+nullable `raw_intraday.payload JSONB`; historical rows may remain `NULL` and no
+payload backfill occurred. Remaining Phase 0 blockers are SSI PDF/live contract
+verification, production migration/schema verification, raw-to-clean and
+clean-to-feature live reconciliation, and an approved authoritative exchange
+calendar/status design. Phase 0 therefore remains **BLOCKED**.

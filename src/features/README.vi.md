@@ -327,3 +327,12 @@ python main.py features-intraday --mode rebuild-clean --from 01/07/2026 --to 31/
 ```
 
 Phải deploy `migrations/20260802_atomic_replace_features.sql` trước application code. Warm-up intraday là 250 phiên thực sự quan sát trong clean 1m, không phải ngày lịch hay bars. Không có row cần ghi và không lỗi trả `status=OK`, `no_op=true`. Dùng scoped replace cho historical correction đã biết; full chỉ recompute non-destructive.
+
+Regression gate Phase 0 dùng 1.501 row daily ngày trong tuần không hằng và 251
+phiên intraday quan sát. Sau serialization production sáu chữ số, target cuối
+cho `1d`, `15m`, `60m` khớp full history ở mọi cột persisted, với chênh lệch
+float tuyệt đối và tương đối lớn nhất bằng 0. Fixture 200 và 250 phiên đều khớp;
+250 vẫn là default production. Với request 1.000 row, fixture intraday đọc 16
+trang full, 12 trang cho 200 phiên và 15 trang cho 250 phiên. Xem
+`docs/phase0/PHASE0_VALIDATION_REPORT.vi.md`; evidence offline này không thay thế
+các gate live Phase 0 vẫn bị blocked.

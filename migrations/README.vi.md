@@ -33,6 +33,9 @@ Các thay đổi SQL có version cho schema Supabase/PostgreSQL của Trading T+
 5. Thực hiện backfill cần thiết bằng thao tác riêng, có phạm vi.
 
 Ứng dụng Python không tự động áp dụng các migration trong repo.
+Môi trường closure Phase 0 ngày 02/08/2026 không có project production đã link
+hoặc credential. Vì vậy trạng thái production của migration 20260802 và
+20260803 là `UNKNOWN`; run đó không apply hoặc verify migration nào.
 
 ## An toàn
 
