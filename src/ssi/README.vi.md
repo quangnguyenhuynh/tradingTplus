@@ -32,6 +32,23 @@ Project dùng các endpoint SSI có tài liệu như `AccessToken`, `Securities`
 - Retry authentication theo chính sách có giới hạn.
 - Xử lý rõ response rỗng, sai hoặc đổi envelope.
 - Không tạo dòng giả khi SSI không trả dữ liệu.
+- Pagination dùng hash không phụ thuộc thứ tự cho mọi page, giữ toàn bộ hash đã
+  thấy và raise `SSIPaginationError` khi page lặp hoặc cycle dài bất kỳ. Page
+  ngắn không phải EOF. Chỉ `totalRecord` chính xác đáng tin, page rỗng hoặc
+  caller limit đạt chính xác mới kết thúc bình thường.
+- `SSI_MAX_PAGES_PER_REQUEST` là safety bound mặc định có tên (10.000 page).
+  Caller có thể giảm theo request; chạm bound là lỗi, không trả partial data.
+  Total sai/thay đổi hoặc số row vượt total đã công bố đều là lỗi.
 - Tool streaming phải có symbol/channel rõ ràng, timeout/số message giới hạn và mặc định read-only.
+
+## Ranh giới evidence
+
+Review bên ngoài của SSI FastConnect Data Specs v2.2 xác nhận
+`DailyStockPrice` tại `/api/v2/Market/DailyStockPrice`, `DailyOhlc` chỉ dùng đối
+chiếu và `IntradayOhlc` hỗ trợ resolution `1`. Repository ghi nhận bằng
+`DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW`; không tuyên bố runtime agent đã mở file
+đính kèm. Tài liệu không chứng minh pagination live luôn đáng tin, ngữ nghĩa
+volume intraday dùng chung cho mọi response hoặc intraday turnover chính xác.
+Các mục đó vẫn cần validation live read-only riêng.
 
 Dùng inspector read-only để kiểm tra payload lạ trước khi sửa mapping ingest.

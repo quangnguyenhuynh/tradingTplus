@@ -1,15 +1,15 @@
 # Phase 0 validation report
 
 **Decision: BLOCKED**  
-**Repository baseline:** `f80244bb350d3876762532241e372e0f0d2d1f71` (PR #116)  
+**Repository baseline:** `9af7485952833917669312ae9b15961f583729b6` (PR #117)
 **Offline validation date:** 2026-08-02  
 **Environment:** Python 3.11-compatible test environment; deterministic fixtures; no SSI/Supabase/GitHub credentials or linked Supabase project.
 
-Phase 0 is not complete. Offline pagination, long-history feature parity, and the repository atomic-replace contract have evidence, but the required SSI PDF was unavailable and live source/database/migration evidence could not be collected. No production query or mutation was attempted.
+Phase 0 is not complete. Offline pagination, long-history feature parity, and the repository atomic-replace contract have evidence, and the shared SSI reader now has cycle-safe bounded pagination, but live source/database/migration evidence could not be collected. No production query or mutation was attempted.
 
 ## Offline pagination evidence
 
-All PostgREST feature and completeness readers are exercised with stable ordering, a requested size of 1,000, a simulated server cap of 500 or 400, short final pages, and terminal empty pages. Offsets advance by the number actually returned. Tests retain symbol/timeframe/time/date filters, reject non-positive page sizes, exercise exact limits, and reject repeated pages. The SSI page-index client separately continues after a short capped page, honors `totalRecord`, and rejects a repeated page.
+All PostgREST feature and completeness readers are exercised with stable ordering, a requested size of 1,000, a simulated server cap of 500 or 400, short final pages, and terminal empty pages. Offsets advance by the number actually returned. Tests retain symbol/timeframe/time/date filters, reject non-positive page sizes, exercise exact limits, and reject repeated pages. The SSI page-index client separately continues after a short capped page, validates `totalRecord`, hashes page rows independently of order, rejects A→A/A→B→A/A→B→C→A and shuffled-row cycles, and stops endlessly changing pages at a configurable 10,000-page safety bound without returning partial data.
 
 The 251-session fixture contains seven candles per observed date. A 1,747-row server cap splits the oldest selected (250th) date across two descending pages. The reader returns all seven candles for that date, exactly 250 dates, no candle from the 251st older date, and no duplicate boundary candle.
 
@@ -39,14 +39,14 @@ Production status is **UNKNOWN**. No linked Supabase project or credentials were
 
 ## SSI contract/evidence matrix
 
-The requested `SSI_FastConnectData_Specs_v2.2.pdf` was not available in the repository or accessible attachment paths. Therefore no behavior is classified as SSI-documented solely from repository prose.
+The PDF attachment was not accessible to this runtime. Per the explicit task override, the externally verified contract facts below are classified as `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW`; this report does not claim that Codex personally opened the PDF. Live behavior remains separately `OBSERVED`, `INFERRED_BY_CODE`, or `UNKNOWN`.
 
 | Critical item | Classification | Evidence / blocker |
 | --- | --- | --- |
-| `DailyStockPrice` endpoint and fields | `INFERRED_BY_CODE` | Canonical in current client/mapper; PDF and live response unavailable. |
-| `DailyOHLC` comparison behavior | `INFERRED_BY_CODE` | Inspector/client treat it as comparison-only; not live observed. |
-| `IntradayOHLC` resolution `1` fields/units | `INFERRED_BY_CODE` | Client/mapper contract only; not live observed. |
-| SSI pagination/caps | `INFERRED_BY_CODE` | Defensive client behavior and offline response fixtures only. |
+| `DailyStockPrice` endpoint | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | `/api/v2/Market/DailyStockPrice`; canonical daily source. Live fields remain unobserved. |
+| `DailyOhlc` comparison behavior | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Documented and comparison-only; not live observed. |
+| `IntradayOhlc` resolution `1` | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Resolution `1` is documented; volume/value live semantics remain unknown. |
+| SSI pagination parameters | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | `pageIndex`, `pageSize`, and `totalRecord` are documented; reliability is not. Cycle safety is `INFERRED_BY_CODE` and offline-tested. |
 | `raw_daily.payload` equality/hash | `UNKNOWN` | No production raw row or live source object. |
 | `raw_intraday.payload` nested/unknown-field retention | `INFERRED_BY_CODE` | Mapper tests/code; production migration/sample unverified. |
 | Intraday timestamp meaning | `INFERRED_BY_CODE` | Vietnam parsing and UTC storage implemented; source semantics not documented/observed here. |
@@ -55,7 +55,7 @@ The requested `SSI_FastConnectData_Specs_v2.2.pdf` was not available in the repo
 | Weekend response | `UNKNOWN` | Authentication/live request unavailable. |
 | Official weekday holiday response | `UNKNOWN` | Authentication/live request and authoritative calendar unavailable. |
 
-No item is `DOCUMENTED_AND_OBSERVED`, `DOCUMENTED_NOT_OBSERVED`, or `OBSERVED_NOT_DOCUMENTED` in this run because neither the supplied document nor live access was available.
+No contract item is classified `OBSERVED` in this run because live SSI access was unavailable.
 
 ## Live reconciliation
 
@@ -73,11 +73,10 @@ No new migration, production write, ingest, replace, backfill, payload synthesis
 
 ## Unresolved blockers
 
-1. Supplied SSI PDF unavailable.
-2. SSI credentials/live source responses unavailable.
-3. Linked production Supabase project and read-only credentials unavailable.
-4. Production status and verification of the two authorized migrations unavailable.
-5. No authoritative, versioned exchange-calendar/status source is approved.
-6. GitHub authentication is unavailable, so CI jobs cannot be inspected and Issue #110 cannot be commented on or closed.
+1. SSI credentials/live source responses unavailable.
+2. Linked production Supabase project and read-only credentials unavailable.
+3. Production status and verification of the two authorized migrations unavailable.
+4. No authoritative, versioned exchange-calendar/status source is approved.
+5. GitHub authentication is unavailable, so CI jobs cannot be inspected and Issue #110 cannot be commented on or closed.
 
 Issue #110 and Phase 0 must remain open.

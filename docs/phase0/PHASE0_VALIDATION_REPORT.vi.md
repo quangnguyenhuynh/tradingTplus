@@ -1,15 +1,15 @@
 # Báo cáo kiểm chứng Phase 0
 
 **Quyết định: BLOCKED**  
-**Baseline repository:** `f80244bb350d3876762532241e372e0f0d2d1f71` (PR #116)  
+**Baseline repository:** `9af7485952833917669312ae9b15961f583729b6` (PR #117)
 **Ngày kiểm chứng offline:** 02/08/2026  
 **Môi trường:** môi trường test tương thích Python 3.11, fixture deterministic; không có credential SSI/Supabase/GitHub hoặc project Supabase đã link.
 
-Phase 0 chưa hoàn thành. Pagination offline, parity feature lịch sử dài và contract atomic replace trong repository đã có evidence, nhưng thiếu PDF SSI bắt buộc và không thể thu thập evidence live/schema production. Không query hay thay đổi production.
+Phase 0 chưa hoàn thành. Pagination offline, parity feature lịch sử dài và contract atomic replace đã có evidence; shared SSI reader nay có pagination bounded/cycle-safe. Tuy nhiên không thể thu thập evidence live/schema production. Không query hay thay đổi production.
 
 ## Evidence pagination offline
 
-Mọi reader PostgREST của feature và completeness được test với ordering ổn định, request 1.000 row, server cap giả lập 500 hoặc 400, trang cuối ngắn và trang rỗng kết thúc. Offset tăng theo số row thực trả. Test giữ filter symbol/timeframe/time/date, từ chối page size không dương, kiểm tra limit chính xác và phát hiện trang lặp. Client SSI dùng page index cũng tiếp tục sau trang ngắn do cap, tôn trọng `totalRecord` và từ chối trang lặp.
+Mọi reader PostgREST của feature và completeness được test với ordering ổn định, request 1.000 row, server cap giả lập 500 hoặc 400, trang cuối ngắn và trang rỗng kết thúc. Offset tăng theo số row thực trả. Test giữ filter symbol/timeframe/time/date, từ chối page size không dương, kiểm tra limit chính xác và phát hiện trang lặp. Client SSI dùng page index tiếp tục sau trang ngắn do cap, validate `totalRecord`, hash row không phụ thuộc thứ tự, từ chối cycle A→A/A→B→A/A→B→C→A và shuffled-row, đồng thời dừng page thay đổi vô tận tại safety bound 10.000 page mà không trả partial data.
 
 Fixture 251 phiên có bảy candle mỗi ngày quan sát. Server cap 1.747 row chia ngày cũ nhất được chọn (phiên thứ 250) qua hai trang descending. Reader trả đủ bảy candle của ngày đó, đúng 250 ngày, không có candle của ngày cũ thứ 251 và không trùng candle tại boundary.
 
@@ -39,14 +39,14 @@ Trạng thái production là **UNKNOWN**. Không có project Supabase link hoặ
 
 ## Ma trận contract/evidence SSI
 
-Không tìm thấy `SSI_FastConnectData_Specs_v2.2.pdf` trong repository hoặc đường dẫn attachment truy cập được. Vì vậy không phân loại hành vi nào là SSI documented chỉ dựa vào tài liệu repository.
+Runtime này không truy cập được file PDF đính kèm. Theo override của task, các contract fact đã được review bên ngoài dưới đây mang nhãn `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW`; báo cáo không tuyên bố Codex tự mở PDF. Behavior live vẫn tách riêng thành `OBSERVED`, `INFERRED_BY_CODE` hoặc `UNKNOWN`.
 
 | Hạng mục trọng yếu | Phân loại | Evidence / blocker |
 | --- | --- | --- |
-| Endpoint/field `DailyStockPrice` | `INFERRED_BY_CODE` | Client/mapper dùng làm canonical; thiếu PDF và live response. |
-| `DailyOHLC` để so sánh | `INFERRED_BY_CODE` | Inspector/client chỉ dùng so sánh; chưa quan sát live. |
-| Field/unit `IntradayOHLC` resolution `1` | `INFERRED_BY_CODE` | Chỉ có contract code/mapper. |
-| Pagination/cap SSI | `INFERRED_BY_CODE` | Hành vi phòng vệ và fixture offline. |
+| Endpoint `DailyStockPrice` | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | `/api/v2/Market/DailyStockPrice`, nguồn daily canonical; field live chưa quan sát. |
+| `DailyOhlc` để so sánh | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Có tài liệu và chỉ dùng đối chiếu; chưa quan sát live. |
+| `IntradayOhlc` resolution `1` | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Resolution `1` có tài liệu; semantic volume/value live vẫn unknown. |
+| Tham số pagination SSI | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Có `pageIndex`, `pageSize`, `totalRecord`; độ tin cậy live chưa được chứng minh. Cycle safety là `INFERRED_BY_CODE` và test offline. |
 | Equality/hash `raw_daily.payload` | `UNKNOWN` | Thiếu raw row production và source object live. |
 | Giữ nested/unknown field trong `raw_intraday.payload` | `INFERRED_BY_CODE` | Code/test mapper; chưa verify migration/sample production. |
 | Ý nghĩa timestamp intraday | `INFERRED_BY_CODE` | Có parse giờ Việt Nam/lưu UTC; chưa có evidence source. |
@@ -55,7 +55,7 @@ Không tìm thấy `SSI_FastConnectData_Specs_v2.2.pdf` trong repository hoặc 
 | Response cuối tuần | `UNKNOWN` | Thiếu authentication/live request. |
 | Response ngày lễ weekday chính thức | `UNKNOWN` | Thiếu live request và calendar authoritative. |
 
-Run này không có `DOCUMENTED_AND_OBSERVED`, `DOCUMENTED_NOT_OBSERVED` hoặc `OBSERVED_NOT_DOCUMENTED` vì thiếu cả tài liệu cung cấp và live access.
+Không contract item nào được phân loại `OBSERVED` trong run này vì thiếu live SSI access.
 
 ## Đối chiếu live
 
@@ -73,11 +73,10 @@ Không tạo migration mới, không ghi production, ingest, replace, backfill, 
 
 ## Blocker còn lại
 
-1. Không có PDF SSI do user cung cấp.
-2. Không có credential/response SSI live.
-3. Không có project Supabase production link và credential read-only.
-4. Không biết và chưa verify trạng thái hai migration được phép trên production.
-5. Chưa duyệt nguồn calendar/status sàn authoritative có version.
-6. Không có GitHub authentication nên không xem được CI và không comment/đóng Issue #110.
+1. Không có credential/response SSI live.
+2. Không có project Supabase production link và credential read-only.
+3. Không biết và chưa verify trạng thái hai migration được phép trên production.
+4. Chưa duyệt nguồn calendar/status sàn authoritative có version.
+5. Không có GitHub authentication nên không xem được CI và không comment/đóng Issue #110.
 
 Issue #110 và Phase 0 phải tiếp tục mở.

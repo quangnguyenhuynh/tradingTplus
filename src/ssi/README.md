@@ -32,6 +32,23 @@ The project uses documented SSI endpoints such as `AccessToken`, `Securities`, `
 - Retry authentication only with a bounded policy.
 - Handle empty, invalid, and changed response envelopes explicitly.
 - Do not fabricate rows when SSI returns no data.
+- Pagination uses an order-independent hash of every returned page, retains all
+  previously seen hashes, and raises `SSIPaginationError` for a repeated page or
+  cycle of any length. A short page is not EOF. Only a trustworthy exact
+  `totalRecord`, an empty page, or an exact caller limit terminates normally.
+- `SSI_MAX_PAGES_PER_REQUEST` is the named default safety bound (10,000 pages).
+  Callers may lower it per request; reaching it is an error, never partial
+  success. Invalid/changing totals and rows beyond a declared total are errors.
 - Streaming tools must use explicit symbols/channels, bounded timeout/message counts, and read-only defaults.
+
+## Evidence boundary
+
+An external review of SSI FastConnect Data Specs v2.2 documents
+`DailyStockPrice` at `/api/v2/Market/DailyStockPrice`, comparison-only
+`DailyOhlc`, and resolution `1` for `IntradayOhlc`. This repository records that
+as `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW`; it does not claim that the runtime
+agent opened the attachment. The document does not establish reliable live
+pagination, universal intraday-volume semantics, or exact intraday turnover.
+Those remain separate read-only live-validation questions.
 
 Verify unfamiliar payloads with the dedicated read-only inspectors before modifying ingest mappings.
