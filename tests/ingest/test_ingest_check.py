@@ -41,7 +41,10 @@ class _Query:
         return self
 
     def range(self, *args, **_kwargs):
-        self.range_args = args
+        cap = getattr(self.db, "server_cap", None)
+        self.range_args = (
+            (args[0], min(args[1], args[0] + cap - 1)) if cap else args
+        )
         return self
 
     def limit(self, *_args, **_kwargs):
@@ -78,12 +81,13 @@ class _Client:
 
 
 class _DB:
-    def __init__(self, intraday_rows=None, daily_rows=None, symbols=None):
+    def __init__(self, intraday_rows=None, daily_rows=None, symbols=None, server_cap=None):
         self.client = _Client(self)
         self.executed = []
         self.intraday_rows = intraday_rows or []
         self.daily_rows = daily_rows if daily_rows is not None else [{"symbol": "SSI"}]
         self.symbols = symbols or ["SSI"]
+        self.server_cap = server_cap
 
     def _with_retry(self, action, action_name, **_kwargs):
         return action()
@@ -251,3 +255,39 @@ def test_scoped_completeness_excludes_unrequested_symbols_and_never_queries_inde
     scoped_queries = [entry for entry in db.executed if entry[0] in {"stock_daily", "stock_intraday"}]
     assert all(("in", "symbol", ("SSI",)) in entry[1] for entry in scoped_queries)
     assert all(entry[0] != "index_daily" for entry in db.executed)
+
+
+def test_completeness_readers_survive_sub_request_server_cap_over_1000_rows():
+    symbols = [f"S{i:04d}" for i in range(1205)]
+    daily = [{"symbol": symbol} for symbol in symbols]
+    intraday = [
+        {"symbol": symbol, "time": f"2026-07-20T02:{i % 60:02d}:00Z", "timeframe": "1m"}
+        for i, symbol in enumerate(symbols)
+    ]
+    db = _DB(intraday, daily_rows=daily, symbols=symbols, server_cap=400)
+
+    assert ingest_check._fetch_daily_symbols(db, "2026-07-20", page_size=1000) == set(symbols)
+    assert ingest_check._fetch_intraday_rows(
+        db, "2026-07-19T17:00:00Z", "2026-07-20T17:00:00Z", page_size=1000,
+    ) == intraday
+    daily_calls = [entry for entry in db.executed if entry[0] == "stock_daily"]
+    intraday_calls = [entry for entry in db.executed if entry[0] == "stock_intraday"]
+    assert len(daily_calls) == len(intraday_calls) == 5  # 4 data + empty
+    assert all(("eq", "trading_date", "2026-07-20") in call[1] for call in daily_calls)
+    assert all(("eq", "timeframe", "1m") in call[1] for call in intraday_calls)
+    assert all(("gte", "time", "2026-07-19T17:00:00Z") in call[1] for call in intraday_calls)
+    assert all(("lt", "time", "2026-07-20T17:00:00Z") in call[1] for call in intraday_calls)
+
+
+def test_completeness_readers_reject_invalid_page_size():
+    db = _DB()
+    for reader, args in (
+        (ingest_check._fetch_daily_symbols, (db, "2026-07-20")),
+        (ingest_check._fetch_intraday_rows, (db, "start", "end")),
+    ):
+        try:
+            reader(*args, page_size=0)
+        except ValueError as exc:
+            assert "page_size" in str(exc)
+        else:
+            raise AssertionError("invalid page size must fail")

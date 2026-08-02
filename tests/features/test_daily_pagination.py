@@ -66,3 +66,19 @@ def test_daily_pagination_survives_server_cap_below_requested_size():
     result = fetch_stock_daily_rows(db, "SSI", page_size=1000)
     assert [row["trading_date"] for row in result] == [row["trading_date"] for row in rows]
     assert db.table_calls.count("stock_daily") == 7  # six data pages + empty page
+
+
+def test_daily_pagination_repeated_page_fails_safely():
+    class RepeatingQuery(_Query):
+        def execute(self):
+            self._start = 0
+            self._end = 99
+            return super().execute()
+
+    class RepeatingDB(_DB):
+        def table(self, name):
+            self.table_calls.append(name)
+            return RepeatingQuery(self.daily_rows)
+
+    with pytest.raises(RuntimeError, match="Repeated PostgREST page"):
+        fetch_stock_daily_rows(RepeatingDB([], daily_rows=_rows(250)), "SSI", page_size=100)

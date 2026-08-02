@@ -1,4 +1,5 @@
 import requests
+import pytest
 
 from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
 from src.pipeline.intraday_service import fetch_intraday_for_symbol_with_clients
@@ -58,6 +59,56 @@ def test_intraday_page_size_is_not_changed_with_daily_stock_price(monkeypatch):
 
     assert api.get_intraday("HPG", "17/07/2026") == []
     assert calls[0]["pageSize"] == 1000
+
+
+def test_ssi_pagination_does_not_treat_server_capped_short_page_as_eof(monkeypatch):
+    api = _api()
+    rows = [{"id": value} for value in range(1205)]
+    calls = []
+
+    def fake_get(_url, params):
+        calls.append(dict(params))
+        start = (params["pageIndex"] - 1) * 500
+        return _Response({"dataList": rows[start:start + 500]})
+
+    monkeypatch.setattr(api, "_get_with_retry", fake_get)
+    monkeypatch.setattr("src.ssi.api.time.sleep", lambda _seconds: None)
+
+    assert api._get_all_pages("ssi", page_size=1000) == rows
+    assert [call["pageIndex"] for call in calls] == [1, 2, 3, 4]
+    assert all(call["pageSize"] == 1000 for call in calls)
+
+
+def test_ssi_pagination_honors_exact_total_and_detects_no_progress(monkeypatch):
+    api = _api()
+    pages = {
+        1: [{"id": 1}, {"id": 2}],
+        2: [{"id": 3}, {"id": 4}],
+    }
+    monkeypatch.setattr(
+        api,
+        "_get_with_retry",
+        lambda _url, params: _Response(
+            {"dataList": pages[params["pageIndex"]], "totalRecord": 3}
+        ),
+    )
+    monkeypatch.setattr("src.ssi.api.time.sleep", lambda _seconds: None)
+    assert api._get_all_pages("ssi", page_size=1000) == [
+        {"id": 1}, {"id": 2}, {"id": 3}
+    ]
+
+    monkeypatch.setattr(
+        api,
+        "_get_with_retry",
+        lambda _url, _params: _Response({"dataList": [{"id": 1}]}),
+    )
+    with pytest.raises(RuntimeError, match="Repeated SSI page"):
+        api._get_all_pages("ssi", page_size=1000, sleep_sec=0)
+
+
+def test_ssi_pagination_rejects_invalid_page_size():
+    with pytest.raises(ValueError, match="page_size"):
+        _api()._get_all_pages("ssi", page_size=0)
 
 
 def test_daily_stock_price_rejects_non_matching_rows(monkeypatch):

@@ -337,3 +337,13 @@ python main.py features-intraday --mode rebuild-clean --from 01/07/2026 --to 31/
 ```
 
 Deploy `migrations/20260802_atomic_replace_features.sql` before application code. Incremental intraday warm-up means 250 trading sessions actually observed in clean 1m data—not calendar days or bars. A run with no selected rows and no error is `status=OK`, `no_op=true`. Use scoped replace for known historical source corrections; use full for non-destructive recomputation.
+
+Phase 0 closure regression uses 1,501 non-constant weekday daily rows and 251
+observed intraday sessions. After six-decimal production serialization, the
+final target rows for `1d`, `15m`, and `60m` matched full history in every
+persisted column with maximum absolute and relative float differences of zero.
+Both 200- and 250-session intraday fixtures matched; 250 remains the production
+default. At a 1,000-row request size the intraday fixture read 16 full-history
+pages, 12 pages for 200 sessions, and 15 pages for 250 sessions. See
+`docs/phase0/PHASE0_VALIDATION_REPORT.md`; this offline evidence does not replace
+the still-blocked live Phase 0 gates.

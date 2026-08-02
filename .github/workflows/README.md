@@ -22,6 +22,8 @@ Automation for tests and explicit Trading T+ pipelines.
 - SSI/Supabase credentials are provided through repository secrets.
 - The atomic-replace PostgreSQL test is part of the main suite and must execute,
   not skip, because `tests.yml` always supplies its test database.
+- Long-history parity and all pagination regression modules are collected by the
+  same unfiltered `python -m pytest -q` command on pull requests and `dev` pushes.
 - Do not add automatic signal or backtest execution to ingest workflows without an explicit architecture task.
 
 ## Validation

@@ -144,3 +144,10 @@ Code signal và backtest MVP legacy đã được xóa. Hai tầng này sẽ đ�
 
 ### Contract rebuild feature
 Daily feature phân trang toàn bộ row `stock_daily` phù hợp. `full` vẫn upsert không delete; `incremental` dùng watermark riêng với warm-up daily 5 năm hoặc intraday 250 phiên quan sát; `replace` (`rebuild-clean`) compute và validate đúng một symbol/timeframe/range ngày Việt Nam inclusive trước một RPC atomic. Incremental không có output là no-op thành công. Phải deploy `migrations/20260802_atomic_replace_features.sql` trước khi dùng replace.
+
+Pagination tiếp tục sau trang ngắn do server cap, tăng offset theo số row thực
+trả và kết thúc ở trang rỗng (hoặc limit chính xác). Toàn bộ phiên intraday cũ
+nhất được chọn vẫn được giữ khi nằm qua boundary hai trang. Test lịch sử dài
+deterministic so sánh mọi cột persisted cho `1d`, `15m`, `60m`; xem
+[báo cáo kiểm chứng Phase 0](docs/phase0/PHASE0_VALIDATION_REPORT.vi.md). Phase 0
+hiện **BLOCKED**, chưa hoàn thành, vì thiếu evidence SSI/live/production bắt buộc.

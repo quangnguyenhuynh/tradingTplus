@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from typing import Any
@@ -124,7 +125,10 @@ class SSIApi:
         all_items: list[dict] = []
         page_index = int(base_params.pop("pageIndex", 1) or 1)
         page_size = int(base_params.pop("pageSize", page_size) or page_size)
+        if page_size <= 0:
+            raise ValueError("page_size must be greater than zero")
         total_record: int | None = None
+        previous_page: tuple[str, ...] | None = None
         while True:
             page_params = {**base_params, "pageIndex": page_index, "pageSize": page_size}
             resp = self._get_with_retry(url, page_params)
@@ -140,11 +144,21 @@ class SSIApi:
                 total_record = self._extract_total_record(data)
             if not items:
                 break
+            # A provider may enforce a lower page cap than the requested size.
+            # Therefore a short page is not EOF; only an empty page or the
+            # advertised total is terminal.  Detect a provider that ignores
+            # pageIndex rather than looping forever.
+            page_identity = tuple(
+                json.dumps(item, sort_keys=True, default=str) for item in items
+            )
+            if page_identity == previous_page:
+                raise RuntimeError(
+                    f"Repeated SSI page pageIndex={page_index} returned={len(items)}"
+                )
+            previous_page = page_identity
             all_items.extend(items)
             if total_record is not None and len(all_items) >= total_record:
-                break
-            if len(items) < page_size:
-                break
+                return all_items[:total_record]
             page_index += 1
             time.sleep(sleep_sec)
         return all_items
