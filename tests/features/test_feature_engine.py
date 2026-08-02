@@ -159,7 +159,7 @@ def test_daily_execution_reads_only_stock_daily(monkeypatch):
     )
 
     assert count == 1
-    assert db.table_calls == ["stock_daily"]
+    assert db.table_calls == ["stock_daily", "stock_daily"]  # data + terminal empty page
     assert [call[0] for call in db.upsert_calls] == ["features"]
 
 
@@ -401,7 +401,7 @@ def test_daily_incremental_without_watermark_loads_five_years_and_writes_target(
     }
 
 
-def test_intraday_warmup_stops_at_250_observed_sessions():
+def test_intraday_warmup_keeps_complete_oldest_of_250_observed_sessions():
     dates = pd.bdate_range("2025-01-01", periods=251)
     rows = [
         _mk_row(
@@ -412,7 +412,10 @@ def test_intraday_warmup_stops_at_250_observed_sessions():
             i,
         )
         for i, day in enumerate(dates)
+        for minute in range(3)
     ]
+    for index, row in enumerate(rows):
+        row["time"] = (pd.Timestamp(row["time"]) + pd.Timedelta(minutes=index % 3)).strftime("%Y-%m-%dT%H:%M:%SZ")
     loaded = feature_runtime.fetch_intraday_trading_session_window(
         _DB(rows), "SSI", "2027-01-01T00:00:00Z", trading_sessions=250,
         page_size=37,
@@ -424,6 +427,8 @@ def test_intraday_warmup_stops_at_250_observed_sessions():
     )
     assert len(set(observed)) == 250
     assert min(observed) == dates[1].date()
+    assert sum(value == dates[1].date() for value in observed) == 3
+    assert dates[0].date() not in observed
 
 
 def test_feature_watermark_is_scoped_to_exact_symbol_and_timeframe():

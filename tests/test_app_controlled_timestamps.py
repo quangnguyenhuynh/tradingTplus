@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+import pytest
+
 from src.database.client import SupabaseClient
 from src.utils.time_utils import APP_TZ, app_now, app_now_iso
 
@@ -139,3 +141,29 @@ def test_feature_wrapper_stamps_missing_last_updated_at():
     db.upsert_features([source])
     assert source.get("last_updated_at") is None
     assert datetime.fromisoformat(db.client.calls[0][1][0]["last_updated_at"]).utcoffset() == timedelta(hours=7)
+
+
+def test_raw_intraday_missing_conflict_constraint_fails_fast_without_fallback():
+    class Query:
+        def upsert(self, *_args, **_kwargs):
+            return self
+
+        def execute(self):
+            raise RuntimeError("42P10 no unique or exclusion constraint matching ON CONFLICT")
+
+    class Client:
+        def __init__(self):
+            self.calls = 0
+
+        def table(self, _name):
+            self.calls += 1
+            return Query()
+
+    db = object.__new__(SupabaseClient)
+    db.client = Client()
+    with pytest.raises(RuntimeError, match="42P10"):
+        db.upsert_raw([{
+            "symbol": "SSI", "time": "2026-07-01T02:00:00Z",
+            "data_hash": "hash", "payload": {"Time": "09:00:00"},
+        }])
+    assert db.client.calls == 1

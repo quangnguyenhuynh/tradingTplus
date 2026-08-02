@@ -44,7 +44,7 @@ to persist `1m` or `5m` features.
 | --- | --- | --- | --- | --- |
 | `incremental` | Normal daily updates, or an explicit inclusive date-range backfill. | A target plus the history needed for correct indicators. | Only rows after the stream watermark through the target date; without a watermark, only the target date. A range command writes only its requested range. | No. It upserts. |
 | `full` | Recalculate all available history for selected symbols/timeframes. | All available selected source history. | Every calculated row in that history. | No. It upserts and leaves rows outside the calculation result untouched. |
-| `replace` / `rebuild-clean` | Eventually, replace one known-bad, exactly bounded stream. Do not use operationally yet. | An exact scope would be required. | Nothing with the current implementation. | No. It stops safely before any delete or write. |
+| `replace` / `rebuild-clean` | Replace one known-bad, exactly bounded stream after the RPC migration is verified in that environment. | The exact source scope plus deterministic warm-up. | One exact symbol/timeframe/half-open UTC range through a single atomic RPC. | Yes, only inside the RPC transaction; any insertion failure rolls the delete back. |
 
 An **upsert** inserts a missing key or updates an existing matching key. It is
 not a blanket delete and rebuild.
@@ -62,9 +62,15 @@ mean rewriting it:
 - `1d` reads up to five years of `stock_daily`, anchored at the watermark (or
   the target date when no watermark exists);
 - `15m` and `60m` read up to the latest 250 observed Vietnam trading dates from
-  `stock_intraday` 1m, ending at the target date;
+  `stock_intraday` 1m, ending at the target date; every candle of the oldest
+  selected session is retained even when that session crosses a page boundary;
 - calculation uses the loaded window, but only the new or affected target range
   is upserted.
+
+PostgREST source readers are safe when the server cap is lower than the requested
+page size: stable ordering is used, offsets advance by rows actually returned,
+and only an empty page (or an exact requested limit) ends the read. A repeated
+page fails explicitly instead of looping or silently deduplicating.
 
 Example: suppose `SSI/1d` has a watermark of **30/07/2026** and clean data now
 contains **31/07/2026**. An incremental run targeting 31/07/2026 reads older

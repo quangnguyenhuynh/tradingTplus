@@ -105,6 +105,17 @@ def test_build_intraday_records_skips_bad_time_and_uses_candle_volume_for_value(
     assert clean_records[0]['timeframe'] == '1m'
     assert clean_records[0]['reference_price'] == 10.1
     assert 'data_hash' in raw_records[0]
+    assert raw_records[0]['payload'] == candles[0]
+    assert 'payload' not in clean_records[0]
+
+
+def test_raw_intraday_payload_preserves_unknown_nested_fields_and_hash_is_key_order_stable():
+    first = {**_candle('09:15:00'), 'Future': {'nested': [1, {'x': True}]}}
+    second = dict(reversed(list(first.items())))
+    raw_first, _ = fod.build_intraday_records('SSI', '18/06/2026', _daily(), [first])
+    raw_second, _ = fod.build_intraday_records('SSI', '18/06/2026', _daily(), [second])
+    assert raw_first[0]['payload'] == first
+    assert raw_first[0]['data_hash'] == raw_second[0]['data_hash']
 
 
 

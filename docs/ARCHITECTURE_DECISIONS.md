@@ -239,7 +239,8 @@ Clean data phục vụ:
 - Không dùng clean table thay cho raw layer.
 - Không ghi feature vào clean market-data table.
 - Clean row phải có thể truy ngược về source hoặc mapper rõ ràng.
-- `raw_intraday` chưa lưu full source payload được ghi nhận là khoảng thiếu cần xử lý riêng.
+- `raw_intraday.payload JSONB` nullable giữ full source candle cho ingest mới;
+  row lịch sử có thể `NULL` và clean `stock_intraday` không giữ payload.
 
 ---
 
@@ -1330,11 +1331,13 @@ Tune RSI, EMA, signal score hoặc AI model ngay khi feature table đã có dữ
 
 ### Status
 
-`Proposed`
+`Accepted (2026-08-03)`
 
 ### Question
 
-Có thêm full source candle JSON vào `raw_intraday` hay không?
+Có. Ingest mới lưu semantic source object trong nullable
+`raw_intraday.payload JSONB`; row lịch sử có thể `NULL`, không backfill giả và
+clean `stock_intraday` không chứa payload.
 
 ### Cần xác minh
 

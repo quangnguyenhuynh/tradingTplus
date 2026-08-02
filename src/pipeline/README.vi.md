@@ -85,6 +85,11 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 | `raw_daily` | `daily_mapper.py` | giữ raw evidence trước clean validation | `daily_persistence.py` |
 | `stock_daily` | `daily_mapper.py` | `daily_service.py` + daily validator hiện có | `daily_persistence.py` |
 | `raw_intraday` | `intraday_mapper.py` | giữ raw evidence trước clean validation | `intraday_persistence.py` |
+
+Row intraday raw mới giữ toàn bộ object candle nguồn trong
+`raw_intraday.payload JSONB` nullable. Field SSI chưa biết hoặc lồng nhau vẫn
+được giữ; row lịch sử có thể `NULL`. Contract clean `stock_intraday` không đổi
+và không có backfill payload lịch sử.
 | `stock_intraday` | `intraday_mapper.py` | `intraday_service.py` + intraday validator hiện có | `intraday_persistence.py` |
 
 ## Compatibility wrapper

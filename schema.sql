@@ -263,12 +263,15 @@ CREATE TABLE IF NOT EXISTS "public"."raw_intraday" (
     "close" double precision,
     "volume" bigint,
     "data_hash" "text",
+    "payload" jsonb,
     "source" "text" DEFAULT 'SSI'::"text",
     "fetched_at" timestamp with time zone DEFAULT "now"()
 );
 
 
 ALTER TABLE "public"."raw_intraday" OWNER TO "postgres";
+
+COMMENT ON COLUMN "public"."raw_intraday"."payload" IS 'Original semantic SSI candle JSON object; historical rows may be NULL.';
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."raw_intraday_id_seq"
