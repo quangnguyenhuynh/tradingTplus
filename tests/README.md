@@ -42,5 +42,6 @@ python -m compileall main.py src scripts tests
 - Every production data-quality bug should receive a deterministic regression test.
 - Do not weaken validation merely to accept an unexplained source anomaly.
 - Do not add signal/backtest tests until a later explicit contract-design phase.
+- Phase 0 validation tests also assert numeric tolerance, mismatch/unknown classification, historical payload NULL policy, schema catalog contracts, and absence of write/RPC calls.
 
 GitHub Actions runs the complete pytest suite for pull requests and pushes to `dev`.

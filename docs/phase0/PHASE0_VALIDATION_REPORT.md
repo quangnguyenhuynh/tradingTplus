@@ -1,82 +1,48 @@
 # Phase 0 validation report
 
-**Decision: BLOCKED**  
-**Repository baseline:** `9af7485952833917669312ae9b15961f583729b6` (PR #117)
-**Offline validation date:** 2026-08-02  
-**Environment:** Python 3.11-compatible test environment; deterministic fixtures; no SSI/Supabase/GitHub credentials or linked Supabase project.
+**Decision: COMPLETE_WITH_NOTES**
+**Closure date:** 2026-08-03
+**Scope:** data infrastructure, data validation, and deterministic feature validation only.
 
-Phase 0 is not complete. Offline pagination, long-history feature parity, and the repository atomic-replace contract have evidence, and the shared SSI reader now has cycle-safe bounded pagination, but live source/database/migration evidence could not be collected. No production query or mutation was attempted.
+## Closure gates
 
-## Offline pagination evidence
-
-All PostgREST feature and completeness readers are exercised with stable ordering, a requested size of 1,000, a simulated server cap of 500 or 400, short final pages, and terminal empty pages. Offsets advance by the number actually returned. Tests retain symbol/timeframe/time/date filters, reject non-positive page sizes, exercise exact limits, and reject repeated pages. The SSI page-index client separately continues after a short capped page, validates `totalRecord`, hashes page rows independently of order, rejects A→A/A→B→A/A→B→C→A and shuffled-row cycles, and stops endlessly changing pages at a configurable 10,000-page safety bound without returning partial data.
-
-The 251-session fixture contains seven candles per observed date. A 1,747-row server cap splits the oldest selected (250th) date across two descending pages. The reader returns all seven candles for that date, exactly 250 dates, no candle from the 251st older date, and no duplicate boundary candle.
-
-Completeness fixtures read 1,205 symbols/rows through a 400-row cap (four data pages plus an empty page) without truncation.
-
-## Long-history parity evidence
-
-Comparison occurs after production serialization. Every persisted feature column is compared; symbol, timeframe, time, integers, booleans, and NULLs are exact. Floats use absolute tolerance `1e-6` or relative tolerance `1e-9`, matching the six-decimal application serialization. `last_updated_at` is the only excluded audit field.
-
-| Timeframe | Full source | Bounded source | Target | Maximum absolute difference | Maximum relative difference |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `1d` | 1,501 weekday rows (>5 years) | 1,306 rows (production five-year window) | final date | 0 for every float column | 0 for every float column |
-| `15m`, 200 sessions | 15,060 `1m` rows / 251 dates | 12,000 rows | final date | 0 for every float column | 0 for every float column |
-| `15m`, 250 sessions | 15,060 `1m` rows / 251 dates | 15,000 rows | final date | 0 for every float column | 0 for every float column |
-| `60m`, 200 sessions | 15,060 `1m` rows / 251 dates | 12,000 rows | final date | 0 for every float column | 0 for every float column |
-| `60m`, 250 sessions | 15,060 `1m` rows / 251 dates | 15,000 rows | final date | 0 for every float column | 0 for every float column |
-
-Fixtures have deterministic non-constant OHLCV/value variation, morning and afternoon candles, and a lunch break. Aggregation tests separately prove no lunch or Vietnam-date crossing. At a 1,000-row request size, intraday full needs 16 data pages, the 200-session scope 12, and the production 250-session scope 15; bounded modes do not default to full history. The daily bounded read removes 195 rows, although both full and bounded fixtures require two data pages at that page size.
-
-The evidence supports retaining 250 observed sessions. The 200-session fixture also matches this deterministic target, but it is not the production default and this test alone is not a general proof that 200 is sufficient for every real series.
-
-## Atomic replace and migrations
-
-The migration remains service-role-only, `SECURITY DEFINER`, with empty `search_path`, exact symbol/timeframe/half-open-range validation, duplicate/empty rejection, transactional delete/insert, and rollback protection. Normal GitHub Actions runs the complete suite with PostgreSQL 16 and `TEST_DATABASE_URL`; the integration test is not configured to skip.
-
-Production status is **UNKNOWN**. No linked Supabase project or credentials were available, so pending migration status, function privileges, required indexes, and `raw_intraday.payload` production metadata were not queried. Neither authorized migration was applied here. No production rows were changed. Historical payload remains intentionally unbackfilled; new ingest records retain the complete semantic candle object in nullable JSONB.
-
-## SSI contract/evidence matrix
-
-The PDF attachment was not accessible to this runtime. Per the explicit task override, the externally verified contract facts below are classified as `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW`; this report does not claim that Codex personally opened the PDF. Live behavior remains separately `OBSERVED`, `INFERRED_BY_CODE`, or `UNKNOWN`.
-
-| Critical item | Classification | Evidence / blocker |
+| Gate | Result | Evidence |
 | --- | --- | --- |
-| `DailyStockPrice` endpoint | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | `/api/v2/Market/DailyStockPrice`; canonical daily source. Live fields remain unobserved. |
-| `DailyOhlc` comparison behavior | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Documented and comparison-only; not live observed. |
-| `IntradayOhlc` resolution `1` | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | Resolution `1` is documented; volume/value live semantics remain unknown. |
-| SSI pagination parameters | `DOCUMENTED_FROM_EXTERNAL_PDF_REVIEW` | `pageIndex`, `pageSize`, and `totalRecord` are documented; reliability is not. Cycle safety is `INFERRED_BY_CODE` and offline-tested. |
-| `raw_daily.payload` equality/hash | `UNKNOWN` | No production raw row or live source object. |
-| `raw_intraday.payload` nested/unknown-field retention | `INFERRED_BY_CODE` | Mapper tests/code; production migration/sample unverified. |
-| Intraday timestamp meaning | `INFERRED_BY_CODE` | Vietnam parsing and UTC storage implemented; source semantics not documented/observed here. |
-| Intraday volume meaning | `UNKNOWN` | Required PDF/live evidence unavailable. |
-| Intraday value | `INFERRED_BY_CODE` | Clean value is estimated `round(close * volume)`, not claimed as SSI turnover. |
-| Weekend response | `UNKNOWN` | Authentication/live request unavailable. |
-| Official weekday holiday response | `UNKNOWN` | Authentication/live request and authoritative calendar unavailable. |
+| Production schema | `PASS_WITH_MANUAL_APPLY_NOTE` | `20260802_atomic_replace_features.sql` and `20260803_add_raw_intraday_payload.sql` were applied manually through Supabase SQL Editor. Production was verified read-only to have nullable/no-default `raw_intraday.payload jsonb`, the secured atomic RPC, its role grants/revocations, safe empty `search_path`, and the required feature unique index. Supabase CLI migration history may not contain these records; matching deployed schema is accepted for Phase 0. Do not rerun or repair these migrations merely to change CLI history. |
+| New intraday payload lineage | `PASS` | The project owner verified a new intraday ingest row with non-NULL `raw_intraday.payload`. Historical NULL payloads remain valid by design and require no backfill. |
+| SSI → raw → clean → feature sample | `PASS` | The owner selected production symbols, dates, and daily/intraday feature timeframes and reconciled source, raw, clean, and feature fields. Matched fields included raw payload identity/mapping plus OHLCV/value at clean and feature layers; no unexplained critical mismatch remained. Exact sample identifiers were not retained in this repository report, so future runs must record command output and scope. |
+| Offline regression suite | `PASS` | Pagination, mapping, completeness, feature parity, atomic replacement, and Phase 0 validation behavior are covered by deterministic tests. |
+| Calendar/completeness | `PASS_WITH_NOTES` | Completeness is evaluated per symbol, Vietnam trading date, source, timeframe, and observed sessions. Reports include counts, first/last timestamps, duplicates, and gap classification. There is no universal 226-candle rule. |
 
-No contract item is classified `OBSERVED` in this run because live SSI access was unavailable.
+## Repeatable read-only validation
 
-## Live reconciliation
+```bash
+PHASE0_DATABASE_URL='postgresql://...' python scripts/phase0_validate_schema.py
+python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 1d
+python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 15m --timestamp 2026-08-03T02:00:00Z
+```
 
-No live sample scope was selected or queried: selecting exact existing liquid/low-liquidity symbols, closed buckets, feature dates, and production hashes requires read-only access to the linked database, while source comparison requires SSI authentication. Consequently daily raw-to-clean, intraday raw-to-clean, independent clean-to-feature reproduction, weekend behavior, and official-holiday behavior remain blocked. This report does not substitute fabricated dates or payloads.
+The schema command forces PostgreSQL `default_transaction_read_only=on`. The reconciliation command issues bounded SELECTs only. Outcomes are `PASS`, `FAIL`, or `UNKNOWN`; missing evidence never becomes a false pass. Payload inspection checks at most 100 selected rows, accepts historical NULLs, and returns `UNKNOWN` if it cannot find a non-NULL sample. Numeric comparisons default to absolute/relative tolerance `1e-6`.
 
-## Completeness gate
+## Calendar and completeness assumptions
 
-Offline tests cover a normal structurally complete day, isolated missing interval, duplicate, missing afternoon session, long structural gap, low-liquidity-style isolated empty buckets, and capped pagination over 1,000 rows. Reports expose counts, first/last times, duplicates, missing intervals/minutes, gap class, and reasons without a universal 226-candle rule. Public `OK/PARTIAL/FAILED` summaries remain compatible.
+- Interpret sessions and user-facing dates in `Asia/Ho_Chi_Minh`; retain timezone-aware UTC storage.
+- A weekday is not proof of a trading day. Empty, holiday, halted, shortened-session, and source-failure cases must remain distinguishable where evidence permits.
+- Do not fabricate holiday rows, forward-fill candles, or convert missing market values to zero.
+- The repository still has no authoritative, versioned exchange calendar/status source. Until one is approved, official weekday holidays and exceptional sessions may remain `UNKNOWN` or warnings rather than false completeness failures.
+- Candle counts vary with auctions, liquidity, halts, shortened sessions, timestamp conventions, and SSI behavior; 226 is not a universal expected count.
 
-The repository has no approved authoritative exchange calendar/status design. It cannot safely distinguish a weekday official holiday from a trading day with no data or a source/authentication failure based on stored rows alone. No holiday list was invented. This is a Phase 0 blocker.
+## Data and migration impact
 
-## Database and backfill impact
+This closure work applies no migration and performs no production write, ingest, RPC replacement, deletion, feature rebuild, or backfill. Historical `raw_intraday.payload` stays NULL where it was not captured. No feature formula changed, so no feature backfill is required.
 
-No new migration, production write, ingest, replace, backfill, payload synthesis, or feature rebuild was performed. No feature formula changed, so no rebuild is needed. `schema.sql` plus ordered migrations are canonical; the redundant historical `docs_db_schema.md` snapshot was removed.
+## Remaining risks
 
-## Unresolved blockers
+1. Manual SQL Editor deployment is not represented reliably in Supabase CLI migration history; deployed schema, not history alone, must be checked before later deployment operations.
+2. Future evidence should retain the exact production sample symbols, dates, timeframes, timestamps, and command output; the owner validation supplied for closure did not include those identifiers in the repository.
+3. No approved authoritative/versioned exchange calendar and exceptional-session status source is implemented.
+4. Live SSI and Supabase checks require external credentials; an offline run must report `UNKNOWN`, not claim live verification.
 
-1. SSI credentials/live source responses unavailable.
-2. Linked production Supabase project and read-only credentials unavailable.
-3. Production status and verification of the two authorized migrations unavailable.
-4. No authoritative, versioned exchange-calendar/status source is approved.
-5. GitHub authentication is unavailable, so CI jobs cannot be inspected and Issue #110 cannot be commented on or closed.
+## Next step
 
-Issue #110 and Phase 0 must remain open.
+Begin Phase 1 specification for shared strategy rules and point-in-time backtesting.

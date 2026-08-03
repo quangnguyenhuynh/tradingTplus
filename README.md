@@ -3,7 +3,8 @@
 Python data foundation for analyzing Vietnamese stocks over an approximate T+3
 to T+5 trading-session horizon.
 
-The repository is in **Phase 0: data foundation and validation**. Data
+The repository has closed **Phase 0: data foundation and validation** as
+`COMPLETE_WITH_NOTES`. Data
 correctness, SSI contract verification, reproducible pipelines, and completeness
 checks take priority over signals, backtests, profitability, or AI optimization.
 
@@ -163,5 +164,6 @@ limit). The complete oldest selected intraday session is retained even when it
 crosses a page boundary. Deterministic long-history tests compare every
 persisted column for `1d`, `15m`, and `60m`; see the
 [Phase 0 validation report](docs/phase0/PHASE0_VALIDATION_REPORT.md). Phase 0 is
-currently **BLOCKED**, not complete, because required SSI/live/production
-evidence is unavailable.
+**COMPLETE_WITH_NOTES**: the owner verified the manually applied production
+schema and scoped live lineage/reconciliation samples. Remaining calendar and
+evidence-retention risks are recorded in the report; Phase 1 is not implemented.
