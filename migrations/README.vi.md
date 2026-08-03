@@ -32,10 +32,11 @@ Các thay đổi SQL có version cho schema Supabase/PostgreSQL của Trading T+
 4. Chạy schema verification và smoke check read-only.
 5. Thực hiện backfill cần thiết bằng thao tác riêng, có phạm vi.
 
-Ứng dụng Python không tự động áp dụng các migration trong repo.
-Môi trường closure Phase 0 ngày 02/08/2026 không có project production đã link
-hoặc credential. Vì vậy trạng thái production của migration 20260802 và
-20260803 là `UNKNOWN`; run đó không apply hoặc verify migration nào.
+Ứng dụng Python không tự động áp dụng migration trong repo. Chủ dự án đã apply
+SQL 20260802 và 20260803 thủ công qua Supabase SQL Editor và kiểm tra schema
+production kỳ vọng bằng query chỉ đọc. Trạng thái Phase 0 là
+`PASS_WITH_MANUAL_APPLY_NOTE`. Supabase CLI migration history có thể thiếu hai
+record này; không rerun hoặc repair chỉ để bổ sung history.
 
 ## An toàn
 

@@ -25,6 +25,8 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 | `check_ssi_ingest_schema.py` | `READ-ONLY` | Check required SSI ingest tables/columns. |
 | `check_complete_ssi_ingest.py` | `DRY-RUN DEFAULT` | Inspect SSI payloads and raw/clean mappings for a scoped symbol/date. |
 | `check_ingest.py` | `READ-ONLY` | Report ingest completeness for a date. |
+| `phase0_validate_schema.py` | `READ-ONLY` | Verify payload/RPC/index catalog contracts through a forced read-only PostgreSQL connection. |
+| `phase0_reconcile_sample.py` | `READ-ONLY` | Check bounded payload lineage and one explicit raw/clean/feature sample with PASS/FAIL/UNKNOWN output. |
 | `eod_dry_run.py` | `READ-ONLY` | Inspect EOD readiness without database writes. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Inspect or write exactly one symbol/day. |
 | `backfill_sample.py` | `WRITES DB` | Deprecated delegate to combined production backfill; explicit inclusive dates required. |
@@ -55,6 +57,13 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 - Do not evaluate profitability while Phase 0 data remains unverified.
 
 Run commands from the repository root and use `--help` before any write-capable tool.
+
+Phase 0 closure checks require explicit scopes and never infer live evidence. Use
+`PHASE0_DATABASE_URL=... python scripts/phase0_validate_schema.py` for catalog
+metadata, and `python scripts/phase0_reconcile_sample.py --symbol SSI --date
+YYYY-MM-DD --timeframe 1d` for reconciliation. The latter may also accept an
+exact `--timestamp` for `15m`/`60m`. Historical NULL intraday payloads are
+expected; no non-NULL sample yields `UNKNOWN`, not PASS.
 
 Use `python main.py backfill-daily`, `backfill-intraday`, or combined `backfill` with explicit inclusive dates for production. The deprecated sample accepts optional `--symbols` but no future override, delegates to the same pipeline, skips weekends, and never runs features, signals, or backtests automatically. See [`docs/backfill/README.md`](../docs/backfill/README.md).
 

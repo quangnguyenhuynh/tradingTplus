@@ -25,6 +25,8 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 | `check_ssi_ingest_schema.py` | `READ-ONLY` | Kiểm tra bảng/cột cần thiết cho SSI ingest. |
 | `check_complete_ssi_ingest.py` | `DRY-RUN DEFAULT` | Kiểm tra payload SSI và mapping raw/clean theo symbol/date có phạm vi. |
 | `check_ingest.py` | `READ-ONLY` | Báo completeness ingest theo ngày. |
+| `phase0_validate_schema.py` | `READ-ONLY` | Kiểm tra contract catalog payload/RPC/index qua kết nối PostgreSQL bị ép read-only. |
+| `phase0_reconcile_sample.py` | `READ-ONLY` | Kiểm tra lineage payload có giới hạn và một sample raw/clean/feature explicit với kết quả PASS/FAIL/UNKNOWN. |
 | `eod_dry_run.py` | `READ-ONLY` | Kiểm tra trạng thái EOD không ghi database. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Kiểm tra hoặc ghi đúng một mã/một ngày. |
 | `backfill_sample.py` | `WRITES DB` | Delegate deprecated sang backfill production kết hợp; bắt buộc khoảng ngày bao gồm hai đầu. |
@@ -55,6 +57,13 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 - Không đánh giá khả năng sinh lợi khi dữ liệu Phase 0 chưa được kiểm chứng.
 
 Chạy command từ root repo và đọc `--help` trước mọi tool có khả năng ghi.
+
+Check đóng Phase 0 bắt buộc scope explicit và không tự suy diễn evidence live.
+Dùng `PHASE0_DATABASE_URL=... python scripts/phase0_validate_schema.py` cho
+metadata catalog và `python scripts/phase0_reconcile_sample.py --symbol SSI
+--date YYYY-MM-DD --timeframe 1d` để reconcile. Có thể truyền exact
+`--timestamp` cho `15m`/`60m`. Payload intraday lịch sử NULL là bình thường;
+không có sample khác NULL sẽ trả `UNKNOWN`, không phải PASS.
 
 Dùng `python main.py backfill-daily`, `backfill-intraday`, hoặc `backfill` kết hợp với khoảng ngày explicit cho production. Sample deprecated nhận `--symbols` tùy chọn nhưng không có future override, delegate sang cùng pipeline, bỏ qua cuối tuần và không tự chạy feature, signal hay backtest. Xem [`docs/backfill/README.vi.md`](../docs/backfill/README.vi.md).
 

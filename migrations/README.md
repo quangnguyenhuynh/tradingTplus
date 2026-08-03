@@ -33,9 +33,10 @@ Versioned SQL changes for the Trading T+ Supabase/PostgreSQL schema.
 5. Perform any required backfill as a separate, scoped operation.
 
 Repository migrations are not automatically applied by the Python application.
-The 2026-08-02 Phase 0 closure environment had no linked production project or
-credentials. Production status of the 20260802 and 20260803 migrations is
-therefore `UNKNOWN`; neither was applied or verified by that run.
+The project owner applied the 20260802 and 20260803 SQL manually through the
+Supabase SQL Editor and verified the expected production schema read-only. Their
+Phase 0 status is `PASS_WITH_MANUAL_APPLY_NOTE`. Supabase CLI migration history
+may omit them; do not rerun or repair them merely to populate history.
 
 ## Safety
 

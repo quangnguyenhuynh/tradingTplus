@@ -14,6 +14,7 @@ Validation models and rules for daily, intraday, and streaming records.
 - `intraday_validator.py`: candle-level and batch-level intraday checks.
 - `streaming_validator.py`: streaming payload and mapped-row checks.
 - `logging_utils.py`: consistent validation logging helpers.
+- `phase0.py`: read-only schema, payload-lineage, and bounded raw/clean/feature reconciliation checks.
 - `__init__.py`: package exports.
 
 ## Principles
@@ -25,6 +26,7 @@ Validation models and rules for daily, intraday, and streaming records.
 - Daily reference, ceiling, and floor prices are optional context. Dependent checks run only when their inputs exist. A coherent OHLC range wholly on one side of the supplied limits is retained as a corporate-action warning; isolated limit violations and invalid OHLC remain blocking.
 - Check OHLC relationships, finite values, non-negative volume/value, valid symbol/date, duplicates, sessions, and batch consistency where applicable.
 - Completeness depends on symbol, trading date, source, timeframe, and session; one universal candle count is not sufficient.
+- Phase 0 checks classify missing live evidence as `UNKNOWN`; historical NULL intraday payloads are expected and are never backfilled by validation.
 
 ## Testing
 

@@ -345,5 +345,5 @@ persisted column with maximum absolute and relative float differences of zero.
 Both 200- and 250-session intraday fixtures matched; 250 remains the production
 default. At a 1,000-row request size the intraday fixture read 16 full-history
 pages, 12 pages for 200 sessions, and 15 pages for 250 sessions. See
-`docs/phase0/PHASE0_VALIDATION_REPORT.md`; this offline evidence does not replace
-the still-blocked live Phase 0 gates.
+`docs/phase0/PHASE0_VALIDATION_REPORT.md`; the owner-supplied live production
+evidence and remaining notes are recorded there separately from offline tests.

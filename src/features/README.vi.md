@@ -334,5 +334,5 @@ cho `1d`, `15m`, `60m` khớp full history ở mọi cột persisted, với chê
 float tuyệt đối và tương đối lớn nhất bằng 0. Fixture 200 và 250 phiên đều khớp;
 250 vẫn là default production. Với request 1.000 row, fixture intraday đọc 16
 trang full, 12 trang cho 200 phiên và 15 trang cho 250 phiên. Xem
-`docs/phase0/PHASE0_VALIDATION_REPORT.vi.md`; evidence offline này không thay thế
-các gate live Phase 0 vẫn bị blocked.
+`docs/phase0/PHASE0_VALIDATION_REPORT.vi.md`; evidence production live do owner
+cung cấp và các note còn lại được ghi riêng với test offline trong report đó.

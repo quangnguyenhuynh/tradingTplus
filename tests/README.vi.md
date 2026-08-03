@@ -42,5 +42,6 @@ python -m compileall main.py src scripts tests
 - Mỗi lỗi data-quality production cần regression test deterministic.
 - Không làm yếu validation chỉ để chấp nhận anomaly nguồn chưa giải thích.
 - Không thêm test signal/backtest trước phase thiết kế hợp đồng riêng trong tương lai.
+- Test validation Phase 0 cũng kiểm tra tolerance số, phân loại mismatch/unknown, policy payload lịch sử NULL, contract catalog schema và không gọi write/RPC.
 
 GitHub Actions chạy toàn bộ pytest khi có pull request và push vào `dev`.

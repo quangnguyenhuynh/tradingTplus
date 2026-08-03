@@ -2,7 +2,7 @@
 
 Nền tảng dữ liệu Python phục vụ phân tích cổ phiếu Việt Nam với thời gian nắm giữ khoảng T+3 đến T+5 phiên giao dịch.
 
-Repository hiện ở **Phase 0: xây dựng và kiểm chứng dữ liệu**. Độ đúng dữ liệu, hiểu đúng hợp đồng SSI, pipeline có thể chạy lại và kiểm tra completeness được ưu tiên trước signal, backtest, lợi nhuận hoặc AI.
+Repository đã đóng **Phase 0: xây dựng và kiểm chứng dữ liệu** với trạng thái `COMPLETE_WITH_NOTES`. Độ đúng dữ liệu, hiểu đúng hợp đồng SSI, pipeline có thể chạy lại và kiểm tra completeness vẫn được ưu tiên trước signal, backtest, lợi nhuận hoặc AI.
 
 ## Tài liệu
 
@@ -150,4 +150,6 @@ trả và kết thúc ở trang rỗng (hoặc limit chính xác). Toàn bộ ph
 nhất được chọn vẫn được giữ khi nằm qua boundary hai trang. Test lịch sử dài
 deterministic so sánh mọi cột persisted cho `1d`, `15m`, `60m`; xem
 [báo cáo kiểm chứng Phase 0](docs/phase0/PHASE0_VALIDATION_REPORT.vi.md). Phase 0
-hiện **BLOCKED**, chưa hoàn thành, vì thiếu evidence SSI/live/production bắt buộc.
+đã **COMPLETE_WITH_NOTES**: owner đã kiểm tra schema production apply thủ công
+và sample lineage/reconciliation live có phạm vi. Report ghi rõ rủi ro calendar
+và lưu evidence còn lại; chưa triển khai Phase 1.
