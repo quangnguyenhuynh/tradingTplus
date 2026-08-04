@@ -18,6 +18,7 @@ Tài liệu cấp repository về sản phẩm, kiến trúc, trạng thái, CLI
 | `CLI_USAGE.md` | Hướng dẫn command production và vận hành. |
 | `DATA_CONVENTIONS.md` / `DATA_CONVENTIONS.vi.md` | Quy ước English/Tiếng Việt về timestamp, phiên, missing data, đơn vị và provenance. |
 | [`backfill/`](backfill/README.vi.md) | Hành vi, an toàn và command backfill dữ liệu nguồn. |
+| [`phase1/`](phase1/README.vi.md) | Contract đề xuất cho rule, backtest và approve rule của lớp nghiên cứu downstream mới. |
 
 Hợp đồng database thực thi nằm tại [`../schema.sql`](../schema.sql); lịch sử thay
 đổi và SQL triển khai được mô tả trong [`../migrations/`](../migrations/README.vi.md).
