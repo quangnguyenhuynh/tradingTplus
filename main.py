@@ -52,6 +52,7 @@ from src.pipeline import (
     run_streaming_ingest,
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
+from src.strategies.registry import get_strategy, list_strategies
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -330,6 +331,50 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Print sanitized debug summaries only",
     )
+
+    strategies = sub.add_parser(
+        "strategies",
+        help="Explicit strategy registry, backtest, and approval flows",
+    )
+    strategy_sub = strategies.add_subparsers(dest="strategy_command", required=True)
+    strategy_sub.add_parser("list", help="List immutable strategy drafts")
+    strategy_backtest = strategy_sub.add_parser(
+        "backtest", help="Run an explicit two-stage historical replay"
+    )
+    strategy_backtest.add_argument("--strategy", required=True)
+    strategy_backtest.add_argument("--version", type=int, default=1)
+    strategy_backtest.add_argument("--from", dest="from_date", required=True)
+    strategy_backtest.add_argument("--to", dest="to_date", required=True)
+    strategy_backtest.add_argument("--symbols", nargs="+", required=True)
+    strategy_approve = strategy_sub.add_parser(
+        "approve", help="Record an owner review for exact backtest evidence"
+    )
+    strategy_approve.add_argument("--strategy", required=True)
+    strategy_approve.add_argument("--version", type=int, default=1)
+    strategy_approve.add_argument("--backtest-run", required=True)
+    strategy_approve.add_argument("--decision", choices=["approve", "reject"], required=True)
+    strategy_approve.add_argument("--owner", required=True)
+    strategy_approve.add_argument("--notes", required=True)
+
+    signals = sub.add_parser(
+        "signals", help="Explicit daily candidate and intraday confirmation flows"
+    )
+    signal_sub = signals.add_subparsers(dest="signal_command", required=True)
+    for name, help_text in (
+        ("daily-setup", "Create next-session candidates from 1d features"),
+        ("scan", "Scan closed intraday features for approved candidates"),
+    ):
+        command = signal_sub.add_parser(name, help=help_text)
+        command.add_argument("--strategy", required=True)
+        command.add_argument("--version", type=int, default=1)
+        command.add_argument("--date", required=True)
+        command.add_argument("--symbols", nargs="+", required=True)
+        if name == "scan":
+            command.add_argument(
+                "--slot",
+                choices=["09:30", "11:30", "13:30", "14:30"],
+                required=True,
+            )
     return parser
 
 
@@ -372,6 +417,26 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in {"init", "sync-master-data"}:
             init_symbols()
             return 0
+        if args.command == "strategies" and args.strategy_command == "list":
+            _print_summary(
+                {"strategies": [
+                    {"strategy_code": item.strategy_code,
+                     "version": item.version,
+                     "config_hash": item.config_hash,
+                     "config": dict(item.config),
+                     "scan_timeframes": dict(item.scan_timeframes)}
+                    for item in list_strategies()
+                ]}
+            )
+            return 0
+        if args.command == "strategies":
+            # Validate the exact immutable rule before handing the explicit scope to
+            # the DB-backed operator integration. No ingest/feature command calls this.
+            get_strategy(args.strategy, args.version)
+            raise ValueError("database-backed strategy backtest/approval requires the Phase 1 migration and configured Supabase credentials")
+        if args.command == "signals":
+            get_strategy(args.strategy, args.version)
+            raise ValueError("database-backed signal execution requires the Phase 1 migration and configured Supabase credentials")
         if args.command == "daily":
             summary = daily_run(
                 args.date,
