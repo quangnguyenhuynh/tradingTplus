@@ -12,7 +12,9 @@ class Repo:
     def upsert_setup(self, record):
         key = tuple(record[k] for k in ("strategy_code", "strategy_version", "config_hash", "symbol", "setup_date", "target_session")); self.setups[key] = record; return record
     def upsert_signal(self, record):
-        key = tuple(record[k] for k in ("strategy_code", "strategy_version", "config_hash", "symbol", "setup_date", "scan_slot", "signal_time")); self.signals[key] = record; return record
+        key = tuple(record[k] for k in ("strategy_code", "strategy_version", "config_hash", "symbol", "signal_session")); self.signals[key] = record; return record
+    def signal_exists(self, code, version, config_hash, symbol, session):
+        return (code, version, config_hash, symbol, session) in self.signals
 
 
 def inputs():
@@ -31,5 +33,6 @@ def test_unapproved_rejected_and_reruns_idempotent():
         scan_candidate(repo, strategy, setup, intraday, "09:30", "2026-07-02T02:30:00Z")
     repo.status = "approved"
     scan_candidate(repo, strategy, setup, intraday, "09:30", "2026-07-02T02:30:00Z")
-    scan_candidate(repo, strategy, setup, intraday, "09:30", "2026-07-02T02:30:00Z")
+    _, later = scan_candidate(repo, strategy, setup, intraday, "11:30", "2026-07-02T04:30:00Z")
     assert len(repo.signals) == 1
+    assert later.status == "already_matched_this_session"

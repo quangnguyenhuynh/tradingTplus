@@ -28,6 +28,12 @@ def evaluate_confirmation(strategy, setup: dict, features_by_timeframe: dict, sc
 
 
 def scan_candidate(repository, strategy, setup: dict, features_by_timeframe: dict, scan_slot: str, decision_time: str, *, live: bool = True):
+    target_session = setup.get("target_session")
+    if live and repository.signal_exists(strategy.strategy_code, strategy.version,
+                                         strategy.config_hash, setup["symbol"], target_session):
+        from src.strategies.base import decision
+        return None, decision(passed=False, status="already_matched_this_session",
+                              reasons=["already_matched_this_session"], metrics={})
     result = evaluate_confirmation(strategy, setup, features_by_timeframe, scan_slot, decision_time)
     if not result.passed:
         return None, result
@@ -35,6 +41,7 @@ def scan_candidate(repository, strategy, setup: dict, features_by_timeframe: dic
         "strategy_code": strategy.strategy_code, "strategy_version": strategy.version,
         "config_hash": strategy.config_hash, "symbol": setup["symbol"],
         "setup_date": setup["setup_date"], "scan_slot": scan_slot,
+        "signal_session": target_session,
         "signal_time": decision_time, "decision": result.to_dict(),
     }
     return (write_live_signal(repository, strategy, record) if live else record), result

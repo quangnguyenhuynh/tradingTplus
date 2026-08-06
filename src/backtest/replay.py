@@ -26,6 +26,9 @@ def replay_strategy(strategy, sessions: list[dict], *, cost_rate: float = 0.0) -
             record = {**signal, **entry, "entry_session": entry_session["session"]}
             record.update(map_outcomes(entry_session.get("daily_outcomes", []), entry_session["session"], entry["entry_price"]))
             signals.append(record)
+            # The scan slots are ordered: the first passing decision is the only
+            # evidence retained for this strategy/symbol/entry session.
+            break
     return {"mode": "daily_intraday", "signals": signals, "metrics": calculate_metrics(signals, cost_rate), "status": "completed"}
 
 
