@@ -1,6 +1,9 @@
-# Signals
+# Signals - dormant fixed-rule research
 
-Daily setup creates candidates, not signals. The scanner uses closed feature candles at or before its cutoff; only an approved exact strategy version/config may be persisted live.
+Current code creates daily candidates and scans closed feature candles against
+an approved exact strategy version/config. This path is executable but
+superseded; it is not an approved production signal flow.
 
-### Operational Phase 1 CLI (2026-08-06)
-The database-backed commands are executable and remain separate from ingest/features. Dry-run is the default; `--write` is explicit. Production setup/signal writes require the exact approved strategy version/config. Historical sessions come from observed `stock_daily`; live setup requires an explicit target session. First-match uniqueness permits only one signal per strategy/config/symbol/session. Rule/evaluator changes require a new version and new evidence.
+Do not run its writes or extend it for the new Phase 1. Phase 1 historical
+analog returns analysis only and does not create signals. See the
+[active specification](../../docs/phase1/HISTORICAL_ANALOG_SPEC.md).

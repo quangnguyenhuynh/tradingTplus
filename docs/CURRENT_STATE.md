@@ -7,13 +7,13 @@ Tài liệu này mô tả trạng thái hiện tại của repository Trading T+
 Last reviewed against repository code:
 
 ```text
-29/07/2026
+06/08/2026
 ```
 
 Mốc repository dùng để đối chiếu:
 
 ```text
-dev sau PR #100 (base cleanup: 2f342b2)
+dev tại `51da9d4`, cộng branch tài liệu Phase 1 hiện tại
 ```
 
 Phạm vi đã đọc và đối chiếu gồm:
@@ -46,7 +46,8 @@ Cần phân biệt rõ:
 Project đang ở:
 
 ```text
-Phase 0 — Data Foundation and Validation
+Phase 0 — COMPLETE_WITH_NOTES
+Phase 1 — historical analog design accepted; implementation not started
 ```
 
 Thứ tự ưu tiên hiện tại:
@@ -56,11 +57,13 @@ Thứ tự ưu tiên hiện tại:
 3. Clean data chính xác.
 4. Completeness và consistency.
 5. Feature deterministic, rerun và backfill được.
-6. Signal.
-7. Backtest.
-8. Tối ưu chiến lược và AI.
+6. Historical analog cùng mã/cùng checkpoint.
+7. Validation phương pháp theo thời gian.
+8. Signal/ranking/%NAV và AI ở phase sau.
 
-Không có signal/backtest executable trong Phase 0; hai tầng này chờ thiết kế lại sau khi data/feature được kiểm chứng.
+Repo hiện có fixed-rule strategy/signal/backtest executable từ PR #121/#123,
+nhưng luồng này đã bị thay thế và đang đóng băng. Thiết kế Phase 1 được chấp nhận
+là historical analog cùng mã/cùng checkpoint; schema/pipeline/CLI mới chưa có.
 
 ---
 
@@ -85,7 +88,8 @@ Không có signal/backtest executable trong Phase 0; hai tầng này chờ thi�
 | Feature intraday | Implemented | Chỉ persist `15m`, `60m`; cả hai aggregate từ clean 1m trong memory. |
 | Incremental feature | Implemented | Target date, warm-up và scoped upsert. |
 | Full feature | Implemented, có rủi ro RAM | Toàn bộ history từng symbol vẫn được giữ trong memory. |
-| Signal/backtest | Removed/deferred | Legacy executable code and storage contracts were removed; redesign follows Phase 0 verification. |
+| Fixed-rule strategy/signal/backtest | Implemented, dormant/superseded | Code, CLI, schema, migrations và test còn tồn tại; không dùng production hoặc làm evidence cho hướng mới. |
+| Historical analog Phase 1 | Design accepted, not implemented | Cùng mã/cùng checkpoint; thiếu mẫu trả `insufficient_sample`. |
 | Streaming ingest | Implemented, live chưa kiểm chứng | Dry-run mặc định; raw/clean snapshot tách biệt. |
 | Test offline | Passing tại mốc review | GitHub Actions Python 3.11 pass cho merge commit trước task này. |
 | Alert scheduler | Not started | Chưa có production scheduler tại 09:30, 11:30, 13:30, 14:30. |
@@ -710,9 +714,15 @@ RSI/MACD độc lập. Vẫn còn cần kiểm chứng production/read-only đ�
 
 ## Signal and backtest status
 
-The legacy signal strategies, disabled signal entrypoint, bar-based MVP backtest, and their tests have been removed. There is currently no executable signal or backtest path and no active storage contract for these layers.
+The original pre-Phase-0 signal/backtest MVP was removed, but PR #121/#123 later
+added a new executable fixed-rule strategy/signal/backtest research path with
+CLI, six storage tables, migrations, and offline tests. That newer path remains
+in the repository but is dormant/superseded and is not production-approved.
 
-They remain deferred future phases. New contracts must be designed explicitly only after Phase 0 data and feature verification; feature execution does not trigger either layer.
+The accepted target is the same-symbol/same-checkpoint historical-analog method
+in [`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md). Its
+schema, pipeline, CLI, and runtime are not implemented. Feature execution does
+not trigger either the dormant fixed-rule path or future analog research.
 
 ---
 
@@ -997,7 +1007,8 @@ Phase 0 chỉ hoàn thành khi có evidence cho:
 - failure/monitoring/runbook rõ;
 - không lộ secret.
 
-Cho đến khi các điều kiện trên đạt, project vẫn ở Phase 0.
+Phase 0 đã được owner đóng `COMPLETE_WITH_NOTES`; các rủi ro còn lại tiếp tục
+được theo dõi theo báo cáo Phase 0 và không được che bằng dữ liệu giả.
 
 ---
 
@@ -1038,7 +1049,13 @@ payload backfill occurred. The owner also verified scoped SSI/raw/clean/feature
 samples without unexplained critical mismatch. The authoritative/versioned
 exchange calendar and exact retained sample identifiers remain documented
 risks, not reasons to fabricate evidence. Phase 0 is **COMPLETE_WITH_NOTES**;
-no Phase 1 implementation is present.
+the accepted historical-analog Phase 1 implementation is not present.
 
-### Operational Phase 1 CLI (2026-08-06)
-The database-backed commands are executable and remain separate from ingest/features. Dry-run is the default; `--write` is explicit. Production setup/signal writes require the exact approved strategy version/config. Historical sessions come from observed `stock_daily`; live setup requires an explicit target session. First-match uniqueness permits only one signal per strategy/config/symbol/session. Rule/evaluator changes require a new version and new evidence.
+### Dormant fixed-rule CLI and accepted Phase 1 direction (2026-08-06)
+
+`strategies` and `signals` commands are executable research artifacts, but their
+fixed-rule flow is superseded and must not be used as the production Phase 1
+path. The accepted target is documented in
+[`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md):
+same-symbol/same-checkpoint matching, H+1/H+3/H+5 distributions,
+chronological validation, and read-only analysis. Its CLI/schema do not exist.

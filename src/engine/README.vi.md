@@ -1,10 +1,14 @@
 # Utility engine legacy
 
-Package này hiện chỉ còn `data_quality.py`, một utility quality/recompute manual legacy. Phần tính feature deterministic thuộc [`src/features/`](../features/README.vi.md).
+Package này chứa `data_quality.py`, utility quality/recompute manual legacy.
+Feature deterministic thuộc [`src/features/`](../features/README.vi.md).
 
-Các strategy signal legacy, entrypoint signal đã tắt và backtest MVP đã bị xóa trong Phase 0 vì phụ thuộc hợp đồng feature cũ. Hiện không có đường chạy signal hoặc backtest. Hai tầng này sẽ có hợp đồng mới trong phase thiết kế riêng sau khi data và feature được kiểm chứng.
+Implementation fixed-rule strategy, signal và backtest nằm ở package riêng,
+không phải đã bị xóa. Chúng đang đóng băng/đã bị thay thế và không phải đường
+production Phase 1 được chấp nhận. Hướng mới nằm tại
+[`docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md`](../../docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md).
 
-Ingest không tự động tính feature, và feature không kích hoạt tầng research downstream nào.
+Ingest không tự tính feature và feature không tự kích hoạt research downstream.
 
 ```bash
 python -m pytest -q tests/features

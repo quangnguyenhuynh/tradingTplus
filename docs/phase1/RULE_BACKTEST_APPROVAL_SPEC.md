@@ -1,8 +1,12 @@
 # Rule Backtest Approval Spec
 
-Status: Proposed for Phase 1 implementation.
+> **Superseded:** This fixed-rule design is retained for audit only. New work
+> must follow [`HISTORICAL_ANALOG_SPEC.md`](HISTORICAL_ANALOG_SPEC.md). Do not
+> use this document to approve or operate a production strategy.
 
-Last reviewed against repository code: 2026-08-04.
+Status: Superseded fixed-rule reference; audit only.
+
+Last reviewed against repository code: 2026-08-06.
 
 ## Goal
 

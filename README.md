@@ -17,6 +17,7 @@ checks take priority over signals, backtests, profitability, or AI optimization.
 - Data conventions: [docs/DATA_CONVENTIONS.md](docs/DATA_CONVENTIONS.md)
 - CLI reference: [docs/CLI_USAGE.md](docs/CLI_USAGE.md)
 - Feature package: [src/features/README.md](src/features/README.md)
+- Phase 1 historical analog contract: [docs/phase1/HISTORICAL_ANALOG_SPEC.md](docs/phase1/HISTORICAL_ANALOG_SPEC.md)
 - Database contract: [schema.sql](schema.sql) and [migrations/](migrations/README.md)
 
 Code, schema, migrations, and tests are the source of truth when older documents
@@ -35,7 +36,7 @@ validation and completeness
     ↓
 features
     ↓
-future downstream research (not implemented)
+Phase 1 historical analog research (design accepted; not implemented)
 ```
 
 Non-negotiable rules:
@@ -151,9 +152,16 @@ explicitly scoped database operation. Source data does not require backfill.
 
 ## Project status
 
-The legacy signal and backtest MVP code has been removed. These layers will be
-redesigned in a later phase after data and feature contracts are verified; no
-executable signal or backtest path is currently provided.
+Phase 0 is closed as `COMPLETE_WITH_NOTES`. Phase 1 now has an accepted design:
+at each checkpoint, a symbol is compared only with its own historical states at
+the same checkpoint, then H+1/H+3/H+5 outcomes are summarized. Cross-symbol
+sample pooling is forbidden; inadequate evidence returns `insufficient_sample`.
+
+The repository still contains executable fixed-rule strategy/signal/backtest
+research code and its database contracts. That path is **dormant and
+superseded**, not production-approved and not evidence for the new method. The
+historical-analog schema, pipeline, and CLI are not implemented yet. See the
+[Phase 1 specification](docs/phase1/HISTORICAL_ANALOG_SPEC.md).
 
 ### Feature rebuild contract
 Feature daily reads paginate all matching `stock_daily` rows. `full` remains non-destructive upsert; `incremental` uses per-stream watermarks with five years of daily or 250 observed intraday-session warm-up; `replace` (`rebuild-clean`) computes and validates one exact symbol/timeframe/inclusive Vietnam-date range before one atomic RPC. Empty incremental output is a successful no-op. Deploy `migrations/20260802_atomic_replace_features.sql` before using replace.
@@ -166,4 +174,5 @@ persisted column for `1d`, `15m`, and `60m`; see the
 [Phase 0 validation report](docs/phase0/PHASE0_VALIDATION_REPORT.md). Phase 0 is
 **COMPLETE_WITH_NOTES**: the owner verified the manually applied production
 schema and scoped live lineage/reconciliation samples. Remaining calendar and
-evidence-retention risks are recorded in the report; Phase 1 is not implemented.
+evidence-retention risks are recorded in the report; the accepted Phase 1 design
+is not implemented.

@@ -1,6 +1,9 @@
-# Signal
+# Signal - fixed-rule research đang đóng băng
 
-Daily setup chỉ tạo candidate. Scanner chỉ đọc feature nến đã đóng tại hoặc trước cutoff; chỉ đúng strategy version/config đã approve mới được ghi signal thật.
+Code hiện tại tạo daily candidate và scan feature đã đóng theo exact strategy
+version/config được approve. Đường này chạy được nhưng đã bị thay thế; không phải
+signal production được chấp nhận.
 
-### CLI Phase 1 vận hành (2026-08-06)
-Các lệnh database-backed đã chạy được và tách khỏi ingest/features. Mặc định dry-run; ghi phải có `--write`. Setup/signal production yêu cầu đúng strategy version/config đã approve. Phiên lịch sử lấy từ `stock_daily` quan sát; setup live bắt buộc target session explicit. Unique first-match chỉ cho một signal mỗi strategy/config/symbol/phiên. Khi đổi rule/evaluator phải tăng version và tạo evidence mới.
+Không chạy write hoặc mở rộng luồng này cho Phase 1 mới. Historical analog Phase
+1 chỉ trả phân tích, chưa tạo signal. Xem
+[spec đang dùng](../../docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md).

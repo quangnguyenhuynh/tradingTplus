@@ -1,32 +1,49 @@
 # Tài liệu nghiên cứu Phase 1
 
-Phase 1 bắt đầu lớp nghiên cứu downstream sau khi dữ liệu và feature Phase 0
-được kiểm chứng. Các tài liệu trong thư mục này là hợp đồng thiết kế, chưa phải
-hành vi code đang chạy.
+Phase 1 là tầng historical analog và kiểm định phương pháp, nằm sau nền data và
+feature Phase 0.
 
-## Tài liệu
+## Hợp đồng đang dùng
 
-| File | Mục đích |
-| --- | --- |
-| `RULE_BACKTEST_APPROVAL_SPEC.vi.md` | Spec tối thiểu cho việc thiết kế rule T+ hai bước, backtest lại và approve rule/version trước khi chạy signal thật. |
-| `RULE_BACKTEST_APPROVAL_SPEC.md` | Bản English của hợp đồng rule/backtest/approval. |
-| `CODEX_TASK_RULE_BACKTEST_APPROVAL.vi.md` | Task tự đầy đủ để giao Codex triển khai framework rule/backtest approval. |
-| `CODEX_TASK_RULE_BACKTEST_APPROVAL.md` | Bản English của task Codex. |
+| File | Trạng thái | Mục đích |
+| --- | --- | --- |
+| [`HISTORICAL_ANALOG_SPEC.vi.md`](HISTORICAL_ANALOG_SPEC.vi.md) | Đã chốt thiết kế; chưa code | Matching cùng mã/cùng checkpoint, outcome H+, validation và runtime. |
+| [`HISTORICAL_ANALOG_SPEC.md`](HISTORICAL_ANALOG_SPEC.md) | Đã chốt thiết kế; chưa code | Bản English. |
 
-## Phạm vi
-
-Rule Phase 1 phải nằm sau pipeline `features` hiện có:
+Nguyên tắc lõi: SSI chỉ dùng mẫu SSI lịch sử ở cùng checkpoint. Group chỉ là
+nhãn của trạng thái feature tương tự, không phải pool nhiều mã. Thiếu mẫu cùng mã
+thì trả `insufficient_sample`.
 
 ```text
-features
-  -> replay rule hai bước
-  -> bằng chứng backtest
-  -> approve strategy
-  -> scan signal thật bằng rule approved
+snapshot feature an toàn thời điểm của một mã
+  -> historical match cùng mã / cùng checkpoint
+  -> phân phối outcome H+1 / H+3 / H+5
+  -> validation theo thời gian
+  -> phân tích hiện tại chỉ-đọc
 ```
 
-Ingest, validation, clean market data và feature computation vẫn tách riêng.
-Không khôi phục bảng hoặc code legacy signal/backtest đã bị retire.
+Phase 1 tạo phân tích nghiên cứu, chưa tạo signal mua/bán, alert, ranking hoặc
+gợi ý %NAV.
 
-### CLI Phase 1 vận hành (2026-08-06)
-Các lệnh database-backed đã chạy được và tách khỏi ingest/features. Mặc định dry-run; ghi phải có `--write`. Setup/signal production yêu cầu đúng strategy version/config đã approve. Phiên lịch sử lấy từ `stock_daily` quan sát; setup live bắt buộc target session explicit. Unique first-match chỉ cho một signal mỗi strategy/config/symbol/phiên. Khi đổi rule/evaluator phải tăng version và tạo evidence mới.
+## Tài liệu đã bị thay thế
+
+| File | Trạng thái |
+| --- | --- |
+| `RULE_BACKTEST_APPROVAL_SPEC.md` / `.vi.md` | Thiết kế fixed-rule cũ; chỉ giữ audit. |
+| `CODEX_TASK_RULE_BACKTEST_APPROVAL.md` / `.vi.md` | Task lịch sử đã chạy; không dùng cho task mới. |
+
+Repo vẫn có code strategy/rule, signal, backtest, CLI, schema, migration và test
+cũ chạy được. Chúng **đã triển khai nhưng đang đóng băng**. Không chạy write
+path, không approve production và không dùng metrics của chúng làm evidence cho
+hợp đồng mới. Chỉ giữ để audit hoặc tái sử dụng có chủ đích cho đến khi có task
+cleanup riêng được duyệt.
+
+## Ranh giới
+
+- Ingest, validation, feature, analog research, signal và alert delivery tiếp tục
+  tách biệt.
+- Không command Phase 1 nào tự gọi ingest hoặc feature.
+- Tên bảng/CLI historical analog trong active spec mới là đề xuất, chưa phải hành
+  vi code hiện tại.
+- Task triển khai sau phải bắt đầu từ active spec và có migration, scope backfill,
+  leakage test và evidence OOS theo thời gian.

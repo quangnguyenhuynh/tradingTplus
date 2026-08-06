@@ -8,7 +8,10 @@ Act as a careful tech lead and data engineer. Protect data correctness, preserve
 
 Trading T+ analyzes Vietnamese stocks for a holding horizon of approximately T+3 to T+5 trading sessions. Long-term outputs may include explainable signals, confidence estimates, NAV suggestions, backtests, and alerts around 09:30, 11:30, 13:30, and 14:30.
 
-The project is currently in Phase 0: data infrastructure and data validation.
+Phase 0 data infrastructure and validation is closed as
+`COMPLETE_WITH_NOTES`. The accepted Phase 1 design is same-symbol,
+same-checkpoint historical analog research; it is not implemented yet. Existing
+fixed-rule strategy/signal/backtest code is dormant and superseded.
 
 Priority order:
 
@@ -17,10 +20,11 @@ Priority order:
 3. Correct clean data
 4. Completeness and consistency validation
 5. Reproducible features
-6. Signals
-7. Backtesting
-8. Strategy optimization
-9. AI-assisted prediction/ranking
+6. Time-safe same-symbol historical analog snapshots and outcomes
+7. Chronological method validation and calibrated probabilities
+8. Signals, ranking, and alerts
+9. Portfolio construction and NAV sizing
+10. AI-assisted prediction/ranking
 
 Do not skip earlier stages. Do not optimize profit, win rate, signal weights, or AI models while data remains unverified. Existing signal/backtest code is research/MVP code unless the user explicitly declares it validated.
 
@@ -156,7 +160,8 @@ Derived layers
 
 features contains deterministic values by symbol, timeframe, and time.
 
-Signals and backtest data are downstream research layers. They must never repair or overwrite source data.
+Historical analog, signal, and backtest data are downstream research layers.
+They must never repair or overwrite source data.
 
 Pipeline contracts
 
@@ -298,6 +303,25 @@ When changing a feature, report:
 
 Do not add a feature merely because it is common in technical analysis. It needs a defined source, formula, purpose, and validation method.
 
+Phase 1 historical analog guardrails
+
+The active Phase 1 contract is
+`docs/phase1/HISTORICAL_ANALOG_SPEC.md` and its Vietnamese counterpart.
+
+* Compare a symbol only with its own eligible history at the same checkpoint.
+* Never pool other symbols to increase a same-symbol sample.
+* Treat `group` as a label for similar feature states, not a stock universe.
+* Return `insufficient_sample` instead of silently widening a match.
+* Use only prior completed daily features and intraday candles closed by the
+  checkpoint.
+* Validate the versioned method chronologically and compare it with a
+  same-symbol, same-checkpoint baseline.
+* Phase 1 output is analysis only; signal, alert, ranking, and NAV are later
+  layers.
+* Existing fixed-rule CLI/code/schema/tests are implemented but dormant. Do not
+  run their writes, approve them for production, or use their metrics as
+  historical-analog evidence.
+
 Signal and backtest guardrails
 
 Signals/backtests are downstream of validated features. Do not tune strategy parameters during ingest or validation tasks.
@@ -310,7 +334,7 @@ When signal work is explicitly requested:
 * do not silently combine contradictory signals;
 * do not promise profitability.
 
-When backtest work is explicitly requested:
+When historical-analog validation or backtest work is explicitly requested:
 
 * use trading sessions, not calendar days, for T+1/T+3/T+5;
 * prevent look-ahead leakage;
@@ -319,7 +343,9 @@ When backtest work is explicitly requested:
 * make fees/slippage explicit;
 * state overlapping-position assumptions;
 * report sample size, return distribution, win rate, drawdown, and bias;
-* record strategy/config version where practical.
+* record method/profile/config and data identity;
+* enforce same-symbol/same-checkpoint evidence unless a separately approved
+  cross-symbol method is explicitly in scope.
 
 Backtest results are research evidence, not proof of future profit.
 
@@ -488,7 +514,7 @@ Do not:
 * refactor unrelated code;
 * write production data during debug-only work;
 * declare completion before tests;
-* optimize strategy while Phase 0 validation is incomplete.
+* optimize a method or strategy before its data and leakage evidence is ready.
 
 Definition of done
 

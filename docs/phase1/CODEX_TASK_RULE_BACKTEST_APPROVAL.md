@@ -1,5 +1,8 @@
 # Codex Task: Implement Rule Backtest Approval Framework
 
+> **Historical task - do not rerun.** The architecture it implements has been
+> superseded by [`HISTORICAL_ANALOG_SPEC.md`](HISTORICAL_ANALOG_SPEC.md).
+
 Repository: `quangnguyenhuynh/tradingTplus`
 
 Base branch: `dev`

@@ -1,8 +1,12 @@
 # Spec thiết kế rule, backtest và approve rule
 
-Trạng thái: Đề xuất để triển khai Phase 1.
+> **Đã bị thay thế:** Thiết kế fixed-rule này chỉ giữ để audit. Task mới phải
+> theo [`HISTORICAL_ANALOG_SPEC.vi.md`](HISTORICAL_ANALOG_SPEC.vi.md). Không
+> dùng tài liệu này để approve hoặc vận hành strategy production.
 
-Ngày rà theo code repo: 2026-08-04.
+Trạng thái: Tài liệu fixed-rule đã bị thay thế; chỉ giữ để audit.
+
+Ngày rà theo code repo: 2026-08-06.
 
 ## Mục tiêu
 
@@ -38,8 +42,10 @@ khảo, nhưng daily-only không đủ để approve rule dùng cho signal intra
 - Feature `15m` và `60m` aggregate từ `stock_intraday` 1m trong feature
   pipeline.
 - `stock_intraday` chỉ lưu nến clean `1m`.
-- Bảng/code signal và backtest legacy đã bị xoá bằng
+- Bảng/code signal và backtest legacy cũ đã bị xoá bằng
   `migrations/20260731_drop_legacy_signal_backtest.sql`.
+- PR #121/#123 sau đó thêm lại framework fixed-rule mới. Framework này đang
+  đóng băng/đã bị thay thế, không phải contract active của Phase 1.
 - Không tạo lại `trading_signals` hoặc `backtest_data` làm contract active.
 
 ## Vòng đời rule
