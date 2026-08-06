@@ -53,6 +53,7 @@ from src.pipeline import (
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
 from src.strategies.registry import get_strategy, list_strategies
+from src.phase1_cli import run_approve, run_backtest, run_daily_setup, run_scan
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -346,6 +347,11 @@ def build_parser() -> argparse.ArgumentParser:
     strategy_backtest.add_argument("--from", dest="from_date", required=True)
     strategy_backtest.add_argument("--to", dest="to_date", required=True)
     strategy_backtest.add_argument("--symbols", nargs="+", required=True)
+    strategy_backtest.add_argument("--write", action="store_true")
+    strategy_backtest.add_argument("--output-dir")
+    strategy_backtest.add_argument("--commission", type=float, default=0.0)
+    strategy_backtest.add_argument("--sell-tax", type=float, default=0.0)
+    strategy_backtest.add_argument("--slippage", type=float, default=0.0)
     strategy_approve = strategy_sub.add_parser(
         "approve", help="Record an owner review for exact backtest evidence"
     )
@@ -369,6 +375,9 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--version", type=int, default=1)
         command.add_argument("--date", required=True)
         command.add_argument("--symbols", nargs="+", required=True)
+        command.add_argument("--write", action="store_true")
+        if name == "daily-setup":
+            command.add_argument("--target-session", required=True)
         if name == "scan":
             command.add_argument(
                 "--slot",
@@ -430,13 +439,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "strategies":
-            # Validate the exact immutable rule before handing the explicit scope to
-            # the DB-backed operator integration. No ingest/feature command calls this.
-            get_strategy(args.strategy, args.version)
-            raise ValueError("database-backed strategy backtest/approval requires the Phase 1 migration and configured Supabase credentials")
+            strategy = get_strategy(args.strategy, args.version)
+            if args.strategy_command == "backtest":
+                summary = run_backtest(strategy, args.from_date, args.to_date, args.symbols,
+                    write=args.write, output_dir=args.output_dir, commission=args.commission,
+                    sell_tax=args.sell_tax, slippage=args.slippage)
+            else:
+                summary = run_approve(strategy, args.backtest_run, args.decision, args.owner, args.notes)
+            _print_summary(summary); return 0
         if args.command == "signals":
-            get_strategy(args.strategy, args.version)
-            raise ValueError("database-backed signal execution requires the Phase 1 migration and configured Supabase credentials")
+            strategy = get_strategy(args.strategy, args.version)
+            summary = (run_daily_setup(strategy, args.date, args.target_session, args.symbols, write=args.write)
+                       if args.signal_command == "daily-setup" else
+                       run_scan(strategy, args.date, args.slot, args.symbols, write=args.write))
+            _print_summary(summary); return 0
         if args.command == "daily":
             summary = daily_run(
                 args.date,

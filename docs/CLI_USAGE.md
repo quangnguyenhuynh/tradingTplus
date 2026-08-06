@@ -255,3 +255,15 @@ python main.py features-intraday --mode replace --from 01/07/2026 --to 31/07/202
 ```
 
 `--from` and `--to` are inclusive Vietnam dates. They become `[start_utc, next-day-after-to_utc)` at the database boundary. Replace accepts one non-wildcard symbol and one persisted timeframe only. Daily source reads paginate by trading date and use five years of warm-up. Intraday uses 250 observed source sessions, not calendar days or bars. Incremental cannot discover old source corrections without version metadata; use scoped replace.
+
+## Phase 1 explicit strategy flow
+Prerequisites: configure `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, then apply `20260804_create_strategy_signal_backtest.sql` followed by `20260806_enforce_phase1_first_match.sql`. Dates are `DD/MM/YYYY`. Backtest, daily setup, and scan are read-only JSON dry-runs unless `--write` is supplied; approval is always an audited write and requires owner and non-empty notes.
+
+```bash
+python main.py strategies list
+python main.py strategies backtest --strategy BREAKOUT_V1 --version 1 --from 01/01/2024 --to 31/12/2025 --symbols SSI HPG
+python main.py strategies approve --strategy BREAKOUT_V1 --version 1 --backtest-run UUID --decision approve --owner Quang --notes "Reviewed all horizons"
+python main.py signals daily-setup --strategy BREAKOUT_V1 --version 1 --date 04/08/2026 --target-session 05/08/2026 --symbols SSI HPG --write
+python main.py signals scan --strategy BREAKOUT_V1 --version 1 --date 05/08/2026 --slot 09:30 --symbols SSI HPG --write
+```
+Backtests use the provisional `observed_stock_daily_v1` session axis; no holiday calendar is inferred. `--output-dir DIR` writes deterministic `summary.json`, `signals.csv`, and `review.md`. JSON includes status, dry-run, exact scope/run identity, metrics, and signal count. Exit codes are 0 success, 1 failed execution, and 2 invalid arguments. Verify writes with exact strategy/version/config/date filters in the six Phase 1 tables. No market-data or feature backfill is required.

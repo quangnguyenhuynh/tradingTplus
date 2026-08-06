@@ -30,3 +30,6 @@ Supabase client và các helper persistence của repository.
 ## Test
 
 Unit test nên mock Supabase client. Smoke test live mặc định read-only và chạy qua các script như `scripts/check_supabase.py` và `scripts/check_ssi_ingest_schema.py`.
+
+## Adapter Phase 1
+`phase1.py` là boundary repository singular explicit cho strategy, setup, signal first-match, backtest run/signal, review và đọc feature/clean data có phân trang. Adapter không ghi raw, clean hay feature.

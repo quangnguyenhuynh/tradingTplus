@@ -30,3 +30,6 @@ Supabase client and repository persistence helpers.
 ## Testing
 
 Use mocked Supabase clients for unit tests. Live smoke checks should be read-only by default and run through scripts such as `scripts/check_supabase.py` and `scripts/check_ssi_ingest_schema.py`.
+
+## Phase 1 adapter
+`phase1.py` is the explicit singular repository boundary for strategies, setups, first-match signals, backtest runs/signals, reviews, and paginated read-only feature/clean-data loading. It never writes raw, clean, or feature tables.
