@@ -45,4 +45,13 @@ Không chạy SQL destructive diện rộng khi chưa có phạm vi table/date/s
 ## Storage signal/backtest đã retire
 
 `20260731_drop_legacy_signal_backtest.sql` là migration cleanup đã được phê duyệt rõ ràng. Migration chỉ destructive với hai bảng legacy đã retire; export row trước deployment nếu cần lưu audit. Raw, clean và feature data không bị ảnh hưởng, và không cần backfill.
-* `20260806_enforce_phase1_first_match.sql` backfill ngày phiên theo giờ Việt Nam, chặn khi có evidence trùng và thêm unique index first-match cho live/backtest. Chạy sau `20260804_create_strategy_signal_backtest.sql`; xem SQL kiểm tra và rollback trong file.
+## Storage fixed-rule Phase 1 đang đóng băng
+
+`20260804_create_strategy_signal_backtest.sql` và
+`20260806_enforce_phase1_first_match.sql` phục vụ đường fixed-rule research đang
+chạy được. Kiến trúc này đã bị thay thế/đang đóng băng. Không apply hai migration
+chỉ để mở production Phase 1 mới và không repurpose sáu bảng cũ cho historical
+analog. Migration đã chạy trên production hay chưa vẫn phải kiểm tra độc lập.
+
+Thiết kế historical analog đã chốt hiện chưa có migration. Task triển khai sau
+phải tạo migration được review riêng và scope historical build/backfill rõ ràng.

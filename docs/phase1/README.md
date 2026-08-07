@@ -1,31 +1,49 @@
 # Phase 1 Research Docs
 
-Phase 1 starts the new downstream research layer after Phase 0 data and feature
-verification. These documents are design contracts, not executable behavior.
+Phase 1 is the historical-analog research and method-validation layer after the
+Phase 0 data/feature foundation.
 
-## Documents
+## Active contract
 
-| File | Purpose |
-| --- | --- |
-| `RULE_BACKTEST_APPROVAL_SPEC.md` | Minimal contract for designing a two-step T+ rule, replaying it in backtests, and approving a rule version before live signal scans. |
-| `RULE_BACKTEST_APPROVAL_SPEC.vi.md` | Vietnamese version of the rule/backtest/approval contract. |
-| `CODEX_TASK_RULE_BACKTEST_APPROVAL.md` | Self-contained Codex task for implementing the rule/backtest approval framework. |
-| `CODEX_TASK_RULE_BACKTEST_APPROVAL.vi.md` | Vietnamese version of the Codex task. |
+| File | Status | Purpose |
+| --- | --- | --- |
+| [`HISTORICAL_ANALOG_SPEC.md`](HISTORICAL_ANALOG_SPEC.md) | Accepted design; not implemented | Same-symbol/same-checkpoint matching, H+ outcomes, validation, and runtime contract. |
+| [`HISTORICAL_ANALOG_SPEC.vi.md`](HISTORICAL_ANALOG_SPEC.vi.md) | Accepted design; not implemented | Vietnamese version. |
 
-## Scope
-
-Phase 1 rule work must stay downstream of the existing `features` pipeline:
+The core rule is strict: SSI uses only historical SSI samples at the same
+checkpoint. A group labels similar feature states; it never pools multiple
+stocks. An inadequate same-symbol sample returns `insufficient_sample`.
 
 ```text
-features
-  -> two-step rule replay
-  -> backtest evidence
-  -> strategy approval
-  -> approved-rule live signal scan
+time-safe feature snapshot for one symbol
+  -> same-symbol / same-checkpoint historical matches
+  -> H+1 / H+3 / H+5 outcome distribution
+  -> chronological validation
+  -> read-only current analysis
 ```
 
-Ingest, validation, clean market data, and feature computation remain separate.
-Do not restore the retired legacy signal/backtest tables or code.
+Phase 1 produces research analysis, not a buy/sell signal, alert, ranking, or
+%NAV recommendation.
 
-### Operational Phase 1 CLI (2026-08-06)
-The database-backed commands are executable and remain separate from ingest/features. Dry-run is the default; `--write` is explicit. Production setup/signal writes require the exact approved strategy version/config. Historical sessions come from observed `stock_daily`; live setup requires an explicit target session. First-match uniqueness permits only one signal per strategy/config/symbol/session. Rule/evaluator changes require a new version and new evidence.
+## Superseded references
+
+| File | Status |
+| --- | --- |
+| `RULE_BACKTEST_APPROVAL_SPEC.md` / `.vi.md` | Superseded fixed-rule design; audit only. |
+| `CODEX_TASK_RULE_BACKTEST_APPROVAL.md` / `.vi.md` | Already-executed historical task; do not use for new work. |
+
+The repository still contains executable fixed-rule strategy, signal, backtest,
+CLI, schema, migration, and test artifacts. They are **implemented but dormant**.
+Do not run their write paths, approve them for production, or use their metrics
+as evidence for the active contract. They remain only for audit and deliberate
+reuse until a separately approved cleanup task.
+
+## Boundaries
+
+- Ingest, validation, features, analog research, signal, and alert delivery stay
+  separate.
+- No Phase 1 command may invoke ingest or feature computation automatically.
+- Historical-analog tables and CLI names in the active spec are proposals, not
+  current executable behavior.
+- Future implementation must start from the active spec and include migrations,
+  backfill scope, leakage tests, and chronological out-of-sample evidence.

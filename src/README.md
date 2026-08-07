@@ -18,7 +18,10 @@ Python package containing SSI integration, persistence, validation, pipelines, a
 | [`validation/`](validation/README.md) | Raw/clean record validation. |
 | [`pipeline/`](pipeline/README.md) | Production orchestration and ingest flows. |
 | [`features/`](features/README.md) | Daily/intraday feature calculation and explicit execution. |
-| [`engine/`](engine/README.md) | Legacy manual data-quality utility; no signal/backtest implementation. |
+| [`engine/`](engine/README.md) | Legacy manual data-quality utility. |
+| [`strategies/`](strategies/README.md) | Dormant fixed-rule research implementation. |
+| [`signals/`](signals/README.md) | Dormant daily-setup/intraday-scan research implementation. |
+| [`backtest/`](backtest/README.md) | Dormant fixed-rule replay/outcome research implementation. |
 | [`utils/`](utils/README.md) | Shared timezone-aware Vietnam market-time helpers. |
 
 ## Dependency direction
@@ -28,7 +31,11 @@ SSI clients → pipelines → validation/database
 clean database data → explicit feature pipelines
 ```
 
-Ingest must not call feature computation automatically. Feature execution has no automatic signal/backtest stage; those legacy implementations were removed pending a later redesign.
+Ingest must not call feature computation automatically. Feature execution does
+not automatically invoke any downstream research stage. Fixed-rule
+strategy/signal/backtest code still exists but is dormant and superseded by the
+accepted [same-symbol historical-analog design](../docs/phase1/HISTORICAL_ANALOG_SPEC.md),
+which is not implemented yet.
 
 ## Data contracts
 

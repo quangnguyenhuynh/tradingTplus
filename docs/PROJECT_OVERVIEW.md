@@ -17,10 +17,11 @@ Mục tiêu dài hạn của Trading T+ là:
 - Phân tích cổ phiếu Việt Nam cho giao dịch T+3 đến T+5 phiên.
 - Đánh giá xu hướng, động lượng, thanh khoản và bối cảnh thị trường.
 - Kết hợp daily context với intraday confirmation.
-- Tạo signal có lý do rõ ràng.
-- Ước tính confidence hoặc xác suất của signal.
+- Phân tích trạng thái hiện tại bằng historical analog cùng mã/cùng checkpoint.
+- Ước tính xác suất, return và risk H+1/H+3/H+5 kèm sample/confidence.
+- Sau khi phương pháp được kiểm định, mới xây signal có lý do rõ ràng.
 - Gợi ý phạm vi phần trăm NAV phù hợp với mức rủi ro.
-- Backtest signal trên dữ liệu lịch sử.
+- Validation/backtest phương pháp trên dữ liệu ngoài mẫu theo thời gian.
 - Cảnh báo tại các thời điểm chọn trước như:
   - `09:30`;
   - `11:30`;
@@ -74,9 +75,9 @@ Validation và completeness
     ↓
 Features
     ↓
-Signals
+Historical analog cùng mã + validation
     ↓
-Backtest
+Signals/ranking/%NAV trong phase sau
     ↓
 Alerts
 ```
@@ -231,7 +232,7 @@ python main.py features \
   --mode incremental \
   --date DD/MM/YYYY \
   --symbols SSI HPG \
-  --timeframes 1m 5m 15m 60m 1d
+  --timeframes 15m 60m 1d
 ```
 
 Feature pipeline hỗ trợ:
@@ -249,8 +250,6 @@ Nguồn feature:
 | Timeframe | Nguồn |
 |---|---|
 | `1d` | `stock_daily` |
-| `1m` | `stock_intraday` |
-| `5m` | aggregate từ `stock_intraday` 1m |
 | `15m` | aggregate từ `stock_intraday` 1m |
 | `60m` | aggregate từ `stock_intraday` 1m |
 
@@ -322,29 +321,30 @@ Command này hiện:
 
 ---
 
-## 8. Signal, backtest và alert
+## 8. Historical analog, signal, backtest và alert
 
-Đây là mục tiêu của các phase sau.
-
-Flow tương lai dự kiến (chưa triển khai):
+Phase 1 active hiện là historical analog cùng mã/cùng checkpoint:
 
 ```text
 validated data
     ↓
 features
     ↓
-explicit signal job
+time-safe same-symbol snapshot
     ↓
-explicit backtest job
+same-symbol / same-checkpoint historical matches
     ↓
-strategy review
+H+1 / H+3 / H+5 outcome distribution
     ↓
-alert
+chronological validation
 ```
 
-Signal/backtest legacy đã bị xóa. Hiện không có command hoặc callable path cho
-hai tầng này; chúng không tự động chạy sau ingest hoặc feature và sẽ được thiết
-kế lại trong phase riêng.
+Historical analog chưa có schema, pipeline hoặc CLI active. Signal, alert,
+ranking và %NAV là các lớp sau khi historical-analog method được kiểm định.
+
+Repo vẫn có fixed-rule strategy/signal/backtest executable từ PR #121/#123.
+Chúng đang đóng băng/đã bị thay thế, không tự động chạy sau ingest hoặc feature,
+và không phải đường production Phase 1.
 
 ---
 
@@ -507,7 +507,9 @@ Các nhóm feature hiện có:
 - candle structure.
 
 `src/engine/` không còn sở hữu feature. Hai shim feature cũ đã bị xóa;
-folder này chỉ giữ utility data-quality manual legacy; signal/backtest executable đã bị xóa để chờ phase thiết kế mới.
+folder này chỉ giữ utility data-quality manual legacy. Fixed-rule strategy,
+signal và backtest executable nằm ở package riêng, đang đóng băng/đã bị thay
+thế và không phải đường production Phase 1.
 
 ---
 
@@ -559,7 +561,8 @@ Test bao phủ các nhóm như:
 - intraday validator;
 - database behavior;
 - intraday value;
-- chưa có test signal/backtest vì implementation legacy đã bị xóa.
+- test signal/backtest hiện có chỉ bao phủ fixed-rule research đang đóng băng;
+  chưa có test historical-analog cùng mã/cùng checkpoint.
 
 Không báo task hoàn thành nếu chưa chạy test phù hợp.
 
@@ -820,7 +823,7 @@ Dữ liệu đúng quan trọng hơn signal đẹp hoặc backtest có lợi nhu
 
 ### Explainable before complex
 
-Ưu tiên rule và feature dễ kiểm tra trước AI hoặc mô hình phức tạp.
+Ưu tiên profile matching và feature dễ kiểm tra trước AI hoặc mô hình phức tạp.
 
 ### Few alerts, not spam
 
@@ -839,8 +842,8 @@ Mỗi kết quả phải có thể tái tạo từ:
 - source data;
 - mapper;
 - feature version;
-- signal rule;
-- backtest configuration.
+- matching profile/version;
+- outcome và validation configuration.
 
 ### Safe operations
 
@@ -866,7 +869,8 @@ Project được xem là đi đúng hướng khi:
 - Feature đúng nghĩa theo timeframe.
 - Không dùng dữ liệu tương lai.
 - Có test cho các contract quan trọng.
-- Signal và backtest chỉ dùng dữ liệu đã được xác nhận.
+- Historical analog và các tầng downstream chỉ dùng dữ liệu đã được xác nhận.
+- Mỗi mã chỉ lấy outcome lịch sử của chính mã đó; thiếu mẫu phải báo rõ.
 - Alert tương lai ít, rõ ràng và giải thích được.
 
 ---
@@ -880,6 +884,7 @@ Project được xem là đi đúng hướng khi:
 - [Database migrations](../migrations/README.md)
 - [Schema snapshot](../schema.sql)
 - [README](../README.md)
+- [Phase 1 Historical Analog Spec](phase1/HISTORICAL_ANALOG_SPEC.vi.md)
 ---
 
 ## CLI reference

@@ -48,4 +48,15 @@ Never run broad destructive SQL without exact table/date/symbol scope, a verifie
 
 ## 20260802_atomic_replace_features.sql
 Creates the service-role-only `public.replace_features_atomic(text,text,timestamptz,timestamptz,jsonb)` RPC. It validates an exact symbol, persisted timeframe, half-open UTC range, and non-empty in-scope unique replacement rows before deleting and inserting in one transaction. Applying the migration changes no feature rows. Deploy it before the application code that enables replace. Verification and rollback SQL are included in the migration; rollback drops only the function and does not restore/alter feature rows.
-* `20260806_enforce_phase1_first_match.sql` backfills the Vietnam-market signal session, blocks on duplicate evidence, and adds live/backtest first-match unique indexes. Apply after `20260804_create_strategy_signal_backtest.sql`; see its verification and rollback comments.
+## Dormant fixed-rule Phase 1 storage
+
+`20260804_create_strategy_signal_backtest.sql` and
+`20260806_enforce_phase1_first_match.sql` support the executable fixed-rule
+research path. That architecture is now dormant/superseded. Do not apply these
+migrations solely to enable a new production Phase 1 flow, and do not repurpose
+their six tables for historical analog. Whether they were applied in production
+must still be verified independently.
+
+The accepted historical-analog design has no migration yet. A future
+implementation must add a separately reviewed migration and explicit historical
+build/backfill scope.

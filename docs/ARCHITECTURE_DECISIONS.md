@@ -80,9 +80,10 @@ Các trạng thái được sử dụng:
 | ADR-020 | Foreign trading được derive từ `DailyStockPrice` | Implemented |
 | ADR-021 | Order book không được giả định có public REST endpoint | Implemented |
 | ADR-022 | Signal và backtest không tự chạy sau ingest hoặc feature | Implemented |
-| ADR-023 | Signal/backtest MVP legacy (đã xóa) | Superseded |
+| ADR-023 | Fixed-rule strategy/signal/backtest hiện có | Superseded, dormant |
 | ADR-024 | Daily context là nền chính cho quyết định T+3/T+5 | Accepted |
 | ADR-025 | Alert tương lai phải ít, có lý do và không spam | Accepted |
+| ADR-026 | Phase 1 dùng historical analog cùng mã/cùng checkpoint | Accepted, not implemented |
 
 ---
 
@@ -967,29 +968,36 @@ trừ khi một explicit orchestration task yêu cầu.
 
 ---
 
-## ADR-023 — Signal và backtest MVP legacy (đã xóa)
+## ADR-023 — Fixed-rule strategy/signal/backtest hiện có đã bị thay thế
 
 ### Status
 
-`Superseded`
+`Superseded, dormant`
 
 ### Context
 
-Signal engine legacy đã dùng feature schema cũ trước khi bị xóa ngày 31/07/2026.
+Signal/backtest MVP ban đầu dùng feature schema cũ và `holding_bars` đã bị xóa
+ngày 31/07/2026. Sau đó PR #121/#123 thêm lại một framework fixed-rule mới gồm
+`BREAKOUT_V1`, `PULLBACK_V1`, setup/scan, session outcome, approval, CLI, sáu
+bảng và test offline.
 
-Backtest legacy đã dùng `holding_bars`, không phải T+3/T+5 trading sessions, và hiện đã bị xóa.
+Framework mới đó trả lời câu hỏi hiệu quả của một strategy cố định, không phải
+câu hỏi historical analog cùng mã đã chốt trong ADR-026.
 
 ### Decision
 
-Không còn signal/backtest executable hoặc active storage contract; thiết kế mới được deferred tới sau Phase 0.
+Giữ framework fixed-rule hiện có ở trạng thái dormant để audit/tái sử dụng có
+chủ đích. Không chạy write path, không approve production, không mở rộng làm lõi
+Phase 1 và không dùng metrics của nó làm evidence cho ADR-026. Không xóa
+code/schema/data trong task tài liệu; cleanup cần task riêng.
 
 ### Consequences
 
-- Không dùng kết quả hiện tại để quảng bá lợi nhuận.
-- Không tối ưu strategy trên code MVP.
-- Cần redesign signal contract sau Phase 0.
-- Cần T+ session-based backtest riêng.
-- Không có kết quả runtime hiện tại vì executable legacy đã bị xóa.
+- Không dùng kết quả hiện tại để quảng bá lợi nhuận hoặc xác suất Phase 1 mới.
+- CLI/schema/test fixed-rule vẫn tồn tại nên tài liệu phải mô tả đúng, nhưng
+  không hướng dẫn như production.
+- Signal/alert/%NAV được deferred tới sau khi historical analog được kiểm định.
+- Cleanup code hoặc bảng cũ phải là task riêng, có data-impact review.
 
 ---
 
@@ -1848,3 +1856,50 @@ Implemented in code and migration; production deployment of the 2026-08-02 migra
 
 ### Decision
 `full` is a non-destructive upsert. `replace`/`rebuild-clean` accepts one exact symbol, one persisted timeframe, and inclusive Vietnam dates, computes and validates all replacement rows before mutation, and calls `public.replace_features_atomic` once with a half-open UTC range. The service-role-only function validates again, deletes only that range, inserts all rows in the same transaction, and never falls back to application delete/upsert.
+
+## ADR-026 — Phase 1 historical analog chỉ dùng lịch sử cùng mã
+
+### Status
+
+`Accepted, not implemented`
+
+### Context
+
+Luồng fixed-rule trả lời “strategy này có hiệu quả không”, trong khi câu hỏi sản
+phẩm cần trả lời là “chính SSI đã diễn biến thế nào sau các trạng thái SSI lịch
+sử tương tự trạng thái hiện tại”. Pool nhiều mã làm tăng sample nhưng thay đổi ý
+nghĩa của kết quả và có thể che giấu việc một mã không đủ evidence.
+
+### Decision
+
+- Tại 09:30, 11:30, 13:30 và 14:30, một mã chỉ match lịch sử của chính mã đó ở
+  cùng checkpoint.
+- `group` chỉ là nhãn bucket feature tương tự, không phải group cổ phiếu.
+- Không được mượn outcome mã khác; thiếu mẫu trả `insufficient_sample`.
+- Daily feature dùng phiên hoàn tất trước đó; intraday chỉ dùng nến đã đóng và
+  sẵn sàng tại checkpoint.
+- Đối tượng validation/approval là exact matching profile/method version, không
+  phải buy rule.
+- Baseline cũng là cùng mã/cùng checkpoint.
+- Phase 1 trả phân tích xác suất/return/risk H+1/H+3/H+5, chưa tạo signal,
+  alert, ranking hoặc %NAV.
+
+### Consequences
+
+- Dễ giải thích và giữ đặc tính riêng từng mã.
+- Phải chấp nhận nhiều trường hợp `insufficient_sample`.
+- Bối cảnh thị trường/ngành có thể là input đã kiểm chứng, nhưng outcome set vẫn
+  chỉ chứa mã đang phân tích.
+- Mô hình cross-symbol tương lai phải là contract và validation riêng.
+- Code fixed-rule hiện có được giữ dormant để audit; không dùng production hoặc
+  làm evidence cho ADR này.
+
+### Database Impact
+
+- Task tài liệu: migration `none`, data change `none`, backfill `none`.
+- Implementation sau cần migration và historical build có scope riêng.
+
+### Related Documents
+
+- [`phase1/HISTORICAL_ANALOG_SPEC.vi.md`](phase1/HISTORICAL_ANALOG_SPEC.vi.md)
+- [`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md)

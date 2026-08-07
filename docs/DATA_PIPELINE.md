@@ -232,7 +232,11 @@ Raw stream giữ payload, receive time và validation status/issues. Clean strea
 
 ## 7. Downstream boundaries
 
-Signal và backtest legacy đã bị xóa. Hiện không có đường chạy executable hoặc storage contract active cho hai tầng này. Chúng sẽ được redesign trong phase riêng sau khi Phase 0 có evidence; ingest không tự chạy feature và feature không tự chạy downstream logic.
+Signal/backtest fixed-rule hiện có là code research đang đóng băng và đã bị
+thay thế bởi định hướng Phase 1 historical analog cùng mã/cùng checkpoint.
+Historical-analog schema, pipeline và CLI active chưa được triển khai. Ingest
+không tự chạy feature; feature không tự chạy fixed-rule, analog research,
+signal, backtest hoặc alert.
 
 Chi tiết trạng thái và known issues xem [CURRENT_STATE.md](CURRENT_STATE.md).
 # Write timestamp contract

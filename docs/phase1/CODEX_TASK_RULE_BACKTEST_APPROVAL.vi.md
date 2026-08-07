@@ -1,5 +1,8 @@
 # Task Codex: triển khai framework rule, backtest và approve rule
 
+> **Task lịch sử - không chạy lại.** Kiến trúc trong task này đã bị thay thế bởi
+> [`HISTORICAL_ANALOG_SPEC.vi.md`](HISTORICAL_ANALOG_SPEC.vi.md).
+
 Repo: `quangnguyenhuynh/tradingTplus`
 
 Base branch: `dev`

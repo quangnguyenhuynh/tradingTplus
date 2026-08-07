@@ -1,3 +1,4 @@
 # Test signal
 
-Test offline cho approval gate và idempotency.
+Test approval/idempotency cho fixed-rule research đang đóng băng. Historical
+analog Phase 1 không tạo signal.

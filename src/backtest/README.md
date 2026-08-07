@@ -1,6 +1,10 @@
-# Backtest
+# Backtest - dormant fixed-rule research
 
-Replays the same daily and intraday evaluators used live. Execution uses the first tradable clean 1m open after decision time; outcomes use observed daily sessions H+1/H+3/H+5. Missing values remain explicit.
+Current code replays the fixed daily/intraday evaluators, uses the first
+tradable clean 1m open after decision time, and labels H+1/H+3/H+5 outcomes over
+observed daily sessions. It is executable but superseded research.
 
-### Operational Phase 1 CLI (2026-08-06)
-The database-backed commands are executable and remain separate from ingest/features. Dry-run is the default; `--write` is explicit. Production setup/signal writes require the exact approved strategy version/config. Historical sessions come from observed `stock_daily`; live setup requires an explicit target session. First-match uniqueness permits only one signal per strategy/config/symbol/session. Rule/evaluator changes require a new version and new evidence.
+Its results are not evidence for the active historical-analog method and must
+not be used for production approval. Reusable entry/outcome ideas require new
+time-availability, same-symbol, and chronological-validation tests before reuse.
+See the [active specification](../../docs/phase1/HISTORICAL_ANALOG_SPEC.md).

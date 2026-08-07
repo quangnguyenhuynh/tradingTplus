@@ -1,6 +1,10 @@
-# Strategies
+# Strategies - dormant fixed-rule research
 
-Immutable, versioned two-stage rules. Daily and intraday evaluation returns auditable `RuleDecision` values. Threshold changes require a new version and new evidence.
+Current code implements immutable two-stage `BREAKOUT_V1` and `PULLBACK_V1`
+rules with auditable `RuleDecision` values. It is executable legacy research,
+not the accepted Phase 1 production design.
 
-### Operational Phase 1 CLI (2026-08-06)
-The database-backed commands are executable and remain separate from ingest/features. Dry-run is the default; `--write` is explicit. Production setup/signal writes require the exact approved strategy version/config. Historical sessions come from observed `stock_daily`; live setup requires an explicit target session. First-match uniqueness permits only one signal per strategy/config/symbol/session. Rule/evaluator changes require a new version and new evidence.
+Do not add strategies, approve these rules for production, run write paths, or
+use their backtest metrics as historical-analog evidence. Keep the package for
+audit and deliberate reuse until a separate cleanup task. New Phase 1 work must
+follow the [same-symbol historical-analog specification](../../docs/phase1/HISTORICAL_ANALOG_SPEC.md).

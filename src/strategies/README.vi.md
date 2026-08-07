@@ -1,6 +1,10 @@
-# Strategy
+# Strategy - fixed-rule research đang đóng băng
 
-Rule hai bước, bất biến và có version. Mọi lần đánh giá trả `RuleDecision` để audit. Đổi threshold phải tạo version và evidence mới.
+Code hiện tại triển khai rule hai bước `BREAKOUT_V1` và `PULLBACK_V1`, bất biến
+theo version và trả `RuleDecision` để audit. Đây là research legacy chạy được,
+không phải thiết kế production Phase 1 đã chốt.
 
-### CLI Phase 1 vận hành (2026-08-06)
-Các lệnh database-backed đã chạy được và tách khỏi ingest/features. Mặc định dry-run; ghi phải có `--write`. Setup/signal production yêu cầu đúng strategy version/config đã approve. Phiên lịch sử lấy từ `stock_daily` quan sát; setup live bắt buộc target session explicit. Unique first-match chỉ cho một signal mỗi strategy/config/symbol/phiên. Khi đổi rule/evaluator phải tăng version và tạo evidence mới.
+Không thêm strategy, không approve production, không chạy write path và không
+dùng metrics backtest cũ làm evidence historical analog. Giữ package để audit
+hoặc tái sử dụng có chủ đích cho đến khi có task cleanup riêng. Task Phase 1 mới
+phải theo [spec historical analog cùng mã](../../docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md).
