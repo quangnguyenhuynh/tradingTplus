@@ -1,0 +1,26 @@
+{
+  "profile_code": "TPLUS_ANALOG_CORE_EOD",
+  "version": 1,
+  "timeframe": "1d",
+  "checkpoint": "EOD",
+  "horizons": [1, 3, 5],
+  "maximum_lookback_years": 5,
+  "top_k": 30,
+  "minimum_sample": 30,
+  "normalization": "median_iqr",
+  "distance_metric": "weighted_euclidean",
+  "similarity_transform": "exp_negative_distance",
+  "distance_threshold": null,
+  "status": "draft",
+  "dimensions": [
+    {"name": "return_5d", "formula": "close[D] / close[D-5 trading sessions] - 1", "weight": 0.10},
+    {"name": "price_vs_ema20_pct", "formula": "close / ema20 - 1", "weight": 0.15},
+    {"name": "ema20_vs_ema50_pct", "formula": "ema20 / ema50 - 1", "weight": 0.15},
+    {"name": "rsi14", "formula": "features.rsi14", "weight": 0.10},
+    {"name": "macd_histogram_pct", "formula": "macd_histogram / close", "weight": 0.10},
+    {"name": "distance_to_high20_pct", "formula": "close / high_20_bars - 1", "weight": 0.15},
+    {"name": "volume_ratio", "formula": "features.volume_ratio", "weight": 0.075},
+    {"name": "value_ratio", "formula": "features.value_ratio", "weight": 0.075},
+    {"name": "close_position_in_candle", "formula": "(close - low) / (high - low)", "weight": 0.10}
+  ]
+}

@@ -37,3 +37,6 @@ Hợp đồng database thực thi nằm tại [`../schema.sql`](../schema.sql); 
 Cần rà soát lại tài liệu trạng thái mỗi khi hành vi production thay đổi. Ngày
 review ghi trong từng tài liệu là ngày đánh giá, không phải bằng chứng rằng schema
 production đã áp dụng toàn bộ migration.
+
+- [Historical Analog Core EOD V1](../src/analogs/README.vi.md) — nền backend EOD
+  cùng mã đã triển khai; production bị chặn khi draft/threshold null.

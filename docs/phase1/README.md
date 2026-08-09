@@ -47,3 +47,9 @@ reuse until a separately approved cleanup task.
   current executable behavior.
 - Future implementation must start from the active spec and include migrations,
   backfill scope, leakage tests, and chronological out-of-sample evidence.
+
+## Implemented EOD V1 core
+
+The backend foundation for the narrower `TPLUS_ANALOG_CORE_EOD` V1 contract is
+documented in [`../../src/analogs/README.md`](../../src/analogs/README.md). Its
+threshold remains null/draft, so production results and approval are blocked.

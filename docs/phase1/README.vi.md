@@ -47,3 +47,9 @@ cleanup riêng được duyệt.
   vi code hiện tại.
 - Task triển khai sau phải bắt đầu từ active spec và có migration, scope backfill,
   leakage test và evidence OOS theo thời gian.
+
+## Core EOD V1 đã triển khai
+
+Nền backend cho contract hẹp `TPLUS_ANALOG_CORE_EOD` V1 được mô tả tại
+[`../../src/analogs/README.vi.md`](../../src/analogs/README.vi.md). Threshold vẫn
+null/draft nên production result và approve bị chặn.
