@@ -37,3 +37,6 @@ history and deployment SQL documented under [`../migrations/`](../migrations/REA
 Re-review point-in-time documents whenever production behavior changes. Treat
 their embedded review dates as assessment dates, not as proof of the deployed
 production schema.
+
+- [Historical Analog Core EOD V1](../src/analogs/README.md) — implemented
+  same-symbol EOD backend foundation; draft/null-threshold production gate.

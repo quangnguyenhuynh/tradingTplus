@@ -55,3 +55,10 @@ analog. Migration đã chạy trên production hay chưa vẫn phải kiểm tra
 
 Thiết kế historical analog đã chốt hiện chưa có migration. Task triển khai sau
 phải tạo migration được review riêng và scope historical build/backfill rõ ràng.
+
+## 20260809 Historical Analog EOD V1
+
+`20260809_create_historical_analog_core_eod_v1.sql` tạo thêm bảy bảng evidence
+Analog Phase 1. Chạy migration thủ công, rồi chạy kiểm tra read-only tại
+`sql/analogs/verify_historical_analog_core_eod_v1.sql`. Hướng dẫn cleanup và cảnh
+báo lock/mất dữ liệu nằm tại `sql/analogs/README.md`.

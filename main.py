@@ -23,6 +23,7 @@ Feature persistence policy:
 
 Exit codes: 0=OK/PARTIAL, 1=FAILED, 2=invalid arguments.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,6 +55,7 @@ from src.pipeline import (
 from src.pipeline.symbol_scope import normalize_symbol_scope
 from src.strategies.registry import get_strategy, list_strategies
 from src.phase1_cli import run_approve, run_backtest, run_daily_setup, run_scan
+from src.analogs.cli import dry_summary as analog_dry_summary
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -358,7 +360,9 @@ def build_parser() -> argparse.ArgumentParser:
     strategy_approve.add_argument("--strategy", required=True)
     strategy_approve.add_argument("--version", type=int, default=1)
     strategy_approve.add_argument("--backtest-run", required=True)
-    strategy_approve.add_argument("--decision", choices=["approve", "reject"], required=True)
+    strategy_approve.add_argument(
+        "--decision", choices=["approve", "reject"], required=True
+    )
     strategy_approve.add_argument("--owner", required=True)
     strategy_approve.add_argument("--notes", required=True)
 
@@ -384,6 +388,77 @@ def build_parser() -> argparse.ArgumentParser:
                 choices=["09:30", "11:30", "13:30", "14:30"],
                 required=True,
             )
+
+    analogs = sub.add_parser(
+        "analogs", help="Phase 1 same-symbol EOD Historical Analog analysis"
+    )
+    analog_sub = analogs.add_subparsers(dest="analog_command", required=True)
+    profiles = analog_sub.add_parser("profiles", help="Profile registry operations")
+    profile_sub = profiles.add_subparsers(dest="profile_command", required=True)
+    profile_sub.add_parser("list", help="List registered profiles")
+    register = profile_sub.add_parser(
+        "register", aliases=["sync"], help="Register exact source-controlled profile"
+    )
+    register.add_argument(
+        "--apply", action="store_true", help="Write; omitted is dry-run"
+    )
+    history = analog_sub.add_parser("history", help="Build snapshot/outcome history")
+    history_sub = history.add_subparsers(dest="history_command", required=True)
+    build = history_sub.add_parser("build")
+    build.add_argument("--profile", required=True)
+    build.add_argument("--version", type=int, required=True)
+    build.add_argument("--config-hash", required=True)
+    build.add_argument("--symbols", nargs="+", required=True)
+    build.add_argument("--from", dest="from_date", required=True)
+    build.add_argument("--to", dest="to_date", required=True)
+    build.add_argument(
+        "--mode", choices=["full", "incremental", "replace"], required=True
+    )
+    build.add_argument("--apply", action="store_true")
+    build.add_argument("--confirm-replace", action="store_true")
+    validate = analog_sub.add_parser(
+        "validate", help="Chronological calibration/validation/final evidence"
+    )
+    validate.add_argument("--profile", required=True)
+    validate.add_argument("--version", type=int, required=True)
+    validate.add_argument("--symbols", nargs="+", required=True)
+    validate.add_argument("--from", dest="from_date", required=True)
+    validate.add_argument("--to", dest="to_date", required=True)
+    validate.add_argument(
+        "--run-type", choices=["calibration", "validation", "final"], required=True
+    )
+    validate.add_argument("--thresholds", nargs="*", type=float)
+    validate.add_argument("--final-test-start")
+    validate.add_argument("--apply", action="store_true")
+    for decision in ("approve", "reject"):
+        review = analog_sub.add_parser(
+            decision, help=f"Audit a manual {decision} decision"
+        )
+        review.add_argument("--profile", required=True)
+        review.add_argument("--version", type=int, required=True)
+        review.add_argument("--validation-run", required=True)
+        review.add_argument("--reviewer", required=True)
+        review.add_argument("--reason", required=True)
+        review.add_argument("--apply", action="store_true")
+    query = analog_sub.add_parser(
+        "query", help="Persist an approved production analysis"
+    )
+    query.add_argument("--profile", required=True)
+    query.add_argument("--version", type=int, required=True)
+    query.add_argument("--symbol", required=True)
+    query.add_argument("--date", required=True)
+    query.add_argument("--checkpoint", default="EOD", choices=["EOD"])
+    query.add_argument("--apply", action="store_true")
+    daily_analog = analog_sub.add_parser(
+        "daily", help="Separate idempotent EOD Analog runner"
+    )
+    daily_sub = daily_analog.add_subparsers(dest="daily_command", required=True)
+    daily_run = daily_sub.add_parser("run")
+    daily_run.add_argument("--profile", required=True)
+    daily_run.add_argument("--version", type=int, required=True)
+    daily_run.add_argument("--symbols", nargs="+", required=True)
+    daily_run.add_argument("--date", required=True)
+    daily_run.add_argument("--apply", action="store_true")
     return parser
 
 
@@ -423,36 +498,66 @@ def main(argv: list[str] | None = None) -> int:
         return int(exc.code) if exc.code else 0
 
     try:
+        if args.command == "analogs":
+            summary = analog_dry_summary(args)
+            _print_summary(summary)
+            return 0 if summary.get("status") not in {"FAILED"} else 1
         if args.command in {"init", "sync-master-data"}:
             init_symbols()
             return 0
         if args.command == "strategies" and args.strategy_command == "list":
             _print_summary(
-                {"strategies": [
-                    {"strategy_code": item.strategy_code,
-                     "version": item.version,
-                     "config_hash": item.config_hash,
-                     "config": dict(item.config),
-                     "scan_timeframes": dict(item.scan_timeframes)}
-                    for item in list_strategies()
-                ]}
+                {
+                    "strategies": [
+                        {
+                            "strategy_code": item.strategy_code,
+                            "version": item.version,
+                            "config_hash": item.config_hash,
+                            "config": dict(item.config),
+                            "scan_timeframes": dict(item.scan_timeframes),
+                        }
+                        for item in list_strategies()
+                    ]
+                }
             )
             return 0
         if args.command == "strategies":
             strategy = get_strategy(args.strategy, args.version)
             if args.strategy_command == "backtest":
-                summary = run_backtest(strategy, args.from_date, args.to_date, args.symbols,
-                    write=args.write, output_dir=args.output_dir, commission=args.commission,
-                    sell_tax=args.sell_tax, slippage=args.slippage)
+                summary = run_backtest(
+                    strategy,
+                    args.from_date,
+                    args.to_date,
+                    args.symbols,
+                    write=args.write,
+                    output_dir=args.output_dir,
+                    commission=args.commission,
+                    sell_tax=args.sell_tax,
+                    slippage=args.slippage,
+                )
             else:
-                summary = run_approve(strategy, args.backtest_run, args.decision, args.owner, args.notes)
-            _print_summary(summary); return 0
+                summary = run_approve(
+                    strategy, args.backtest_run, args.decision, args.owner, args.notes
+                )
+            _print_summary(summary)
+            return 0
         if args.command == "signals":
             strategy = get_strategy(args.strategy, args.version)
-            summary = (run_daily_setup(strategy, args.date, args.target_session, args.symbols, write=args.write)
-                       if args.signal_command == "daily-setup" else
-                       run_scan(strategy, args.date, args.slot, args.symbols, write=args.write))
-            _print_summary(summary); return 0
+            summary = (
+                run_daily_setup(
+                    strategy,
+                    args.date,
+                    args.target_session,
+                    args.symbols,
+                    write=args.write,
+                )
+                if args.signal_command == "daily-setup"
+                else run_scan(
+                    strategy, args.date, args.slot, args.symbols, write=args.write
+                )
+            )
+            _print_summary(summary)
+            return 0
         if args.command == "daily":
             summary = daily_run(
                 args.date,

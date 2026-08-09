@@ -60,3 +60,10 @@ must still be verified independently.
 The accepted historical-analog design has no migration yet. A future
 implementation must add a separately reviewed migration and explicit historical
 build/backfill scope.
+
+## 20260809 Historical Analog EOD V1
+
+`20260809_create_historical_analog_core_eod_v1.sql` additively creates the seven
+Phase 1 Analog evidence tables. Apply it manually; then run the read-only checks
+in `sql/analogs/verify_historical_analog_core_eod_v1.sql`. Cleanup guidance and
+lock/data-loss warnings are in `sql/analogs/README.md`.
