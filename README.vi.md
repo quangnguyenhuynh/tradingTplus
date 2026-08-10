@@ -31,7 +31,7 @@ validation và completeness
     ↓
 features
     ↓
-nghiên cứu historical analog Phase 1 (đã chốt thiết kế; chưa code)
+nghiên cứu historical analog Phase 1 (core EOD V1 đã triển khai)
 ```
 
 Các quy tắc bắt buộc:
@@ -146,10 +146,9 @@ chốt: tại mỗi checkpoint, một mã chỉ so với lịch sử của chín
 checkpoint rồi thống kê outcome H+1/H+3/H+5. Không được gom mẫu nhiều mã; thiếu
 evidence phải trả `insufficient_sample`.
 
-Repo vẫn còn code research strategy/rule, signal và backtest cũ chạy được cùng
-contract database tương ứng. Luồng này **đang đóng băng và đã bị thay thế**,
-không được xem là production hoặc evidence cho phương pháp mới. Schema,
-pipeline và CLI historical analog chưa được triển khai. Xem
+Runtime, CLI, test và schema snapshot của hướng strategy/rule, signal và
+backtest cũ đã bị xóa. Core Historical Analog EOD V1 đã được triển khai; profile
+draft và distance threshold null vẫn chặn approval/query production. Xem
 [spec Phase 1](docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md).
 
 ### Contract rebuild feature
@@ -162,4 +161,4 @@ deterministic so sánh mọi cột persisted cho `1d`, `15m`, `60m`; xem
 [báo cáo kiểm chứng Phase 0](docs/phase0/PHASE0_VALIDATION_REPORT.vi.md). Phase 0
 đã **COMPLETE_WITH_NOTES**: owner đã kiểm tra schema production apply thủ công
 và sample lineage/reconciliation live có phạm vi. Report ghi rõ rủi ro calendar
-và lưu evidence còn lại; thiết kế Phase 1 đã chốt nhưng chưa triển khai code.
+và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; validation cuối và approval vẫn còn pending.

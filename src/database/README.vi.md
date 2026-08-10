@@ -32,8 +32,6 @@ Supabase client và các helper persistence của repository.
 Unit test nên mock Supabase client. Smoke test live mặc định read-only và chạy qua các script như `scripts/check_supabase.py` và `scripts/check_ssi_ingest_schema.py`.
 
 ## Adapter Phase 1
-`phase1.py` là repository boundary cho các bảng fixed-rule strategy, setup,
-signal, backtest và review đang chạy được. Adapter này đang đóng băng/đã bị thay
-thế, không phải persistence layer historical analog mới. Nó vẫn không ghi raw,
-clean hoặc feature. Các bảng analog đề xuất cần migration riêng được review và
-không được âm thầm repurpose bảng cũ.
+
+Adapter database kiểu rule cũ đã bị xóa. Historical Analog dùng repository và
+migration bảy bảng riêng, không ghi raw, clean hoặc feature.

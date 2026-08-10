@@ -56,12 +56,6 @@ class SupabaseClient:
         "indexes",
         "index_components",
         "index_daily",
-        "strategies",
-        "strategy_setups",
-        "signals",
-        "backtest_runs",
-        "backtest_signals",
-        "strategy_reviews",
     }
     _CREATED_AT_TABLES = {
         "symbols",
@@ -439,24 +433,6 @@ class SupabaseClient:
 
     def upsert_features(self, records):
         self._upsert_in_batches('features', records, on_conflict='symbol,timeframe,time')
-
-    def upsert_strategies(self, records):
-        self._upsert_in_batches('strategies', records, on_conflict='strategy_code,version,config_hash')
-
-    def upsert_strategy_setups(self, records):
-        self._upsert_in_batches('strategy_setups', records, on_conflict='strategy_code,strategy_version,config_hash,symbol,setup_date,target_session')
-
-    def upsert_signals(self, records):
-        self._upsert_in_batches('signals', records, on_conflict='strategy_code,strategy_version,config_hash,symbol,setup_date,scan_slot,signal_time')
-
-    def upsert_backtest_runs(self, records):
-        self._upsert_in_batches('backtest_runs', records, on_conflict='idempotency_key')
-
-    def upsert_backtest_signals(self, records):
-        self._upsert_in_batches('backtest_signals', records, on_conflict='backtest_run_id,strategy_code,strategy_version,config_hash,symbol,setup_date,scan_slot,signal_time')
-
-    def upsert_strategy_reviews(self, records):
-        self._upsert_in_batches('strategy_reviews', records, on_conflict='strategy_code,strategy_version,config_hash,backtest_run_id')
 
     def atomic_replace_features(
         self,

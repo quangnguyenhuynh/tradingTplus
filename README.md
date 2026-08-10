@@ -36,7 +36,7 @@ validation and completeness
     ↓
 features
     ↓
-Phase 1 historical analog research (design accepted; not implemented)
+Phase 1 historical analog research (EOD V1 core implemented)
 ```
 
 Non-negotiable rules:
@@ -157,10 +157,10 @@ at each checkpoint, a symbol is compared only with its own historical states at
 the same checkpoint, then H+1/H+3/H+5 outcomes are summarized. Cross-symbol
 sample pooling is forbidden; inadequate evidence returns `insufficient_sample`.
 
-The repository still contains executable fixed-rule strategy/signal/backtest
-research code and its database contracts. That path is **dormant and
-superseded**, not production-approved and not evidence for the new method. The
-historical-analog schema, pipeline, and CLI are not implemented yet. See the
+The superseded fixed-rule strategy/signal/backtest runtime, CLI, tests, and
+schema snapshot have been removed. Historical Analog EOD V1 now provides the
+implemented Phase 1 backend foundation; its null distance threshold and draft
+profile still block approval and production queries. See the
 [Phase 1 specification](docs/phase1/HISTORICAL_ANALOG_SPEC.md).
 
 ### Feature rebuild contract
@@ -174,5 +174,4 @@ persisted column for `1d`, `15m`, and `60m`; see the
 [Phase 0 validation report](docs/phase0/PHASE0_VALIDATION_REPORT.md). Phase 0 is
 **COMPLETE_WITH_NOTES**: the owner verified the manually applied production
 schema and scoped live lineage/reconciliation samples. Remaining calendar and
-evidence-retention risks are recorded in the report; the accepted Phase 1 design
-is not implemented.
+evidence-retention risks are recorded in the report; the Historical Analog EOD V1 core is implemented, with final validation and approval still pending.

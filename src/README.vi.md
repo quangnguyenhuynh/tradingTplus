@@ -19,9 +19,6 @@ Python package chứa tích hợp SSI, persistence, validation, pipeline và fea
 | [`pipeline/`](pipeline/README.vi.md) | Orchestration production và các luồng ingest. |
 | [`features/`](features/README.vi.md) | Tính và chạy feature daily/intraday tách theo nguồn. |
 | [`engine/`](engine/README.vi.md) | Utility data-quality manual legacy. |
-| [`strategies/`](strategies/README.vi.md) | Implementation research fixed-rule đang đóng băng. |
-| [`signals/`](signals/README.vi.md) | Daily-setup/intraday-scan research đang đóng băng. |
-| [`backtest/`](backtest/README.vi.md) | Replay/outcome fixed-rule research đang đóng băng. |
 | [`utils/`](utils/README.vi.md) | Helper dùng chung cho thời gian thị trường Việt Nam có timezone. |
 
 ## Chiều phụ thuộc
@@ -31,11 +28,9 @@ SSI clients → pipelines → validation/database
 clean database data → feature pipeline chạy explicit
 ```
 
-Ingest không được tự động gọi feature. Feature không tự gọi tầng research
-downstream. Code strategy/signal/backtest fixed-rule vẫn tồn tại nhưng đang đóng
-băng và đã bị thay thế bởi
-[thiết kế historical analog cùng mã](../docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md),
-hiện chưa được triển khai.
+Ingest không được tự động gọi feature và feature không tự gọi research downstream.
+Các package rule cũ đã bị xóa; `analogs/` triển khai nền Historical Analog EOD
+cùng mã dưới dạng workflow explicit.
 
 ## Hợp đồng dữ liệu
 

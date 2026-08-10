@@ -1,6 +1,6 @@
 # Trading T+ - Spec Historical Analog Phase 1
 
-Trạng thái: **hợp đồng thiết kế đã chốt; chưa triển khai code**
+Trạng thái: **hợp đồng đã chốt; nền backend EOD V1 đã triển khai**
 
 Ngày rà soát: **2026-08-06**
 
@@ -42,22 +42,15 @@ quả hiển thị riêng; không thuộc spec này.
 
 ## 3. Code hiện tại và đích mới
 
-Repository hiện có code research rule cố định chạy được:
+Runtime, CLI, schema snapshot, spec và test của hướng rule cũ đã bị xóa trong
+cleanup 10/08/2026. Hai migration tạo/enforce cũ chỉ còn là deployment history;
+cleanup migration sau đó xóa các bảng đã retire khi được apply thủ công.
 
-- strategy `BREAKOUT_V1` và `PULLBACK_V1`;
-- daily setup và intraday scan;
-- bảng strategy approval, signal, backtest và review;
-- CLI `strategies` và `signals`;
-- test offline cho các đường chạy trên.
-
-Code đó **đã triển khai nhưng bị đóng băng/bị thay thế**, không phải đã xóa và
-không phải đường production Phase 1 được chấp nhận. Không chạy lệnh ghi, không
-approve strategy cũ cho production và không dùng metrics cũ làm evidence cho
-historical analog. Chỉ giữ để audit hoặc tái sử dụng có chủ đích cho đến khi có
-task cleanup riêng được duyệt.
-
-Schema, pipeline, CLI và runtime historical analog dưới đây là đề xuất cho task
-triển khai sau. Task tài liệu này không tạo các thành phần đó.
+Nền Historical Analog EOD V1 đã triển khai profile có version, snapshot/outcome,
+chronological validation, review, query evidence, repository/service boundary và
+parser CLI `analogs`. Distance threshold null và profile draft hiện chặn final
+approval/query production. Các checkpoint intraday nằm ngoài scope EOD V1 đã
+triển khai.
 
 ## 4. Phạm vi
 

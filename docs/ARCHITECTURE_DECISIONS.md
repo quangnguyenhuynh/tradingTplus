@@ -80,10 +80,10 @@ Các trạng thái được sử dụng:
 | ADR-020 | Foreign trading được derive từ `DailyStockPrice` | Implemented |
 | ADR-021 | Order book không được giả định có public REST endpoint | Implemented |
 | ADR-022 | Signal và backtest không tự chạy sau ingest hoặc feature | Implemented |
-| ADR-023 | Fixed-rule strategy/signal/backtest hiện có | Superseded, dormant |
+| ADR-023 | Retire old rule-based strategy/signal/backtest path | Superseded and removed |
 | ADR-024 | Daily context là nền chính cho quyết định T+3/T+5 | Accepted |
 | ADR-025 | Alert tương lai phải ít, có lý do và không spam | Accepted |
-| ADR-026 | Phase 1 dùng historical analog cùng mã/cùng checkpoint | Accepted, not implemented |
+| ADR-026 | Phase 1 dùng historical analog cùng mã/cùng checkpoint | Accepted, EOD V1 implemented |
 
 ---
 
@@ -968,36 +968,24 @@ trừ khi một explicit orchestration task yêu cầu.
 
 ---
 
-## ADR-023 — Fixed-rule strategy/signal/backtest hiện có đã bị thay thế
+## ADR-023 — Retire the old rule-based strategy/signal/backtest path
 
 ### Status
 
-`Superseded, dormant`
-
-### Context
-
-Signal/backtest MVP ban đầu dùng feature schema cũ và `holding_bars` đã bị xóa
-ngày 31/07/2026. Sau đó PR #121/#123 thêm lại một framework fixed-rule mới gồm
-`BREAKOUT_V1`, `PULLBACK_V1`, setup/scan, session outcome, approval, CLI, sáu
-bảng và test offline.
-
-Framework mới đó trả lời câu hỏi hiệu quả của một strategy cố định, không phải
-câu hỏi historical analog cùng mã đã chốt trong ADR-026.
+`Superseded and removed`
 
 ### Decision
 
-Giữ framework fixed-rule hiện có ở trạng thái dormant để audit/tái sử dụng có
-chủ đích. Không chạy write path, không approve production, không mở rộng làm lõi
-Phase 1 và không dùng metrics của nó làm evidence cho ADR-026. Không xóa
-code/schema/data trong task tài liệu; cleanup cần task riêng.
+The old runtime packages, command trees, tests, specifications, shared-client
+table support, and schema snapshot DDL are removed. Historical creation and
+enforcement migrations remain immutable deployment history. A manually applied
+cleanup migration drops only their six tables after any required evidence export.
 
 ### Consequences
 
-- Không dùng kết quả hiện tại để quảng bá lợi nhuận hoặc xác suất Phase 1 mới.
-- CLI/schema/test fixed-rule vẫn tồn tại nên tài liệu phải mô tả đúng, nhưng
-  không hướng dẫn như production.
-- Signal/alert/%NAV được deferred tới sau khi historical analog được kiểm định.
-- Cleanup code hoặc bảng cũ phải là task riêng, có data-impact review.
+- Historical Analog is the only active Phase 1 command/runtime direction.
+- Ingest and feature boundaries remain unchanged.
+- No source, feature, streaming, or Analog data is modified or backfilled.
 
 ---
 
@@ -1861,7 +1849,7 @@ Implemented in code and migration; production deployment of the 2026-08-02 migra
 
 ### Status
 
-`Accepted, not implemented`
+`Accepted, EOD V1 implemented`
 
 ### Context
 
@@ -1891,8 +1879,7 @@ nghĩa của kết quả và có thể che giấu việc một mã không đủ 
 - Bối cảnh thị trường/ngành có thể là input đã kiểm chứng, nhưng outcome set vẫn
   chỉ chứa mã đang phân tích.
 - Mô hình cross-symbol tương lai phải là contract và validation riêng.
-- Code fixed-rule hiện có được giữ dormant để audit; không dùng production hoặc
-  làm evidence cho ADR này.
+- Runtime rule cũ đã bị xóa; migration cleanup chỉ xóa sáu bảng retire khi apply thủ công.
 
 ### Database Impact
 
