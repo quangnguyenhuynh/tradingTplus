@@ -1,84 +1,475 @@
-# Sử dụng CLI
+# Tham chiếu CLI TradingTPlus
 
-Tài liệu English đầy đủ: [CLI_USAGE.md](CLI_USAGE.md).
+Đây là tài liệu đầy đủ cho cây command được đăng ký bởi `main.py`. Code runtime
+là nguồn sự thật nếu tài liệu này mâu thuẫn với tài liệu thiết kế cũ. Chạy lệnh
+từ thư mục gốc repo dưới dạng `python main.py ...`.
 
-## Thứ tự vận hành
+## An toàn, status và quy ước chung
+
+- Ngày dùng `DD/MM/YYYY`. Hai đầu range backfill dữ liệu nguồn/feature đều
+  inclusive.
+- Option symbol nhận các giá trị cách nhau bằng khoảng trắng. Giá trị được trim,
+  uppercase và deduplicate theo thứ tự xuất hiện đầu tiên. Với `--symbols` dùng
+  `nargs="*"`, danh sách rỗng tường minh được normalize như scope bị bỏ qua; các
+  command nguồn/feature sau đó resolve toàn bộ symbol phù hợp trong DB/master.
+  Command ingest dùng `nargs="+"` sẽ từ chối `--symbols` không có giá trị.
+  Streaming khác biệt: bỏ `--symbols`/`--indexes` nghĩa là danh sách rỗng, không
+  bao giờ tự hiểu là `ALL`.
+- Trừ khi nói khác, command in JSON summary. Phải kiểm tra `status`: exit `0`
+  gồm `OK`, `PARTIAL`, `EMPTY`, và Analog `dry_run`, `blocked`,
+  `apply_requires_database`; exit `1` là `FAILED` hoặc runtime exception; exit
+  `2` là lỗi parser/validation. Chỉ exit `0` không chứng minh có dữ liệu được ghi
+  hay thao tác được apply.
+- Ingest nguồn không tự chạy feature, signal, backtest hoặc Analog. Feature
+  không tự chạy signal, backtest hoặc Analog. Không command nào tự tiến hành
+  workflow fixed-rule đang đóng băng hay Historical Analog.
+- Command ghi dữ liệu cần access SSI/Supabase đã cấu hình. Không đưa credential
+  thật vào command line hoặc tài liệu.
+
+## Biến môi trường
+
+`.env` được load khi import config. Credential bắt buộc không có fallback.
+
+| Biến | Mặc định | Cách CLI sử dụng |
+| --- | --- | --- |
+| `SUPABASE_URL` | không có | Endpoint DB cho ingest, feature, streaming write và thao tác DB fixed-rule dormant. |
+| `SUPABASE_SERVICE_KEY` | không có | Service credential mà database client sử dụng. |
+| `SUPABASE_KEY` | không có | Compatibility key được load; database client hiện dùng service key. |
+| `SSI_CONSUMER_ID` | không có | Xác thực SSI REST/streaming. |
+| `SSI_CONSUMER_SECRET` | không có | Xác thực SSI REST/streaming. |
+| `SSI_STREAMING_BASE_URL` | `https://fc-datahub.ssi.com.vn/` | SignalR base URL cho `streaming-ingest`. |
+| `SSI_SIGNALR_PATH` | `v2.0/signalr` | SignalR path. |
+| `SSI_SIGNALR_HUB` | `FcMarketDataV2Hub` | Tên SignalR hub. |
+| `SSI_SIGNALR_RECEIVE_METHOD` | `Broadcast` | SignalR method nhận vào. |
+| `SSI_SIGNALR_SWITCH_METHOD` | `SwitchChannels` | Method đăng ký subscription. |
+| `SSI_STREAMING_ENABLED` | `true` | `1`, `true`, `yes`, `y` bật streaming; giá trị khác sẽ tắt. |
+| `ORDERBOOK_SNAPSHOT_TIMEOUT_SEC` | `20` | Dùng cho snapshot utility, không phải mặc định `streaming-ingest --timeout`. |
+| `SSI_ORDERBOOK_URL` | không có | REST order-book account-specific tùy chọn; cây CLI này không dùng. |
+| `SSI_STREAMING_URL` | không có | Placeholder tương thích ngược; không phải cấu hình kết nối SignalR. |
+
+Các endpoint SSI REST là constant cố định trong `src/config.py`, không phải env
+override. Ngày/session thị trường dùng ngữ nghĩa Asia/Ho_Chi_Minh.
+
+## Thứ tự vận hành khuyến nghị
 
 ```text
-sync-master-data
--> daily / intraday-ingest / eod / backfill
--> validation và completeness
--> feature chạy riêng
--> historical analog Phase 1 trong tương lai
+sync-master-data (hoặc init)
+→ daily / intraday-ingest, hoặc eod, hoặc source backfill có scope
+→ kiểm tra JSON validation/completeness
+→ chạy riêng features-daily và/hoặc features-intraday
+→ kiểm tra feature summary
+→ chỉ chạy Historical Analog trong workflow database-backed đã được duyệt
 ```
 
-Ingest không tự chạy feature, signal hoặc backtest.
+Luồng fixed-rule `strategies`/`signals` vẫn executable nhưng đã đóng băng và
+không phải hướng production được duyệt.
 
-## Command dữ liệu nguồn
+## Master data
 
-```bash
+### `sync-master-data` và alias `init`
+
+```text
 python main.py sync-master-data
-python main.py daily [DD/MM/YYYY] --symbols SSI HPG
-python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
-python main.py eod [DD/MM/YYYY] --symbols SSI HPG
-python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
-python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
-python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py init
 ```
 
-- `daily` đọc `DailyStockPrice`, ghi `raw_daily` và `stock_daily`.
-- `intraday-ingest` đọc `IntradayOhlc` resolution 1, ghi nến nguồn clean 1m.
-- `eod` chạy ingest daily, intraday rồi completeness; không tính feature.
-- Backfill dùng hai đầu ngày inclusive và không tự chạy feature backfill.
+Ví dụ chính là hai lệnh trên. Cả hai không có option và gọi cùng đồng bộ master
+data idempotent. Chúng đọc master data SSI và ghi các bảng master được hỗ trợ;
+không ingest price history, tính feature hoặc chạy signal/backtest/Analog.
 
-## Command feature
+## Ingest dữ liệu nguồn
 
-Feature production chỉ lưu `1d`, `15m`, `60m`:
+### `daily`
 
-```bash
-python main.py features-daily --mode incremental --date DD/MM/YYYY --symbols SSI HPG
-python main.py features-intraday --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m
-python main.py features --mode incremental --date DD/MM/YYYY --symbols SSI HPG --timeframes 15m 60m 1d
+```text
+python main.py daily [DATE] [--symbols SYMBOL [SYMBOL ...]]
 ```
 
-- `1d` đọc `stock_daily`.
-- `15m`/`60m` aggregate từ clean 1m `stock_intraday`.
-- `full` tính lại và upsert toàn scope, không delete trước.
-- `incremental` dùng watermark riêng từng symbol/timeframe và warm-up.
-- `replace`/`rebuild-clean` chỉ cho đúng một symbol, một timeframe và range ngày
-  rõ ràng; cần RPC migration đã deploy.
+Ví dụ: `python main.py daily 07/08/2026 --symbols SSI HPG`.
 
-`python main.py intraday` là alias feature legacy, không phải ingest SSI.
+- `DATE` là positional `DD/MM/YYYY` tùy chọn. Khi bỏ qua, dùng ngày trong tuần
+  **trước đó** gần nhất theo giờ Việt Nam (không đồng nghĩa trading day đã xác
+  minh).
+- `--symbols` tùy chọn và cần ít nhất một giá trị nếu cung cấp. Bỏ qua nghĩa là
+  toàn bộ active master symbol; cung cấp sẽ giới hạn scope.
 
-## Command fixed-rule đang đóng băng
+Command đọc SSI `DailyStockPrice`, ghi `raw_daily` có trace và `stock_daily`
+canonical, có thể update row theo conflict key. Nó không delete dữ liệu theo
+scope, không ingest intraday/index history và không chạy completeness, feature,
+signal, backtest hoặc Analog.
 
-Các group sau vẫn tồn tại trong code:
+### `intraday-ingest`
+
+```text
+python main.py intraday-ingest [DATE] [--symbols SYMBOL [SYMBOL ...]]
+```
+
+Ví dụ: `python main.py intraday-ingest 07/08/2026 --symbols SSI`. `DATE` và
+`--symbols` có hành vi required/omitted giống `daily`. Command đọc SSI
+`IntradayOhlc` resolution 1, ghi `raw_intraday` và clean `stock_intraday` với
+`timeframe='1m'`; có thể đọc `stock_daily` làm daily context. Nó không ghi nến
+aggregate và không chạy daily ingest, completeness, feature, signal, backtest
+hoặc Analog.
+
+### `eod`
+
+```text
+python main.py eod [DATE] [--symbols SYMBOL [SYMBOL ...]]
+```
+
+Ví dụ: `python main.py eod 07/08/2026 --symbols SSI HPG`.
+
+- Bỏ `DATE` nghĩa là ngày trong tuần gần nhất **tính cả hôm nay** theo giờ Việt
+  Nam. Điều này khác `daily`/`intraday-ingest` vốn chọn ngày trong tuần trước đó.
+  Cả hai rule đều không chứng minh đó là exchange trading session.
+- Bỏ `--symbols` nghĩa là toàn bộ active master symbol; cung cấp sẽ giới hạn
+  daily ingest, intraday ingest và completeness vào cùng scope.
+
+Command ghi layer daily và 1m raw/clean, sau đó đọc để kiểm tra completeness và
+trả `OK`, `PARTIAL` hoặc `FAILED`. Nó không tính feature hoặc chạy signal,
+backtest, Analog.
+
+## Backfill dữ liệu nguồn
+
+Cú pháp chung (`--from-date`/`--to-date` là alias chính xác):
+
+```text
+python main.py COMMAND --from DD/MM/YYYY --to DD/MM/YYYY [--symbols SYMBOL [SYMBOL ...]]
+python main.py COMMAND --from-date DD/MM/YYYY --to-date DD/MM/YYYY [--symbols ...]
+```
+
+`--from` và `--to` đều bắt buộc, phụ thuộc lẫn nhau và inclusive; start không
+được sau end. `--symbols` tùy chọn nhưng cần ít nhất một giá trị khi xuất hiện.
+Bỏ qua nghĩa là toàn bộ active master symbol; cung cấp dùng cùng scope cho mọi
+ngày. Weekend được skip; response rỗng ngày trong tuần vẫn observable, không
+được fabricate.
+
+| Command | Ví dụ chính xác | Đọc/ghi |
+| --- | --- | --- |
+| `backfill-daily` | `python main.py backfill-daily --from 03/08/2026 --to 07/08/2026 --symbols SSI` | Chỉ ghi daily raw/clean; không intraday/completeness. |
+| `backfill-intraday` | `python main.py backfill-intraday --from-date 03/08/2026 --to-date 07/08/2026 --symbols SSI` | Chỉ ghi intraday raw/clean 1m; không daily/completeness. |
+| `backfill` | `python main.py backfill --from 03/08/2026 --to 07/08/2026 --symbols SSI HPG` | Chạy daily, intraday ingest và completeness cho từng ngày được tính. |
+
+Cả ba có thể upsert source row hiện hữu; không chạy feature backfill, signal,
+backtest hoặc Analog và không delete/replace theo scope.
+
+## Policy dữ liệu feature và mode
+
+`features` chỉ persist `1d`, `15m`, `60m`:
+
+| Timeframe | Nguồn canonical | Hành vi |
+| --- | --- | --- |
+| `1d` | `stock_daily` | Daily T+ context; không bao giờ derive từ intraday. |
+| `15m`, `60m` | clean `stock_intraday` 1m | Aggregate trong memory theo session; không ghi lại nến aggregate. |
+
+Write feature `1m`/`5m` bị từ chối. Intraday feature còn đọc `stock_daily` cho
+official-open/previous-close context và chỉ persist bucket đã đóng.
+
+- `incremental`: dùng watermark riêng theo symbol/timeframe và warm-up hữu hạn
+  (5 năm cho daily; 250 source session quan sát được cho intraday). Nếu chưa có
+  watermark, chỉ output trong target scope được ghi.
+- range tường minh: `--from` cùng `--to` gọi feature backfill inclusive, đọc
+  warm-up trước range nhưng chỉ ghi output trong range.
+- `full`: đọc toàn history được chọn, tính lại và **upsert** mọi kết quả. Không
+  delete row cũ và không phải replace.
+- `replace` và mode alias `rebuild-clean`: tính/validate trước rồi gọi atomic RPC
+  đã deploy để delete/replace một exact scope. Cần đúng một non-wildcard symbol,
+  một persisted timeframe và range `--from`/`--to` hợp lệ. Chúng từ chối
+  `--date` và cần atomic RPC migration đã deploy.
+
+Incremental không thể tự phát hiện source correction cũ tùy ý nếu không có
+version metadata; dùng exact replace đã review khi cần sửa lịch sử.
+
+### `features-daily`
+
+```text
+python main.py features-daily [--mode incremental|full|replace|rebuild-clean]
+  [--date DD/MM/YYYY] [--from DD/MM/YYYY --to DD/MM/YYYY]
+  [--symbols [SYMBOL ...]]
+```
+
+Ví dụ:
 
 ```bash
+python main.py features-daily --date 07/08/2026 --symbols SSI HPG
+python main.py features-daily --from 03/08/2026 --to 07/08/2026 --symbols SSI
+python main.py features-daily --mode full --symbols SSI
+python main.py features-daily --mode replace --from 03/08/2026 --to 07/08/2026 --symbols SSI
+```
+
+`--mode` tùy chọn, mặc định `incremental`. Ở incremental, bắt buộc đúng một
+trong `--date` hoặc cặp `--from`+`--to`; không kết hợp chúng. `full` cấm
+date/range. Replace mode cần range như trên. `--from-date`/`--to-date` là alias.
+Bỏ `--symbols` (hoặc flag không có value) nghĩa là mọi symbol phù hợp, trừ exact
+replace; cung cấp sẽ giới hạn computation. Command chỉ đọc `stock_daily`, chỉ
+ghi `features` 1d và không ingest/chạy signal/backtest/Analog.
+
+### `features-intraday`
+
+```text
+python main.py features-intraday [--mode incremental|full|replace|rebuild-clean]
+  [--date DD/MM/YYYY] [--from DD/MM/YYYY --to DD/MM/YYYY]
+  [--symbols [SYMBOL ...]] [--timeframes [15m 60m]] [--as-of CUTOFF]
+```
+
+Ví dụ:
+
+```bash
+python main.py features-intraday --date 07/08/2026 --symbols SSI --timeframes 15m 60m
+python main.py features-intraday --date 07/08/2026 --as-of 14:30 --symbols SSI
+python main.py features-intraday --mode full --symbols SSI --timeframes 60m
+python main.py features-intraday --mode rebuild-clean --from 03/08/2026 --to 07/08/2026 --symbols SSI --timeframes 60m
+```
+
+Constraint date/range/mode và alias giống `features-daily`. `--timeframes` tùy
+chọn, nhận nhiều value và mặc định `15m 60m`; cung cấp chỉ chọn persisted
+intraday timeframe tương ứng. `--as-of` tùy chọn, nhận `HH:MM` giờ Việt Nam hoặc
+timestamp timezone-aware; bỏ qua dùng mọi bucket đã đóng trong target scope.
+Không kết hợp nó với range. Command đọc clean 1m, aggregate trong memory và ghi
+feature row `15m`/`60m` đã đóng; không ingest, ghi nến aggregate nguồn hoặc chạy
+signal/backtest/Analog.
+
+### Router tương thích `features`
+
+```text
+python main.py features [--mode incremental|full] [--date DD/MM/YYYY]
+  [--symbols [SYMBOL ...]] [--timeframes [15m 60m 1d]]
+```
+
+Ví dụ: `python main.py features --date 07/08/2026 --symbols SSI --timeframes 1d 15m 60m`.
+`--mode` mặc định `incremental`; `--timeframes` mặc định `15m 60m 1d`; bỏ
+symbol nghĩa là mọi symbol phù hợp. `--date` là target tùy chọn cho incremental;
+cung cấp sẽ giới hạn output vào ngày đó. Full tính lại/upsert history được chọn
+mà không delete. Router tương thích này chỉ ghi `features`; nên dùng command
+source-specific cho range/replace rõ ràng. Nó không ingest/chạy
+signal/backtest/Analog.
+
+### Alias feature legacy `intraday`
+
+```text
+python main.py intraday [--snapshot-time VALUE] [--symbols [SYMBOL ...]]
+  [--timeframes [15m 60m]]
+```
+
+Ví dụ: `python main.py intraday --snapshot-time 14:30 --symbols SSI --timeframes 15m`.
+Bỏ symbol nghĩa là mọi symbol phù hợp; bỏ timeframe mặc định `15m 60m`.
+`--snapshot-time` mặc định giờ Việt Nam hiện tại cho summary metadata; cung cấp
+hiện chỉ đổi summary marker, **không** phải source/bucket cutoff an toàn. Dùng
+`features-intraday --date ... --as-of ...` cho cutoff. Alias tính incremental
+intraday feature; không ingest candle/chạy signal/backtest/Analog.
+
+## Streaming ingest hữu hạn
+
+```text
+python main.py streaming-ingest [--symbols [SYMBOL ...]] [--indexes [INDEX ...]]
+  --channels {securities-status,quote,trade,foreign-room,index,realtime-bar} [...]
+  [--timeout SECONDS] [--max-messages-per-channel COUNT] [--write] [--debug]
+```
+
+Ví dụ read-only:
+
+```bash
+python main.py streaming-ingest --symbols SSI --indexes VNINDEX \
+  --channels quote index --timeout 60 --max-messages-per-channel 1 --debug
+```
+
+`--channels` bắt buộc và nhận một hay nhiều group đã liệt kê.
+`--symbols`/`--indexes` mặc định rỗng; cung cấp sẽ tạo explicit subscription đã
+uppercase. Compatibility channel/scope được validate. `--timeout` mặc định `60`,
+phải trong 1..3600 giây. `--max-messages-per-channel` mặc định `1`, phải trong
+1..1000. `--debug` mặc định false, in sanitized summary. Không có `--write`,
+command nhận/validate dữ liệu nhưng read-only; có `--write`, nó persist raw frame
+và normalized snapshot row hợp lệ. Command hữu hạn và không chạy batch ingest,
+feature, signal, backtest hoặc Analog.
+
+## Command research fixed-rule đã đóng băng
+
+Các command này còn executable vì compatibility, nhưng hướng fixed-rule
+`rule → backtest → approve → signal` đã bị thay thế và dormant. Không dùng write
+production hoặc coi metrics của chúng là Historical Analog evidence.
+
+### `strategies list`
+
+```text
 python main.py strategies list
-python main.py strategies --help
-python main.py signals --help
 ```
 
-Chúng triển khai luồng research cũ `rule -> backtest -> approve -> signal` đã bị
-thay thế. Không chạy write/approval production và không dùng metrics của chúng
-làm evidence cho historical analog. Phần này chỉ ghi đúng hiện trạng executable,
-không phải hướng dẫn vận hành.
+Ví dụ chính là lệnh trên. Không có option; đọc immutable registry trong code,
+in identity/config strategy và không ghi DB/chạy downstream job.
 
-## Hướng Phase 1 đã chốt
+### `strategies backtest`
 
-Xem [`phase1/HISTORICAL_ANALOG_SPEC.vi.md`](phase1/HISTORICAL_ANALOG_SPEC.vi.md).
-Mỗi mã chỉ đối chiếu lịch sử của chính nó ở cùng checkpoint. CLI `analogs` và
-các bảng đề xuất trong spec **chưa được code**; không chạy command minh họa cho
-đến khi có task triển khai, migration, test và scope historical build rõ ràng.
+```text
+python main.py strategies backtest --strategy CODE [--version INT]
+  --from DD/MM/YYYY --to DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
+  [--write] [--output-dir PATH] [--commission FLOAT]
+  [--sell-tax FLOAT] [--slippage FLOAT]
+```
 
-## Kiểm tra offline
+Ví dụ: `python main.py strategies backtest --strategy breakout_v1 --from 01/01/2026 --to 31/01/2026 --symbols SSI --output-dir artifacts`.
+Strategy, bounds và ít nhất một symbol bắt buộc. `--version` mặc định `1`; các
+chi phí mặc định `0.0`; `--output-dir` mặc định không có. Bỏ `--write` là
+dry-run/không persist DB; cung cấp sẽ persist backtest evidence. Output directory
+nếu có sẽ yêu cầu file artifact. Command đọc feature/price history và không
+ingest, tính feature, approve, phát signal hoặc chạy Analog tự động.
+
+### `strategies approve`
+
+```text
+python main.py strategies approve --strategy CODE [--version INT]
+  --backtest-run ID --decision {approve,reject} --owner OWNER --notes TEXT
+```
+
+Ví dụ: `python main.py strategies approve --strategy breakout_v1 --backtest-run RUN_ID --decision reject --owner reviewer --notes "research only"`.
+Mọi option trừ `--version` (mặc định `1`) đều bắt buộc. Command **không có
+dry-run hoặc flag `--write`**: argument hợp lệ sẽ gọi DB-backed review writer
+ngay. Nó không chạy backtest, signal, ingest, feature hoặc Analog. Vì path
+dormant, không vận hành production.
+
+### `signals daily-setup`
+
+```text
+python main.py signals daily-setup --strategy CODE [--version INT]
+  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
+  --target-session DD/MM/YYYY [--write]
+```
+
+Ví dụ: `python main.py signals daily-setup --strategy breakout_v1 --date 07/08/2026 --symbols SSI --target-session 10/08/2026`.
+Strategy/date/target session và ít nhất một symbol bắt buộc; version mặc định
+`1`. Bỏ `--write` là dry-run; cung cấp sẽ persist daily candidate. Command đọc
+dữ liệu hiện hữu và không ingest, tính feature, chạy backtest/approval, scan
+intraday hoặc Analog.
+
+### `signals scan`
+
+```text
+python main.py signals scan --strategy CODE [--version INT]
+  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
+  --slot {09:30,11:30,13:30,14:30} [--write]
+```
+
+Ví dụ: `python main.py signals scan --strategy breakout_v1 --date 07/08/2026 --symbols SSI --slot 14:30`.
+Các field hiển thị là bắt buộc; version mặc định `1`. Bỏ `--write` là dry-run;
+cung cấp sẽ persist scan result. Nó đọc approved candidate/feature hiện hữu và
+không ingest, tính feature, backtest/approve hoặc chạy Analog.
+
+## Bề mặt parser Historical Analog EOD V1
+
+Method được duyệt là same-symbol, same-checkpoint trong
+[`phase1/HISTORICAL_ANALOG_SPEC.vi.md`](phase1/HISTORICAL_ANALOG_SPEC.vi.md).
+Nội dung Phase 1 cũ nói Analog CLI chưa tồn tại đã stale: parser command, core
+module, test và schema migration nay đã có. Tuy nhiên, **`main.py` hiện route mọi
+Analog command chỉ vào summary/profile identity guard**, không vào pipeline/
+repository database-backed.
+
+Mọi Analog command là dry-run summary khi bỏ `--apply`. Cung cấp `--apply` không
+ghi dữ liệu: summary được chấp nhận sẽ báo `apply_requires_database`. Guard
+identity/draft có thể báo `blocked`. Các summary không phải `FAILED` này exit
+`0`, nên phải đọc JSON `status`/`reason_codes`. Hiện không Analog parser command
+nào đọc/ghi/delete DB row hoặc kích hoạt job khác.
+
+### Profile registry
+
+```text
+python main.py analogs profiles list
+python main.py analogs profiles register [--apply]
+python main.py analogs profiles sync [--apply]
+```
+
+Ví dụ chính là các lệnh trên. `sync` là alias của `register`. `profiles list`
+không có option. `--apply` mặc định false; khi có chỉ đổi summary thành
+`apply_requires_database`, không đổi database.
+
+### Build history
+
+```text
+python main.py analogs history build --profile CODE --version INT
+  --config-hash HASH --symbols SYMBOL [SYMBOL ...]
+  --from DD/MM/YYYY --to DD/MM/YYYY
+  --mode {full,incremental,replace} [--apply] [--confirm-replace]
+```
+
+Ví dụ: `python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2026 --to 31/01/2026 --mode full`.
+Identity, ít nhất một symbol, inclusive range và mode đều bắt buộc.
+`--confirm-replace` mặc định false và chỉ có ý nghĩa với replace intent; nó
+không thể làm summary handler hiện tại delete dữ liệu. `--apply` cũng chỉ request,
+không thực thi database work. Hiện không history nào được build qua CLI.
+
+### Validation theo thời gian
+
+```text
+python main.py analogs validate --profile CODE --version INT
+  --symbols SYMBOL [SYMBOL ...] --from DD/MM/YYYY --to DD/MM/YYYY
+  --run-type {calibration,validation,final}
+  [--thresholds [FLOAT ...]] [--final-test-start DD/MM/YYYY] [--apply]
+```
+
+Ví dụ: `python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2025 --to 31/12/2025 --run-type calibration --thresholds 0.2 0.3`.
+Các option identity/scope/run-type hiển thị là bắt buộc. Bỏ `--thresholds` là
+`None`; cung cấp value sẽ đưa candidate float, parser cũng chấp nhận flag với
+danh sách rỗng. `--final-test-start` mặc định không có; khi cung cấp đánh dấu
+requested final holdout start. `--apply` hiện không chạy validation/persist
+evidence.
+
+### Manual review
+
+```text
+python main.py analogs approve --profile CODE --version INT
+  --validation-run ID --reviewer NAME --reason TEXT [--apply]
+python main.py analogs reject --profile CODE --version INT
+  --validation-run ID --reviewer NAME --reason TEXT [--apply]
+```
+
+Ví dụ: `python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run RUN_ID --reviewer reviewer --reason "insufficient evidence"`.
+Mọi field identity/evidence/reviewer bắt buộc; `--apply` mặc định false và vẫn
+không ghi. Bundled draft profile có thể block review vì distance threshold null.
+
+### Query một symbol
+
+```text
+python main.py analogs query --profile CODE --version INT --symbol SYMBOL
+  --date DD/MM/YYYY [--checkpoint EOD] [--apply]
+```
+
+Ví dụ: `python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026`.
+Mọi option trừ checkpoint/apply bắt buộc. `--checkpoint` chỉ nhận `EOD`, mặc định
+`EOD`; cung cấp tường minh hiện không thay đổi hành vi. Draft/unapproved profile
+bị block. `--apply` không query/persist production analysis qua route CLI hiện
+tại.
+
+### Daily runner riêng
+
+```text
+python main.py analogs daily run --profile CODE --version INT
+  --symbols SYMBOL [SYMBOL ...] --date DD/MM/YYYY [--apply]
+```
+
+Ví dụ: `python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 07/08/2026`.
+Profile/version, ít nhất một symbol và date bắt buộc. Bỏ `--apply` là summary
+dry-run; cung cấp vẫn báo cần database work. Nó không chạy ingest, feature,
+history build, validation hoặc DB analysis.
+
+## Database impact của task tài liệu
+
+Refactor tài liệu này không cần migration/schema change, không ảnh hưởng row DB
+và không cần source/feature backfill. Runtime hiện hữu, gồm route Analog chỉ trả
+summary, được giữ nguyên có chủ ý.
+
+## Validation offline
 
 ```bash
 python -m compileall main.py src scripts
 python main.py --help
+python main.py features-daily --help
+python main.py features-intraday --help
+python main.py streaming-ingest --help
+python main.py strategies --help
+python main.py signals --help
+python main.py analogs --help
+python -m pytest -q tests/cli/test_cli_refactor.py tests/analogs/test_pipeline_cli.py
 python -m pytest -q
+git diff --check
 ```
 
-Smoke test SSI/Supabase mặc định read-only nếu chưa có exact write scope được
-duyệt.
+Không cần network/credential smoke test để validate tài liệu; không write SSI
+hoặc Supabase chỉ để test reference này.
