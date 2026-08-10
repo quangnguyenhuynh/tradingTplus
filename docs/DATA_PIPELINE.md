@@ -232,11 +232,9 @@ Raw stream giữ payload, receive time và validation status/issues. Clean strea
 
 ## 7. Downstream boundaries
 
-Signal/backtest fixed-rule hiện có là code research đang đóng băng và đã bị
-thay thế bởi định hướng Phase 1 historical analog cùng mã/cùng checkpoint.
-Historical-analog schema, pipeline và CLI active chưa được triển khai. Ingest
-không tự chạy feature; feature không tự chạy fixed-rule, analog research,
-signal, backtest hoặc alert.
+Runtime rule cũ đã bị xóa. Historical Analog EOD V1 đã có schema, pipeline và
+CLI active. Ingest không tự chạy feature; feature không tự chạy Analog, signal,
+backtest hoặc alert.
 
 Chi tiết trạng thái và known issues xem [CURRENT_STATE.md](CURRENT_STATE.md).
 # Write timestamp contract

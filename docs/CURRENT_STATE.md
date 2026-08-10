@@ -7,13 +7,13 @@ Tài liệu này mô tả trạng thái hiện tại của repository Trading T+
 Last reviewed against repository code:
 
 ```text
-06/08/2026
+10/08/2026
 ```
 
 Mốc repository dùng để đối chiếu:
 
 ```text
-dev tại `51da9d4`, cộng branch tài liệu Phase 1 hiện tại
+branch cleanup hiện tại sau Historical Analog EOD V1
 ```
 
 Phạm vi đã đọc và đối chiếu gồm:
@@ -47,7 +47,7 @@ Project đang ở:
 
 ```text
 Phase 0 — COMPLETE_WITH_NOTES
-Phase 1 — historical analog design accepted; implementation not started
+Phase 1 — Historical Analog EOD V1 foundation implemented; final validation pending
 ```
 
 Thứ tự ưu tiên hiện tại:
@@ -61,9 +61,9 @@ Thứ tự ưu tiên hiện tại:
 7. Validation phương pháp theo thời gian.
 8. Signal/ranking/%NAV và AI ở phase sau.
 
-Repo hiện có fixed-rule strategy/signal/backtest executable từ PR #121/#123,
-nhưng luồng này đã bị thay thế và đang đóng băng. Thiết kế Phase 1 được chấp nhận
-là historical analog cùng mã/cùng checkpoint; schema/pipeline/CLI mới chưa có.
+Runtime, CLI, test và schema snapshot của hướng rule cũ đã bị xóa. Historical
+Analog EOD V1 cùng mã đã có schema, pipeline và CLI; threshold null/profile draft
+vẫn chặn final approval và production query.
 
 ---
 
@@ -88,8 +88,8 @@ là historical analog cùng mã/cùng checkpoint; schema/pipeline/CLI mới chư
 | Feature intraday | Implemented | Chỉ persist `15m`, `60m`; cả hai aggregate từ clean 1m trong memory. |
 | Incremental feature | Implemented | Target date, warm-up và scoped upsert. |
 | Full feature | Implemented, có rủi ro RAM | Toàn bộ history từng symbol vẫn được giữ trong memory. |
-| Fixed-rule strategy/signal/backtest | Implemented, dormant/superseded | Code, CLI, schema, migrations và test còn tồn tại; không dùng production hoặc làm evidence cho hướng mới. |
-| Historical analog Phase 1 | Design accepted, not implemented | Cùng mã/cùng checkpoint; thiếu mẫu trả `insufficient_sample`. |
+| Rule-based strategy/signal/backtest | Removed | Chỉ giữ migration tạo/enforce làm deployment history; migration cleanup xóa sáu bảng cũ khi apply. |
+| Historical analog Phase 1 | EOD V1 foundation implemented | Cùng mã/cùng checkpoint; thiếu mẫu trả `insufficient_sample`. |
 | Streaming ingest | Implemented, live chưa kiểm chứng | Dry-run mặc định; raw/clean snapshot tách biệt. |
 | Test offline | Passing tại mốc review | GitHub Actions Python 3.11 pass cho merge commit trước task này. |
 | Alert scheduler | Not started | Chưa có production scheduler tại 09:30, 11:30, 13:30, 14:30. |
@@ -714,15 +714,10 @@ RSI/MACD độc lập. Vẫn còn cần kiểm chứng production/read-only đ�
 
 ## Signal and backtest status
 
-The original pre-Phase-0 signal/backtest MVP was removed, but PR #121/#123 later
-added a new executable fixed-rule strategy/signal/backtest research path with
-CLI, six storage tables, migrations, and offline tests. That newer path remains
-in the repository but is dormant/superseded and is not production-approved.
-
-The accepted target is the same-symbol/same-checkpoint historical-analog method
-in [`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md). Its
-schema, pipeline, CLI, and runtime are not implemented. Feature execution does
-not trigger either the dormant fixed-rule path or future analog research.
+The superseded rule-based runtime, CLI, tests, and schema snapshot have been
+removed. Historical Analog EOD V1 is implemented under `src/analogs/`; final
+validation and approval remain blocked by the draft/null-threshold profile.
+Feature execution never triggers Analog analysis automatically.
 
 ---
 
@@ -1051,11 +1046,7 @@ exchange calendar and exact retained sample identifiers remain documented
 risks, not reasons to fabricate evidence. Phase 0 is **COMPLETE_WITH_NOTES**;
 the accepted historical-analog Phase 1 implementation is not present.
 
-### Dormant fixed-rule CLI and accepted Phase 1 direction (2026-08-06)
+### Historical Analog EOD V1 and cleanup (2026-08-10)
 
-`strategies` and `signals` commands are executable research artifacts, but their
-fixed-rule flow is superseded and must not be used as the production Phase 1
-path. The accepted target is documented in
-[`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md):
-same-symbol/same-checkpoint matching, H+1/H+3/H+5 distributions,
-chronological validation, and read-only analysis. Its CLI/schema do not exist.
+The old rule-based command trees and runtime were removed. The active `analogs`
+CLI preserves same-symbol EOD analysis; its production gates remain enforced.

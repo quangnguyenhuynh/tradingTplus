@@ -1,6 +1,6 @@
 # Trading T+ - Phase 1 Historical Analog Specification
 
-Status: **accepted design contract; not implemented**
+Status: **accepted contract; EOD V1 backend foundation implemented**
 
 Reviewed: **2026-08-06**
 
@@ -43,23 +43,17 @@ validation report, and user-facing result; it is outside this specification.
 
 ## 3. Current implementation versus target
 
-The repository currently contains executable fixed-rule research code:
+The superseded fixed-rule runtime, CLI, schema snapshot, specifications, and
+tests were removed by the 2026-08-10 cleanup. Its two creation/enforcement
+migrations remain only as immutable deployment history; a later cleanup
+migration drops their retired tables when manually applied.
 
-- `BREAKOUT_V1` and `PULLBACK_V1` strategies;
-- daily setup and intraday scan flows;
-- strategy approval, signal, backtest, and review tables;
-- `strategies` and `signals` CLI commands;
-- offline tests for those paths.
-
-That code is **implemented but dormant/superseded**, not deleted and not the
-approved Phase 1 production path. Do not run its write commands, approve its
-strategies for production, or treat its metrics as evidence for historical
-analog. Keep it only for audit and deliberate reuse until a separate cleanup
-task is approved.
-
-The historical-analog schema, pipeline, CLI, and runtime query described below
-are proposals for later implementation. This documentation task creates none of
-them.
+The implemented Historical Analog EOD V1 foundation provides the versioned
+profile, snapshot/outcome, chronological validation, review, query evidence,
+repository/service boundaries, and `analogs` CLI parser. The committed null
+distance threshold and draft profile intentionally block final approval and
+production queries. Intraday checkpoints remain outside the implemented EOD V1
+scope.
 
 ## 4. Scope
 

@@ -339,12 +339,12 @@ H+1 / H+3 / H+5 outcome distribution
 chronological validation
 ```
 
-Historical analog chưa có schema, pipeline hoặc CLI active. Signal, alert,
+Historical Analog EOD V1 đã có schema, pipeline và CLI active. Signal, alert,
 ranking và %NAV là các lớp sau khi historical-analog method được kiểm định.
 
-Repo vẫn có fixed-rule strategy/signal/backtest executable từ PR #121/#123.
-Chúng đang đóng băng/đã bị thay thế, không tự động chạy sau ingest hoặc feature,
-và không phải đường production Phase 1.
+Runtime, CLI, test và schema snapshot của hướng rule cũ đã bị xóa. Hai migration
+tạo/enforce cũ chỉ được giữ làm deployment history; cleanup migration xóa sáu
+bảng đã retire khi được apply thủ công.
 
 ---
 
@@ -507,9 +507,8 @@ Các nhóm feature hiện có:
 - candle structure.
 
 `src/engine/` không còn sở hữu feature. Hai shim feature cũ đã bị xóa;
-folder này chỉ giữ utility data-quality manual legacy. Fixed-rule strategy,
-signal và backtest executable nằm ở package riêng, đang đóng băng/đã bị thay
-thế và không phải đường production Phase 1.
+folder này chỉ giữ utility data-quality manual legacy. Các package rule cũ đã
+bị xóa; Historical Analog nằm riêng trong `src/analogs/`.
 
 ---
 
@@ -561,8 +560,7 @@ Test bao phủ các nhóm như:
 - intraday validator;
 - database behavior;
 - intraday value;
-- test signal/backtest hiện có chỉ bao phủ fixed-rule research đang đóng băng;
-  chưa có test historical-analog cùng mã/cùng checkpoint.
+- test `analogs` bao phủ contract Historical Analog EOD cùng mã/cùng checkpoint.
 
 Không báo task hoàn thành nếu chưa chạy test phù hợp.
 

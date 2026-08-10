@@ -9,9 +9,9 @@ Act as a careful tech lead and data engineer. Protect data correctness, preserve
 Trading T+ analyzes Vietnamese stocks for a holding horizon of approximately T+3 to T+5 trading sessions. Long-term outputs may include explainable signals, confidence estimates, NAV suggestions, backtests, and alerts around 09:30, 11:30, 13:30, and 14:30.
 
 Phase 0 data infrastructure and validation is closed as
-`COMPLETE_WITH_NOTES`. The accepted Phase 1 design is same-symbol,
-same-checkpoint historical analog research; it is not implemented yet. Existing
-fixed-rule strategy/signal/backtest code is dormant and superseded.
+`COMPLETE_WITH_NOTES`. The active Phase 1 implementation is same-symbol,
+same-checkpoint historical analog research. The superseded fixed-rule
+strategy/signal/backtest implementation has been removed.
 
 Priority order:
 
@@ -318,9 +318,8 @@ The active Phase 1 contract is
   same-symbol, same-checkpoint baseline.
 * Phase 1 output is analysis only; signal, alert, ranking, and NAV are later
   layers.
-* Existing fixed-rule CLI/code/schema/tests are implemented but dormant. Do not
-  run their writes, approve them for production, or use their metrics as
-  historical-analog evidence.
+* The superseded fixed-rule CLI/code/schema/tests have been removed. Do not
+  reconstruct or use that retired method as historical-analog evidence.
 
 Signal and backtest guardrails
 

@@ -20,7 +20,7 @@ disagree. Run commands from the repository root as `python main.py ...`.
   was written or an operation was applied.
 - Source ingest never starts features, signals, backtests, or Analogs. Feature
   commands never start signals, backtests, or Analogs. No command implicitly
-  advances the dormant fixed-rule or Historical Analog workflows.
+  advances the explicit Historical Analog workflow.
 - Commands that write require configured SSI/Supabase access. Never put real
   credentials on a command line or in documentation.
 
@@ -31,7 +31,7 @@ have no fallback.
 
 | Variable | Default | CLI use |
 | --- | --- | --- |
-| `SUPABASE_URL` | none | Database endpoint for ingest, features, streaming writes, and dormant fixed-rule DB operations. |
+| `SUPABASE_URL` | none | Database endpoint for ingest, features, streaming writes, and Historical Analog DB operations. |
 | `SUPABASE_SERVICE_KEY` | none | Service credential used by the database client. |
 | `SUPABASE_KEY` | none | Loaded compatibility key; the current database client uses the service key. |
 | `SSI_CONSUMER_ID` | none | SSI REST/streaming authentication. |
@@ -60,8 +60,7 @@ sync-master-data (or init)
 → Historical Analog analysis only under an approved, database-backed workflow
 ```
 
-The fixed-rule `strategies`/`signals` path remains executable but frozen and is
-not the approved production direction.
+The retired rule-based CLI path has been removed; `analogs` is the only Phase 1 command tree.
 
 ## Master data
 
@@ -287,82 +286,6 @@ sanitized summaries. Without `--write` the command receives and validates data
 but is read-only; `--write` persists raw frames and valid normalized snapshot
 rows. It is bounded and does not run source batch ingest, features, signals,
 backtests, or Analogs.
-
-## Frozen fixed-rule research commands
-
-These commands remain executable for compatibility, but the fixed-rule
-`rule → backtest → approve → signal` direction is superseded and dormant. Do
-not use its writes in production or treat its metrics as Historical Analog
-evidence.
-
-### `strategies list`
-
-```text
-python main.py strategies list
-```
-
-Example is the exact command above. It takes no options, reads the immutable
-in-code registry, prints strategy identities/configuration, and performs no DB
-write or downstream job.
-
-### `strategies backtest`
-
-```text
-python main.py strategies backtest --strategy CODE [--version INT]
-  --from DD/MM/YYYY --to DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  [--write] [--output-dir PATH] [--commission FLOAT]
-  [--sell-tax FLOAT] [--slippage FLOAT]
-```
-
-Example: `python main.py strategies backtest --strategy breakout_v1 --from 01/01/2026 --to 31/01/2026 --symbols SSI --output-dir artifacts`.
-Strategy, bounds, and at least one symbol are required. `--version` defaults to
-`1`; cost inputs default to `0.0`; `--output-dir` defaults to none. Omitted
-`--write` is dry-run/no DB persistence; supplied `--write` persists backtest
-evidence. An output directory, when supplied, requests file artifacts. It reads
-historical feature/price data and does not ingest, calculate features, approve,
-emit signals, or run Analogs automatically.
-
-### `strategies approve`
-
-```text
-python main.py strategies approve --strategy CODE [--version INT]
-  --backtest-run ID --decision {approve,reject} --owner OWNER --notes TEXT
-```
-
-Example: `python main.py strategies approve --strategy breakout_v1 --backtest-run RUN_ID --decision reject --owner reviewer --notes "research only"`.
-All shown options except `--version` (default `1`) are required. This command has
-**no dry-run or `--write` flag**: supplying valid arguments calls the DB-backed
-review writer immediately. It does not run a backtest, signals, ingest,
-features, or Analogs. Because the path is dormant, do not operate it in
-production.
-
-### `signals daily-setup`
-
-```text
-python main.py signals daily-setup --strategy CODE [--version INT]
-  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  --target-session DD/MM/YYYY [--write]
-```
-
-Example: `python main.py signals daily-setup --strategy breakout_v1 --date 07/08/2026 --symbols SSI --target-session 10/08/2026`.
-Strategy/date/target session and at least one symbol are required; version
-defaults to `1`. Omitted `--write` is dry-run; supplied `--write` persists daily
-candidates. It reads existing data and does not ingest, calculate features, run
-a backtest/approval, scan intraday, or run Analogs.
-
-### `signals scan`
-
-```text
-python main.py signals scan --strategy CODE [--version INT]
-  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  --slot {09:30,11:30,13:30,14:30} [--write]
-```
-
-Example: `python main.py signals scan --strategy breakout_v1 --date 07/08/2026 --symbols SSI --slot 14:30`.
-Required fields are shown; version defaults to `1`. Omitted `--write` is
-dry-run; supplied `--write` persists scan results. It reads existing approved
-candidates/features and does not ingest, compute features, backtest/approve, or
-run Analogs.
 
 ## Historical Analog EOD V1 parser surface
 

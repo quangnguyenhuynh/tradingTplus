@@ -32,8 +32,6 @@ Supabase client and repository persistence helpers.
 Use mocked Supabase clients for unit tests. Live smoke checks should be read-only by default and run through scripts such as `scripts/check_supabase.py` and `scripts/check_ssi_ingest_schema.py`.
 
 ## Phase 1 adapter
-`phase1.py` is the repository boundary for the executable fixed-rule strategy,
-setup, signal, backtest, and review tables. This adapter is dormant/superseded
-and is not the target historical-analog persistence layer. It still never writes
-raw, clean, or feature tables. Proposed analog tables require a future reviewed
-migration and must not repurpose these tables silently.
+The retired rule-based database adapter has been removed. Historical Analog uses
+its dedicated repository and seven-table migration without writing raw, clean,
+or feature tables.

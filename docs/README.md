@@ -18,7 +18,7 @@ Repository-level product, architecture, state, CLI, and database documentation.
 | `CLI_USAGE.md` | Production and operational command reference. |
 | `DATA_CONVENTIONS.md` / `DATA_CONVENTIONS.vi.md` | English/Vietnamese timestamp, session, missing-data, unit, and provenance rules. |
 | [`backfill/`](backfill/README.md) | Source-data backfill behavior, safety, and commands. |
-| [`phase1/`](phase1/README.md) | Accepted same-symbol historical-analog design and superseded fixed-rule references. |
+| [`phase1/`](phase1/README.md) | Implemented same-symbol Historical Analog EOD V1 contract and cleanup status. |
 
 The executable database contract is [`../schema.sql`](../schema.sql), with change
 history and deployment SQL documented under [`../migrations/`](../migrations/README.md).

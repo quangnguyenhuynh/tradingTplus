@@ -22,7 +22,7 @@ từ thư mục gốc repo dưới dạng `python main.py ...`.
   hay thao tác được apply.
 - Ingest nguồn không tự chạy feature, signal, backtest hoặc Analog. Feature
   không tự chạy signal, backtest hoặc Analog. Không command nào tự tiến hành
-  workflow fixed-rule đang đóng băng hay Historical Analog.
+  workflow Historical Analog explicit.
 - Command ghi dữ liệu cần access SSI/Supabase đã cấu hình. Không đưa credential
   thật vào command line hoặc tài liệu.
 
@@ -32,7 +32,7 @@ từ thư mục gốc repo dưới dạng `python main.py ...`.
 
 | Biến | Mặc định | Cách CLI sử dụng |
 | --- | --- | --- |
-| `SUPABASE_URL` | không có | Endpoint DB cho ingest, feature, streaming write và thao tác DB fixed-rule dormant. |
+| `SUPABASE_URL` | không có | Endpoint DB cho ingest, feature, streaming write và thao tác DB Historical Analog. |
 | `SUPABASE_SERVICE_KEY` | không có | Service credential mà database client sử dụng. |
 | `SUPABASE_KEY` | không có | Compatibility key được load; database client hiện dùng service key. |
 | `SSI_CONSUMER_ID` | không có | Xác thực SSI REST/streaming. |
@@ -61,8 +61,7 @@ sync-master-data (hoặc init)
 → chỉ chạy Historical Analog trong workflow database-backed đã được duyệt
 ```
 
-Luồng fixed-rule `strategies`/`signals` vẫn executable nhưng đã đóng băng và
-không phải hướng production được duyệt.
+CLI rule cũ đã bị xóa; `analogs` là command tree Phase 1 duy nhất.
 
 ## Master data
 
@@ -281,77 +280,6 @@ phải trong 1..3600 giây. `--max-messages-per-channel` mặc định `1`, ph�
 command nhận/validate dữ liệu nhưng read-only; có `--write`, nó persist raw frame
 và normalized snapshot row hợp lệ. Command hữu hạn và không chạy batch ingest,
 feature, signal, backtest hoặc Analog.
-
-## Command research fixed-rule đã đóng băng
-
-Các command này còn executable vì compatibility, nhưng hướng fixed-rule
-`rule → backtest → approve → signal` đã bị thay thế và dormant. Không dùng write
-production hoặc coi metrics của chúng là Historical Analog evidence.
-
-### `strategies list`
-
-```text
-python main.py strategies list
-```
-
-Ví dụ chính là lệnh trên. Không có option; đọc immutable registry trong code,
-in identity/config strategy và không ghi DB/chạy downstream job.
-
-### `strategies backtest`
-
-```text
-python main.py strategies backtest --strategy CODE [--version INT]
-  --from DD/MM/YYYY --to DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  [--write] [--output-dir PATH] [--commission FLOAT]
-  [--sell-tax FLOAT] [--slippage FLOAT]
-```
-
-Ví dụ: `python main.py strategies backtest --strategy breakout_v1 --from 01/01/2026 --to 31/01/2026 --symbols SSI --output-dir artifacts`.
-Strategy, bounds và ít nhất một symbol bắt buộc. `--version` mặc định `1`; các
-chi phí mặc định `0.0`; `--output-dir` mặc định không có. Bỏ `--write` là
-dry-run/không persist DB; cung cấp sẽ persist backtest evidence. Output directory
-nếu có sẽ yêu cầu file artifact. Command đọc feature/price history và không
-ingest, tính feature, approve, phát signal hoặc chạy Analog tự động.
-
-### `strategies approve`
-
-```text
-python main.py strategies approve --strategy CODE [--version INT]
-  --backtest-run ID --decision {approve,reject} --owner OWNER --notes TEXT
-```
-
-Ví dụ: `python main.py strategies approve --strategy breakout_v1 --backtest-run RUN_ID --decision reject --owner reviewer --notes "research only"`.
-Mọi option trừ `--version` (mặc định `1`) đều bắt buộc. Command **không có
-dry-run hoặc flag `--write`**: argument hợp lệ sẽ gọi DB-backed review writer
-ngay. Nó không chạy backtest, signal, ingest, feature hoặc Analog. Vì path
-dormant, không vận hành production.
-
-### `signals daily-setup`
-
-```text
-python main.py signals daily-setup --strategy CODE [--version INT]
-  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  --target-session DD/MM/YYYY [--write]
-```
-
-Ví dụ: `python main.py signals daily-setup --strategy breakout_v1 --date 07/08/2026 --symbols SSI --target-session 10/08/2026`.
-Strategy/date/target session và ít nhất một symbol bắt buộc; version mặc định
-`1`. Bỏ `--write` là dry-run; cung cấp sẽ persist daily candidate. Command đọc
-dữ liệu hiện hữu và không ingest, tính feature, chạy backtest/approval, scan
-intraday hoặc Analog.
-
-### `signals scan`
-
-```text
-python main.py signals scan --strategy CODE [--version INT]
-  --date DD/MM/YYYY --symbols SYMBOL [SYMBOL ...]
-  --slot {09:30,11:30,13:30,14:30} [--write]
-```
-
-Ví dụ: `python main.py signals scan --strategy breakout_v1 --date 07/08/2026 --symbols SSI --slot 14:30`.
-Các field hiển thị là bắt buộc; version mặc định `1`. Bỏ `--write` là dry-run;
-cung cấp sẽ persist scan result. Nó đọc approved candidate/feature hiện hữu và
-không ingest, tính feature, backtest/approve hoặc chạy Analog.
 
 ## Bề mặt parser Historical Analog EOD V1
 

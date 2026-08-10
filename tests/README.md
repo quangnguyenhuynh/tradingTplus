@@ -18,9 +18,6 @@ Offline unit, contract, regression, CLI, migration-text, validation, and pipelin
 | [`inspectors/`](inspectors/README.md) | Read-only SSI REST and streaming inspector tests. |
 | [`pipeline/`](pipeline/README.md) | EOD orchestration and dry-run behavior. |
 | [`cli/`](cli/README.md) | Production CLI and script-entrypoint contracts. |
-| [`strategies/`](strategies/README.md) | Dormant fixed-rule registry/evaluator tests. |
-| [`signals/`](signals/README.md) | Dormant fixed-rule approval/idempotency tests. |
-| [`backtest/`](backtest/README.md) | Dormant fixed-rule replay/outcome/migration tests. |
 
 `conftest.py` adds the repository root to `sys.path` so tests remain import-stable after being grouped into subdirectories.
 
@@ -44,10 +41,7 @@ python -m compileall main.py src scripts tests
 - Tests must not write production data.
 - Every production data-quality bug should receive a deterministic regression test.
 - Do not weaken validation merely to accept an unexplained source anomaly.
-- Existing strategy/signal/backtest tests describe dormant executable research;
-  keep them passing but do not treat them as acceptance evidence for historical
-  analog.
-- New Phase 1 tests must follow the active spec and prove strict same-symbol,
+- Analog tests must follow the active spec and prove strict same-symbol,
   same-checkpoint matching, time-safe inputs, and chronological validation.
 - Phase 0 validation tests also assert numeric tolerance, mismatch/unknown classification, historical payload NULL policy, schema catalog contracts, and absence of write/RPC calls.
 
