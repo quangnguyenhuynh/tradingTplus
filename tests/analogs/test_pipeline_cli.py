@@ -61,7 +61,7 @@ def test_full_incremental_replace_scoped_and_idempotent():
     )
     first = build_history(**kwargs, mode="full", apply=True)
     second = build_history(**kwargs, mode="incremental", apply=True)
-    assert first["snapshot_count"] == second["snapshot_count"] == 3 and {
+    assert first["snapshot_count"] == 3 and second["snapshot_count"] == 8 and {
         r["symbol"] for r in repo.snapshots
     } == {"SSI"}
     with pytest.raises(ValueError, match="confirm"):

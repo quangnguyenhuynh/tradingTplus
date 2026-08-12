@@ -283,6 +283,14 @@ def match_snapshot(
     production: bool = True,
     query_cutoff: date | None = None,
 ) -> dict[str, Any]:
+    if current.get("status") != "evaluable":
+        return {
+            "status": "not_evaluable",
+            "reason_codes": list(current.get("invalid_reasons", ["CURRENT_SNAPSHOT_NOT_EVALUABLE"])),
+            "candidate_count": 0,
+            "usable_sample": 0,
+            "required_sample": int(profile.config["minimum_sample"]),
+        }
     threshold = profile.config["distance_threshold"]
     if threshold is None:
         return {
@@ -365,8 +373,25 @@ def match_snapshot(
         "required_sample": required,
         "normalization": fitted,
     }
+    matches = [
+        {
+            "rank": rank,
+            "snapshot_id": item["snapshot"].get("id"),
+            "trading_session": item["snapshot"]["trading_session"],
+            "distance": item["distance"],
+            "similarity": item["similarity"],
+            "normalized_differences": item["normalized_differences"],
+            "outcomes": item["snapshot"]["outcomes"],
+        }
+        for rank, item in enumerate(selected, 1)
+    ]
     if len(selected) < required:
-        return {"status": "insufficient_sample", **base}
+        return {
+            "status": "insufficient_sample",
+            "reason_codes": ["MINIMUM_SAMPLE_NOT_MET"],
+            **base,
+            "matches": matches,
+        }
     statistics = {}
     for horizon in (1, 3, 5):
         returns = [
@@ -376,14 +401,4 @@ def match_snapshot(
             row["outcomes"][horizon]["return_ratio"] for row in eligible
         ]
         statistics[str(horizon)] = horizon_statistics(returns, baseline_returns)
-    matches = [
-        {
-            "rank": rank,
-            "snapshot_id": item["snapshot"].get("id"),
-            "distance": item["distance"],
-            "similarity": item["similarity"],
-            "normalized_differences": item["normalized_differences"],
-        }
-        for rank, item in enumerate(selected, 1)
-    ]
     return {"status": "completed", **base, "statistics": statistics, "matches": matches}

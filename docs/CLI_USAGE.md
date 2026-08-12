@@ -287,125 +287,14 @@ but is read-only; `--write` persists raw frames and valid normalized snapshot
 rows. It is bounded and does not run source batch ingest, features, signals,
 backtests, or Analogs.
 
-## Historical Analog EOD V1 parser surface
-
-The accepted method is same-symbol, same-checkpoint analysis described in
-[`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md). Older
-Phase 1 text saying the Analog CLI does not exist is stale: parser commands,
-core modules, tests, and schema migration now exist. However, **the current
-`main.py` routes every Analog command only to a summary/profile identity guard**,
-not the database-backed pipeline/repository.
-
-All Analog commands are dry-run summaries when `--apply` is omitted. Supplying
-`--apply` does not write: an otherwise accepted summary reports
-`apply_requires_database`. Identity/draft guards may instead report `blocked`.
-These non-`FAILED` summaries exit `0`, so inspect JSON `status` and
-`reason_codes`. No Analog parser command currently reads/writes/deletes DB rows
-or triggers another job.
-
-### Profile registry
-
-```text
-python main.py analogs profiles list
-python main.py analogs profiles register [--apply]
-python main.py analogs profiles sync [--apply]
-```
-
-Examples are the exact commands above. `sync` is an alias of `register`.
-`profiles list` has no option. `--apply` defaults false; when supplied it only
-changes the summary to `apply_requires_database`, not the database.
-
-### History build
-
-```text
-python main.py analogs history build --profile CODE --version INT
-  --config-hash HASH --symbols SYMBOL [SYMBOL ...]
-  --from DD/MM/YYYY --to DD/MM/YYYY
-  --mode {full,incremental,replace} [--apply] [--confirm-replace]
-```
-
-Example: `python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2026 --to 31/01/2026 --mode full`.
-Identity, at least one symbol, inclusive range, and mode are required.
-`--confirm-replace` defaults false and is meaningful only with replace intent;
-it cannot make the current summary handler delete data. `--apply` likewise
-requests but does not execute database work. No history is currently built.
-
-### Chronological validation
-
-```text
-python main.py analogs validate --profile CODE --version INT
-  --symbols SYMBOL [SYMBOL ...] --from DD/MM/YYYY --to DD/MM/YYYY
-  --run-type {calibration,validation,final}
-  [--thresholds [FLOAT ...]] [--final-test-start DD/MM/YYYY] [--apply]
-```
-
-Example: `python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2025 --to 31/12/2025 --run-type calibration --thresholds 0.2 0.3`.
-Shown identity/scope/run-type options are required. Omitted `--thresholds` is
-`None`; supplied with values provides candidate floats, while the parser also
-accepts the flag with an empty list. `--final-test-start` defaults to none and,
-when supplied, marks the requested final holdout start. `--apply` does not run
-validation or persist evidence in the current route.
-
-### Manual review
-
-```text
-python main.py analogs approve --profile CODE --version INT
-  --validation-run ID --reviewer NAME --reason TEXT [--apply]
-python main.py analogs reject --profile CODE --version INT
-  --validation-run ID --reviewer NAME --reason TEXT [--apply]
-```
-
-Example: `python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run RUN_ID --reviewer reviewer --reason "insufficient evidence"`.
-All identity/evidence/reviewer fields are required; `--apply` defaults false and
-still cannot write. The bundled draft profile may block review because its
-distance threshold is null.
-
-### One-symbol query
-
-```text
-python main.py analogs query --profile CODE --version INT --symbol SYMBOL
-  --date DD/MM/YYYY [--checkpoint EOD] [--apply]
-```
-
-Example: `python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026`.
-All but checkpoint/apply are required. `--checkpoint` accepts only `EOD` and
-defaults to `EOD`; explicitly supplying it makes no current behavioral change.
-The draft/unapproved profile is blocked. `--apply` does not query or persist a
-production analysis through the current CLI route.
-
-### Separate daily runner
-
-```text
-python main.py analogs daily run --profile CODE --version INT
-  --symbols SYMBOL [SYMBOL ...] --date DD/MM/YYYY [--apply]
-```
-
-Example: `python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 07/08/2026`.
-Profile/version, at least one symbol, and date are required. Omitted `--apply`
-is a summary dry-run; supplied `--apply` still reports database work is required.
-It does not run ingest, features, history build, validation, or DB analysis.
-
-## Documentation-task database impact
-
-This documentation refactor requires no migration or schema change, affects no
-database rows, and requires no source or feature backfill. Existing runtime
-behavior—including the Analog summary-only route—is intentionally unchanged.
-
-## Offline validation
+## Historical Analog EOD V1 runtime
 
 ```bash
-python -m compileall main.py src scripts
-python main.py --help
-python main.py features-daily --help
-python main.py features-intraday --help
-python main.py streaming-ingest --help
-python main.py strategies --help
-python main.py signals --help
-python main.py analogs --help
-python -m pytest -q tests/cli/test_cli_refactor.py tests/analogs/test_pipeline_cli.py
-python -m pytest -q
-git diff --check
+python main.py analogs profiles list
+python main.py analogs profiles register [--apply]
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash <exact-hash> --symbols SSI --from DD/MM/YYYY --to DD/MM/YYYY --mode full [--apply]
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD [--apply]
+python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
 ```
 
-Network/credential smoke tests are not required for documentation validation;
-do not perform SSI or Supabase writes merely to test this reference.
+History is source-read/dry-run by default and persists snapshots/outcomes only with `--apply`; replace also requires `--confirm-replace`. Query always reads persisted evidence and writes audit rows only with `--apply` and an exact approved/numeric-threshold profile. The current V1 draft/null-threshold profile remains production-blocked. Inspect reads `features` 1d plus `stock_daily`, calculates in memory, and never persists; its explicit threshold is ephemeral non-production research input, not a signal or recommendation.
