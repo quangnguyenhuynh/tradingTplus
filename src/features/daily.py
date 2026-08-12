@@ -19,6 +19,19 @@ from .runtime import (
 )
 
 
+def _to_nullable_whole_units(values, index: pd.Index) -> pd.Series:
+    """Normalize daily whole-unit market fields to nullable integers."""
+    if isinstance(values, pd.Series):
+        source = values.reindex(index)
+    else:
+        source = pd.Series(values, index=index)
+    numeric = pd.to_numeric(source, errors="coerce").replace(
+        [float("inf"), float("-inf")],
+        float("nan"),
+    )
+    return numeric.round().astype("Int64")
+
+
 def _daily_to_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     required = [
         "trading_date",
@@ -44,13 +57,13 @@ def _daily_to_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
             "high": pd.to_numeric(df["highest_price"], errors="coerce"),
             "low": pd.to_numeric(df["lowest_price"], errors="coerce"),
             "close": pd.to_numeric(df["close_price"], errors="coerce"),
-            "volume": pd.to_numeric(
+            "volume": _to_nullable_whole_units(
                 df.get("total_traded_vol", df.get("total_match_vol")),
-                errors="coerce",
+                df.index,
             ),
-            "value": pd.to_numeric(
+            "value": _to_nullable_whole_units(
                 df.get("total_traded_value", df.get("total_match_val")),
-                errors="coerce",
+                df.index,
             ),
         }
     )
