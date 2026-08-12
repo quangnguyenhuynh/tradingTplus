@@ -184,6 +184,18 @@ def test_feature_records_serialize_bigint_payload_as_python_int():
     assert type(record['value']) is int
 
 
+def test_feature_records_round_tiny_bigint_transport_artifact():
+    df = pd.DataFrame([_mk_row('2021-01-03T17:00:00Z', 1)])
+    feats = fe.compute_feature_dataframe(df)
+    feats['value'] = feats['value'].astype(float)
+    feats.loc[0, 'value'] = 310305399000.002
+
+    record = feature_runtime.build_feature_records(feats, 'SSI', '1d')[0]
+
+    assert record['value'] == 310305399000
+    assert type(record['value']) is int
+
+
 def test_feature_records_preserve_missing_bigint_payload_as_none():
     df = pd.DataFrame([_mk_row('2026-07-29T07:30:00Z', 1)])
     feats = fe.compute_feature_dataframe(df)
