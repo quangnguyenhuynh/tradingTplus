@@ -301,3 +301,7 @@ Mỗi mục nên là một task/PR riêng. Thay đổi schema bắt buộc có m
 - Backfill market data/feature: none.
 - Task triển khai sau phải có schema/migration được review riêng và historical
   build có scope cho analog snapshot/outcome.
+
+### Boundary runtime V1 đã triển khai (chỉ EOD)
+
+Runtime V1 hiện persist snapshot EOD từ `features.timeframe='1d'` và outcome H+1/H+3/H+5 theo observed session từ `stock_daily`. Query production đọc evidence đã persist; ghi audit chỉ được phép khi exact profile đã approved và có threshold số đã freeze. Profile source hiện vẫn draft/threshold null. Lệnh inspect là đường research/debug read-only, tính trong memory với threshold tạm thời explicit. Checkpoint intraday, signal, ranking, alert, sizing danh mục và rule backtest không thuộc runtime V1 này.

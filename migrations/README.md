@@ -62,3 +62,7 @@ required audit evidence first. It requires no source, feature, or Analog backfil
 Phase 1 Analog evidence tables. Apply it manually; then run the read-only checks
 in `sql/analogs/verify_historical_analog_core_eod_v1.sql`. Cleanup guidance and
 lock/data-loss warnings are in `sql/analogs/README.md`.
+
+## 20260811 Historical Analog recovery and runtime RPC
+
+For a fresh installation, apply the corrected `20260809_create_historical_analog_core_eod_v1.sql`. It uses the immutable `analog_jsonb_object_size(jsonb)` helper rather than the unavailable `jsonb_object_length(jsonb)`, while retaining the exact nine-dimension CHECK. If the old 20260809 script stopped part-way, apply `20260811_recover_historical_analog_core_eod_v1.sql` instead (or immediately afterward): it is idempotent, preserves existing Analog rows, completes missing tables/indexes/RLS/grants/policies, and installs the service-role-only `persist_analog_query_v1(jsonb,jsonb)` transactional RPC. Then run the read-only verification SQL. Neither migration changes Phase 0 tables or backfills evidence.

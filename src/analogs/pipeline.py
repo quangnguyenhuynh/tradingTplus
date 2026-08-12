@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import math
 from typing import Any, Mapping, Sequence
 
 from .core import build_dimensions, resolve_outcomes
@@ -12,7 +13,7 @@ from .profile import AnalogProfile
 def build_history(
     profile: AnalogProfile,
     feature_rows: Sequence[Mapping[str, Any]],
-    sessions: Sequence[date],
+    sessions: Sequence[date] | Mapping[str, Sequence[date]],
     closes: Mapping[tuple[str, date], float],
     *,
     symbols: Sequence[str],
@@ -34,13 +35,22 @@ def build_history(
         raise ValueError("start must not be after end")
     if mode == "replace" and apply and not confirm_replace:
         raise ValueError("scoped replace requires --confirm-replace")
+    refresh_sessions: dict[str, set[date]] = {}
+    if mode == "incremental":
+        for symbol in normalized_symbols:
+            observed = list(sessions.get(symbol, ())) if isinstance(sessions, Mapping) else list(sessions)
+            before = [session for session in observed if session < start]
+            refresh_sessions[symbol] = set(before[-5:])
     selected = sorted(
         (
             row
             for row in feature_rows
             if row.get("timeframe") == "1d"
             and row.get("symbol") in normalized_symbols
-            and start <= row["trading_session"] <= end
+            and (
+                start <= row["trading_session"] <= end
+                or row["trading_session"] in refresh_sessions.get(row.get("symbol"), set())
+            )
         ),
         key=lambda row: (row["symbol"], row["trading_session"]),
     )
@@ -55,9 +65,19 @@ def build_history(
     for row in selected:
         history = by_symbol[row["symbol"]]
         position = history.index(row)
+        symbol_sessions = (
+            sessions.get(row["symbol"], ())
+            if isinstance(sessions, Mapping)
+            else sessions
+        )
+        session_position = list(symbol_sessions).index(row["trading_session"]) if row["trading_session"] in symbol_sessions else -1
+        prior_closes = (
+            [closes.get((row["symbol"], prior)) for prior in symbol_sessions[max(0, session_position - 5):session_position]]
+            if session_position >= 0 else []
+        )
         computed = build_dimensions(
             row,
-            [prior.get("close") for prior in history[max(0, position - 5) : position]],
+            prior_closes,
         )
         snapshot = {
             "profile_code": profile.code,
@@ -71,6 +91,23 @@ def build_history(
         }
         snapshots.append(snapshot)
         if computed["status"] == "evaluable":
+            reference = closes.get((row["symbol"], row["trading_session"]))
+            try:
+                reference_close = float(reference)
+            except (TypeError, ValueError):
+                reference_close = math.nan
+            if not math.isfinite(reference_close) or reference_close <= 0:
+                outcomes.extend(
+                    {
+                        "snapshot_key": (profile.config_hash, row["symbol"], row["trading_session"]),
+                        "horizon_sessions": horizon,
+                        "reference_session": row["trading_session"],
+                        "status": "unavailable",
+                        "reason": "REFERENCE_CLOSE_MISSING_OR_INVALID",
+                    }
+                    for horizon in (1, 3, 5)
+                )
+                continue
             outcomes.extend(
                 {
                     "snapshot_key": (
@@ -82,17 +119,18 @@ def build_history(
                 }
                 for outcome in resolve_outcomes(
                     row["trading_session"],
-                    float(row["close"]),
-                    sessions,
+                    reference_close,
+                    symbol_sessions,
                     {
                         session: closes.get((row["symbol"], session))
-                        for session in sessions
+                        for session in symbol_sessions
                     },
-                    cutoff=max(sessions) if sessions else None,
+                    cutoff=max(symbol_sessions) if symbol_sessions else None,
                 )
             )
     deleted = 0
     if apply and repository is not None:
+        persistence_start = min((row["trading_session"] for row in snapshots), default=start)
         if mode == "replace":
             deleted = repository.replace_scope(
                 code=profile.code,
@@ -103,7 +141,34 @@ def build_history(
                 end=end.isoformat(),
             )
         repository.upsert_snapshots(snapshots)
-        # Production adapter resolves snapshot_key to persisted ids before outcome upsert.
+        if not hasattr(repository, "resolve_snapshot_ids"):
+            persisted = []  # Compatibility for dry/unit repositories.
+        else:
+            persisted = repository.resolve_snapshot_ids(
+                code=profile.code,
+                version=profile.version,
+                config_hash=profile.config_hash,
+                symbols=normalized_symbols,
+                start=persistence_start.isoformat(),
+                end=end.isoformat(),
+            )
+        ids = {
+            (row["config_hash"], row["symbol"], _as_date(row["trading_session"])): row["id"]
+            for row in persisted
+        }
+        persisted_outcomes = []
+        for outcome in outcomes:
+            key = outcome["snapshot_key"]
+            snapshot_id = ids.get(key)
+            if not snapshot_id and persisted:
+                raise RuntimeError(f"persisted snapshot id not found for {key}")
+            if not snapshot_id:
+                continue
+            mapped = {k: v for k, v in outcome.items() if k != "snapshot_key"}
+            mapped["snapshot_id"] = snapshot_id
+            persisted_outcomes.append(mapped)
+        if hasattr(repository, "upsert_outcomes"):
+            repository.upsert_outcomes(persisted_outcomes)
     return {
         "status": "completed",
         "profile_code": profile.code,
@@ -125,6 +190,10 @@ def build_history(
         "snapshots": snapshots,
         "outcomes": outcomes,
     }
+
+
+def _as_date(value: Any) -> date:
+    return value if isinstance(value, date) else date.fromisoformat(str(value))
 
 
 def daily_run(

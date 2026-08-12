@@ -281,123 +281,14 @@ command nhận/validate dữ liệu nhưng read-only; có `--write`, nó persist
 và normalized snapshot row hợp lệ. Command hữu hạn và không chạy batch ingest,
 feature, signal, backtest hoặc Analog.
 
-## Bề mặt parser Historical Analog EOD V1
-
-Method được duyệt là same-symbol, same-checkpoint trong
-[`phase1/HISTORICAL_ANALOG_SPEC.vi.md`](phase1/HISTORICAL_ANALOG_SPEC.vi.md).
-Nội dung Phase 1 cũ nói Analog CLI chưa tồn tại đã stale: parser command, core
-module, test và schema migration nay đã có. Tuy nhiên, **`main.py` hiện route mọi
-Analog command chỉ vào summary/profile identity guard**, không vào pipeline/
-repository database-backed.
-
-Mọi Analog command là dry-run summary khi bỏ `--apply`. Cung cấp `--apply` không
-ghi dữ liệu: summary được chấp nhận sẽ báo `apply_requires_database`. Guard
-identity/draft có thể báo `blocked`. Các summary không phải `FAILED` này exit
-`0`, nên phải đọc JSON `status`/`reason_codes`. Hiện không Analog parser command
-nào đọc/ghi/delete DB row hoặc kích hoạt job khác.
-
-### Profile registry
-
-```text
-python main.py analogs profiles list
-python main.py analogs profiles register [--apply]
-python main.py analogs profiles sync [--apply]
-```
-
-Ví dụ chính là các lệnh trên. `sync` là alias của `register`. `profiles list`
-không có option. `--apply` mặc định false; khi có chỉ đổi summary thành
-`apply_requires_database`, không đổi database.
-
-### Build history
-
-```text
-python main.py analogs history build --profile CODE --version INT
-  --config-hash HASH --symbols SYMBOL [SYMBOL ...]
-  --from DD/MM/YYYY --to DD/MM/YYYY
-  --mode {full,incremental,replace} [--apply] [--confirm-replace]
-```
-
-Ví dụ: `python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2026 --to 31/01/2026 --mode full`.
-Identity, ít nhất một symbol, inclusive range và mode đều bắt buộc.
-`--confirm-replace` mặc định false và chỉ có ý nghĩa với replace intent; nó
-không thể làm summary handler hiện tại delete dữ liệu. `--apply` cũng chỉ request,
-không thực thi database work. Hiện không history nào được build qua CLI.
-
-### Validation theo thời gian
-
-```text
-python main.py analogs validate --profile CODE --version INT
-  --symbols SYMBOL [SYMBOL ...] --from DD/MM/YYYY --to DD/MM/YYYY
-  --run-type {calibration,validation,final}
-  [--thresholds [FLOAT ...]] [--final-test-start DD/MM/YYYY] [--apply]
-```
-
-Ví dụ: `python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2025 --to 31/12/2025 --run-type calibration --thresholds 0.2 0.3`.
-Các option identity/scope/run-type hiển thị là bắt buộc. Bỏ `--thresholds` là
-`None`; cung cấp value sẽ đưa candidate float, parser cũng chấp nhận flag với
-danh sách rỗng. `--final-test-start` mặc định không có; khi cung cấp đánh dấu
-requested final holdout start. `--apply` hiện không chạy validation/persist
-evidence.
-
-### Manual review
-
-```text
-python main.py analogs approve --profile CODE --version INT
-  --validation-run ID --reviewer NAME --reason TEXT [--apply]
-python main.py analogs reject --profile CODE --version INT
-  --validation-run ID --reviewer NAME --reason TEXT [--apply]
-```
-
-Ví dụ: `python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run RUN_ID --reviewer reviewer --reason "insufficient evidence"`.
-Mọi field identity/evidence/reviewer bắt buộc; `--apply` mặc định false và vẫn
-không ghi. Bundled draft profile có thể block review vì distance threshold null.
-
-### Query một symbol
-
-```text
-python main.py analogs query --profile CODE --version INT --symbol SYMBOL
-  --date DD/MM/YYYY [--checkpoint EOD] [--apply]
-```
-
-Ví dụ: `python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026`.
-Mọi option trừ checkpoint/apply bắt buộc. `--checkpoint` chỉ nhận `EOD`, mặc định
-`EOD`; cung cấp tường minh hiện không thay đổi hành vi. Draft/unapproved profile
-bị block. `--apply` không query/persist production analysis qua route CLI hiện
-tại.
-
-### Daily runner riêng
-
-```text
-python main.py analogs daily run --profile CODE --version INT
-  --symbols SYMBOL [SYMBOL ...] --date DD/MM/YYYY [--apply]
-```
-
-Ví dụ: `python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 07/08/2026`.
-Profile/version, ít nhất một symbol và date bắt buộc. Bỏ `--apply` là summary
-dry-run; cung cấp vẫn báo cần database work. Nó không chạy ingest, feature,
-history build, validation hoặc DB analysis.
-
-## Database impact của task tài liệu
-
-Refactor tài liệu này không cần migration/schema change, không ảnh hưởng row DB
-và không cần source/feature backfill. Runtime hiện hữu, gồm route Analog chỉ trả
-summary, được giữ nguyên có chủ ý.
-
-## Validation offline
+## Runtime Historical Analog EOD V1
 
 ```bash
-python -m compileall main.py src scripts
-python main.py --help
-python main.py features-daily --help
-python main.py features-intraday --help
-python main.py streaming-ingest --help
-python main.py strategies --help
-python main.py signals --help
-python main.py analogs --help
-python -m pytest -q tests/cli/test_cli_refactor.py tests/analogs/test_pipeline_cli.py
-python -m pytest -q
-git diff --check
+python main.py analogs profiles list
+python main.py analogs profiles register [--apply]
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash <exact-hash> --symbols SSI --from DD/MM/YYYY --to DD/MM/YYYY --mode full [--apply]
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD [--apply]
+python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
 ```
 
-Không cần network/credential smoke test để validate tài liệu; không write SSI
-hoặc Supabase chỉ để test reference này.
+History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved/có threshold số. Profile V1 draft/threshold null hiện vẫn bị production-block. Inspect đọc feature 1d và `stock_daily`, tính trong memory và tuyệt đối không persist; threshold explicit chỉ là input research tạm thời, không phải signal hay khuyến nghị.

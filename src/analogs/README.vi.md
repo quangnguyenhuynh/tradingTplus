@@ -47,3 +47,11 @@ Repo không có web framework. `AnalogReadService` cung cấp service read-only 
 endpoint profile/latest/query tương lai; wiring HTTP được hoãn và GET không được
 recompute. V1 loại trừ intraday, pool nhiều mã, gọi SSI, khuyến nghị, P&L/fee,
 alert, ranking và NAV.
+
+## Lệnh runtime production
+
+V1 chỉ hỗ trợ EOD/`1d`. `analogs profiles register` là dry-run nếu thiếu `--apply`; list và register thật dùng `analog_profiles` với đúng identity trong source. `analogs history build` đọc phân trang feature 1d và `stock_daily`; chỉ `--apply` mới upsert snapshot và outcome H+1/H+3/H+5. Replace còn bắt buộc `--confirm-replace` và chỉ xóa đúng identity/mã/khoảng ngày/EOD.
+
+`analogs query` đọc evidence đã persist. Không `--apply` thì chỉ đọc; có `--apply` chỉ audit nguyên tử khi profile exact đã approved và threshold là số. V1 vẫn draft/threshold null nên query production chủ động block với `EXACT_PROFILE_NOT_APPROVED` và `DISTANCE_THRESHOLD_NULL`.
+
+`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` chỉ đọc source và tính trong memory, không ghi bảng Analog. Threshold là tham số research tạm thời, không đổi profile/hash, không phải evidence approval, signal hay khuyến nghị đầu tư.

@@ -109,3 +109,11 @@ Common reasons include `DISTANCE_THRESHOLD_NULL`, `EXACT_PROFILE_NOT_APPROVED`,
 `TARGET_SESSION_NOT_YET_OBSERVABLE`, and `VERIFIED_SESSION_PRICE_MISSING`.
 Phase 1 excludes intraday inputs, cross-symbol pooling, SSI calls, recommendations,
 execution/P&L, alerts, ranking, and NAV.
+
+## Production runtime commands
+
+V1 is EOD/`1d` only. `analogs profiles register` is a dry run unless `--apply`; list and applied registration use `analog_profiles` and require the exact source-controlled identity. `analogs history build` reads paginated `features` 1d and `stock_daily`, and only `--apply` upserts snapshots plus H+1/H+3/H+5 outcomes. Replace additionally requires `--confirm-replace` and is limited to the exact identity/symbol/date/EOD scope.
+
+`analogs query` reads persisted snapshot/outcome evidence. Without `--apply` it is read-only; with `--apply` it may atomically audit an exact approved profile with a numeric threshold. V1 remains draft with a null threshold, so production query is intentionally blocked by `EXACT_PROFILE_NOT_APPROVED` and `DISTANCE_THRESHOLD_NULL`.
+
+`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` reads source data and calculates entirely in memory. It never writes an Analog table. Its threshold is ephemeral research input and neither changes the profile/hash nor constitutes approval evidence, a signal, or investment advice.

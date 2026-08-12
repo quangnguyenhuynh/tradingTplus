@@ -53,7 +53,7 @@ from src.pipeline import (
     run_streaming_ingest,
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
-from src.analogs.cli import dry_summary as analog_dry_summary
+from src.analogs.cli import run as run_analogs
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -393,6 +393,15 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("--date", required=True)
     query.add_argument("--checkpoint", default="EOD", choices=["EOD"])
     query.add_argument("--apply", action="store_true")
+    inspect = analog_sub.add_parser(
+        "inspect", help="Read source data and calculate research evidence without writes"
+    )
+    inspect.add_argument("--profile", required=True)
+    inspect.add_argument("--version", type=int, required=True)
+    inspect.add_argument("--symbol", required=True)
+    inspect.add_argument("--date", required=True)
+    inspect.add_argument("--checkpoint", default="EOD", choices=["EOD"])
+    inspect.add_argument("--distance-threshold", type=float, required=True)
     daily_analog = analog_sub.add_parser(
         "daily", help="Separate idempotent EOD Analog runner"
     )
@@ -443,7 +452,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "analogs":
-            summary = analog_dry_summary(args)
+            summary = run_analogs(args)
             _print_summary(summary)
             return 0 if summary.get("status") not in {"FAILED"} else 1
         if args.command in {"init", "sync-master-data"}:

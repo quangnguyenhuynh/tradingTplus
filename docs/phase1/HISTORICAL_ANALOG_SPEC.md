@@ -314,3 +314,7 @@ Each item should be a separate task/PR. Schema changes require migrations.
 - Market-data or feature backfill: none.
 - Future implementation will require a separately reviewed schema/migration and
   scoped historical build for analog snapshots/outcomes.
+
+### Implemented V1 runtime boundary (EOD only)
+
+The current V1 runtime persists EOD snapshots from `features.timeframe='1d'` and observed-session H+1/H+3/H+5 outcomes from `stock_daily`. Production queries read that persisted evidence; audit persistence is gated by exact approval and a numeric frozen threshold. The source profile remains draft/null-threshold. The inspect command is a read-only, in-memory research/debug path with an explicit ephemeral threshold. Intraday checkpoints, signals, rankings, alerts, portfolio sizing, and backtest rules are not part of this V1 runtime.

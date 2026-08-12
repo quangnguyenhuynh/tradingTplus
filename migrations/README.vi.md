@@ -59,3 +59,7 @@ backfill source, feature hoặc Analog.
 Analog Phase 1. Chạy migration thủ công, rồi chạy kiểm tra read-only tại
 `sql/analogs/verify_historical_analog_core_eod_v1.sql`. Hướng dẫn cleanup và cảnh
 báo lock/mất dữ liệu nằm tại `sql/analogs/README.md`.
+
+## 20260811 Recovery Historical Analog và RPC runtime
+
+Với cài đặt mới, chạy bản đã sửa `20260809_create_historical_analog_core_eod_v1.sql`. File dùng helper immutable `analog_jsonb_object_size(jsonb)` thay cho hàm không tồn tại `jsonb_object_length(jsonb)`, đồng thời giữ nguyên CHECK đúng chín dimension. Nếu script 20260809 cũ đã dừng giữa chừng, hãy chạy `20260811_recover_historical_analog_core_eod_v1.sql` (hoặc chạy ngay sau đó): migration idempotent, giữ nguyên row Analog đã có, hoàn thiện table/index/RLS/grant/policy còn thiếu và cài RPC transactional `persist_analog_query_v1(jsonb,jsonb)` chỉ cho service role. Sau đó chạy verification SQL read-only. Hai migration không đổi bảng Phase 0 và không backfill evidence.

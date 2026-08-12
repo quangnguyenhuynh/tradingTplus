@@ -1,10 +1,11 @@
--- Phase 1 Historical Analog Core EOD V1. Additive only; apply manually.
+-- Recovery for a partially applied 20260809 Analog migration. Additive/idempotent; preserves rows.
 create or replace function public.analog_jsonb_object_size(value jsonb) returns integer
 language sql immutable strict parallel safe set search_path to ''
 as $$ select count(*)::integer from jsonb_object_keys(value) $$;
 revoke all on function public.analog_jsonb_object_size(jsonb) from public,anon,authenticated;
 grant execute on function public.analog_jsonb_object_size(jsonb) to service_role;
 
+-- Phase 1 Historical Analog Core EOD V1. Additive only; apply manually.
 create table if not exists public.analog_profiles (
   profile_code text not null, version integer not null check (version > 0), config_hash text not null check (config_hash ~ '^[0-9a-f]{64}$'),
   configuration jsonb not null, status text not null check (status in ('draft','validated','approved','rejected','retired')) default 'draft',

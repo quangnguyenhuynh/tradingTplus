@@ -1,4 +1,4 @@
-"""Thin CLI handlers for Analog workflows."""
+"""CLI handlers for production and read-only Analog workflows."""
 
 from __future__ import annotations
 
@@ -6,55 +6,44 @@ from datetime import datetime
 from typing import Any
 
 from .profile import load_profile
+from .runtime import exact_profile, history_build, inspect, query_persisted, repository_from_environment
+from .service import register_profile
 
 
 def parse_date(value: str):
     return datetime.strptime(value, "%d/%m/%Y").date()
 
 
-def dry_summary(args: Any) -> dict[str, Any]:
-    profile = load_profile()
-    base = {
-        "profile_code": profile.code,
-        "version": profile.version,
-        "config_hash": profile.config_hash,
-        "dry_run": not getattr(args, "apply", False),
-    }
+def run(args: Any, repository: Any | None = None) -> dict[str, Any]:
+    source = load_profile()
     action = args.analog_command
+    if action == "profiles" and args.profile_command in {"register", "sync"} and not args.apply:
+        return register_profile(None, source, apply=False)
+    if action == "query" and (source.config["status"] != "approved" or source.config["distance_threshold"] is None):
+        return {"status": "blocked", "profile_code": source.code, "version": source.version, "config_hash": source.config_hash, "reason_codes": ["EXACT_PROFILE_NOT_APPROVED", "DISTANCE_THRESHOLD_NULL"], "persisted": False}
+    if action not in {"profiles", "query"} and (
+        getattr(args, "profile", source.code) != source.code
+        or getattr(args, "version", source.version) != source.version
+        or getattr(args, "config_hash", source.config_hash) != source.config_hash
+    ):
+        return {"status": "blocked", "reason_codes": ["PROFILE_IDENTITY_MISMATCH"], "profile_code": source.code, "version": source.version, "config_hash": source.config_hash, "symbols": sorted({str(s).upper() for s in getattr(args, "symbols", [])}), "persisted": False}
+    repository = repository or repository_from_environment()
     if action == "profiles":
-        return {**base, "status": "dry_run", "operation": args.profile_command}
-    symbols = sorted({s.upper() for s in getattr(args, "symbols", [])})
-    result = {**base, "operation": action, "symbols": symbols}
-    requested_profile = getattr(args, "profile", profile.code)
-    requested_version = getattr(args, "version", profile.version)
-    requested_hash = getattr(args, "config_hash", profile.config_hash)
-    identity_reasons = []
-    if requested_profile != profile.code or requested_version != profile.version:
-        identity_reasons.append("PROFILE_IDENTITY_MISMATCH")
-    if requested_hash != profile.config_hash:
-        identity_reasons.append("CONFIG_HASH_MISMATCH")
-    if hasattr(args, "from_date"):
-        result["range"] = [args.from_date, args.to_date]
-    if hasattr(args, "date"):
-        result["date"] = args.date
-    if identity_reasons:
-        result.update(status="blocked", reason_codes=identity_reasons)
-    elif (
-        action in {"approve", "reject"} and profile.config["distance_threshold"] is None
-    ):
-        result.update(status="blocked", reason_codes=["DISTANCE_THRESHOLD_NULL"])
-    elif action == "query" and (
-        profile.config["status"] != "approved"
-        or profile.config["distance_threshold"] is None
-    ):
-        result.update(
-            status="blocked",
-            reason_codes=["EXACT_PROFILE_NOT_APPROVED", "DISTANCE_THRESHOLD_NULL"],
-        )
-    else:
-        result["status"] = (
-            "dry_run"
-            if not getattr(args, "apply", False)
-            else "apply_requires_database"
-        )
-    return result
+        if args.profile_command == "list":
+            return {"status": "completed", "profiles": repository.list_profiles(), "persisted": False}
+        return register_profile(repository, source, apply=args.apply)
+    profile, _ = exact_profile(repository, args.profile, args.version, getattr(args, "config_hash", None))
+    if action == "history":
+        return history_build(repository, profile, symbols=args.symbols, start=parse_date(args.from_date), end=parse_date(args.to_date), mode=args.mode, apply=args.apply, confirm_replace=args.confirm_replace)
+    symbol = str(args.symbol).strip().upper()
+    if not symbol:
+        raise ValueError("an explicit symbol is required")
+    if action == "query":
+        return query_persisted(repository, profile, symbol=symbol, session=parse_date(args.date), apply=args.apply)
+    if action == "inspect":
+        return inspect(repository, profile, symbol=symbol, session=parse_date(args.date), threshold=args.distance_threshold)
+    raise ValueError(f"Analog operation not implemented by this EOD runtime: {action}")
+
+
+# Backward-compatible name retained for callers outside main.py.
+dry_summary = run

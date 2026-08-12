@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.utils.time_utils import app_now_iso
+
 from .profile import AnalogProfile
 
 
@@ -16,6 +18,8 @@ def register_profile(
         "config_hash": profile.config_hash,
         "configuration": profile.config,
         "status": profile.config["status"],
+        "registered_at": app_now_iso(),
+        "status_changed_at": app_now_iso(),
     }
     if apply:
         repository.register_profile(row)
