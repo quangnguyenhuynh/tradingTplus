@@ -184,23 +184,6 @@ def test_feature_records_serialize_bigint_payload_as_python_int():
     assert type(record['value']) is int
 
 
-def test_feature_records_round_tiny_bigint_transport_artifact():
-    df = pd.DataFrame([
-        _mk_row('2021-01-03T17:00:00Z', 1),
-        _mk_row('2021-01-18T17:00:00Z', 2),
-    ])
-    feats = fe.compute_feature_dataframe(df)
-    feats['value'] = feats['value'].astype(float)
-    feats.loc[0, 'value'] = 310305399000.002
-    feats.loc[1, 'value'] = 767894819000.03
-
-    records = feature_runtime.build_feature_records(feats, 'SSI', '1d')
-
-    assert records[0]['value'] == 310305399000
-    assert records[1]['value'] == 767894819000
-    assert all(type(record['value']) is int for record in records)
-
-
 def test_feature_records_preserve_missing_bigint_payload_as_none():
     df = pd.DataFrame([_mk_row('2026-07-29T07:30:00Z', 1)])
     feats = fe.compute_feature_dataframe(df)
@@ -365,6 +348,69 @@ def _mk_daily(date: str, i: int):
         'total_traded_vol': 1000 + i,
         'total_traded_value': 10000 + i,
     }
+
+
+@pytest.mark.parametrize(
+    ("source_value", "expected"),
+    [
+        (310305399000.002, 310305399000),
+        (767894819000.03, 767894819000),
+        (1183135245000.05, 1183135245000),
+        (1000.49, 1000),
+        (1000.51, 1001),
+    ],
+)
+def test_daily_whole_unit_values_serialize_without_float_artifacts(
+    source_value,
+    expected,
+):
+    row = _mk_daily("2026-07-29", 1)
+    row["total_traded_value"] = source_value
+
+    features = daily_flow.compute_daily_features(pd.DataFrame([row]))
+    record = feature_runtime.build_feature_records(features, "SSI", "1d")[0]
+
+    assert record["value"] == expected
+    assert type(record["value"]) is int
+    assert type(record["volume"]) is int
+
+
+def test_daily_fractional_volume_is_normalized_to_whole_units():
+    row = _mk_daily("2026-07-29", 1)
+    row["total_traded_vol"] = 22578100.51
+
+    features = daily_flow.compute_daily_features(pd.DataFrame([row]))
+    record = feature_runtime.build_feature_records(features, "SSI", "1d")[0]
+
+    assert record["volume"] == 22578101
+    assert type(record["volume"]) is int
+
+
+def test_daily_whole_unit_normalization_preserves_invalid_values_as_nullable():
+    index = pd.Index(range(5))
+
+    result = daily_flow._to_nullable_whole_units(
+        pd.Series(["invalid", None, float("inf"), float("-inf"), 1000.51]),
+        index,
+    )
+
+    assert result.dtype == pd.Int64Dtype()
+    assert result.iloc[:4].isna().all()
+    assert result.iloc[4] == 1001
+
+
+def test_daily_whole_unit_normalization_uses_match_field_fallbacks():
+    row = _mk_daily("2026-07-29", 1)
+    row.pop("total_traded_vol")
+    row.pop("total_traded_value")
+    row["total_match_vol"] = 1000.51
+    row["total_match_val"] = 310305399000.002
+
+    features = daily_flow.compute_daily_features(pd.DataFrame([row]))
+    record = feature_runtime.build_feature_records(features, "SSI", "1d")[0]
+
+    assert record["volume"] == 1001
+    assert record["value"] == 310305399000
 
 
 def test_daily_incremental_matches_full_after_watermark(monkeypatch):
