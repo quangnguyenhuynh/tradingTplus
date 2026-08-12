@@ -21,6 +21,7 @@ UTC_TZ = ZoneInfo("UTC")
 SOURCE_TIMEFRAME = "1m"
 DEFAULT_FEATURE_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")
 BIGINT_FEATURE_COLUMNS = frozenset({"volume", "value"})
+BIGINT_ROUNDING_ARTIFACT_TOLERANCE = 0.01
 PERSISTED_REPLACE_TIMEFRAMES = frozenset({"1d", "15m", "60m"})
 
 
@@ -42,8 +43,10 @@ def _serialize_bigint_feature(
         return int(value)
     if isinstance(value, (float, np.floating)):
         numeric = float(value)
-        if np.isfinite(numeric) and numeric.is_integer():
-            return int(numeric)
+        if np.isfinite(numeric):
+            rounded = round(numeric)
+            if abs(numeric - rounded) <= BIGINT_ROUNDING_ARTIFACT_TOLERANCE:
+                return int(rounded)
     raise ValueError(
         f"Invalid bigint feature column={column} value={value!r} "
         f"symbol={symbol} timeframe={timeframe} time={time}"
