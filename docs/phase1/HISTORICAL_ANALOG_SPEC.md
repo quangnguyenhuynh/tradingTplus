@@ -17,7 +17,7 @@ At each supported checkpoint, Phase 1 answers one narrow question:
 time-safe SSI state at 13:30
   -> versioned matching profile
   -> comparable historical SSI states at 13:30
-  -> H+1 / H+3 / H+5 outcome distribution
+  -> configured H+1 / H+3 / H+5 (/ H+10 in EOD V2) outcome distribution
   -> read-only analysis with evidence and uncertainty
 ```
 
@@ -61,7 +61,7 @@ Phase 1 includes:
 
 - time-safe snapshots at 09:30, 11:30, 13:30, and 14:30;
 - same-symbol/same-checkpoint historical matching;
-- H+1/H+3/H+5 outcomes and risk distributions;
+- versioned configured outcomes and risk distributions (EOD V1: H+1/H+3/H+5; EOD V2 also H+10);
 - chronological out-of-sample validation;
 - versioned method approval;
 - read-only current analysis with an optional audit record.
@@ -177,7 +177,7 @@ For every eligible `symbol + session + checkpoint`:
 4. Use only fresh intraday features already closed at the checkpoint.
 5. Create deterministic bucket labels and group key.
 6. Resolve entry using a fixed, versioned convention.
-7. Calculate H+1/H+3/H+5 outcomes over observed trading sessions.
+7. Calculate the exact profile horizons over observed trading sessions (EOD V1 H+1/H+3/H+5; EOD V2 adds H+10).
 8. Preserve missing/exclusion reasons instead of filling data.
 
 The initial proposed entry model is `next_tradable_1m_open_v1`: the first valid
@@ -229,7 +229,7 @@ Required evidence includes:
 - calibration, Brier score or an equivalent probability metric;
 - lift over the same-symbol baseline;
 - stability across time and documented market regimes;
-- H+1/H+3/H+5 return and risk distributions;
+- return and risk distributions for every configured horizon, including H+10 for EOD V2;
 - entry/cost/outcome assumptions and missing counts;
 - profile hash, data identity, and code commit.
 
@@ -318,3 +318,9 @@ Each item should be a separate task/PR. Schema changes require migrations.
 ### Implemented V1 runtime boundary (EOD only)
 
 The current V1 runtime persists EOD snapshots from `features.timeframe='1d'` and observed-session H+1/H+3/H+5 outcomes from `stock_daily`. Production queries read that persisted evidence; audit persistence is gated by exact approval and a numeric frozen threshold. The source profile remains draft/null-threshold. The inspect command is a read-only, in-memory research/debug path with an explicit ephemeral threshold. Intraday checkpoints, signals, rankings, alerts, portfolio sizing, and backtest rules are not part of this V1 runtime.
+
+EOD V2 is a separate immutable profile identity with the same nine dimensions
+and configured horizons H+1/H+3/H+5/H+10. H+10 is the tenth observed
+`stock_daily` session after D. It requires separate history and chronological
+validation; V1 rows are neither reused nor rewritten. V2 is draft with a null
+threshold, so production remains blocked.

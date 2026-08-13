@@ -18,7 +18,7 @@ Mục tiêu dài hạn của Trading T+ là:
 - Đánh giá xu hướng, động lượng, thanh khoản và bối cảnh thị trường.
 - Kết hợp daily context với intraday confirmation.
 - Phân tích trạng thái hiện tại bằng historical analog cùng mã/cùng checkpoint.
-- Ước tính xác suất, return và risk H+1/H+3/H+5 kèm sample/confidence.
+- Ước tính xác suất, return và risk theo horizon đã version (EOD V1 H+1/H+3/H+5; EOD V2 thêm H+10) kèm sample/confidence.
 - Sau khi phương pháp được kiểm định, mới xây signal có lý do rõ ràng.
 - Gợi ý phạm vi phần trăm NAV phù hợp với mức rủi ro.
 - Validation/backtest phương pháp trên dữ liệu ngoài mẫu theo thời gian.
@@ -334,7 +334,7 @@ time-safe same-symbol snapshot
     ↓
 same-symbol / same-checkpoint historical matches
     ↓
-H+1 / H+3 / H+5 outcome distribution
+versioned H+1 / H+3 / H+5 (/ H+10 in EOD V2) outcome distribution
     ↓
 chronological validation
 ```

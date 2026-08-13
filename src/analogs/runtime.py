@@ -14,7 +14,7 @@ from src.utils.time_utils import app_now_iso
 
 from .core import fingerprint, match_snapshot
 from .pipeline import build_history
-from .profile import AnalogProfile, load_profile
+from .profile import AnalogProfile, load_source_profile
 from .repository import AnalogRepository
 from .service import register_profile
 
@@ -39,10 +39,49 @@ def _paged(query_factory, page_size: int = 1000) -> list[dict[str, Any]]:
         offset += len(page)
 
 
-def read_inputs(client: Any, symbols: Sequence[str], start: date, end: date, *, history_years: int = 5, future_sessions_days: int = 20) -> tuple[list[dict[str, Any]], dict[str, list[date]], dict[tuple[str, date], Any]]:
+def _daily_through_horizon(
+    client: Any,
+    symbol: str,
+    warm_start: date,
+    end: date,
+    future_sessions: int,
+    *,
+    page_size: int = 1000,
+    max_pages: int = 100,
+) -> list[dict[str, Any]]:
+    """Read observed rows until H future sessions are present, without calendar guesses."""
+    rows: list[dict[str, Any]] = []
+    for page_number in range(max_pages):
+        offset = page_number * page_size
+        page = (
+            client.table("stock_daily")
+            .select("symbol,trading_date,close_price")
+            .eq("symbol", symbol)
+            .gte("trading_date", warm_start.isoformat())
+            .order("trading_date")
+            .range(offset, offset + page_size - 1)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(page)
+        observed_future = len(
+            {
+                date.fromisoformat(row["trading_date"])
+                for row in rows
+                if date.fromisoformat(row["trading_date"]) > end
+            }
+        )
+        if observed_future >= future_sessions or len(page) < page_size:
+            return rows
+    raise RuntimeError(
+        f"STOCK_DAILY_READ_BOUND_EXCEEDED:{symbol}:max_pages={max_pages}"
+    )
+
+
+def read_inputs(client: Any, symbols: Sequence[str], start: date, end: date, *, history_years: int = 5, future_sessions: int = 5) -> tuple[list[dict[str, Any]], dict[str, list[date]], dict[tuple[str, date], Any]]:
     """Read only canonical 1d features and stock_daily, with paginated warm-up."""
     warm_start = start.replace(year=start.year - history_years) - timedelta(days=14)
-    daily_end = end + timedelta(days=future_sessions_days)
     features: list[dict[str, Any]] = []
     sessions: dict[str, list[date]] = {}
     closes: dict[tuple[str, date], Any] = {}
@@ -52,7 +91,9 @@ def read_inputs(client: Any, symbols: Sequence[str], start: date, end: date, *, 
             mapped = dict(row)
             mapped["trading_session"] = feature_trading_session(row.get("time"))
             features.append(mapped)
-        daily_rows = _paged(lambda symbol=symbol: client.table("stock_daily").select("symbol,trading_date,close_price").eq("symbol", symbol).gte("trading_date", warm_start.isoformat()).lte("trading_date", daily_end.isoformat()).order("trading_date"))
+        daily_rows = _daily_through_horizon(
+            client, symbol, warm_start, end, future_sessions
+        )
         symbol_sessions = []
         for row in daily_rows:
             session = date.fromisoformat(row["trading_date"])
@@ -63,9 +104,7 @@ def read_inputs(client: Any, symbols: Sequence[str], start: date, end: date, *, 
 
 
 def exact_profile(repository: AnalogRepository, code: str, version: int, requested_hash: str | None = None) -> tuple[AnalogProfile, dict[str, Any]]:
-    source = load_profile()
-    if code != source.code or version != source.version or (requested_hash and requested_hash != source.config_hash):
-        raise ValueError("PROFILE_IDENTITY_MISMATCH")
+    source = load_source_profile(code, version, requested_hash)
     row = repository.get_profile(code, version)
     if not row:
         raise ValueError("EXACT_PROFILE_NOT_REGISTERED")
@@ -78,7 +117,13 @@ def exact_profile(repository: AnalogRepository, code: str, version: int, request
 
 def history_build(repository: AnalogRepository, profile: AnalogProfile, *, symbols: Sequence[str], start: date, end: date, mode: str, apply: bool, confirm_replace: bool) -> dict[str, Any]:
     normalized = sorted({str(s).strip().upper() for s in symbols if str(s).strip()})
-    features, sessions, closes = read_inputs(repository.client, normalized, start, end)
+    features, sessions, closes = read_inputs(
+        repository.client,
+        normalized,
+        start,
+        end,
+        future_sessions=max(profile.config["horizons"]),
+    )
     return build_history(profile, features, sessions, closes, symbols=normalized, start=start, end=end, mode=mode, apply=apply, confirm_replace=confirm_replace, repository=repository)
 
 
@@ -117,7 +162,7 @@ def query_persisted(repository: AnalogRepository, profile: AnalogProfile, *, sym
     result["persisted"] = False
     if apply and result["status"] in {"completed", "insufficient_sample", "not_evaluable"}:
         qfp = fingerprint({"snapshot": current["input_fingerprint"], "profile": profile.config_hash, "session": session, "result": result})
-        query = {"snapshot_id": current["id"], "profile_code": profile.code, "version": profile.version, "config_hash": profile.config_hash, "symbol": symbol, "timeframe": "1d", "checkpoint": "EOD", "as_of_session": session, "status": result["status"], "candidate_count": result.get("candidate_count", 0), "usable_sample": result.get("usable_sample", 0), "normalization_parameters": result.get("normalization"), "result_statistics": result.get("statistics"), "baseline_statistics": {h: s.get("baseline_probability") for h, s in result.get("statistics", {}).items()}, "input_fingerprint": current["input_fingerprint"], "query_fingerprint": qfp, "engine_version": "historical-analog-eod-v1", "executed_at": app_now_iso()}
+        query = {"snapshot_id": current["id"], "profile_code": profile.code, "version": profile.version, "config_hash": profile.config_hash, "symbol": symbol, "timeframe": "1d", "checkpoint": "EOD", "as_of_session": session, "status": result["status"], "candidate_count": result.get("candidate_count", 0), "usable_sample": result.get("usable_sample", 0), "normalization_parameters": result.get("normalization"), "result_statistics": result.get("statistics"), "baseline_statistics": {h: s.get("baseline_probability") for h, s in result.get("statistics", {}).items()}, "input_fingerprint": current["input_fingerprint"], "query_fingerprint": qfp, "engine_version": f"historical-analog-eod-v{profile.version}", "executed_at": app_now_iso()}
         matches = [{"rank": m["rank"], "matched_snapshot_id": m["snapshot_id"], "distance": m["distance"], "similarity": m["similarity"], "normalized_differences": m["normalized_differences"]} for m in result.get("matches", [])]
         result["audit"] = repository.persist_query(query, matches)
         result["persisted"] = True
@@ -128,7 +173,13 @@ def inspect(repository: AnalogRepository, profile: AnalogProfile, *, symbol: str
     if threshold < 0:
         raise ValueError("--distance-threshold must be non-negative")
     start = session.replace(year=session.year - int(profile.config["maximum_lookback_years"]))
-    features, sessions, closes = read_inputs(repository.client, [symbol], start, session)
+    features, sessions, closes = read_inputs(
+        repository.client,
+        [symbol],
+        start,
+        session,
+        future_sessions=max(profile.config["horizons"]),
+    )
     built = build_history(profile, features, sessions, closes, symbols=[symbol], start=start, end=session, mode="full", apply=False)
     snapshots = built["snapshots"]
     outcome_by_key: dict[tuple[str, str, date], dict[int, Any]] = {}

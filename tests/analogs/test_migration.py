@@ -2,6 +2,7 @@ from pathlib import Path
 
 SQL = Path("migrations/20260809_create_historical_analog_core_eod_v1.sql").read_text()
 RECOVERY = Path("migrations/20260811_recover_historical_analog_core_eod_v1.sql").read_text()
+H10 = Path("migrations/20260813_allow_analog_outcome_h10.sql").read_text()
 TABLES = (
     "analog_profiles",
     "analog_snapshots",
@@ -46,3 +47,13 @@ def test_clean_and_partial_recovery_are_supabase_compatible_and_non_destructive(
     assert "truncate" not in RECOVERY.lower()
     for table in ("features", "stock_daily", "raw_daily", "raw_intraday"):
         assert f"alter table public.{table}" not in RECOVERY.lower()
+
+
+def test_h10_migration_is_additive_and_preserves_phase0():
+    lowered = H10.lower()
+    assert "horizon_sessions in (1, 3, 5, 10)" in lowered
+    assert "add column" not in lowered
+    assert "drop table" not in lowered and "truncate" not in lowered
+    assert "delete from" not in lowered
+    for table in ("features", "stock_daily", "raw_daily", "raw_intraday"):
+        assert f"alter table public.{table}" not in lowered

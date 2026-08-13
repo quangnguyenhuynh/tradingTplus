@@ -343,6 +343,9 @@ def build_parser() -> argparse.ArgumentParser:
     register = profile_sub.add_parser(
         "register", aliases=["sync"], help="Register exact source-controlled profile"
     )
+    register.add_argument("--profile", default="TPLUS_ANALOG_CORE_EOD")
+    register.add_argument("--version", type=int, default=1)
+    register.add_argument("--config-hash")
     register.add_argument(
         "--apply", action="store_true", help="Write; omitted is dry-run"
     )

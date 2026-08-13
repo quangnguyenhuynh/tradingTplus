@@ -9,9 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-DEFAULT_PROFILE_PATH = (
-    Path(__file__).parent / "profiles" / "tplus_analog_core_eod_v1.json"
-)
+PROFILE_DIRECTORY = Path(__file__).parent / "profiles"
+DEFAULT_PROFILE_CODE = "TPLUS_ANALOG_CORE_EOD"
+DEFAULT_PROFILE_VERSION = 1
+SOURCE_PROFILES = {
+    (DEFAULT_PROFILE_CODE, 1): PROFILE_DIRECTORY / "tplus_analog_core_eod_v1.json",
+    (DEFAULT_PROFILE_CODE, 2): PROFILE_DIRECTORY / "tplus_analog_core_eod_v2.json",
+}
+DEFAULT_PROFILE_PATH = SOURCE_PROFILES[(DEFAULT_PROFILE_CODE, DEFAULT_PROFILE_VERSION)]
 
 
 def canonical_json(value: Mapping[str, Any]) -> str:
@@ -65,10 +70,33 @@ def validate_profile(config: Mapping[str, Any]) -> None:
     }
     if set(config) != required:
         raise ValueError(f"profile keys must be exactly {sorted(required)}")
+    code = config["profile_code"]
+    version = config["version"]
+    supported_horizons = {
+        (DEFAULT_PROFILE_CODE, 1): [1, 3, 5],
+        (DEFAULT_PROFILE_CODE, 2): [1, 3, 5, 10],
+    }
+    expected_horizons = supported_horizons.get((code, version))
+    if expected_horizons is None:
+        raise ValueError(f"unsupported source profile: {code} version {version}")
     if config["timeframe"] != "1d" or config["checkpoint"] != "EOD":
-        raise ValueError("V1 requires timeframe=1d and checkpoint=EOD")
-    if config["horizons"] != [1, 3, 5]:
-        raise ValueError("V1 horizons must be [1, 3, 5]")
+        raise ValueError("EOD profiles require timeframe=1d and checkpoint=EOD")
+    if config["horizons"] != expected_horizons:
+        raise ValueError(
+            f"{code} version {version} horizons must be {expected_horizons} in order"
+        )
+    fixed_contract = {
+        "maximum_lookback_years": 5,
+        "top_k": 30,
+        "minimum_sample": 30,
+        "normalization": "median_iqr",
+        "distance_metric": "weighted_euclidean",
+        "similarity_transform": "exp_negative_distance",
+    }
+    if any(config[key] != value for key, value in fixed_contract.items()):
+        raise ValueError("EOD profiles must preserve the fixed matching contract")
+    if config["status"] not in {"draft", "validated", "approved", "rejected", "retired"}:
+        raise ValueError("unsupported profile status")
     dimensions = config["dimensions"]
     names = [row.get("name") for row in dimensions]
     expected = [
@@ -88,10 +116,27 @@ def validate_profile(config: Mapping[str, Any]) -> None:
         raise ValueError(
             "V1 dimensions must have the exact ordered names and finite weights"
         )
+    expected_formulas = [
+        "close[D] / close[D-5 trading sessions] - 1",
+        "close / ema20 - 1",
+        "ema20 / ema50 - 1",
+        "features.rsi14",
+        "macd_histogram / close",
+        "close / high_20_bars - 1",
+        "features.volume_ratio",
+        "features.value_ratio",
+        "(close - low) / (high - low)",
+    ]
+    expected_weights = [0.10, 0.15, 0.15, 0.10, 0.10, 0.15, 0.075, 0.075, 0.10]
     if not math.isclose(
         sum(float(row["weight"]) for row in dimensions), 1.0, abs_tol=1e-12
     ):
         raise ValueError("dimension weights must total 1.0")
+    if [row.get("formula") for row in dimensions] != expected_formulas or any(
+        not math.isclose(float(row["weight"]), weight, abs_tol=1e-12)
+        for row, weight in zip(dimensions, expected_weights)
+    ):
+        raise ValueError("EOD dimensions must preserve the exact formulas and weights")
     threshold = config["distance_threshold"]
     if threshold is not None and (
         not isinstance(threshold, (int, float))
@@ -107,3 +152,18 @@ def load_profile(path: str | Path = DEFAULT_PROFILE_PATH) -> AnalogProfile:
     config = json.loads(Path(path).read_text(encoding="utf-8"))
     validate_profile(config)
     return AnalogProfile(config=config, config_hash=config_hash(config))
+
+
+def load_source_profile(
+    profile_code: str = DEFAULT_PROFILE_CODE,
+    version: int = DEFAULT_PROFILE_VERSION,
+    requested_hash: str | None = None,
+) -> AnalogProfile:
+    """Load one exact source-controlled profile; never substitute latest."""
+    path = SOURCE_PROFILES.get((profile_code, version))
+    if path is None:
+        raise ValueError(f"SOURCE_PROFILE_NOT_FOUND:{profile_code}:v{version}")
+    profile = load_profile(path)
+    if requested_hash is not None and requested_hash != profile.config_hash:
+        raise ValueError("SOURCE_PROFILE_CONFIG_HASH_MISMATCH")
+    return profile

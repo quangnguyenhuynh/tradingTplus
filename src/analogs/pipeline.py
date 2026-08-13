@@ -40,7 +40,9 @@ def build_history(
         for symbol in normalized_symbols:
             observed = list(sessions.get(symbol, ())) if isinstance(sessions, Mapping) else list(sessions)
             before = [session for session in observed if session < start]
-            refresh_sessions[symbol] = set(before[-5:])
+            refresh_sessions[symbol] = set(
+                before[-max(profile.config["horizons"]):]
+            )
     selected = sorted(
         (
             row
@@ -105,7 +107,7 @@ def build_history(
                         "status": "unavailable",
                         "reason": "REFERENCE_CLOSE_MISSING_OR_INVALID",
                     }
-                    for horizon in (1, 3, 5)
+                    for horizon in profile.config["horizons"]
                 )
                 continue
             outcomes.extend(
@@ -126,6 +128,7 @@ def build_history(
                         for session in symbol_sessions
                     },
                     cutoff=max(symbol_sessions) if symbol_sessions else None,
+                    horizons=profile.config["horizons"],
                 )
             )
     deleted = 0

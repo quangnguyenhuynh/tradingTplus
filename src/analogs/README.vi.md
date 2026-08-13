@@ -1,4 +1,4 @@
-# Historical Analog Core EOD V1
+# Historical Analog Core EOD V1 và V2
 
 `TPLUS_ANALOG_CORE_EOD` mô tả trạng thái **1d EOD** đã kiểm chứng của một mã và
 chỉ so với lịch sử trước đó của chính mã đó. Đây là phân tích lịch sử, không phải
@@ -6,7 +6,7 @@ backtest giao dịch: không có lệnh, giá vào, chi phí, signal, alert, sto
 drawdown danh mục hoặc %NAV.
 
 Snapshot giữ chín dimension; outcome giữ một return thập phân
-`close[H]/close[D]-1` cho H+1/H+3/H+5 phiên giao dịch; validation result là
+`close[H]/close[D]-1` cho H+1/H+3/H+5 ở V1 và thêm H+10 ở V2; validation result là
 evidence theo thời gian. `0.043` nghĩa là 4.3%. Chín công thức và weight chính
 xác nằm trong file JSON version-control và README tiếng Anh. Thiếu/NaN/vô cực,
 mẫu số 0, thiếu năm phiên trước hoặc nến có range 0 đều tạo `not_evaluable`,
@@ -51,6 +51,12 @@ alert, ranking và NAV.
 ## Lệnh runtime production
 
 V1 chỉ hỗ trợ EOD/`1d`. `analogs profiles register` là dry-run nếu thiếu `--apply`; list và register thật dùng `analog_profiles` với đúng identity trong source. `analogs history build` đọc phân trang feature 1d và `stock_daily`; chỉ `--apply` mới upsert snapshot và outcome H+1/H+3/H+5. Replace còn bắt buộc `--confirm-replace` và chỉ xóa đúng identity/mã/khoảng ngày/EOD.
+
+V2 giữ nguyên dimension/matching và lưu H+10 thành row thứ tư trong
+`analog_outcomes` với `horizon_sessions=10`, không thêm column. Resolver bắt buộc
+đúng code/version, có thể kiểm tra exact hash và không tự chọn version mới nhất.
+V2 vẫn draft/threshold null, cần history build và validation riêng, không tái sử
+dụng evidence V1.
 
 `analogs query` đọc evidence đã persist. Không `--apply` thì chỉ đọc; có `--apply` chỉ audit nguyên tử khi profile exact đã approved và threshold là số. V1 vẫn draft/threshold null nên query production chủ động block với `EXACT_PROFILE_NOT_APPROVED` và `DISTANCE_THRESHOLD_NULL`.
 

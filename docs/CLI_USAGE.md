@@ -289,6 +289,12 @@ backtests, or Analogs.
 
 ## Historical Analog EOD V1 runtime
 
+EOD V2 uses the same commands with `--version 2` and its exact config hash. To
+register it explicitly: `python main.py analogs profiles register --profile
+TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 remains draft/null-threshold,
+so production query/daily commands are blocked pending its own history,
+calibration, final validation, and approval.
+
 ```bash
 python main.py analogs profiles list
 python main.py analogs profiles register [--apply]
