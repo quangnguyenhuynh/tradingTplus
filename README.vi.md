@@ -143,7 +143,8 @@ Không cần migration schema. Các row `features` timeframe `1m` hoặc `5m` đ
 
 Phase 0 đã đóng ở trạng thái `COMPLETE_WITH_NOTES`. Thiết kế Phase 1 đã được
 chốt: tại mỗi checkpoint, một mã chỉ so với lịch sử của chính mã đó ở cùng
-checkpoint rồi thống kê outcome H+1/H+3/H+5. Không được gom mẫu nhiều mã; thiếu
+checkpoint rồi thống kê outcome cấu hình (V1 H+1/H+3/H+5; EOD V2 thêm H+10).
+Không được gom mẫu nhiều mã; thiếu
 evidence phải trả `insufficient_sample`.
 
 Runtime, CLI, test và schema snapshot của hướng strategy/rule, signal và

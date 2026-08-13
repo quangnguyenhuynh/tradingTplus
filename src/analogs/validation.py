@@ -55,6 +55,8 @@ def walk_forward(
             "years": defaultdict(int),
         }
     )
+    for horizon in profile.config["horizons"]:
+        by_horizon[horizon]
     total_queries = insufficient = 0
     for current in ordered:
         session = current["trading_session"]
@@ -70,10 +72,14 @@ def walk_forward(
             for reason in result.get("reason_codes", [result["status"]]):
                 reasons[reason] += 1
             continue
-        for horizon in (1, 3, 5):
+        for horizon in profile.config["horizons"]:
             actual = current.get("outcomes", {}).get(horizon)
             if not actual or actual.get("status") != "completed":
-                reasons[f"CURRENT_OUTCOME_UNAVAILABLE_H{horizon}"] += 1
+                status = actual.get("status", "missing") if actual else "missing"
+                reason = actual.get("reason") or actual.get("unavailable_reason") if actual else None
+                reasons[f"CURRENT_OUTCOME_{status.upper()}_H{horizon}"] += 1
+                if reason:
+                    reasons[f"CURRENT_OUTCOME_H{horizon}:{reason}"] += 1
                 continue
             stats = result["statistics"][str(horizon)]
             bucket = by_horizon[horizon]

@@ -172,7 +172,10 @@ def resolve_outcomes(
                 }
             )
             continue
-        target_close = float(value)
+        try:
+            target_close = float(value)
+        except (TypeError, ValueError):
+            target_close = math.nan
         if not math.isfinite(target_close) or reference_close <= 0:
             rows.append(
                 {
@@ -332,7 +335,7 @@ def match_snapshot(
             h not in outcomes
             or outcomes[h].get("status") != "completed"
             or outcomes[h].get("target_session") > (query_cutoff or session)
-            for h in (1, 3, 5)
+            for h in profile.config["horizons"]
         ):
             continue
         eligible.append(row)
@@ -393,7 +396,7 @@ def match_snapshot(
             "matches": matches,
         }
     statistics = {}
-    for horizon in (1, 3, 5):
+    for horizon in profile.config["horizons"]:
         returns = [
             item["snapshot"]["outcomes"][horizon]["return_ratio"] for item in selected
         ]

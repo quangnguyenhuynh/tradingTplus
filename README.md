@@ -154,7 +154,8 @@ explicitly scoped database operation. Source data does not require backfill.
 
 Phase 0 is closed as `COMPLETE_WITH_NOTES`. Phase 1 now has an accepted design:
 at each checkpoint, a symbol is compared only with its own historical states at
-the same checkpoint, then H+1/H+3/H+5 outcomes are summarized. Cross-symbol
+the same checkpoint, then configured outcomes are summarized (V1 H+1/H+3/H+5;
+EOD V2 adds H+10). Cross-symbol
 sample pooling is forbidden; inadequate evidence returns `insufficient_sample`.
 
 The superseded fixed-rule strategy/signal/backtest runtime, CLI, tests, and

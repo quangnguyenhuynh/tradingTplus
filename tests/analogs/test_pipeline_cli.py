@@ -111,8 +111,8 @@ def test_cli_dry_run_apply_and_production_rejection(capsys):
         "--mode",
         "full",
     ]
-    assert main.main(args) == 0
-    assert '"symbols": [\n    "SSI"' in capsys.readouterr().out
+    assert main.main(args) == 2
+    assert "SOURCE_PROFILE_CONFIG_HASH_MISMATCH" in capsys.readouterr().err
     query = [
         "analogs",
         "query",
@@ -130,3 +130,20 @@ def test_cli_dry_run_apply_and_production_rejection(capsys):
     assert (
         "DISTANCE_THRESHOLD_NULL" in output and "EXACT_PROFILE_NOT_APPROVED" in output
     )
+
+
+def test_cli_can_select_v2_registration_and_blocks_v2_production(capsys):
+    selected = [
+        "analogs", "profiles", "register", "--profile",
+        "TPLUS_ANALOG_CORE_EOD", "--version", "2",
+    ]
+    assert main.main(selected) == 0
+    assert '"version": 2' in capsys.readouterr().out
+    query = [
+        "analogs", "query", "--profile", "TPLUS_ANALOG_CORE_EOD",
+        "--version", "2", "--symbol", "SSI", "--date", "02/01/2026",
+    ]
+    assert main.main(query) == 0
+    output = capsys.readouterr().out
+    assert "EXACT_PROFILE_NOT_APPROVED" in output
+    assert "DISTANCE_THRESHOLD_NULL" in output

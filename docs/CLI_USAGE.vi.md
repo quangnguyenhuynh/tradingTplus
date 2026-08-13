@@ -283,6 +283,12 @@ feature, signal, backtest hoặc Analog.
 
 ## Runtime Historical Analog EOD V1
 
+EOD V2 dùng cùng command với `--version 2` và exact config hash. Register rõ
+ràng bằng `python main.py analogs profiles register --profile
+TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 vẫn draft/threshold null nên
+query/daily production bị chặn cho tới khi hoàn tất history, calibration, final
+validation và approve riêng.
+
 ```bash
 python main.py analogs profiles list
 python main.py analogs profiles register [--apply]

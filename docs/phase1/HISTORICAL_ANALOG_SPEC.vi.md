@@ -17,7 +17,7 @@ Tại mỗi checkpoint, Phase 1 chỉ trả lời một câu hỏi:
 trạng thái SSI an toàn thời điểm lúc 13:30
   -> profile matching đã version
   -> các trạng thái SSI lịch sử tương tự lúc 13:30
-  -> phân phối outcome H+1 / H+3 / H+5
+  -> phân phối outcome H+1 / H+3 / H+5 (và H+10 trong EOD V2)
   -> phân tích chỉ-đọc kèm evidence và độ bất định
 ```
 
@@ -58,7 +58,7 @@ Phase 1 gồm:
 
 - snapshot an toàn thời điểm tại 09:30, 11:30, 13:30 và 14:30;
 - matching lịch sử cùng mã/cùng checkpoint;
-- outcome và phân phối rủi ro H+1/H+3/H+5;
+- outcome/risk theo horizon đã cấu hình (EOD V1 H+1/H+3/H+5; EOD V2 thêm H+10);
 - validation ngoài mẫu theo thời gian;
 - approve phương pháp có version;
 - phân tích hiện tại chỉ-đọc và audit record tùy chọn.
@@ -171,7 +171,7 @@ Với từng `symbol + session + checkpoint` đủ điều kiện:
 4. Chỉ dùng feature intraday fresh và đã đóng tại checkpoint.
 5. Tạo bucket label và group key deterministic.
 6. Resolve entry theo convention cố định, có version.
-7. Tính outcome H+1/H+3/H+5 theo observed trading sessions.
+7. Tính đúng horizon của profile theo observed trading sessions (EOD V1 H+1/H+3/H+5; EOD V2 thêm H+10).
 8. Giữ missing/exclusion reason thay vì fill dữ liệu.
 
 Entry model đề xuất ban đầu là `next_tradable_1m_open_v1`: open của nến clean 1m
@@ -219,7 +219,7 @@ Evidence bắt buộc:
 - calibration, Brier score hoặc probability metric tương đương;
 - lift so với baseline cùng mã;
 - stability qua thời gian và market regime đã mô tả;
-- phân phối return/risk H+1/H+3/H+5;
+- phân phối return/risk cho mọi horizon cấu hình, gồm H+10 ở EOD V2;
 - entry/cost/outcome assumptions và missing count;
 - profile hash, data identity và code commit.
 
@@ -305,3 +305,8 @@ Mỗi mục nên là một task/PR riêng. Thay đổi schema bắt buộc có m
 ### Boundary runtime V1 đã triển khai (chỉ EOD)
 
 Runtime V1 hiện persist snapshot EOD từ `features.timeframe='1d'` và outcome H+1/H+3/H+5 theo observed session từ `stock_daily`. Query production đọc evidence đã persist; ghi audit chỉ được phép khi exact profile đã approved và có threshold số đã freeze. Profile source hiện vẫn draft/threshold null. Lệnh inspect là đường research/debug read-only, tính trong memory với threshold tạm thời explicit. Checkpoint intraday, signal, ranking, alert, sizing danh mục và rule backtest không thuộc runtime V1 này.
+
+EOD V2 là identity profile bất biến riêng, giữ chín dimension và dùng
+H+1/H+3/H+5/H+10. H+10 là phiên `stock_daily` quan sát thứ mười sau D. V2 cần
+history/validation riêng; không tái sử dụng hoặc sửa row V1. V2 vẫn draft và
+threshold null nên production tiếp tục bị chặn.

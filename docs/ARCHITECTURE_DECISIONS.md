@@ -1869,7 +1869,7 @@ nghĩa của kết quả và có thể che giấu việc một mã không đủ 
 - Đối tượng validation/approval là exact matching profile/method version, không
   phải buy rule.
 - Baseline cũng là cùng mã/cùng checkpoint.
-- Phase 1 trả phân tích xác suất/return/risk H+1/H+3/H+5, chưa tạo signal,
+- Phase 1 trả phân tích xác suất/return/risk theo horizon profile (EOD V1 H+1/H+3/H+5; EOD V2 thêm H+10), chưa tạo signal,
   alert, ranking hoặc %NAV.
 
 ### Consequences

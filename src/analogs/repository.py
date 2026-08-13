@@ -113,6 +113,10 @@ class AnalogRepository:
         rows = self.client.table("analog_validation_runs").insert(self._safe(row)).execute().data or []
         return rows[0] if rows else row
 
+    def get_validation(self, validation_id: str) -> dict[str, Any] | None:
+        rows = self.client.table("analog_validation_runs").select("*").eq("id", validation_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+
     def insert_review(self, row: dict[str, Any]) -> dict[str, Any]:
         rows = self.client.table("analog_profile_reviews").insert(self._safe(row)).execute().data or []
         return rows[0] if rows else row

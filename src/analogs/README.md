@@ -1,4 +1,4 @@
-# Historical Analog Core EOD V1
+# Historical Analog Core EOD V1 and V2
 
 `TPLUS_ANALOG_CORE_EOD` describes one symbol's verified **1d EOD** state and
 compares it only with earlier states of that same symbol. It is historical
@@ -8,8 +8,8 @@ alerts, stop/target, portfolio drawdown, or NAV sizing.
 ## Objects and units
 
 A **snapshot** is the nine-dimensional state at session D. An **outcome** is one
-future observation, `close[H] / close[D] - 1`, at H+1, H+3, or H+5 verified
-trading sessions. A **validation result** is chronological evidence about the
+future observation, `close[H] / close[D] - 1`, at verified trading sessions.
+V1 uses H+1/H+3/H+5; V2 adds H+10. A **validation result** is chronological evidence about the
 method; it is not a runtime query. Ratios use decimal units (`0.043` = 4.3%).
 
 | Dimension | Formula | Weight |
@@ -58,7 +58,7 @@ Random splitting is forbidden. Reports include coverage, insufficient counts,
 Brier/baseline Brier, calibration buckets, lift, median-return error, yearly
 stability, and invalid reasons.
 
-The committed V1 threshold is intentionally **null**. History and calibration
+The committed V1 and V2 thresholds are intentionally **null**. History and calibration
 are available, but final validation, approval, and production queries/runs must
 return `DISTANCE_THRESHOLD_NULL` until a researched numeric threshold is frozen
 in a new exact config hash.
@@ -76,7 +76,7 @@ Commands:
 
 ```bash
 python main.py analogs profiles list
-python main.py analogs profiles register [--apply]
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 2 [--apply]
 python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2021 --to 31/07/2026 --mode full [--apply]
 python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2021 --to 31/12/2024 --run-type calibration --thresholds 0.5 1.0 --final-test-start 01/01/2025 [--apply]
 python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run UUID --reviewer NAME --reason TEXT [--apply]
@@ -113,6 +113,12 @@ execution/P&L, alerts, ranking, and NAV.
 ## Production runtime commands
 
 V1 is EOD/`1d` only. `analogs profiles register` is a dry run unless `--apply`; list and applied registration use `analog_profiles` and require the exact source-controlled identity. `analogs history build` reads paginated `features` 1d and `stock_daily`, and only `--apply` upserts snapshots plus H+1/H+3/H+5 outcomes. Replace additionally requires `--confirm-replace` and is limited to the exact identity/symbol/date/EOD scope.
+
+V2 keeps the same dimensions and matching contract and adds H+10 as a fourth
+`analog_outcomes` row (`horizon_sessions=10`), never as a column. Exact profile
+resolution requires code/version and optionally verifies the source config hash;
+it never substitutes the latest version. V2 remains draft/null-threshold, needs
+its own history build and chronological validation, and cannot reuse V1 evidence.
 
 `analogs query` reads persisted snapshot/outcome evidence. Without `--apply` it is read-only; with `--apply` it may atomically audit an exact approved profile with a numeric threshold. V1 remains draft with a null threshold, so production query is intentionally blocked by `EXACT_PROFILE_NOT_APPROVED` and `DISTANCE_THRESHOLD_NULL`.
 
