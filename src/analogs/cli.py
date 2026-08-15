@@ -7,7 +7,14 @@ from typing import Any
 
 from .profile import load_source_profile
 from .pipeline import daily_run
-from .runtime import exact_profile, history_build, hydrate_evidence, inspect, query_persisted, repository_from_environment
+from .runtime import (
+    exact_profile,
+    history_build,
+    hydrate_evidence,
+    inspect,
+    query_persisted,
+    repository_from_environment,
+)
 from .service import register_profile, review_profile
 from .validation import calibrate, walk_forward
 
@@ -23,28 +30,65 @@ def run(args: Any, repository: Any | None = None) -> dict[str, Any]:
         getattr(args, "version", None) or 1,
         getattr(args, "config_hash", None),
     )
-    if action == "profiles" and args.profile_command in {"register", "sync"} and not args.apply:
+    if (
+        action == "profiles"
+        and args.profile_command in {"register", "sync"}
+        and not args.apply
+    ):
         return register_profile(None, source, apply=False)
-    if action == "query" and (source.config["status"] != "approved" or source.config["distance_threshold"] is None):
-        return {"status": "blocked", "profile_code": source.code, "version": source.version, "config_hash": source.config_hash, "reason_codes": ["EXACT_PROFILE_NOT_APPROVED", "DISTANCE_THRESHOLD_NULL"], "persisted": False}
+    if action == "query" and source.config["status"] != "approved":
+        return {
+            "status": "blocked",
+            "profile_code": source.code,
+            "version": source.version,
+            "config_hash": source.config_hash,
+            "reason_codes": ["EXACT_PROFILE_NOT_APPROVED"],
+            "persisted": False,
+        }
     repository = repository or repository_from_environment()
     if action == "profiles":
         if args.profile_command == "list":
-            return {"status": "completed", "profiles": repository.list_profiles(), "persisted": False}
+            return {
+                "status": "completed",
+                "profiles": repository.list_profiles(),
+                "persisted": False,
+            }
         return register_profile(repository, source, apply=args.apply)
-    profile, profile_row = exact_profile(repository, args.profile, args.version, getattr(args, "config_hash", None))
+    profile, profile_row = exact_profile(
+        repository, args.profile, args.version, getattr(args, "config_hash", None)
+    )
     if action == "history":
-        return history_build(repository, profile, symbols=args.symbols, start=parse_date(args.from_date), end=parse_date(args.to_date), mode=args.mode, apply=args.apply, confirm_replace=args.confirm_replace)
+        return history_build(
+            repository,
+            profile,
+            symbols=args.symbols,
+            start=parse_date(args.from_date),
+            end=parse_date(args.to_date),
+            mode=args.mode,
+            apply=args.apply,
+            confirm_replace=args.confirm_replace,
+        )
     if action == "validate":
         snapshots = []
         for item in sorted({str(value).strip().upper() for value in args.symbols}):
-            current, prior = hydrate_evidence(repository, profile, item, parse_date(args.to_date))
+            current, prior = hydrate_evidence(
+                repository, profile, item, parse_date(args.to_date)
+            )
             snapshots.extend(prior)
             if current:
                 snapshots.append(current)
         if args.run_type == "calibration":
-            if not args.thresholds or not args.final_test_start:
-                raise ValueError("calibration requires --thresholds and --final-test-start")
+            if not args.final_test_start:
+                raise ValueError("calibration requires --final-test-start")
+            if not args.thresholds:
+                return walk_forward(
+                    profile,
+                    snapshots,
+                    start=parse_date(args.from_date),
+                    end=parse_date(args.to_date),
+                    final_test_start=parse_date(args.final_test_start),
+                    run_type="calibration",
+                )
             return calibrate(
                 source,
                 snapshots,
@@ -84,9 +128,21 @@ def run(args: Any, repository: Any | None = None) -> dict[str, Any]:
     if not symbol:
         raise ValueError("an explicit symbol is required")
     if action == "query":
-        return query_persisted(repository, profile, symbol=symbol, session=parse_date(args.date), apply=args.apply)
+        return query_persisted(
+            repository,
+            profile,
+            symbol=symbol,
+            session=parse_date(args.date),
+            apply=args.apply,
+        )
     if action == "inspect":
-        return inspect(repository, profile, symbol=symbol, session=parse_date(args.date), threshold=args.distance_threshold)
+        return inspect(
+            repository,
+            profile,
+            symbol=symbol,
+            session=parse_date(args.date),
+            threshold=args.distance_threshold,
+        )
     raise ValueError(f"Analog operation not implemented by this EOD runtime: {action}")
 
 

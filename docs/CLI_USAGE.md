@@ -291,8 +291,7 @@ backtests, or Analogs.
 
 EOD V2 uses the same commands with `--version 2` and its exact config hash. To
 register it explicitly: `python main.py analogs profiles register --profile
-TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 remains draft/null-threshold,
-so production query/daily commands are blocked pending its own history,
+TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 remains draft, so production query/daily commands are blocked pending its own history,
 calibration, final validation, and approval.
 
 ```bash
@@ -303,4 +302,4 @@ python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbo
 python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
 ```
 
-History is source-read/dry-run by default and persists snapshots/outcomes only with `--apply`; replace also requires `--confirm-replace`. Query always reads persisted evidence and writes audit rows only with `--apply` and an exact approved/numeric-threshold profile. The current V1 draft/null-threshold profile remains production-blocked. Inspect reads `features` 1d plus `stock_daily`, calculates in memory, and never persists; its explicit threshold is ephemeral non-production research input, not a signal or recommendation.
+History is source-read/dry-run by default and persists snapshots/outcomes only with `--apply`; replace also requires `--confirm-replace`. Query always reads persisted evidence and writes audit rows only with `--apply` and an exact approved profile. Matching selects the nearest configured `top_k`; the inspect threshold option remains only as an ignored compatibility input.

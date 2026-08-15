@@ -39,9 +39,9 @@ For D, eligible candidates have identical profile/version/hash, `1d`, `EOD`,
 symbol, acceptable status, are earlier than D and within five years, and have
 all outcomes observable by D. Median and IQR are fit only on that eligible past.
 Zero IQR is `not_evaluable`. Weighted Euclidean distance is transformed to
-`exp(-distance)*100`; similarity is proximity, not positive probability. At
-most 30 threshold-qualified rows are retained. Fewer than 30 returns
-`insufficient_sample`, without padding.
+`exp(-distance)*100`; similarity is proximity, not positive probability. All eligible rows are ranked deterministically and the nearest configured
+`top_k` (30 by default) are retained; `distance_threshold` is not an input
+filter. Fewer than `top_k` returns `insufficient_sample`, without padding.
 
 A completed result reports positive probability (`return > 0`), median, P25,
 Wilson interval, same-symbol baseline, and lift (probability minus baseline).
@@ -50,18 +50,20 @@ audit evidence.
 
 ## Calibration and validation
 
-Calibration accepts explicit thresholds and uses only its declared training
-interval. It neither edits nor approves a profile and cannot qualify as final
+Radius calibration runs walk-forward within its declared training interval. It neither edits nor approves a profile and cannot qualify as final
 evidence. Walk-forward fitting and matching use only data observable before
 each simulated D; the current/future outcome is used later only for scoring.
 Random splitting is forbidden. Reports include coverage, insufficient counts,
 Brier/baseline Brier, calibration buckets, lift, median-return error, yearly
 stability, and invalid reasons.
 
-The committed V1 and V2 thresholds are intentionally **null**. History and calibration
-are available, but final validation, approval, and production queries/runs must
-return `DISTANCE_THRESHOLD_NULL` until a researched numeric threshold is frozen
-in a new exact config hash.
+`analog_quality` reports sample size, `top_k`, dynamic neighbour radius `d_k`
+(`d30` by default), median and p90 distances, and a walk-forward radius
+percentile. P50/P75/P95 define `good`, `usable`, `weak`, and
+`out_of_distribution`; insufficient calibration returns `unknown`, never a fake
+percentile. Weak/OOD results retain T+ statistics with a warning. Radius quality
+is similarity, not forecast probability; Wilson intervals remain separate under
+`statistical_confidence`.
 
 ## Build and operations
 
@@ -78,7 +80,7 @@ Commands:
 python main.py analogs profiles list
 python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 2 [--apply]
 python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2021 --to 31/07/2026 --mode full [--apply]
-python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2021 --to 31/12/2024 --run-type calibration --thresholds 0.5 1.0 --final-test-start 01/01/2025 [--apply]
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2021 --to 31/12/2024 --run-type calibration --final-test-start 01/01/2025 [--apply]
 python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run UUID --reviewer NAME --reason TEXT [--apply]
 python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run UUID --reviewer NAME --reason TEXT [--apply]
 python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026 [--apply]
@@ -103,7 +105,7 @@ future read contracts for `GET /analog-profiles/{code}/{version}`, `GET
 /analogs/{symbol}/latest?checkpoint=EOD`, and `GET /analog-queries/{id}`; endpoint
 wiring is deferred and GET must never recompute analysis.
 
-Common reasons include `DISTANCE_THRESHOLD_NULL`, `EXACT_PROFILE_NOT_APPROVED`,
+Common reasons include `EXACT_PROFILE_NOT_APPROVED`,
 `INSUFFICIENT_FIVE_SESSION_HISTORY`, `MISSING_*`, `NON_FINITE_*`,
 `ZERO_DENOMINATOR_*`, `ZERO_CANDLE_RANGE`, `ZERO_OR_INVALID_IQR:*`,
 `TARGET_SESSION_NOT_YET_OBSERVABLE`, and `VERIFIED_SESSION_PRICE_MISSING`.
@@ -117,9 +119,9 @@ V1 is EOD/`1d` only. `analogs profiles register` is a dry run unless `--apply`; 
 V2 keeps the same dimensions and matching contract and adds H+10 as a fourth
 `analog_outcomes` row (`horizon_sessions=10`), never as a column. Exact profile
 resolution requires code/version and optionally verifies the source config hash;
-it never substitutes the latest version. V2 remains draft/null-threshold, needs
+it never substitutes the latest version. V2 remains draft and needs
 its own history build and chronological validation, and cannot reuse V1 evidence.
 
-`analogs query` reads persisted snapshot/outcome evidence. Without `--apply` it is read-only; with `--apply` it may atomically audit an exact approved profile with a numeric threshold. V1 remains draft with a null threshold, so production query is intentionally blocked by `EXACT_PROFILE_NOT_APPROVED` and `DISTANCE_THRESHOLD_NULL`.
+`analogs query` reads persisted snapshot/outcome evidence. Without `--apply` it is read-only; with `--apply` it may atomically audit an exact approved profile for an exact approved profile. V1 remains draft, so production query is blocked by `EXACT_PROFILE_NOT_APPROVED`.
 
-`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` reads source data and calculates entirely in memory. It never writes an Analog table. Its threshold is ephemeral research input and neither changes the profile/hash nor constitutes approval evidence, a signal, or investment advice.
+`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` reads source data and calculates entirely in memory. It never writes an Analog table. The legacy threshold option is ignored and retained only for CLI compatibility.

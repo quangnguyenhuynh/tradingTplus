@@ -7,13 +7,14 @@ from datetime import date
 from typing import Any, Mapping, Sequence
 
 from .core import match_snapshot
-from .profile import AnalogProfile, config_hash, validate_profile
+from .profile import AnalogProfile
 
 
 def profile_with_threshold(profile: AnalogProfile, threshold: float) -> AnalogProfile:
-    config = {**profile.config, "distance_threshold": float(threshold)}
-    validate_profile(config)
-    return AnalogProfile(config, config_hash(config))
+    """Backward-compatible helper; thresholds no longer mutate top-k semantics."""
+    if float(threshold) < 0:
+        raise ValueError("distance threshold must be non-negative")
+    return profile
 
 
 def _brier(probabilities: list[float], actuals: list[int]) -> float | None:
@@ -33,8 +34,6 @@ def walk_forward(
     final_test_start: date | None = None,
     run_type: str = "validation",
 ) -> dict[str, Any]:
-    if profile.config["distance_threshold"] is None:
-        return {"status": "blocked", "reason_codes": ["DISTANCE_THRESHOLD_NULL"]}
     if (
         run_type == "calibration"
         and final_test_start is not None
@@ -76,7 +75,11 @@ def walk_forward(
             actual = current.get("outcomes", {}).get(horizon)
             if not actual or actual.get("status") != "completed":
                 status = actual.get("status", "missing") if actual else "missing"
-                reason = actual.get("reason") or actual.get("unavailable_reason") if actual else None
+                reason = (
+                    actual.get("reason") or actual.get("unavailable_reason")
+                    if actual
+                    else None
+                )
                 reasons[f"CURRENT_OUTCOME_{status.upper()}_H{horizon}"] += 1
                 if reason:
                     reasons[f"CURRENT_OUTCOME_H{horizon}:{reason}"] += 1
@@ -103,13 +106,16 @@ def walk_forward(
                     "lower": lower,
                     "upper": min(1.0, lower + 0.2),
                     "count": len(indexes),
-                    "mean_forecast": sum(bucket["p"][i] for i in indexes) / len(indexes)
-                    if indexes
-                    else None,
-                    "observed_positive": sum(bucket["y"][i] for i in indexes)
-                    / len(indexes)
-                    if indexes
-                    else None,
+                    "mean_forecast": (
+                        sum(bucket["p"][i] for i in indexes) / len(indexes)
+                        if indexes
+                        else None
+                    ),
+                    "observed_positive": (
+                        sum(bucket["y"][i] for i in indexes) / len(indexes)
+                        if indexes
+                        else None
+                    ),
                 }
             )
         metrics[horizon] = {
@@ -117,16 +123,17 @@ def walk_forward(
             "brier_score": _brier(bucket["p"], bucket["y"]),
             "baseline_brier_score": _brier(bucket["base"], bucket["y"]),
             "calibration_buckets": calibration,
-            "mean_probability_lift": sum(
-                p - b for p, b in zip(bucket["p"], bucket["base"])
-            )
-            / len(bucket["p"])
-            if bucket["p"]
-            else None,
-            "median_return_mae": sum(bucket["median_error"])
-            / len(bucket["median_error"])
-            if bucket["median_error"]
-            else None,
+            "mean_probability_lift": (
+                sum(p - b for p, b in zip(bucket["p"], bucket["base"]))
+                / len(bucket["p"])
+                if bucket["p"]
+                else None
+            ),
+            "median_return_mae": (
+                sum(bucket["median_error"]) / len(bucket["median_error"])
+                if bucket["median_error"]
+                else None
+            ),
             "stability_by_year": dict(bucket["years"]),
         }
     return {
@@ -134,9 +141,9 @@ def walk_forward(
         "run_type": run_type,
         "range": [start.isoformat(), end.isoformat()],
         "query_count": total_queries,
-        "coverage": (total_queries - insufficient) / total_queries
-        if total_queries
-        else 0.0,
+        "coverage": (
+            (total_queries - insufficient) / total_queries if total_queries else 0.0
+        ),
         "insufficient_sample_count": insufficient,
         "metrics": metrics,
         "reason_counts": dict(reasons),
@@ -169,7 +176,7 @@ def calibrate(
         )
         artifacts.append(
             {
-                "threshold": threshold,
+                "legacy_threshold_ignored": threshold,
                 "candidate_config_hash": candidate.config_hash,
                 "evidence": result,
             }
