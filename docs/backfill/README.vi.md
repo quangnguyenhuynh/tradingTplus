@@ -19,6 +19,7 @@ Không pipeline nào chạy feature, signal hoặc backtest. Pipeline không đo
 python main.py backfill-daily --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 python main.py backfill-intraday --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py refill --symbol SSI --from 01/07/2026 --to 10/07/2026
 ```
 
 `--from-date` và `--to-date` là alias. Khoảng dùng `DD/MM/YYYY`, gồm cả hai đầu, từ chối ngày tương lai/khoảng đảo ngược, xử lý tuần tự, bỏ qua và báo cáo thứ Bảy/Chủ nhật. Khoảng chỉ có cuối tuần là no-op `OK`.
@@ -30,6 +31,12 @@ Symbol explicit được strip, đổi chữ hoa và loại trùng theo thứ t�
 - **`backfill-daily`** chỉ chạy stock daily ingest lịch sử (`DailyStockPrice`), ghi `raw_daily`, `stock_daily`. Command không gọi hoặc ghi market index và không chạy intraday hay completeness.
 - **`backfill-intraday`** chỉ chạy ingest SSI intraday 1m lịch sử và có thể ghi `raw_intraday`, `stock_intraday` chỉ với `timeframe='1m'`. Pipeline đọc context `stock_daily` hiện có nếu có; thiếu context vẫn thể hiện bằng `PARTIAL`. Pipeline không tự chạy daily hay completeness.
 - **`backfill`** chạy xong toàn bộ nhánh daily trước nhánh intraday, sau đó đọc bảng nguồn để kiểm tra completeness có scope cho từng ngày hợp lệ. Summary giữ cả hai nhánh và tạo summary `backfill-day` theo status tương thích EOD. Pipeline không gọi EOD trực tiếp.
+- **`refill`** bắt buộc đúng một mã đã trim/uppercase và không nhận `ALL`.
+  Command delegate source/completeness cho `backfill`, sau đó upsert feature
+  daily `1d` và intraday aggregate trong memory `15m`/`60m`. Không có mode
+  replace/delete và không chạy master sync, signal, Analog hay backtest. Source
+  `PARTIAL` giữ final `PARTIAL`; source `FAILED` skip feature; range chỉ cuối
+  tuần là no-op `OK`. `--from-date`/`--to-date` là alias.
 
 Mỗi nhánh ghi exception theo ngày và tiếp tục ngày sau. Exception completeness cũng được ghi mà không làm mất kết quả hai nhánh. Status khoảng là `OK` khi mọi ngày xử lý đều `OK`, `FAILED` khi mọi ngày thất bại, và `PARTIAL` khi status trộn hoặc có ngày partial. Exit code là `0` cho `OK`/`PARTIAL`, `1` cho `FAILED`/runtime failure, và `2` cho argument sai.
 

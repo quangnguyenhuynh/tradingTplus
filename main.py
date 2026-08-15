@@ -10,6 +10,7 @@ Production commands:
   python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
+  python main.py refill --symbol SSI --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py features-daily (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features-intraday (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m 1d]
@@ -50,6 +51,7 @@ from src.pipeline import (
     run_intraday_backfill_pipeline,
     run_intraday_ingest,
     run_intraday_pipeline,
+    run_refill_pipeline,
     run_streaming_ingest,
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
@@ -155,6 +157,20 @@ def build_parser() -> argparse.ArgumentParser:
             default=None,
             help="Stock symbols used for every date; omitted means all master symbols",
         )
+
+    refill = sub.add_parser(
+        "refill",
+        help="Single-symbol source, completeness, and 1d/15m/60m feature refill",
+    )
+    refill.add_argument("--symbol", required=True, help="Exactly one stock symbol; ALL is forbidden")
+    refill.add_argument(
+        "--from", "--from-date", dest="from_date", required=True,
+        help="Inclusive start date DD/MM/YYYY",
+    )
+    refill.add_argument(
+        "--to", "--to-date", dest="to_date", required=True,
+        help="Inclusive end date DD/MM/YYYY",
+    )
 
     features = sub.add_parser(
         "features",
@@ -493,6 +509,11 @@ def main(argv: list[str] | None = None) -> int:
                 args.to_date,
                 symbols=normalize_symbol_scope(args.symbols),
             )
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "refill":
+            symbol = normalize_symbol_scope([args.symbol])[0]
+            summary = run_refill_pipeline(args.from_date, args.to_date, symbol)
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features":

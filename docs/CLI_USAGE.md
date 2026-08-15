@@ -151,6 +151,23 @@ observable and is not fabricated.
 All three may upsert existing source rows. They do not run feature backfill,
 signals, backtests, or Analogs and do not perform a scoped delete/replace.
 
+### `refill`
+
+```text
+python main.py refill --symbol SSI --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py refill --symbol SSI --from-date DD/MM/YYYY --to-date DD/MM/YYYY
+```
+
+This explicit maintenance orchestrator requires exactly one non-blank,
+non-`ALL` symbol; it trims and uppercases the value. It runs daily then 1m
+intraday source backfill and completeness before invoking the existing range
+feature runners for `1d`, `15m`, and `60m`. It uses upsert only: no delete,
+replace, master sync, aggregate source-candle write, signal, backtest, or Analog.
+Source `PARTIAL` still runs features and remains final `PARTIAL`; source `FAILED`
+skips features. Feature branches run independently. A weekend-only range is an
+`OK` no-op. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`, and `2` for
+invalid arguments.
+
 ## Feature data policy and modes
 
 `features` persists only `1d`, `15m`, and `60m`:

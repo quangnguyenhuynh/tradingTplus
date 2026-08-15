@@ -19,6 +19,7 @@ None runs features, signals, or backtests. Weekday holidays are not guessed: SSI
 python main.py backfill-daily --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 python main.py backfill-intraday --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
 python main.py backfill --from 01/07/2026 --to 10/07/2026 --symbols SSI HPG
+python main.py refill --symbol SSI --from 01/07/2026 --to 10/07/2026
 ```
 
 `--from-date` and `--to-date` are aliases. Ranges use `DD/MM/YYYY`, include both endpoints, reject future/reversed ranges, run dates sequentially, and skip/report Saturdays and Sundays. A weekend-only range is an `OK` no-op.
@@ -30,6 +31,12 @@ Explicit symbols are stripped, uppercased, and deduplicated in first-seen order 
 - **`backfill-daily`** runs only historical stock daily ingest (`DailyStockPrice`), writing `raw_daily` and `stock_daily`. It never calls or writes market-index data and does not run intraday ingest or completeness.
 - **`backfill-intraday`** runs only historical SSI 1m intraday ingest and may write `raw_intraday` and `stock_intraday` with only `timeframe='1m'`. It reads existing `stock_daily` context when available; missing context remains visible as `PARTIAL`. It never runs daily ingest or completeness automatically.
 - **`backfill`** runs the complete daily branch before the complete intraday branch, then reads source tables through scoped completeness checking for each eligible date. It retains both branch summaries and creates combined `backfill-day` summaries using EOD-compatible status rules. It does not call EOD directly.
+- **`refill`** requires exactly one trimmed, uppercased, non-`ALL` symbol. It
+  delegates source and completeness to `backfill`, then upserts daily `1d` and
+  in-memory-aggregated intraday `15m`/`60m` features. It has no replace/delete
+  mode and never runs master sync, signals, Analog, or backtests. Source
+  `PARTIAL` stays final `PARTIAL`; source `FAILED` skips features; weekend-only
+  ranges are `OK` no-ops. `--from-date`/`--to-date` are aliases.
 
 Each branch records a date-level exception and continues later dates. Combined completeness exceptions are also recorded without discarding branch results. Range status is `OK` when every processed date is `OK`, `FAILED` when every date failed, and `PARTIAL` for mixed statuses or any partial date. Exit codes are `0` for `OK`/`PARTIAL`, `1` for `FAILED`/runtime failure, and `2` for invalid arguments.
 

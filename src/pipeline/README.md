@@ -24,6 +24,7 @@ src/pipeline/
 ├── index_data.py             # index master/daily ingest
 ├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # independent daily/intraday ranges + combined completeness
+├── refill.py                 # explicit single-symbol source + feature maintenance orchestration
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
@@ -77,6 +78,12 @@ EOD preserves the daily and intraday service boundaries. It does not calculate f
 ## Backfill execution
 
 `run_daily_backfill_pipeline()` and `run_intraday_backfill_pipeline()` independently run only their source ingest for each eligible weekday. `run_backfill_pipeline()` runs the complete daily range, then the complete intraday range, then scoped completeness per date; it does not call EOD directly. All ranges are inclusive, report weekends, isolate date failures, and never run downstream engines. See [`docs/backfill/README.md`](../../docs/backfill/README.md).
+
+`run_refill_pipeline()` is the explicit maintenance orchestrator. It requires one
+symbol, delegates source/completeness to `run_backfill_pipeline()`, then delegates
+to the existing feature range runners for only `1d`, `15m`, and `60m`. Source
+`FAILED` gates both feature stages; source `PARTIAL` permits features but cannot
+yield final `OK`; a weekend-only range is an `OK` no-op.
 
 ## Raw, clean, validation, and persistence ownership
 

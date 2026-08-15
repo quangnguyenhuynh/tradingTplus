@@ -140,6 +140,33 @@ def test_backfill_cli_invalid_range_returns_two(monkeypatch):
     assert main.main(["backfill", "--from", "11/07/2026", "--to", "10/07/2026"]) == 2
 
 
+def test_refill_cli_requires_symbol_and_both_dates(capsys):
+    commands = [
+        ["refill", "--from", "01/07/2026", "--to", "02/07/2026"],
+        ["refill", "--symbol", "SSI", "--to", "02/07/2026"],
+        ["refill", "--symbol", "SSI", "--from", "01/07/2026"],
+    ]
+    assert [main.main(command) for command in commands] == [2, 2, 2]
+
+
+def test_refill_cli_aliases_normalize_symbol_and_route(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_refill_pipeline", lambda start, end, symbol: captured.update(start=start, end=end, symbol=symbol) or {"status": "PARTIAL"})
+    assert main.main(["refill", "--symbol", "ssi", "--from-date", "01/07/2026", "--to-date", "02/07/2026"]) == 0
+    assert captured == {"start": "01/07/2026", "end": "02/07/2026", "symbol": "SSI"}
+
+
+@pytest.mark.parametrize("symbol", ["", "   ", "ALL", "SSI HPG", "SSI,HPG"])
+def test_refill_cli_rejects_invalid_symbol(monkeypatch, symbol):
+    assert main.main(["refill", "--symbol", symbol, "--from", "01/07/2026", "--to", "02/07/2026"]) == 2
+
+
+@pytest.mark.parametrize("start,end", [("02/07/2026", "01/07/2026"), ("01/01/2099", "02/01/2099")])
+def test_refill_cli_rejects_invalid_range(monkeypatch, start, end):
+    monkeypatch.setattr(main, "run_refill_pipeline", lambda *_a: (_ for _ in ()).throw(ValueError("invalid date range")))
+    assert main.main(["refill", "--symbol", "SSI", "--from", start, "--to", end]) == 2
+
+
 def test_streaming_ingest_cli_is_dry_run_by_default(monkeypatch):
     captured = {}
     monkeypatch.setattr(main, "run_streaming_ingest", lambda **kwargs: captured.update(kwargs) or {"status": "EMPTY"})

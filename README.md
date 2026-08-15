@@ -85,6 +85,7 @@ python main.py eod [DD/MM/YYYY] --symbols SSI HPG
 python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py refill --symbol SSI --from DD/MM/YYYY --to DD/MM/YYYY
 ```
 
 Feature execution remains explicit and separate:
@@ -114,6 +115,9 @@ Feature execution has three explicit semantics:
   bounds, accepts only `1d`/`15m`/`60m`, and rejects `start > end`. The application computes and validates before one atomic RPC; deploy the new migration before use.
 
 Range commands remain explicit backfills. No feature mode is invoked by ingest.
+`refill` is the explicit exception: a single-symbol maintenance orchestrator that
+runs combined source backfill and completeness first, then upserts only `1d`,
+`15m`, and `60m` features. It never syncs master data or runs downstream analysis.
 
 The legacy alias persists only 15m/60m features:
 
