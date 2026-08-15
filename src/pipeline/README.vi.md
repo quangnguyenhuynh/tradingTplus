@@ -24,6 +24,7 @@ src/pipeline/
 ├── index_data.py             # ingest index master/daily
 ├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
 ├── backfill.py               # nhánh daily/intraday độc lập + completeness kết hợp
+├── refill.py                 # orchestration maintenance source + feature cho một mã
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
@@ -77,6 +78,12 @@ EOD giữ nguyên ranh giới daily/intraday. EOD không tính feature, không c
 ## Trình tự backfill
 
 `run_daily_backfill_pipeline()` và `run_intraday_backfill_pipeline()` chỉ chạy source ingest tương ứng cho từng ngày thường hợp lệ. `run_backfill_pipeline()` chạy hết khoảng daily, rồi hết khoảng intraday, rồi completeness có scope từng ngày; không gọi EOD trực tiếp. Mọi khoảng gồm hai đầu, báo cáo cuối tuần, cô lập lỗi theo ngày và không chạy engine downstream. Xem [`docs/backfill/README.vi.md`](../../docs/backfill/README.vi.md).
+
+`run_refill_pipeline()` là maintenance orchestrator explicit. Hàm bắt buộc đúng
+một mã, delegate source/completeness cho `run_backfill_pipeline()`, rồi gọi runner
+range feature hiện hữu cho đúng `1d`, `15m`, `60m`. Source `FAILED` chặn cả hai
+feature stage; source `PARTIAL` vẫn cho chạy feature nhưng final không thể `OK`;
+range chỉ có cuối tuần là no-op `OK`.
 
 ## Raw, clean, validation và persistence
 

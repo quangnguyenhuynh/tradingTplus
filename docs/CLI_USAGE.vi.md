@@ -152,6 +152,22 @@ ngày. Weekend được skip; response rỗng ngày trong tuần vẫn observabl
 Cả ba có thể upsert source row hiện hữu; không chạy feature backfill, signal,
 backtest hoặc Analog và không delete/replace theo scope.
 
+### `refill`
+
+```text
+python main.py refill --symbol SSI --from DD/MM/YYYY --to DD/MM/YYYY
+python main.py refill --symbol SSI --from-date DD/MM/YYYY --to-date DD/MM/YYYY
+```
+
+Maintenance orchestrator explicit này bắt buộc đúng một mã không rỗng, không
+phải `ALL`; giá trị được trim và uppercase. Command chạy source backfill theo
+thứ tự daily, intraday 1m và completeness trước khi gọi runner range feature
+hiện hữu cho `1d`, `15m`, `60m`. Chỉ dùng upsert: không delete, replace, sync
+master, ghi nến source aggregate, signal, backtest hay Analog. Source `PARTIAL`
+vẫn chạy feature và final giữ `PARTIAL`; source `FAILED` skip feature. Hai nhánh
+feature chạy độc lập. Range chỉ có cuối tuần là no-op `OK`. Exit code là `0` cho
+`OK`/`PARTIAL`, `1` cho `FAILED`, `2` cho argument không hợp lệ.
+
 ## Policy dữ liệu feature và mode
 
 `features` chỉ persist `1d`, `15m`, `60m`:

@@ -80,6 +80,7 @@ python main.py eod [DD/MM/YYYY] --symbols SSI HPG
 python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
+python main.py refill --symbol SSI --from DD/MM/YYYY --to DD/MM/YYYY
 ```
 
 Feature chạy riêng và có chủ đích:
@@ -108,6 +109,9 @@ Feature có ba semantics tách biệt:
   mốc range và `start <= end`. Application compute và validate trước đúng một RPC atomic; phải deploy migration mới trước khi dùng.
 
 Range command vẫn là backfill explicit. Ingest không tự gọi bất kỳ feature mode nào.
+`refill` là ngoại lệ orchestration được yêu cầu rõ ràng: maintenance flow cho đúng
+một mã, chạy source backfill và completeness trước rồi upsert feature `1d`, `15m`,
+`60m`. Command không sync master data hay chạy phân tích downstream.
 
 Alias legacy chỉ ghi feature 15m/60m:
 
