@@ -50,9 +50,8 @@ migration drops their retired tables when manually applied.
 
 The implemented Historical Analog EOD V1 foundation provides the versioned
 profile, snapshot/outcome, chronological validation, review, query evidence,
-repository/service boundaries, and `analogs` CLI parser. The committed null
-distance threshold and draft profile intentionally block final approval and
-production queries. Intraday checkpoints remain outside the implemented EOD V1
+repository/service boundaries, and `analogs` CLI parser. The draft profile blocks production queries until chronological final evidence
+and manual approval. Intraday checkpoints remain outside the implemented EOD V1
 scope.
 
 ## 4. Scope
@@ -248,9 +247,11 @@ Opening the app does not rerun historical validation. Runtime:
 4. returns `not_evaluable` when required inputs fail;
 5. matches only prior snapshots of that symbol and checkpoint;
 6. returns `insufficient_sample` when the predeclared sample rule fails;
-7. otherwise returns probabilities, return/risk distribution, sample,
+7. ranks every eligible prior day and selects the configured nearest `top_k` without a fixed threshold filter;
+8. reports time-safe walk-forward `analog_quality` separately from statistical confidence;
+9. otherwise returns probabilities, return/risk distribution, sample,
    confidence interval, same-symbol baseline, assumptions, and explanation;
-8. may write an audit analysis record, but no Phase 1 signal.
+10. may write an audit analysis record, but no Phase 1 signal.
 
 ## 12. Proposed implementation contracts
 
@@ -317,10 +318,10 @@ Each item should be a separate task/PR. Schema changes require migrations.
 
 ### Implemented V1 runtime boundary (EOD only)
 
-The current V1 runtime persists EOD snapshots from `features.timeframe='1d'` and observed-session H+1/H+3/H+5 outcomes from `stock_daily`. Production queries read that persisted evidence; audit persistence is gated by exact approval and a numeric frozen threshold. The source profile remains draft/null-threshold. The inspect command is a read-only, in-memory research/debug path with an explicit ephemeral threshold. Intraday checkpoints, signals, rankings, alerts, portfolio sizing, and backtest rules are not part of this V1 runtime.
+The current V1 runtime persists EOD snapshots from `features.timeframe='1d'` and observed-session H+1/H+3/H+5 outcomes from `stock_daily`. Production queries read that persisted evidence; audit persistence is gated by exact approval. The source profile remains draft. The inspect command is read-only/in-memory; its legacy threshold option is ignored. Intraday checkpoints, signals, rankings, alerts, portfolio sizing, and backtest rules are not part of this V1 runtime.
 
 EOD V2 is a separate immutable profile identity with the same nine dimensions
 and configured horizons H+1/H+3/H+5/H+10. H+10 is the tenth observed
 `stock_daily` session after D. It requires separate history and chronological
 validation; V1 rows are neither reused nor rewritten. V2 is draft with a null
-threshold, so production remains blocked.
+final evidence/approval, so production remains blocked.

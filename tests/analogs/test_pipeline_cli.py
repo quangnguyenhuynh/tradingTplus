@@ -61,9 +61,11 @@ def test_full_incremental_replace_scoped_and_idempotent():
     )
     first = build_history(**kwargs, mode="full", apply=True)
     second = build_history(**kwargs, mode="incremental", apply=True)
-    assert first["snapshot_count"] == 3 and second["snapshot_count"] == 8 and {
-        r["symbol"] for r in repo.snapshots
-    } == {"SSI"}
+    assert (
+        first["snapshot_count"] == 3
+        and second["snapshot_count"] == 8
+        and {r["symbol"] for r in repo.snapshots} == {"SSI"}
+    )
     with pytest.raises(ValueError, match="confirm"):
         build_history(**kwargs, mode="replace", apply=True)
     replaced = build_history(**kwargs, mode="replace", apply=True, confirm_replace=True)
@@ -85,7 +87,6 @@ def test_daily_requires_scope_and_blocks_draft():
         daily_run(row, symbols=[], session=date.today())
     assert daily_run(row, symbols=["ssi"], session=date.today())["reason_codes"] == [
         "EXACT_PROFILE_NOT_APPROVED",
-        "DISTANCE_THRESHOLD_NULL",
     ]
 
 
@@ -127,23 +128,35 @@ def test_cli_dry_run_apply_and_production_rejection(capsys):
     ]
     assert main.main(query) == 0
     output = capsys.readouterr().out
-    assert (
-        "DISTANCE_THRESHOLD_NULL" in output and "EXACT_PROFILE_NOT_APPROVED" in output
-    )
+    assert "EXACT_PROFILE_NOT_APPROVED" in output
+    assert "DISTANCE_THRESHOLD_NULL" not in output
 
 
 def test_cli_can_select_v2_registration_and_blocks_v2_production(capsys):
     selected = [
-        "analogs", "profiles", "register", "--profile",
-        "TPLUS_ANALOG_CORE_EOD", "--version", "2",
+        "analogs",
+        "profiles",
+        "register",
+        "--profile",
+        "TPLUS_ANALOG_CORE_EOD",
+        "--version",
+        "2",
     ]
     assert main.main(selected) == 0
     assert '"version": 2' in capsys.readouterr().out
     query = [
-        "analogs", "query", "--profile", "TPLUS_ANALOG_CORE_EOD",
-        "--version", "2", "--symbol", "SSI", "--date", "02/01/2026",
+        "analogs",
+        "query",
+        "--profile",
+        "TPLUS_ANALOG_CORE_EOD",
+        "--version",
+        "2",
+        "--symbol",
+        "SSI",
+        "--date",
+        "02/01/2026",
     ]
     assert main.main(query) == 0
     output = capsys.readouterr().out
     assert "EXACT_PROFILE_NOT_APPROVED" in output
-    assert "DISTANCE_THRESHOLD_NULL" in output
+    assert "DISTANCE_THRESHOLD_NULL" not in output

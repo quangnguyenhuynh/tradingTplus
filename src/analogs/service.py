@@ -46,13 +46,6 @@ def review_profile(
         raise ValueError(
             "approval/rejection requires an exact completed final validation run"
         )
-    if (
-        decision == "approve"
-        and profile_row["configuration"].get("distance_threshold") is None
-    ):
-        raise ValueError(
-            "DISTANCE_THRESHOLD_NULL: freeze a numeric threshold before approval"
-        )
     row = {
         "profile_code": profile_row["profile_code"],
         "version": profile_row["version"],

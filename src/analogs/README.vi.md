@@ -18,19 +18,21 @@ final validation `completed` có đúng hash. Candidate bắt buộc cùng mã,
 profile/version/hash, `1d`, `EOD`, nằm trước D và trong năm năm; toàn bộ outcome
 phải đã observable tại D. Median/IQR chỉ fit trên lịch sử hợp lệ trước D; IQR 0
 bị từ chối. Distance weighted Euclidean; similarity `exp(-distance)*100` chỉ là
-độ gần, không phải xác suất tăng. Giữ tối đa 30 row trong threshold; thiếu 30 trả
-`insufficient_sample`, không padding.
+độ gần, không phải xác suất tăng. Mọi candidate hợp lệ được xếp hạng
+deterministic rồi lấy `top_k` gần nhất (mặc định 30), không lọc bằng threshold;
+thiếu `top_k` trả `insufficient_sample`, không padding.
 
 Kết quả gồm xác suất return > 0, median, P25, Wilson interval, baseline cùng mã và
-lift. Query, normalization và match/rank được lưu để audit. Calibration chỉ nhận
-threshold candidate explicit và chỉ dùng training interval; không sửa/approve
+lift. Query, normalization và match/rank được lưu để audit. Calibration bán kính chạy walk-forward và chỉ dùng training interval; không sửa/approve
 profile và không phải final evidence. Walk-forward không random split, không cho
-future outlier/outcome lọt vào normalization, match, baseline hoặc chọn threshold.
+future outlier/outcome lọt vào normalization, match, baseline hoặc calibration bán kính.
 
-`distance_threshold` V1 hiện **null có chủ đích**. Có thể build/calibrate, nhưng
-final validation, approve và production query/daily phải trả
-`DISTANCE_THRESHOLD_NULL` cho tới khi threshold nghiên cứu được đóng băng vào
-config/hash chính xác.
+`analog_quality` tách riêng sample size, `top_k`, bán kính động `d_k` (`d30`
+khi mặc định), median, p90 và percentile bán kính walk-forward. P50/P75/P95 tạo
+bucket `good`/`usable`/`weak`/`out_of_distribution`; thiếu calibration trả
+`unknown`, không tạo percentile giả. Weak/OOD vẫn trả T+ nhưng có warning.
+`d_k`/percentile đo tương đồng, không phải xác suất; Wilson interval nằm riêng
+trong `statistical_confidence`.
 
 `full` upsert có scope; `incremental` upsert row mới/bị ảnh hưởng theo watermark;
 `replace` chỉ xóa đúng profile/hash/symbol/range và cần cả `--apply` lẫn
@@ -55,9 +57,9 @@ V1 chỉ hỗ trợ EOD/`1d`. `analogs profiles register` là dry-run nếu thi�
 V2 giữ nguyên dimension/matching và lưu H+10 thành row thứ tư trong
 `analog_outcomes` với `horizon_sessions=10`, không thêm column. Resolver bắt buộc
 đúng code/version, có thể kiểm tra exact hash và không tự chọn version mới nhất.
-V2 vẫn draft/threshold null, cần history build và validation riêng, không tái sử
+V2 vẫn draft, cần history build và validation riêng, không tái sử
 dụng evidence V1.
 
-`analogs query` đọc evidence đã persist. Không `--apply` thì chỉ đọc; có `--apply` chỉ audit nguyên tử khi profile exact đã approved và threshold là số. V1 vẫn draft/threshold null nên query production chủ động block với `EXACT_PROFILE_NOT_APPROVED` và `DISTANCE_THRESHOLD_NULL`.
+`analogs query` đọc evidence đã persist. Không `--apply` thì chỉ đọc; có `--apply` chỉ audit nguyên tử khi profile exact đã approved. V1 vẫn draft nên query production block với `EXACT_PROFILE_NOT_APPROVED`.
 
-`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` chỉ đọc source và tính trong memory, không ghi bảng Analog. Threshold là tham số research tạm thời, không đổi profile/hash, không phải evidence approval, signal hay khuyến nghị đầu tư.
+`analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` chỉ đọc source và tính trong memory, không ghi bảng Analog. Option threshold cũ bị bỏ qua và chỉ giữ để tương thích CLI.

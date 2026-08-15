@@ -48,8 +48,8 @@ cleanup migration sau đó xóa các bảng đã retire khi được apply thủ
 
 Nền Historical Analog EOD V1 đã triển khai profile có version, snapshot/outcome,
 chronological validation, review, query evidence, repository/service boundary và
-parser CLI `analogs`. Distance threshold null và profile draft hiện chặn final
-approval/query production. Các checkpoint intraday nằm ngoài scope EOD V1 đã
+parser CLI `analogs`. Profile draft chặn query production cho tới khi có final
+evidence theo thời gian và approve thủ công. Các checkpoint intraday nằm ngoài scope EOD V1 đã
 triển khai.
 
 ## 4. Phạm vi
@@ -238,9 +238,11 @@ User mở app không làm chạy lại historical validation. Runtime:
 4. trả `not_evaluable` nếu input bắt buộc không đạt;
 5. chỉ match snapshot trước đó của cùng mã và cùng checkpoint;
 6. trả `insufficient_sample` nếu không đạt sample rule định trước;
-7. nếu đủ thì trả xác suất, return/risk, sample, confidence interval, baseline
+7. xếp mọi ngày hợp lệ và lấy `top_k` gần nhất, không lọc threshold cố định;
+8. trả `analog_quality` walk-forward an toàn thời gian tách khỏi statistical confidence;
+9. nếu đủ thì trả xác suất, return/risk, sample, confidence interval, baseline
    cùng mã, assumptions và explanation;
-8. có thể ghi audit analysis nhưng không ghi signal trong Phase 1.
+10. có thể ghi audit analysis nhưng không ghi signal trong Phase 1.
 
 ## 12. Contract triển khai đề xuất
 
@@ -304,9 +306,9 @@ Mỗi mục nên là một task/PR riêng. Thay đổi schema bắt buộc có m
 
 ### Boundary runtime V1 đã triển khai (chỉ EOD)
 
-Runtime V1 hiện persist snapshot EOD từ `features.timeframe='1d'` và outcome H+1/H+3/H+5 theo observed session từ `stock_daily`. Query production đọc evidence đã persist; ghi audit chỉ được phép khi exact profile đã approved và có threshold số đã freeze. Profile source hiện vẫn draft/threshold null. Lệnh inspect là đường research/debug read-only, tính trong memory với threshold tạm thời explicit. Checkpoint intraday, signal, ranking, alert, sizing danh mục và rule backtest không thuộc runtime V1 này.
+Runtime V1 hiện persist snapshot EOD từ `features.timeframe='1d'` và outcome H+1/H+3/H+5 theo observed session từ `stock_daily`. Query production đọc evidence đã persist; ghi audit chỉ được phép khi exact profile đã approved. Profile source hiện vẫn draft. Lệnh inspect là đường research/debug read-only; option threshold cũ bị bỏ qua. Checkpoint intraday, signal, ranking, alert, sizing danh mục và rule backtest không thuộc runtime V1 này.
 
 EOD V2 là identity profile bất biến riêng, giữ chín dimension và dùng
 H+1/H+3/H+5/H+10. H+10 là phiên `stock_daily` quan sát thứ mười sau D. V2 cần
 history/validation riêng; không tái sử dụng hoặc sửa row V1. V2 vẫn draft và
-threshold null nên production tiếp tục bị chặn.
+final evidence/approval nên production tiếp tục bị chặn.

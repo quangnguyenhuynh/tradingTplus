@@ -4,6 +4,7 @@ import math
 import pytest
 
 from src.analogs.core import (
+    analog_quality,
     build_dimensions,
     distance,
     fit_median_iqr,
@@ -199,9 +200,10 @@ def test_same_symbol_identity_five_year_and_future_observability():
 def test_future_outlier_cannot_change_normalization():
     p = approved_profile()
     current, rows = prepare(p)
-    base = match_snapshot(current, rows, p, query_cutoff=current["trading_session"])[
-        "normalization"
-    ]
+    base_result = match_snapshot(
+        current, rows, p, query_cutoff=current["trading_session"]
+    )
+    base = base_result["normalization"]
     outlier = candidate(100)
     outlier.update(
         id="outlier",
@@ -209,10 +211,11 @@ def test_future_outlier_cannot_change_normalization():
         trading_session=date(2027, 1, 1),
         dimensions=dims(1e9),
     )
-    leaked = match_snapshot(
+    leaked_result = match_snapshot(
         current, rows + [outlier], p, query_cutoff=current["trading_session"]
-    )["normalization"]
-    assert base == leaked
+    )
+    assert base == leaked_result["normalization"]
+    assert base_result["analog_quality"] == leaked_result["analog_quality"]
 
 
 def test_zero_iqr_threshold_top30_and_insufficient_no_padding():
@@ -224,7 +227,8 @@ def test_zero_iqr_threshold_top30_and_insufficient_no_padding():
     small = approved_profile(0.00001)
     current, rows = prepare(small)
     result = match_snapshot(current, rows, small)
-    assert result["status"] == "insufficient_sample" and result["usable_sample"] < 30
+    assert result["status"] == "completed" and result["usable_sample"] == 30
+    assert result["analog_quality"]["d_k"] == result["matches"][29]["distance"]
 
 
 def test_distance_similarity_statistics():
@@ -243,10 +247,12 @@ def test_distance_similarity_statistics():
     assert 0 <= stats["wilson_interval"][0] < stats["wilson_interval"][1] <= 1
 
 
-def test_null_threshold_and_manual_exact_approval():
+def test_null_threshold_is_not_a_matching_or_approval_gate():
     draft = load_profile()
     current, rows = prepare(draft)
-    assert match_snapshot(current, rows, draft)["status"] == "threshold_required"
+    assert (
+        match_snapshot(current, rows, draft, production=False)["status"] == "completed"
+    )
     repo = type("Repo", (), {"insert_review": lambda self, row: row})()
     profile_row = {
         "profile_code": draft.code,
@@ -260,7 +266,7 @@ def test_null_threshold_and_manual_exact_approval():
         "run_type": "final",
         "status": "completed",
     }
-    with pytest.raises(ValueError, match="DISTANCE_THRESHOLD_NULL"):
+    assert (
         review_profile(
             repo,
             profile_row,
@@ -269,7 +275,9 @@ def test_null_threshold_and_manual_exact_approval():
             decision="approve",
             reason="evidence",
             apply=True,
-        )
+        )["status"]
+        == "recorded"
+    )
     with pytest.raises(ValueError, match="exact completed"):
         review_profile(
             repo,
@@ -280,6 +288,85 @@ def test_null_threshold_and_manual_exact_approval():
             reason="bad",
             apply=True,
         )
+
+
+def test_top_k_is_configurable_and_insufficient_requires_the_full_k():
+    base = approved_profile()
+    config = {**base.config, "top_k": 7, "minimum_sample": 7}
+    profile = AnalogProfile(config, config_hash(config))
+    current, rows = prepare(profile, count=60)
+    result = match_snapshot(
+        current, rows, profile, production=False, calibration_radii=[]
+    )
+    assert result["status"] == "completed" and result["usable_sample"] == 7
+    assert result["analog_quality"]["sample_size"] == 7
+    assert result["analog_quality"]["d_k"] == result["matches"][6]["distance"]
+    insufficient = match_snapshot(
+        current, rows[13:19], profile, production=False, calibration_radii=[]
+    )
+    assert insufficient["status"] == "insufficient_sample"
+    assert insufficient["analog_quality"]["quality_bucket"] == "unknown"
+
+
+def test_top_k_order_is_deterministic_and_legacy_threshold_does_not_filter():
+    profile = approved_profile(0)
+    current, rows = prepare(profile, count=60)
+    rows[34]["dimensions"] = deepcopy(rows[35]["dimensions"])
+    result = match_snapshot(
+        current, list(reversed(rows)), profile, production=False, calibration_radii=[]
+    )
+    assert result["status"] == "completed"
+    assert [m["distance"] for m in result["matches"]] == sorted(
+        m["distance"] for m in result["matches"]
+    )
+    tied = [
+        m
+        for m in result["matches"]
+        if m["distance"]
+        == next(x["distance"] for x in result["matches"] if x["snapshot_id"] == "34")
+    ]
+    assert [m["trading_session"] for m in tied] == sorted(
+        m["trading_session"] for m in tied
+    )
+    assert any(m["distance"] > 0 for m in result["matches"])
+
+
+def test_analog_quality_statistics_boundaries_warnings_and_unknown():
+    distances = list(range(1, 31))
+    unknown = analog_quality(distances, 30, [30] * 19)
+    assert (
+        unknown["quality_bucket"] == "unknown" and unknown["radius_percentile"] is None
+    )
+    assert unknown["median_distance"] == 15.5
+    assert unknown["p90_distance"] == pytest.approx(27.1)
+    assert analog_quality(distances, 30, [30] * 20)["quality_bucket"] == "good"
+    assert (
+        analog_quality(distances, 30, [10] * 10 + [20] * 4 + [30] * 6)["quality_bucket"]
+        == "usable"
+    )
+    assert (
+        analog_quality(distances, 30, [10] * 10 + [20] * 5 + [30] * 5)["quality_bucket"]
+        == "weak"
+    )
+    assert (
+        analog_quality(distances, 30, list(range(1, 21)))["quality_bucket"]
+        == "out_of_distribution"
+    )
+
+
+def test_out_of_distribution_match_keeps_outcomes_and_adds_warning():
+    profile = approved_profile(0)
+    current, rows = prepare(profile)
+    result = match_snapshot(
+        current,
+        rows,
+        profile,
+        production=False,
+        calibration_radii=[0.0001] * 20,
+    )
+    assert result["status"] == "completed" and result["statistics"]
+    assert result["analog_quality"]["quality_bucket"] == "out_of_distribution"
+    assert result["warnings"] == ["ANALOG_QUALITY_OUT_OF_DISTRIBUTION"]
 
 
 def test_calibration_final_test_isolation():

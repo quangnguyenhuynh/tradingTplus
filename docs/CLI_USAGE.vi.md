@@ -285,7 +285,7 @@ feature, signal, backtest hoặc Analog.
 
 EOD V2 dùng cùng command với `--version 2` và exact config hash. Register rõ
 ràng bằng `python main.py analogs profiles register --profile
-TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 vẫn draft/threshold null nên
+TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 vẫn draft nên
 query/daily production bị chặn cho tới khi hoàn tất history, calibration, final
 validation và approve riêng.
 
@@ -297,4 +297,4 @@ python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbo
 python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
 ```
 
-History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved/có threshold số. Profile V1 draft/threshold null hiện vẫn bị production-block. Inspect đọc feature 1d và `stock_daily`, tính trong memory và tuyệt đối không persist; threshold explicit chỉ là input research tạm thời, không phải signal hay khuyến nghị.
+History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved. Matching lấy `top_k` gần nhất; option threshold của inspect chỉ còn là input tương thích bị bỏ qua.

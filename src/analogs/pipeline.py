@@ -38,11 +38,13 @@ def build_history(
     refresh_sessions: dict[str, set[date]] = {}
     if mode == "incremental":
         for symbol in normalized_symbols:
-            observed = list(sessions.get(symbol, ())) if isinstance(sessions, Mapping) else list(sessions)
-            before = [session for session in observed if session < start]
-            refresh_sessions[symbol] = set(
-                before[-max(profile.config["horizons"]):]
+            observed = (
+                list(sessions.get(symbol, ()))
+                if isinstance(sessions, Mapping)
+                else list(sessions)
             )
+            before = [session for session in observed if session < start]
+            refresh_sessions[symbol] = set(before[-max(profile.config["horizons"]) :])
     selected = sorted(
         (
             row
@@ -51,31 +53,34 @@ def build_history(
             and row.get("symbol") in normalized_symbols
             and (
                 start <= row["trading_session"] <= end
-                or row["trading_session"] in refresh_sessions.get(row.get("symbol"), set())
+                or row["trading_session"]
+                in refresh_sessions.get(row.get("symbol"), set())
             )
         ),
         key=lambda row: (row["symbol"], row["trading_session"]),
     )
-    by_symbol: dict[str, list[Mapping[str, Any]]] = {}
-    for row in sorted(
-        (r for r in feature_rows if r.get("timeframe") == "1d"),
-        key=lambda r: (r["symbol"], r["trading_session"]),
-    ):
-        by_symbol.setdefault(row["symbol"], []).append(row)
     snapshots = []
     outcomes: list[dict[str, Any]] = []
     for row in selected:
-        history = by_symbol[row["symbol"]]
-        position = history.index(row)
         symbol_sessions = (
             sessions.get(row["symbol"], ())
             if isinstance(sessions, Mapping)
             else sessions
         )
-        session_position = list(symbol_sessions).index(row["trading_session"]) if row["trading_session"] in symbol_sessions else -1
+        session_position = (
+            list(symbol_sessions).index(row["trading_session"])
+            if row["trading_session"] in symbol_sessions
+            else -1
+        )
         prior_closes = (
-            [closes.get((row["symbol"], prior)) for prior in symbol_sessions[max(0, session_position - 5):session_position]]
-            if session_position >= 0 else []
+            [
+                closes.get((row["symbol"], prior))
+                for prior in symbol_sessions[
+                    max(0, session_position - 5) : session_position
+                ]
+            ]
+            if session_position >= 0
+            else []
         )
         computed = build_dimensions(
             row,
@@ -101,7 +106,11 @@ def build_history(
             if not math.isfinite(reference_close) or reference_close <= 0:
                 outcomes.extend(
                     {
-                        "snapshot_key": (profile.config_hash, row["symbol"], row["trading_session"]),
+                        "snapshot_key": (
+                            profile.config_hash,
+                            row["symbol"],
+                            row["trading_session"],
+                        ),
                         "horizon_sessions": horizon,
                         "reference_session": row["trading_session"],
                         "status": "unavailable",
@@ -133,7 +142,9 @@ def build_history(
             )
     deleted = 0
     if apply and repository is not None:
-        persistence_start = min((row["trading_session"] for row in snapshots), default=start)
+        persistence_start = min(
+            (row["trading_session"] for row in snapshots), default=start
+        )
         if mode == "replace":
             deleted = repository.replace_scope(
                 code=profile.code,
@@ -156,7 +167,9 @@ def build_history(
                 end=end.isoformat(),
             )
         ids = {
-            (row["config_hash"], row["symbol"], _as_date(row["trading_session"])): row["id"]
+            (row["config_hash"], row["symbol"], _as_date(row["trading_session"])): row[
+                "id"
+            ]
             for row in persisted
         }
         persisted_outcomes = []
@@ -211,8 +224,6 @@ def daily_run(
     reasons = []
     if profile_row.get("status") != "approved":
         reasons.append("EXACT_PROFILE_NOT_APPROVED")
-    if profile_row.get("configuration", {}).get("distance_threshold") is None:
-        reasons.append("DISTANCE_THRESHOLD_NULL")
     return {
         "status": "blocked" if reasons else ("ready" if apply else "dry_run"),
         "profile_code": profile_row.get("profile_code"),

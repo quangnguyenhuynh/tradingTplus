@@ -20,6 +20,7 @@ DIMENSIONS = (
     "value_ratio",
     "close_position_in_candle",
 )
+MIN_RADIUS_CALIBRATION_SAMPLES = 20
 
 
 def _number(value: Any, reason: str, reasons: list[str]) -> float | None:
@@ -278,6 +279,146 @@ def horizon_statistics(
     }
 
 
+def analog_quality(
+    distances: Sequence[float],
+    top_k: int,
+    calibration_radii: Sequence[float],
+) -> dict[str, Any]:
+    """Describe neighbour-set similarity, separately from outcome confidence."""
+    quality: dict[str, Any] = {
+        "sample_size": len(distances),
+        "top_k": top_k,
+        "neighbor_radius": distances[-1] if len(distances) == top_k else None,
+        "d_k": distances[-1] if len(distances) == top_k else None,
+        "median_distance": median(distances) if distances else None,
+        "p90_distance": percentile(distances, 0.90) if distances else None,
+        "radius_percentile": None,
+        "quality_bucket": "unknown",
+        "calibration_sample_size": len(calibration_radii),
+        "reason": None,
+    }
+    if len(distances) < top_k:
+        quality["reason"] = "TOP_K_SAMPLE_NOT_AVAILABLE"
+        return quality
+    if len(calibration_radii) < MIN_RADIUS_CALIBRATION_SAMPLES:
+        quality["reason"] = "INSUFFICIENT_WALK_FORWARD_RADIUS_CALIBRATION"
+        return quality
+    radii = sorted(float(value) for value in calibration_radii)
+    radius = float(quality["d_k"])
+    quality["radius_percentile"] = sum(value <= radius for value in radii) / len(radii)
+    p50, p75, p95 = (percentile(radii, q) for q in (0.50, 0.75, 0.95))
+    quality["calibration_percentiles"] = {"p50": p50, "p75": p75, "p95": p95}
+    quality["quality_bucket"] = (
+        "good"
+        if radius <= p50
+        else (
+            "usable"
+            if radius <= p75
+            else "weak" if radius <= p95 else "out_of_distribution"
+        )
+    )
+    return quality
+
+
+def _eligible_candidates(
+    current: Mapping[str, Any],
+    candidates: Sequence[Mapping[str, Any]],
+    profile: Any,
+    query_cutoff: date,
+) -> list[Mapping[str, Any]]:
+    session = current["trading_session"]
+    lower_year = session.year - int(profile.config["maximum_lookback_years"])
+    lower_bound = date(lower_year, session.month, min(session.day, 28))
+    eligible = []
+    for row in candidates:
+        if (
+            row.get("symbol"),
+            row.get("profile_code"),
+            row.get("version"),
+            row.get("config_hash"),
+        ) != (
+            current.get("symbol"),
+            profile.code,
+            profile.version,
+            profile.config_hash,
+        ):
+            continue
+        if (
+            row.get("timeframe") != profile.config["timeframe"]
+            or row.get("checkpoint") != profile.config["checkpoint"]
+            or row.get("status") != "evaluable"
+        ):
+            continue
+        candidate_session = row["trading_session"]
+        if not (lower_bound <= candidate_session < session):
+            continue
+        outcomes = row.get("outcomes", {})
+        if any(
+            h not in outcomes
+            or outcomes[h].get("status") != "completed"
+            or outcomes[h].get("target_session") > query_cutoff
+            for h in profile.config["horizons"]
+        ):
+            continue
+        eligible.append(row)
+    return eligible
+
+
+def _rank_candidates(
+    current: Mapping[str, Any], eligible: Sequence[Mapping[str, Any]], profile: Any
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    fitted = fit_median_iqr([row["dimensions"] for row in eligible])
+    ranked: list[dict[str, Any]] = []
+    for row in eligible:
+        value, differences = distance(
+            current["dimensions"], row["dimensions"], fitted, profile.weights
+        )
+        ranked.append(
+            {
+                "snapshot": row,
+                "distance": value,
+                "similarity": math.exp(-value) * 100,
+                "normalized_differences": differences,
+            }
+        )
+    ranked.sort(
+        key=lambda item: (
+            item["distance"],
+            item["snapshot"]["trading_session"],
+            str(item["snapshot"].get("id", "")),
+        )
+    )
+    return ranked, fitted
+
+
+def _walk_forward_radii(
+    current: Mapping[str, Any], candidates: Sequence[Mapping[str, Any]], profile: Any
+) -> list[float]:
+    """Build d_k calibration using only information observable at each past reference."""
+    top_k = int(profile.config["top_k"])
+    radii = []
+    ordered = sorted(
+        candidates, key=lambda row: (row["trading_session"], str(row.get("id", "")))
+    )
+    for reference in ordered:
+        if (
+            reference["trading_session"] >= current["trading_session"]
+            or reference.get("status") != "evaluable"
+        ):
+            continue
+        eligible = _eligible_candidates(
+            reference, ordered, profile, reference["trading_session"]
+        )
+        if len(eligible) < top_k:
+            continue
+        try:
+            ranked, _ = _rank_candidates(reference, eligible, profile)
+        except ValueError:
+            continue
+        radii.append(ranked[top_k - 1]["distance"])
+    return radii
+
+
 def match_snapshot(
     current: Mapping[str, Any],
     candidates: Sequence[Mapping[str, Any]],
@@ -285,21 +426,17 @@ def match_snapshot(
     *,
     production: bool = True,
     query_cutoff: date | None = None,
+    calibration_radii: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     if current.get("status") != "evaluable":
         return {
             "status": "not_evaluable",
-            "reason_codes": list(current.get("invalid_reasons", ["CURRENT_SNAPSHOT_NOT_EVALUABLE"])),
+            "reason_codes": list(
+                current.get("invalid_reasons", ["CURRENT_SNAPSHOT_NOT_EVALUABLE"])
+            ),
             "candidate_count": 0,
             "usable_sample": 0,
             "required_sample": int(profile.config["minimum_sample"]),
-        }
-    threshold = profile.config["distance_threshold"]
-    if threshold is None:
-        return {
-            "status": "threshold_required",
-            "reason_codes": ["DISTANCE_THRESHOLD_NULL"],
-            "action": "run calibration, freeze a numeric threshold, and complete final validation",
         }
     if production and profile.config["status"] != "approved":
         return {
@@ -307,74 +444,32 @@ def match_snapshot(
             "reason_codes": ["EXACT_PROFILE_NOT_APPROVED"],
         }
     session = current["trading_session"]
-    lower_year = session.year - int(profile.config["maximum_lookback_years"])
-    eligible = []
-    for row in candidates:
-        if (
-            row.get("symbol") != current.get("symbol")
-            or row.get("profile_code") != profile.code
-            or row.get("version") != profile.version
-            or row.get("config_hash") != profile.config_hash
-        ):
-            continue
-        if (
-            row.get("timeframe") != "1d"
-            or row.get("checkpoint") != "EOD"
-            or row.get("status") != "evaluable"
-        ):
-            continue
-        candidate_session = row["trading_session"]
-        if not (
-            date(lower_year, session.month, min(session.day, 28))
-            <= candidate_session
-            < session
-        ):
-            continue
-        outcomes = row.get("outcomes", {})
-        if any(
-            h not in outcomes
-            or outcomes[h].get("status") != "completed"
-            or outcomes[h].get("target_session") > (query_cutoff or session)
-            for h in profile.config["horizons"]
-        ):
-            continue
-        eligible.append(row)
+    eligible = _eligible_candidates(
+        current, candidates, profile, query_cutoff or session
+    )
     try:
-        fitted = fit_median_iqr([row["dimensions"] for row in eligible])
+        ranked, fitted = _rank_candidates(current, eligible, profile)
     except ValueError as exc:
         return {
             "status": "not_evaluable",
             "reason_codes": [str(exc)],
             "candidate_count": len(eligible),
         }
-    ranked: list[dict[str, Any]] = []
-    for row in eligible:
-        value, differences = distance(
-            current["dimensions"], row["dimensions"], fitted, profile.weights
-        )
-        if value <= threshold:
-            ranked.append(
-                {
-                    "snapshot": row,
-                    "distance": value,
-                    "similarity": math.exp(-value) * 100,
-                    "normalized_differences": differences,
-                }
-            )
-    ranked.sort(
-        key=lambda item: (
-            item["distance"],
-            item["snapshot"]["trading_session"],
-            item["snapshot"].get("id", ""),
-        )
+    top_k = int(profile.config["top_k"])
+    selected = ranked[:top_k]
+    required = top_k
+    radii = (
+        list(calibration_radii)
+        if calibration_radii is not None
+        else _walk_forward_radii(current, candidates, profile)
     )
-    selected = ranked[: int(profile.config["top_k"])]
-    required = int(profile.config["minimum_sample"])
+    quality = analog_quality([item["distance"] for item in selected], top_k, radii)
     base = {
         "candidate_count": len(eligible),
         "usable_sample": len(selected),
         "required_sample": required,
         "normalization": fitted,
+        "analog_quality": quality,
     }
     matches = [
         {
@@ -404,4 +499,20 @@ def match_snapshot(
             row["outcomes"][horizon]["return_ratio"] for row in eligible
         ]
         statistics[str(horizon)] = horizon_statistics(returns, baseline_returns)
-    return {"status": "completed", **base, "statistics": statistics, "matches": matches}
+    warnings = []
+    if quality["quality_bucket"] in {"weak", "out_of_distribution"}:
+        warnings.append(f"ANALOG_QUALITY_{quality['quality_bucket'].upper()}")
+    return {
+        "status": "completed",
+        **base,
+        "statistics": statistics,
+        "statistical_confidence": {
+            h: {
+                "wilson_interval": value["wilson_interval"],
+                "sample_count": value["sample_count"],
+            }
+            for h, value in statistics.items()
+        },
+        "warnings": warnings,
+        "matches": matches,
+    }

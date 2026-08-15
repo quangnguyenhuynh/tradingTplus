@@ -11,6 +11,8 @@
   "distance_metric": "weighted_euclidean",
   "similarity_transform": "exp_negative_distance",
   "distance_threshold": null,
+  "matching_strategy": "nearest_top_k",
+  "quality_calibration": "walk_forward_d_k",
   "status": "draft",
   "dimensions": [
     {"name": "return_5d", "formula": "close[D] / close[D-5 trading sessions] - 1", "weight": 0.10},

@@ -65,6 +65,8 @@ def validate_profile(config: Mapping[str, Any]) -> None:
         "distance_metric",
         "similarity_transform",
         "distance_threshold",
+        "matching_strategy",
+        "quality_calibration",
         "status",
         "dimensions",
     }
@@ -87,15 +89,27 @@ def validate_profile(config: Mapping[str, Any]) -> None:
         )
     fixed_contract = {
         "maximum_lookback_years": 5,
-        "top_k": 30,
-        "minimum_sample": 30,
         "normalization": "median_iqr",
         "distance_metric": "weighted_euclidean",
         "similarity_transform": "exp_negative_distance",
     }
     if any(config[key] != value for key, value in fixed_contract.items()):
         raise ValueError("EOD profiles must preserve the fixed matching contract")
-    if config["status"] not in {"draft", "validated", "approved", "rejected", "retired"}:
+    if not isinstance(config["top_k"], int) or config["top_k"] <= 0:
+        raise ValueError("top_k must be a positive integer")
+    if config["minimum_sample"] != config["top_k"]:
+        raise ValueError("minimum_sample must equal top_k for exact top-k matching")
+    if config["matching_strategy"] != "nearest_top_k":
+        raise ValueError("EOD profiles require matching_strategy=nearest_top_k")
+    if config["quality_calibration"] != "walk_forward_d_k":
+        raise ValueError("EOD profiles require walk-forward d_k quality calibration")
+    if config["status"] not in {
+        "draft",
+        "validated",
+        "approved",
+        "rejected",
+        "retired",
+    }:
         raise ValueError("unsupported profile status")
     dimensions = config["dimensions"]
     names = [row.get("name") for row in dimensions]
