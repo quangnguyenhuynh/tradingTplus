@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from src.ssi.api import SSIApi
 from src.database.client import SupabaseClient
-from src.pipeline.index_data import sync_indexes, sync_index_components
+from src.pipeline.index_master import sync_index_master, sync_index_components
 
 
 def _get_any(data: dict, *keys: str) -> Any:
@@ -86,6 +86,6 @@ def init_symbols():
             by_symbol[symbol] = map_security_record(item) or {'symbol': symbol, 'market': item.get('Market'), 'raw': item}
     securities = list(by_symbol.values())
     db.upsert_securities(securities)
-    index_codes = sync_indexes(ssi=ssi, db=db)
-    component_count = sync_index_components(None, ssi=ssi, db=db)
+    index_codes = sync_index_master(ssi=ssi, db=db)
+    component_count = sync_index_components(index_codes, ssi=ssi, db=db)
     print(f"✅ Đã lưu {len(symbols)} mã vào symbols, {len(securities)} mã vào securities, {len(index_codes)} indexes, {component_count} index components")

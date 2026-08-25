@@ -51,10 +51,14 @@ from src.pipeline import (
     run_intraday_backfill_pipeline,
     run_intraday_ingest,
     run_intraday_pipeline,
+    run_index_daily_ingest,
+    run_index_backfill_pipeline,
+    check_index_completeness,
     run_refill_pipeline,
     run_streaming_ingest,
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
+from src.pipeline.index_scope import normalize_index_scope
 from src.analogs.cli import run as run_analogs
 
 
@@ -83,6 +87,19 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
+
+    index_daily = sub.add_parser("index-daily", help="SSI DailyIndex raw + validated clean ingest only")
+    index_daily.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
+    index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
+
+    index_backfill = sub.add_parser("index-backfill", help="Inclusive DailyIndex source-data backfill")
+    index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True)
+    index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True)
+    index_backfill.add_argument("--indexes", nargs="+", default=None)
+
+    index_check = sub.add_parser("index-check", help="Read-only index raw/clean completeness check")
+    index_check.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY")
+    index_check.add_argument("--indexes", nargs="+", default=None)
     daily.add_argument(
         "--symbols",
         nargs="+",
@@ -115,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
+    eod.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
     eod.add_argument(
         "--symbols",
         nargs="+",
@@ -484,6 +502,15 @@ def main(argv: list[str] | None = None) -> int:
             )
             _print_summary(summary)
             return _status_to_exit(summary)
+        if args.command == "index-daily":
+            summary = run_index_daily_ingest(args.date, indexes=normalize_index_scope(args.indexes))
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "index-backfill":
+            summary = run_index_backfill_pipeline(args.from_date, args.to_date, indexes=normalize_index_scope(args.indexes))
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "index-check":
+            summary = check_index_completeness(args.date, indexes=normalize_index_scope(args.indexes))
+            _print_summary(summary); return _status_to_exit(summary)
         if args.command == "intraday-ingest":
             summary = run_intraday_ingest(
                 args.date,
@@ -492,10 +519,10 @@ def main(argv: list[str] | None = None) -> int:
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "eod":
-            summary = run_eod_pipeline(
-                args.date,
-                symbols=normalize_symbol_scope(args.symbols),
-            )
+            kwargs = {"symbols": normalize_symbol_scope(args.symbols)}
+            if args.indexes is not None:
+                kwargs["indexes"] = normalize_index_scope(args.indexes)
+            summary = run_eod_pipeline(args.date, **kwargs)
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:

@@ -320,3 +320,13 @@ python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --sym
 ```
 
 History is source-read/dry-run by default and persists snapshots/outcomes only with `--apply`; replace also requires `--confirm-replace`. Query always reads persisted evidence and writes audit rows only with `--apply` and an exact approved profile. Matching selects the nearest configured `top_k`; the inspect threshold option remains only as an ignored compatibility input.
+
+## Index Daily source data
+
+```bash
+python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
+```
+
+Omitting `--indexes` resolves every canonical code from `index_master`; unknown explicit codes fail. `index-daily` writes source payload evidence to `index_raw_daily` before validated normalized rows in `index_daily`. `index-check` is read-only. EOD runs index ingest and its separate completeness stage; none of these commands calculate features or research outputs.

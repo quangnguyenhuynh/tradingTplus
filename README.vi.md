@@ -167,3 +167,7 @@ deterministic so sánh mọi cột persisted cho `1d`, `15m`, `60m`; xem
 đã **COMPLETE_WITH_NOTES**: owner đã kiểm tra schema production apply thủ công
 và sample lineage/reconciliation live có phạm vi. Report ghi rõ rủi ro calendar
 và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; validation cuối và approval vẫn còn pending.
+
+### Pipeline nguồn index daily
+
+Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem `docs/CLI_USAGE.vi.md`.

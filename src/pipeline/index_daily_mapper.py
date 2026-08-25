@@ -1,0 +1,72 @@
+"""Pure SSI DailyIndex raw and clean mapping."""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime
+from typing import Any
+
+from src.pipeline.date_utils import parse_ddmmyyyy
+
+
+def get_index_payload_value(payload: dict, *keys: str) -> Any:
+    lower = {str(key).lower(): value for key, value in payload.items()}
+    for key in keys:
+        if key.lower() in lower:
+            return lower[key.lower()]
+    return None
+
+
+def payload_index_code(payload: dict) -> str | None:
+    value = get_index_payload_value(payload, "IndexCode", "IndexId", "indexcode", "indexid")
+    return str(value).strip() if value not in (None, "") else None
+
+
+def payload_index_date(payload: dict) -> str | None:
+    value = get_index_payload_value(payload, "TradingDate")
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text[:10], fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _number(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        # Retain malformed source evidence in-memory so validation rejects it;
+        # invalid values are never sent to the numeric clean table.
+        return value
+
+
+def build_index_raw_daily_record(requested_code: str, date: str, payload: dict) -> dict:
+    code = payload_index_code(payload) or requested_code
+    trading_date = payload_index_date(payload) or parse_ddmmyyyy(date).iso
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    return {"index_code": code, "trading_date": trading_date, "data_hash": hashlib.sha256(canonical.encode()).hexdigest(), "payload": payload, "source": "SSI_DailyIndex"}
+
+
+def build_index_daily_record(requested_code: str, date: str, payload: dict) -> dict | None:
+    source_code, source_date = payload_index_code(payload), payload_index_date(payload)
+    if source_code is None or source_date is None:
+        return None
+    if source_code.casefold() != requested_code.casefold() or source_date != parse_ddmmyyyy(date).iso:
+        return None
+    numeric = {
+        "index_value": "IndexValue", "change": "Change", "ratio_change": "RatioChange", "total_trade": "TotalTrade",
+        "total_match_vol": "TotalMatchVol", "total_match_val": "TotalMatchVal", "total_deal_vol": "TotalDealVol",
+        "total_deal_val": "TotalDealVal", "total_vol": "TotalVol", "total_val": "TotalVal", "advances": "Advances",
+        "no_changes": "NoChanges", "declines": "Declines", "ceilings": "Ceilings", "floors": "Floors",
+    }
+    record = {"index_code": requested_code, "trading_date": source_date}
+    record.update({field: _number(get_index_payload_value(payload, key)) for field, key in numeric.items()})
+    for field, key in {"type_index": "TypeIndex", "index_name": "IndexName", "trading_session": "TradingSession", "market": "Market", "exchange": "Exchange"}.items():
+        record[field] = get_index_payload_value(payload, key)
+    return record

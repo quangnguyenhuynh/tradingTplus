@@ -119,14 +119,14 @@ Tất cả feature
 ### `sync-master-data` / `init`
 
 - Đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`.
-- Ghi `symbols`, `securities`, `indexes` và `index_components`.
+- Ghi `symbols`, `securities`, `index_master` và `index_components`.
 - Không ingest history hoặc tính feature.
 
 ### `daily`
 
 - Một `DailyStockPrice` request mỗi symbol/date được reuse cho `raw_daily`, `stock_daily` và foreign fields.
 - Chỉ gọi `DailyStockPrice`; không gọi `DailyIndex`, `IndexList` hoặc `IndexComponents`.
-- Chỉ ghi `raw_daily`, `stock_daily`; không ghi `index_daily`, `indexes` hoặc `index_components`.
+- Chỉ ghi `raw_daily`, `stock_daily`; không ghi `index_daily`, `index_master` hoặc `index_components`.
 - Không gọi `IntradayOhlc`.
 - Không tính feature/signal/backtest.
 
@@ -247,3 +247,7 @@ messages retain app `received_at`, and feature rows receive `last_updated_at`. D
 clock defaults are removed for these fields, so writers must send them explicitly.
 
 > Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+
+## Canonical DailyIndex pipeline
+
+`SSI DailyIndex -> index_raw_daily -> validation -> index_daily -> index completeness` is a separate source-data flow. Index definitions live in `index_master`; constituents remain in `index_components`. Raw payloads use `(index_code, trading_date, data_hash)` and clean rows use `(index_code, trading_date)`. A payload outside requested code/date scope is retained raw and rejected from clean storage. Historical repair uses the explicit `index-backfill` command.

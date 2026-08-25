@@ -21,7 +21,10 @@ src/pipeline/
 ├── ingest_check.py           # completeness and consistency report
 ├── date_utils.py             # Vietnam-market date parsing/safety
 ├── init_symbols.py           # master-data synchronization
-├── index_data.py             # index master/daily ingest
+├── index_master.py           # index definitions/components
+├── index_daily*.py           # layered DailyIndex raw/clean ingest
+├── index_backfill.py         # index-only range ingest
+├── index_completeness.py     # index raw/clean completeness
 ├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # independent daily/intraday ranges + combined completeness
 ├── refill.py                 # explicit single-symbol source + feature maintenance orchestration
@@ -44,7 +47,7 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed b
 5. `daily_service.py` invokes the existing `validate_daily_record` validator.
 6. Valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`. Missing price context does not block an otherwise valid OHLCV row; a coherent OHLC range wholly on one side of source limits is retained as a corporate-action warning, while isolated limit violations remain blocking.
 7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `foreign_trading`.
-8. `daily.py` never calls `DailyIndex`, `IndexList`, or `IndexComponents`, and never writes `index_daily`, `indexes`, or `index_components`.
+8. `daily.py` never calls `DailyIndex`, `IndexList`, or `IndexComponents`, and never writes `index_daily`, `index_master`, or `index_components`.
 
 `foreign_trading` is retained as legacy historical storage and for the explicit compatibility helper only. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
 
@@ -130,7 +133,7 @@ Ingest commands never automatically calculate features, generate signals, or run
 
 ## Shared stock-symbol scope
 
-`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. The deprecated `index_daily_count` is always `0` without a DB query; index master synchronization remains exclusive to `sync-master-data` / `init`.
+`daily`, `intraday-ingest`, `eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. Explicit symbols are preserved rather than silently dropped because the repository has no separate reliable active/inactive validation contract. EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index scope and completeness are separate from stock scope; EOD composes both flows, while index master synchronization remains exclusive to `sync-master-data` / `init`.
 # Persistence timestamps
 
 Pipeline persistence timestamps are application-controlled ISO 8601 values in `Asia/Ho_Chi_Minh` with an explicit `+07:00` offset.

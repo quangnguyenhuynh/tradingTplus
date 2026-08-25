@@ -74,13 +74,13 @@ vẫn chặn final approval và production query.
 | Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday`, `streaming-ingest`. |
 | SSI REST client | Implemented | Authentication, paging, timeout, retry `401` một lần. |
 | SSI streaming client | Implemented, live chưa kiểm chứng | Classic SignalR, explicit channel, bounded timeout. |
-| Master data | Implemented | `symbols`, `securities`, `indexes`, `index_components`. |
+| Master data | Implemented | `symbols`, `securities`, `index_master`, `index_components`. |
 | Daily raw ingest | Implemented | `raw_daily` giữ full `DailyStockPrice` payload và hash. |
 | Daily clean ingest | Implemented | `stock_daily` được validate trước khi ghi. |
 | Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
 | Intraday clean ingest | Implemented | Chỉ persist `timeframe='1m'`. |
 | Foreign trading | Implemented | Production daily reuse cùng `DailyStockPrice` payload, không fetch lặp. |
-| Daily index | Legacy retained | Schema/data cũ được giữ; daily/EOD/backfill không còn ingest hoặc ghi `index_daily`. |
+| Daily index | Implemented | `index-daily`/`index-backfill` write `index_raw_daily` then validated `index_daily`; EOD integrates ingest and separate completeness. |
 | Daily validation | Implemented | Required field, OHLC, limits, volume/value và consistency. |
 | Intraday validation | Implemented | Record validation và batch validation. |
 | Completeness | Partial | Daily/intraday là điều kiện chính; index/foreign/orderbook mới là count tham khảo. |
@@ -112,7 +112,7 @@ python main.py init
 Hiện thực hiện:
 
 - đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`;
-- ghi `symbols`, `securities`, `indexes` và `index_components`.
+- ghi `symbols`, `securities`, `index_master` và `index_components`.
 
 Không ingest history và không chạy feature/signal/backtest.
 
@@ -133,7 +133,7 @@ SSI DailyStockPrice — một request cho mỗi symbol/date
 Market-index daily ingest is outside the stock-only daily/EOD/backfill contract. Existing `index_daily` schema/data remains untouched.
 ```
 
-`daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `indexes`, `index_components`, `raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
+`daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `index_master`, `index_components`, `raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
 
 Khi không truyền ngày, command dùng `latest_previous_weekday` theo logic hiện tại. Đây là weekday-based default, chưa phải exchange holiday calendar.
 
@@ -571,7 +571,7 @@ Overall status hiện dựa chủ yếu trên:
 - missing symbol;
 - duplicate/gap intraday.
 
-Completeness chỉ đánh giá `stock_daily` và `stock_intraday` cùng missing/incomplete theo symbol. `index_daily_count` deprecated là giá trị tĩnh `0` và không query `index_daily`; các legacy observability count khác không ảnh hưởng status.
+Stock completeness remains symbol-scoped. Separate index completeness compares `index_master` scope with `index_raw_daily` and `index_daily`; EOD composes both reports.
 
 Completeness chưa bao phủ đầy đủ:
 

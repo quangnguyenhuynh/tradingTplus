@@ -314,3 +314,13 @@ python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --sym
 ```
 
 History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved. Matching lấy `top_k` gần nhất; option threshold của inspect chỉ còn là input tương thích bị bỏ qua.
+
+## Dữ liệu nguồn Index Daily
+
+```bash
+python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
+```
+
+Khi bỏ `--indexes`, scope lấy toàn bộ mã chuẩn từ `index_master`; mã explicit không tồn tại sẽ báo lỗi. `index-daily` ghi bằng chứng payload vào `index_raw_daily` trước khi ghi row chuẩn hóa đã validate vào `index_daily`. `index-check` chỉ đọc. EOD chạy ingest index và completeness riêng; các lệnh này không tính feature hoặc kết quả research.
