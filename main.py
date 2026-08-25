@@ -15,6 +15,7 @@ Production commands:
   python main.py features-intraday (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m 1d]
   python main.py intraday [--symbols SSI HPG] [--timeframes 15m 60m]
+  python main.py index-preview --date YYYY-MM-DD --indexes VNINDEX [--raw | --json]
   python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
 
 Feature persistence policy:
@@ -59,6 +60,7 @@ from src.pipeline import (
 )
 from src.pipeline.symbol_scope import normalize_symbol_scope
 from src.pipeline.index_scope import normalize_index_scope
+from src.pipeline.index_daily_preview import render_index_daily_preview, run_index_daily_preview
 from src.analogs.cli import run as run_analogs
 
 
@@ -100,6 +102,23 @@ def build_parser() -> argparse.ArgumentParser:
     index_check = sub.add_parser("index-check", help="Read-only index raw/clean completeness check")
     index_check.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY")
     index_check.add_argument("--indexes", nargs="+", default=None)
+
+    index_preview = sub.add_parser(
+        "index-preview",
+        help="Read-only SSI DailyIndex preview; never reads or writes database rows",
+    )
+    preview_dates = index_preview.add_mutually_exclusive_group(required=True)
+    preview_dates.add_argument("--date", help="Trading date YYYY-MM-DD or DD/MM/YYYY")
+    preview_dates.add_argument("--from", dest="from_date", help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
+    index_preview.add_argument("--to", dest="to_date", help="Inclusive end date (required with --from)")
+    index_preview.add_argument(
+        "--indexes",
+        required=True,
+        help="Comma-separated index codes, for example VNINDEX,HNXINDEX",
+    )
+    preview_output = index_preview.add_mutually_exclusive_group()
+    preview_output.add_argument("--raw", action="store_true", help="Print SSI payload rows as JSON")
+    preview_output.add_argument("--json", action="store_true", dest="as_json", help="Print normalized rows as JSON")
     daily.add_argument(
         "--symbols",
         nargs="+",
@@ -511,6 +530,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "index-check":
             summary = check_index_completeness(args.date, indexes=normalize_index_scope(args.indexes))
             _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "index-preview":
+            if bool(args.from_date) != bool(args.to_date):
+                raise ValueError("--from and --to must be provided together")
+            indexes = normalize_index_scope(args.indexes.split(","))
+            preview = run_index_daily_preview(
+                indexes=indexes or [], single_date=args.date,
+                from_date=args.from_date, to_date=args.to_date,
+            )
+            print(render_index_daily_preview(preview, raw=args.raw, as_json=args.as_json))
+            return 0
         if args.command == "intraday-ingest":
             summary = run_intraday_ingest(
                 args.date,
