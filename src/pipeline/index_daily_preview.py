@@ -2,34 +2,23 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Iterable
 
 from src.pipeline.index_daily_fetcher import fetch_index_daily
 from src.pipeline.index_daily_mapper import build_index_daily_record
+from src.pipeline.date_utils import parse_index_date
 from src.ssi.api import SSIApi
-
-
-_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y")
-
-
-def _parse_date(value: str) -> date:
-    for date_format in _DATE_FORMATS:
-        try:
-            return datetime.strptime(value, date_format).date()
-        except ValueError:
-            continue
-    raise ValueError(f"Invalid date {value!r}; expected YYYY-MM-DD or DD/MM/YYYY")
 
 
 def _date_range(single_date: str | None, from_date: str | None, to_date: str | None) -> list[date]:
     if single_date:
         if from_date or to_date:
             raise ValueError("--date cannot be combined with --from/--to")
-        return [_parse_date(single_date)]
+        return [parse_index_date(single_date).date]
     if not from_date or not to_date:
         raise ValueError("Provide --date or both --from and --to")
-    start, end = _parse_date(from_date), _parse_date(to_date)
+    start, end = parse_index_date(from_date).date, parse_index_date(to_date).date
     if start > end:
         raise ValueError("--from must not be after --to")
     return [start + timedelta(days=offset) for offset in range((end - start).days + 1)]

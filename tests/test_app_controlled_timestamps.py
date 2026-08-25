@@ -75,6 +75,23 @@ def test_created_at_upsert_is_insert_then_update_without_created_at():
     assert update_call[1][0]["updated_at"] == insert_call[1][0]["updated_at"]
 
 
+def test_index_raw_upsert_replaces_explicit_null_created_at_and_preserves_it_on_conflict():
+    db = _db()
+    source = {
+        "index_code": "VNINDEX", "trading_date": "2026-08-24",
+        "data_hash": "hash", "payload": {}, "created_at": None,
+    }
+
+    db.upsert_index_raw_daily([source])
+
+    insert_call, update_call = db.client.calls
+    created_at = insert_call[1][0]["created_at"]
+    assert created_at is not None
+    assert datetime.fromisoformat(created_at).tzinfo is not None
+    assert "created_at" not in update_call[1][0]
+    assert source["created_at"] is None
+
+
 def test_table_specific_timestamps_are_app_controlled():
     stamp = "2026-07-24T12:00:00+00:00"
     cases = {

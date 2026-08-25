@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.database.client import SupabaseClient
-from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy
+from src.pipeline.date_utils import latest_previous_weekday, parse_index_date
 from src.pipeline.index_scope import index_scope_summary, resolve_index_scope
 
 
@@ -16,7 +16,7 @@ def _codes(db: Any, table: str, date_iso: str, scope: list[str]) -> list[str]:
 
 def check_index_completeness(date: str | None = None, indexes: list[str] | tuple[str, ...] | None = None, *, db: SupabaseClient | None = None) -> dict[str, Any]:
     date = date or latest_previous_weekday().strftime("%d/%m/%Y")
-    db = db or SupabaseClient(); date_iso = parse_ddmmyyyy(date).iso
+    db = db or SupabaseClient(); date_iso = parse_index_date(date).iso
     resolved, requested = resolve_index_scope(db, indexes)
     raw_codes = _codes(db, "index_raw_daily", date_iso, resolved)
     clean_codes = _codes(db, "index_daily", date_iso, resolved)

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -5,10 +6,21 @@ import pytest
 from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
 from src.pipeline.index_scope import normalize_index_scope, resolve_index_scope
+from src.pipeline.date_utils import parse_index_date
 from src.validation.index_daily_validator import validate_index_daily_record
 
 
 PAYLOAD = {"IndexId": "VNINDEX", "TradingDate": "25/08/2026", "IndexValue": 1280.5, "TotalMatchVol": 10, "TotalDealVol": 2, "TotalVol": 12}
+
+
+@pytest.mark.parametrize("value", ["2026-08-24", "24/08/2026"])
+def test_shared_index_date_parser_accepts_documented_formats(value):
+    assert parse_index_date(value).iso == "2026-08-24"
+
+
+def test_shared_index_date_parser_rejects_other_separators():
+    with pytest.raises(ValueError, match="YYYY-MM-DD or DD/MM/YYYY"):
+        parse_index_date("24-08-2026")
 
 
 def test_mapper_uses_payload_identity_and_keeps_missing_nullable():
@@ -43,6 +55,23 @@ def test_service_persists_raw_before_rejecting_clean():
     summary = fetch_index_daily_with_clients(SSI(), DB(), "VN30", "25/08/2026")
     assert summary["raw_rows"] == 1 and summary["clean_rows"] == 0
     assert [name for name, _ in calls] == ["raw"]
+
+
+def test_valid_response_persists_raw_then_clean_without_downstream_work():
+    calls = []
+    class SSI:
+        def get_daily_index_items(self, code, date): return [PAYLOAD]
+    class DB:
+        def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
+        def upsert_index_daily(self, rows): calls.append(("clean", rows))
+
+    summary = fetch_index_daily_with_clients(SSI(), DB(), "VNINDEX", "25/08/2026")
+
+    assert summary["status"] == "OK"
+    assert summary["raw_rows"] == summary["clean_rows"] == 1
+    assert [name for name, _ in calls] == ["raw", "clean"]
+    created_at = calls[0][1][0]["created_at"]
+    assert datetime.fromisoformat(created_at).utcoffset() == timedelta(0)
 
 
 def test_index_scope_resolves_case_insensitively_and_rejects_unknown():

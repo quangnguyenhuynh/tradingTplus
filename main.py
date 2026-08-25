@@ -91,16 +91,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     index_daily = sub.add_parser("index-daily", help="SSI DailyIndex raw + validated clean ingest only")
-    index_daily.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY; defaults to latest previous weekday")
+    index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest previous weekday")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
 
     index_backfill = sub.add_parser("index-backfill", help="Inclusive DailyIndex source-data backfill")
-    index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True)
-    index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True)
+    index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
+    index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--indexes", nargs="+", default=None)
 
     index_check = sub.add_parser("index-check", help="Read-only index raw/clean completeness check")
-    index_check.add_argument("date", nargs="?", help="Trading date DD/MM/YYYY")
+    index_check.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest previous weekday")
     index_check.add_argument("--indexes", nargs="+", default=None)
 
     index_preview = sub.add_parser(

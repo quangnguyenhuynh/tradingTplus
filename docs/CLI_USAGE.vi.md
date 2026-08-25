@@ -319,9 +319,9 @@ History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/out
 
 ```bash
 python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNINDEX[,HNXINDEX] [--raw | --json]
-python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
-python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
-python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-daily [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-check [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
 ```
 
 ### `index-preview` chỉ đọc
@@ -371,6 +371,8 @@ Giá trị nguồn bị thiếu vẫn là JSON `null` và hiển thị thành `-
 trả row, preview exit thành công và in thông báo rõ ràng như
 `No SSI index daily data returned for VNINDEX on 2026-08-24`; command không tạo
 row giả.
+
+Mọi đối số ngày của bốn command index nhận chính xác `YYYY-MM-DD` hoặc `DD/MM/YYYY`; ví dụ `2026-08-24` và `24/08/2026` là cùng một ngày. Separator khác như `24-08-2026` sẽ bị từ chối.
 
 ### Chọn command index
 
