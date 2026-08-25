@@ -184,3 +184,19 @@ evidence-retention risks are recorded in the report; the Historical Analog EOD V
 ### Index daily source pipeline
 
 Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See `docs/CLI_USAGE.md`.
+
+Before ingest, `index-preview` can inspect SSI directly without constructing a
+database client or writing raw/clean rows. Dates accept `YYYY-MM-DD` or
+`DD/MM/YYYY`; ranges are inclusive. Missing SSI values remain `null` in JSON
+and `-` in the human-readable table.
+
+```bash
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX
+python main.py index-preview --from 2026-08-01 --to 2026-08-24 --indexes VNINDEX,HNXINDEX
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX --raw
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX --json
+```
+
+`--raw` prints the SSI payload rows returned by the existing paginated client;
+`--json` prints normalized records. The command never inserts, upserts, deletes,
+calculates features, or runs signals/backtests.
