@@ -19,9 +19,10 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
         summary["errors"].append(str(exc)); return summary
     if not payloads:
         summary["errors"].append(f"No DailyIndex data for {index_code} on {date}"); return summary
+    raw_records = [build_index_raw_daily_record(index_code, date, payload) for payload in payloads]
+    persist_index_raw_daily(db, raw_records)
+    summary["raw_rows"] = len(raw_records)
     for payload in payloads:
-        persist_index_raw_daily(db, build_index_raw_daily_record(index_code, date, payload))
-        summary["raw_rows"] += 1
         clean = build_index_daily_record(index_code, date, payload)
         if clean is None:
             summary["rejected_rows"] += 1

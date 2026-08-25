@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
+from src.pipeline.index_daily_persistence import _validate_index_raw_daily_row
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
 from src.pipeline.index_scope import normalize_index_scope, resolve_index_scope
 from src.pipeline.date_utils import parse_index_date
@@ -72,6 +73,53 @@ def test_valid_response_persists_raw_then_clean_without_downstream_work():
     assert [name for name, _ in calls] == ["raw", "clean"]
     created_at = calls[0][1][0]["created_at"]
     assert datetime.fromisoformat(created_at).utcoffset() == timedelta(0)
+    assert "created_at" not in calls[0][1][0]["payload"]
+
+
+def test_repository_boundary_sends_complete_batch_with_one_utc_ingestion_timestamp():
+    """Capture the exact mapper -> persistence -> DatabaseClient input."""
+    calls = []
+
+    class SSI:
+        def get_daily_index_items(self, code, date):
+            return [PAYLOAD, {**PAYLOAD, "TradingSession": "CLOSE"}]
+
+    class RecordingDatabaseClient:
+        def upsert_index_raw_daily(self, rows):
+            calls.append(("index_raw_daily", rows))
+
+        def upsert_index_daily(self, rows):
+            calls.append(("index_daily", rows))
+
+    summary = fetch_index_daily_with_clients(
+        SSI(), RecordingDatabaseClient(), "VNINDEX", "25/08/2026"
+    )
+
+    table, rows = calls[0]
+    assert table == "index_raw_daily"
+    assert rows
+    assert summary["raw_rows"] == summary["clean_rows"] == 2
+    timestamps = {row["created_at"] for row in rows}
+    assert len(timestamps) == 1
+    for row in rows:
+        assert "created_at" in row
+        assert row["created_at"] is not None
+        parsed = datetime.fromisoformat(row["created_at"])
+        assert parsed.tzinfo is not None and parsed.utcoffset() == timedelta(0)
+        assert "created_at" not in row["payload"]
+
+
+def test_raw_audit_validation_fails_before_database_request_with_safe_context():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "index_raw_daily row missing required created_at: "
+            "index_code=VNINDEX, trading_date=2026-08-24"
+        ),
+    ):
+        _validate_index_raw_daily_row(
+            {"index_code": "VNINDEX", "trading_date": "2026-08-24"}
+        )
 
 
 def test_index_scope_resolves_case_insensitively_and_rejects_unknown():

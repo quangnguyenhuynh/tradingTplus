@@ -109,6 +109,11 @@ class SupabaseClient:
     @staticmethod
     def _is_retryable_error(exc: Exception) -> bool:
         error_message = str(exc).lower()
+        # NOT NULL violations are deterministic payload/schema errors. Some
+        # PostgREST messages include request/connection wording in their details,
+        # so classify the PostgreSQL code before looking for transient keywords.
+        if "23502" in error_message:
+            return False
         retry_keys = ["timeout", "connection", "network", "503", "502", "429", "jwt", "auth", "temporarily unavailable"]
         return any(key in error_message for key in retry_keys)
 
@@ -248,6 +253,12 @@ class SupabaseClient:
                         on_conflict=on_conflict,
                         ignore_duplicates=True,
                     ).execute()
+                    if table_name == "index_raw_daily":
+                        # Raw index evidence is immutable and the identity includes its
+                        # payload hash. There are no mutable columns to update. A second
+                        # bulk upsert that omits created_at is unsafe because PostgREST can
+                        # materialize the missing field as NULL (default_to_null behavior).
+                        return None
                     # Then update all mutable fields while omitting created_at. Existing rows
                     # retain their original creation time; newly inserted rows keep the stamp.
                     update_chunk = [

@@ -84,12 +84,26 @@ def test_index_raw_upsert_replaces_explicit_null_created_at_and_preserves_it_on_
 
     db.upsert_index_raw_daily([source])
 
-    insert_call, update_call = db.client.calls
+    (insert_call,) = db.client.calls
     created_at = insert_call[1][0]["created_at"]
     assert created_at is not None
     assert datetime.fromisoformat(created_at).tzinfo is not None
-    assert "created_at" not in update_call[1][0]
+    assert insert_call[2]["ignore_duplicates"] is True
     assert source["created_at"] is None
+
+
+def test_postgres_not_null_violation_is_not_retried_even_with_transient_wording():
+    db = _db()
+    attempts = 0
+
+    def fail():
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("23502 null constraint violation while handling connection")
+
+    with pytest.raises(RuntimeError, match="23502"):
+        db._with_retry(fail, "constraint test", max_retry=3, base_sleep=0)
+    assert attempts == 1
 
 
 def test_table_specific_timestamps_are_app_controlled():
