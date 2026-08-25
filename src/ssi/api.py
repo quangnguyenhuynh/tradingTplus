@@ -283,11 +283,17 @@ class SSIApi:
             print(f"⚠️ Lỗi DailyIndex raw {index_code}: {e}")
             return None
 
+    def get_daily_index_items(self, index_code: str, date: str) -> list[dict]:
+        """Return every paged DailyIndex item using SSI's verified ``IndexId`` key."""
+        return self._get_all_pages(
+            config.SSI_DAILY_INDEX_URL,
+            {"IndexId": index_code, "FromDate": date, "ToDate": date},
+            page_size=1000,
+        )
+
     def get_daily_index(self, index_code: str, date: str) -> dict | None:
-        raw = self.get_daily_index_raw(index_code, date)
-        if raw is None:
-            return None
-        items = self._extract_items(raw)
+        """Compatibility helper returning the first paged DailyIndex item."""
+        items = self.get_daily_index_items(index_code, date)
         return items[0] if items else None
 
     def get_daily_price_items(self, symbol: str, date: str) -> list[dict]:

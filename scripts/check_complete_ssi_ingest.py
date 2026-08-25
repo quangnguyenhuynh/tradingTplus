@@ -18,7 +18,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.database.client import SupabaseClient
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
-from src.pipeline.index_data import build_index_daily_record, map_index_record
+from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
+from src.pipeline.index_master import map_index_master_record as map_index_record
 from src.pipeline.init_symbols import map_security_record
 from src.ssi.api import SSIApi
 
@@ -153,7 +154,7 @@ def main() -> None:
         validate_safe_write_date(selected, force=args.force)
     except ValueError as exc:
         raise SystemExit(f"❌ Refusing smoke-test write: {exc}. Pass --force only if this is intentional.") from exc
-    target_tables = ["raw_daily", "stock_daily", "securities", "indexes", "index_daily"]
+    target_tables = ["raw_daily", "stock_daily", "securities", "index_master", "index_raw_daily", "index_daily"]
     if args.write_intraday:
         target_tables.extend(["raw_intraday", "stock_intraday"])
     print("\n⚠️  WRITE CONFIRMATION")
@@ -179,11 +180,13 @@ def main() -> None:
     else:
         _warn_empty("securities")
     if index_records:
-        db.upsert_indexes(index_records)
-        print(f"✅ written indexes count: {len(index_records)}")
+        db.upsert_index_master(index_records)
+        print(f"✅ written index_master count: {len(index_records)}")
     else:
-        _warn_empty("indexes")
+        _warn_empty("index_master")
     if index_record:
+        db.upsert_index_raw_daily([build_index_raw_daily_record(accepted_index_code, ssi_date, daily_index)])
+        print("✅ Wrote index_raw_daily: 1")
         db.upsert_index_daily([index_record])
         print("✅ Wrote index_daily: 1")
     else:

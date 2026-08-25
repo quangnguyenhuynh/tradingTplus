@@ -53,13 +53,15 @@ class SupabaseClient:
         "stock_daily",
         "raw_daily",
         "raw_intraday",
-        "indexes",
+        "index_master",
         "index_components",
+        "index_raw_daily",
         "index_daily",
     }
     _CREATED_AT_TABLES = {
         "symbols",
         "raw_daily",
+        "index_raw_daily",
         "stock_daily",
         "stock_intraday",
         "orderbook_snapshot",
@@ -76,7 +78,7 @@ class SupabaseClient:
         "stock_daily",
         "stock_intraday",
         "securities",
-        "indexes",
+        "index_master",
         "index_components",
         "foreign_trading",
         "orderbook_snapshot",
@@ -310,14 +312,21 @@ class SupabaseClient:
     def upsert_raw_daily(self, records):
         self._upsert_in_batches('raw_daily', records, on_conflict='symbol,trading_date,data_hash')
 
+    def upsert_index_master(self, records):
+        self._upsert_in_batches('index_master', records, on_conflict='index_code')
+
     def upsert_indexes(self, records):
-        self._upsert_in_batches('indexes', records, on_conflict='index_code')
+        """Deprecated compatibility alias for pre-migration callers."""
+        return self.upsert_index_master(records)
 
     def upsert_index_components(self, records):
         self._upsert_in_batches('index_components', records, on_conflict='index_code,symbol')
 
     def upsert_index_daily(self, records):
         self._upsert_in_batches('index_daily', records, on_conflict='index_code,trading_date')
+
+    def upsert_index_raw_daily(self, records):
+        self._upsert_in_batches('index_raw_daily', records, on_conflict='index_code,trading_date,data_hash')
 
     def upsert_intraday(self, records):
         if not records:

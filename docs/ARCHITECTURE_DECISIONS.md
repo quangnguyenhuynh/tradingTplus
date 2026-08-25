@@ -8,7 +8,7 @@ call SSI `DailyStockPrice` and write only `raw_daily`/`stock_daily`;
 write only `raw_intraday`/`stock_intraday`. EOD and combined backfill compose
 those stock pipelines with stock-only completeness checks. They never call
 `DailyIndex`, `IndexList`, or `IndexComponents`, and never write
-`index_daily`, `indexes`, or `index_components`.
+`index_daily`, `index_master`, or `index_components`.
 
 Existing market-index schema and historical rows remain intact. Index master
 synchronization remains an explicit responsibility of `sync-master-data` /

@@ -21,9 +21,10 @@ REQUIRED_COLUMNS = {
     "securities": ["symbol", "market", "stock_name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
     "stock_daily": ["symbol", "trading_date", "price_change", "per_price_change", "ceiling_price", "floor_price", "ref_price", "open_price", "highest_price", "lowest_price", "close_price", "average_price", "close_price_adjusted", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_traded_vol", "total_traded_value", "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total", "foreign_current_room", "net_foreign_vol", "net_foreign_val", "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol", "raw", "created_at", "updated_at"],
     "raw_daily": ["symbol", "trading_date", "data_hash", "payload", "created_at"],
-    "indexes": ["index_code", "index_name", "exchange", "raw", "updated_at"],
+    "index_master": ["index_code", "index_name", "exchange", "raw", "updated_at"],
+    "index_raw_daily": ["index_code", "trading_date", "data_hash", "payload", "source", "fetched_at", "created_at"],
     "index_components": ["index_code", "symbol", "exchange", "raw", "updated_at"],
-    "index_daily": ["index_code", "trading_date", "index_value", "change", "ratio_change", "total_trade", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_vol", "total_val", "type_index", "index_name", "advances", "no_changes", "declines", "ceilings", "floors", "trading_session", "market", "exchange", "raw"],
+    "index_daily": ["index_code", "trading_date", "index_value", "change", "ratio_change", "total_trade", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_vol", "total_val", "type_index", "index_name", "advances", "no_changes", "declines", "ceilings", "floors", "trading_session", "market", "exchange"],
     "foreign_trading": ["symbol", "trading_date", "foreign_buy_vol", "foreign_sell_vol", "foreign_buy_val", "foreign_sell_val", "net_foreign_vol", "net_foreign_val", "foreign_current_room", "raw"],
     "orderbook_snapshot": ["symbol", "time", "bid_price_1", "bid_vol_1", "ask_price_1", "ask_vol_1", "bid_price_10", "bid_vol_10", "ask_price_10", "ask_vol_10", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw"],
     "stream_raw_snapshot": ["channel", "requested_channel", "rtype", "symbol", "index_code", "time", "source_time", "received_at", "trading_date", "payload", "payload_hash", "validation_status", "validation_issues"],
@@ -39,7 +40,8 @@ REQUIRED_UNIQUE_INDEXES = {
     "securities": "primary key (symbol)",
     "stock_daily": "unique index on (symbol, trading_date)",
     "raw_daily": "unique index on (symbol, trading_date, data_hash)",
-    "indexes": "primary key (index_code)",
+    "index_master": "primary key (index_code)",
+    "index_raw_daily": "unique index on (index_code, trading_date, data_hash)",
     "index_components": "unique index on (index_code, symbol)",
     "index_daily": "unique index on (index_code, trading_date)",
     "foreign_trading": "unique index on (symbol, trading_date)",
@@ -84,7 +86,7 @@ def main() -> None:
 select tablename, indexname, indexdef
 from pg_indexes
 where schemaname = 'public'
-  and tablename in ('securities','stock_daily','raw_daily','indexes','index_components','index_daily','foreign_trading','orderbook_snapshot','stream_raw_snapshot','stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot','stream_status_snapshot','stream_bar_snapshot')
+  and tablename in ('securities','stock_daily','raw_daily','index_master','index_components','index_raw_daily','index_daily','foreign_trading','orderbook_snapshot','stream_raw_snapshot','stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot','stream_status_snapshot','stream_bar_snapshot')
 order by tablename, indexname;
 """.strip())
 

@@ -180,3 +180,7 @@ persisted column for `1d`, `15m`, and `60m`; see the
 **COMPLETE_WITH_NOTES**: the owner verified the manually applied production
 schema and scoped live lineage/reconciliation samples. Remaining calendar and
 evidence-retention risks are recorded in the report; the Historical Analog EOD V1 core is implemented, with final validation and approval still pending.
+
+### Index daily source pipeline
+
+Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See `docs/CLI_USAGE.md`.

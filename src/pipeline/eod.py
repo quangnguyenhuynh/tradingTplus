@@ -7,6 +7,8 @@ from src.pipeline.daily import daily_run
 from src.pipeline.date_utils import latest_weekday_on_or_before, parse_ddmmyyyy
 from src.pipeline.ingest_check import check_ingest
 from src.pipeline.intraday_ingest import run_intraday_ingest
+from src.pipeline.index_daily import run_index_daily_ingest
+from src.pipeline.index_completeness import check_index_completeness
 from src.pipeline.symbol_scope import normalize_symbol_scope, symbol_scope_summary
 
 DEFAULT_EOD_TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")  # compatibility constant; EOD no longer uses it.
@@ -51,6 +53,7 @@ def run_eod_pipeline(
     *,
     timeframes: list[str] | tuple[str, ...] | None = None,
     symbols: list[str] | tuple[str, ...] | None = None,
+    indexes: list[str] | tuple[str, ...] | None = None,
 ) -> dict:
     """Run EOD ingest and completeness validation only; features are explicit."""
     if timeframes:
@@ -66,14 +69,25 @@ def run_eod_pipeline(
     intraday_summary = run_intraday_ingest(eod_date, symbols=requested_symbols)
     print(f"✅ Intraday ingest completed for {eod_date}")
 
-    print("3️⃣ Check ingest completeness...")
+    print("3️⃣ Run index daily ingest...")
+    index_daily_summary = run_index_daily_ingest(eod_date, indexes=indexes)
+
+    print("4️⃣ Check stock ingest completeness...")
     ingest_summary = check_ingest(eod_date, symbols=requested_symbols)
+    print("5️⃣ Check index completeness...")
+    index_completeness_summary = check_index_completeness(eod_date, indexes=indexes)
     print("🔎 Ingest check summary:")
     print(pformat(ingest_summary, sort_dicts=True))
 
     failures = _validate_pipeline_summary(daily_summary, "daily ingest") + _validate_pipeline_summary(intraday_summary, "intraday ingest")
+    if index_daily_summary.get("status") == "FAILED":
+        failures.append("index daily ingest failed")
     warnings: list[str] = []
     status = _status_from_ingest(ingest_summary, failures, warnings)
+    if index_completeness_summary.get("status") == "FAILED":
+        status = "FAILED"; failures.append("index completeness status FAILED")
+    elif index_completeness_summary.get("status") == "PARTIAL" and status == "OK":
+        status = "PARTIAL"; warnings.append("index completeness is partial")
     resolved_symbols = list(ingest_summary.get("symbols") or requested_symbols or [])
     result = {
         "flow": "eod",
@@ -81,7 +95,9 @@ def run_eod_pipeline(
         **symbol_scope_summary(resolved_symbols, requested_symbols),
         "daily_summary": daily_summary,
         "intraday_summary": intraday_summary,
+        "index_daily_summary": index_daily_summary,
         "ingest_summary": ingest_summary,
+        "index_completeness_summary": index_completeness_summary,
         "status": status,
         "failures": failures,
         "warnings": warnings,
