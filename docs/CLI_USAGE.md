@@ -324,9 +324,82 @@ History is source-read/dry-run by default and persists snapshots/outcomes only w
 ## Index Daily source data
 
 ```bash
+python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNINDEX[,HNXINDEX] [--raw | --json]
 python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
 python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
 python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
 ```
 
-Omitting `--indexes` resolves every canonical code from `index_master`; unknown explicit codes fail. `index-daily` writes source payload evidence to `index_raw_daily` before validated normalized rows in `index_daily`. `index-check` is read-only. EOD runs index ingest and its separate completeness stage; none of these commands calculate features or research outputs.
+### Read-only `index-preview`
+
+`index-preview` calls SSI `DailyIndex`, applies the current normalization mapper,
+and prints the result for inspection. It does not construct a database client,
+read database scope, or write `index_raw_daily`, `index_daily`, or any other raw
+or clean table. It also does not calculate features or research outputs.
+
+The command accepts exactly one date selection:
+
+- `--date DATE` previews one date.
+- `--from DATE --to DATE` previews every calendar date in the inclusive range;
+  `--to` is required with `--from`.
+- Each date accepts `YYYY-MM-DD` or `DD/MM/YYYY`.
+- `--indexes` is required and takes one comma-separated value such as
+  `VNINDEX,HNXINDEX`. Unlike the ingest, backfill, and check commands, omitting
+  it is an argument error; preview never resolves index codes from
+  `index_master`.
+- Human-readable output is the default. `--raw` prints SSI payload rows as JSON,
+  while `--json` prints normalized rows as JSON. The two flags are mutually
+  exclusive.
+
+Examples:
+
+```bash
+# One date (DD/MM/YYYY is also accepted)
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX
+
+# Inclusive date range and multiple indexes
+python main.py index-preview --from 2026-08-23 --to 2026-08-24 --indexes VNINDEX,HNXINDEX
+
+# Raw SSI payload wrapper
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX --raw
+
+# Normalized records only
+python main.py index-preview --date 24/08/2026 --indexes VNINDEX --json
+```
+
+The default display has this shape (values shown are illustrative):
+
+```text
+index_code | trading_date | index_value | change | ratio_change | total_vol | total_val | source | status
+----------------------------------------------------------------------------------------------------------------
+VNINDEX | 2026-08-24 | 1245.5 | - | 0.25 | 123456 | - | SSI_DailyIndex | OK
+```
+
+Missing source values remain JSON `null` and display as `-`. If SSI returns no
+rows, preview exits successfully and prints a clear message such as
+`No SSI index daily data returned for VNINDEX on 2026-08-24`; it does not
+fabricate a row.
+
+### Choosing the index command
+
+- **Preview:** `index-preview` calls SSI and renders raw or normalized data;
+  it neither reads nor writes the database.
+- **Daily ingest:** `index-daily` fetches one resolved trading date and writes
+  payload evidence to `index_raw_daily` before validated normalized rows in
+  `index_daily`.
+- **Backfill:** `index-backfill` runs that source-data ingest for an inclusive
+  historical range.
+- **Completeness:** `index-check` reads the database and compares expected index
+  scope with raw and clean rows; it does not fetch preview data or write rows.
+
+For `index-daily`, `index-backfill`, and `index-check`, omitting `--indexes`
+resolves every canonical code from `index_master`, and unknown explicit codes
+fail. EOD composes index ingest and its separate completeness stage. None of
+these commands calculate features or research outputs.
+
+Recommended workflow:
+
+1. Run `index-preview` to inspect the SSI response.
+2. Verify the returned fields, dates, index codes, and values.
+3. Run `index-daily` for one date or `index-backfill` for an inclusive range.
+4. Run `index-check` for completeness.

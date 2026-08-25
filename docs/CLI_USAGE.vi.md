@@ -318,9 +318,80 @@ History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/out
 ## Dữ liệu nguồn Index Daily
 
 ```bash
+python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNINDEX[,HNXINDEX] [--raw | --json]
 python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
 python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
 python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
 ```
 
-Khi bỏ `--indexes`, scope lấy toàn bộ mã chuẩn từ `index_master`; mã explicit không tồn tại sẽ báo lỗi. `index-daily` ghi bằng chứng payload vào `index_raw_daily` trước khi ghi row chuẩn hóa đã validate vào `index_daily`. `index-check` chỉ đọc. EOD chạy ingest index và completeness riêng; các lệnh này không tính feature hoặc kết quả research.
+### `index-preview` chỉ đọc
+
+`index-preview` gọi SSI `DailyIndex`, áp dụng mapper chuẩn hóa hiện tại và in kết
+quả để kiểm tra. Command không khởi tạo database client, không đọc scope trong
+database và không ghi `index_raw_daily`, `index_daily` hay bất kỳ bảng raw/clean
+nào. Command cũng không tính feature hoặc kết quả research.
+
+Command nhận đúng một cách chọn ngày:
+
+- `--date DATE` preview một ngày.
+- `--from DATE --to DATE` preview mọi ngày dương lịch trong range inclusive;
+  bắt buộc có `--to` khi dùng `--from`.
+- Mỗi ngày nhận `YYYY-MM-DD` hoặc `DD/MM/YYYY`.
+- `--indexes` là bắt buộc và nhận một giá trị phân tách bằng dấu phẩy, ví dụ
+  `VNINDEX,HNXINDEX`. Khác với ingest, backfill và check, bỏ option này là lỗi
+  argument; preview không lấy index code từ `index_master`.
+- Mặc định in bảng dễ đọc. `--raw` in các row payload SSI dưới dạng JSON, còn
+  `--json` in các row đã chuẩn hóa dưới dạng JSON. Hai flag loại trừ nhau.
+
+Ví dụ:
+
+```bash
+# Một ngày (cũng nhận DD/MM/YYYY)
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX
+
+# Range inclusive và nhiều index
+python main.py index-preview --from 2026-08-23 --to 2026-08-24 --indexes VNINDEX,HNXINDEX
+
+# Wrapper payload SSI raw
+python main.py index-preview --date 2026-08-24 --indexes VNINDEX --raw
+
+# Chỉ các record đã chuẩn hóa
+python main.py index-preview --date 24/08/2026 --indexes VNINDEX --json
+```
+
+Output mặc định có dạng sau (các giá trị chỉ để minh họa):
+
+```text
+index_code | trading_date | index_value | change | ratio_change | total_vol | total_val | source | status
+----------------------------------------------------------------------------------------------------------------
+VNINDEX | 2026-08-24 | 1245.5 | - | 0.25 | 123456 | - | SSI_DailyIndex | OK
+```
+
+Giá trị nguồn bị thiếu vẫn là JSON `null` và hiển thị thành `-`. Nếu SSI không
+trả row, preview exit thành công và in thông báo rõ ràng như
+`No SSI index daily data returned for VNINDEX on 2026-08-24`; command không tạo
+row giả.
+
+### Chọn command index
+
+- **Preview:** `index-preview` gọi SSI và render dữ liệu raw hoặc đã chuẩn hóa;
+  command không đọc hoặc ghi database.
+- **Ingest ngày:** `index-daily` fetch một ngày giao dịch đã resolve, ghi bằng
+  chứng payload vào `index_raw_daily`, sau đó ghi row chuẩn hóa đã validate vào
+  `index_daily`.
+- **Backfill:** `index-backfill` chạy source-data ingest đó cho range lịch sử
+  inclusive.
+- **Completeness:** `index-check` đọc database và so sánh scope index dự kiến
+  với row raw và clean; command không fetch dữ liệu preview hoặc ghi row.
+
+Với `index-daily`, `index-backfill` và `index-check`, bỏ `--indexes` sẽ lấy toàn
+bộ mã chuẩn từ `index_master`; mã explicit không tồn tại sẽ báo lỗi. EOD kết hợp
+index ingest với stage completeness riêng. Không command nào trong số này tính
+feature hoặc kết quả research.
+
+Quy trình khuyến nghị:
+
+1. Chạy `index-preview` để kiểm tra response SSI.
+2. Kiểm tra các field, ngày, index code và giá trị được trả về.
+3. Chạy `index-daily` cho một ngày hoặc `index-backfill` cho range inclusive.
+4. Chạy `index-check` để kiểm tra completeness.
