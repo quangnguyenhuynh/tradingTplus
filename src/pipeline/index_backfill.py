@@ -4,10 +4,11 @@ from __future__ import annotations
 from src.pipeline.backfill import _base_range_summary, _failure_day, _resolve_range
 from src.pipeline.index_daily import run_index_daily_ingest
 from src.pipeline.index_scope import normalize_index_scope
+from src.pipeline.date_utils import parse_index_date
 
 
 def run_index_backfill_pipeline(from_date: str, to_date: str, indexes: list[str] | tuple[str, ...] | None = None) -> dict:
-    date_range = _resolve_range(from_date, to_date); requested = normalize_index_scope(indexes)
+    date_range = _resolve_range(parse_index_date(from_date).ddmmyyyy, parse_index_date(to_date).ddmmyyyy); requested = normalize_index_scope(indexes)
     days = []; errors = []
     for date_text in date_range.eligible_dates:
         try:

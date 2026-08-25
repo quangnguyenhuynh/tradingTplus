@@ -198,7 +198,10 @@ class SupabaseClient:
         stamped = [dict(record) for record in records]
         for record in stamped:
             if table_name in cls._CREATED_AT_TABLES:
-                record.setdefault("created_at", stamp)
+                # Application-controlled creation timestamps are mandatory. Treat an
+                # explicit None like an omitted value rather than sending JSON null.
+                if record.get("created_at") is None:
+                    record["created_at"] = stamp
             if table_name in cls._UPDATED_AT_TABLES:
                 record["updated_at"] = stamp
             if table_name == "raw_intraday":

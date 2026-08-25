@@ -186,7 +186,7 @@ evidence-retention risks are recorded in the report; the Historical Analog EOD V
 Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See the [CLI usage guide](docs/CLI_USAGE.md).
 
 Before ingest, `index-preview` can inspect SSI directly without constructing a
-database client or writing raw/clean rows. Dates accept `YYYY-MM-DD` or
+database client or writing raw/clean rows. All index CLI dates accept `YYYY-MM-DD` or
 `DD/MM/YYYY`; ranges are inclusive. Missing SSI values remain `null` in JSON
 and `-` in the human-readable table. `--indexes` is required and accepts one
 comma-separated value; preview does not resolve omitted scope from the database.

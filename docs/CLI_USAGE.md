@@ -325,9 +325,9 @@ History is source-read/dry-run by default and persists snapshots/outcomes only w
 
 ```bash
 python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNINDEX[,HNXINDEX] [--raw | --json]
-python main.py index-daily [DD/MM/YYYY] [--indexes VNINDEX VN30]
-python main.py index-backfill --from DD/MM/YYYY --to DD/MM/YYYY [--indexes VNINDEX VN30]
-python main.py index-check DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-daily [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-check [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
 ```
 
 ### Read-only `index-preview`
@@ -379,6 +379,8 @@ Missing source values remain JSON `null` and display as `-`. If SSI returns no
 rows, preview exits successfully and prints a clear message such as
 `No SSI index daily data returned for VNINDEX on 2026-08-24`; it does not
 fabricate a row.
+
+All date arguments for the four index commands accept exactly `YYYY-MM-DD` or `DD/MM/YYYY`; for example, `2026-08-24` and `24/08/2026` identify the same date. Other separators such as `24-08-2026` are rejected.
 
 ### Choosing the index command
 

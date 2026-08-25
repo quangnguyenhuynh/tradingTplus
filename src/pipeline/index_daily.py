@@ -5,13 +5,14 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.daily import _resolve_daily_date
+from src.pipeline.date_utils import parse_index_date
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
 from src.pipeline.index_scope import index_scope_summary, resolve_index_scope
 from src.ssi.api import SSIApi
 
 
 def run_index_daily_ingest(date: str | None = None, indexes: list[str] | tuple[str, ...] | None = None) -> dict[str, Any]:
-    resolved_date = _resolve_daily_date(date)
+    resolved_date = _resolve_daily_date(parse_index_date(date).ddmmyyyy if date is not None else None)
     db = SupabaseClient()
     resolved, requested = resolve_index_scope(db, indexes)
     ssi = SSIApi()

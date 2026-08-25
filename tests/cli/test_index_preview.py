@@ -48,6 +48,20 @@ def test_preview_one_date_prints_normalized_table_without_db_writes(monkeypatch,
     assert fake.calls == [("VNINDEX", "24/08/2026")]
 
 
+def test_preview_accepts_documented_slash_date(monkeypatch, capsys):
+    fake = FakeSSI()
+    _install_ssi(monkeypatch, fake)
+    assert main.main(["index-preview", "--date", "24/08/2026", "--indexes", "VNINDEX"]) == 0
+    assert fake.calls == [("VNINDEX", "24/08/2026")]
+    assert "VNINDEX | 2026-08-24" in capsys.readouterr().out
+
+
+def test_preview_rejects_undocumented_date_separator(monkeypatch, capsys):
+    _install_ssi(monkeypatch, FakeSSI())
+    assert main.main(["index-preview", "--date", "24-08-2026", "--indexes", "VNINDEX"]) == 2
+    assert "YYYY-MM-DD or DD/MM/YYYY" in capsys.readouterr().err
+
+
 def test_preview_empty_response_prints_clear_message(monkeypatch, capsys):
     _install_ssi(monkeypatch, FakeSSI([]))
 

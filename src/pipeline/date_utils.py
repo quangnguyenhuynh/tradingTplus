@@ -78,6 +78,16 @@ def parse_iso_date(value: str) -> ValidatedDate:
     return ValidatedDate(raw=value, date=parsed)
 
 
+def parse_index_date(value: str) -> ValidatedDate:
+    """Parse either documented date format used by the index CLI commands."""
+    for date_format in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return ValidatedDate(raw=value, date=datetime.strptime(value, date_format).date())
+        except (TypeError, ValueError):
+            continue
+    raise ValueError(f"Date must use YYYY-MM-DD or DD/MM/YYYY format, got: {value!r}")
+
+
 def validate_not_future(value: ValidatedDate, *, today: date | None = None) -> None:
     current = today or today_vn()
     if value.date > current:

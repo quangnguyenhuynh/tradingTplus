@@ -173,7 +173,7 @@ và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; v
 Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem [hướng dẫn sử dụng CLI](docs/CLI_USAGE.vi.md).
 
 Trước khi ingest, có thể dùng `index-preview` để kiểm tra trực tiếp SSI mà không
-khởi tạo database client hoặc ghi row raw/clean. Ngày nhận `YYYY-MM-DD` hoặc
+khởi tạo database client hoặc ghi row raw/clean. Mọi ngày của CLI index đều nhận `YYYY-MM-DD` hoặc
 `DD/MM/YYYY`; range là inclusive. Giá trị SSI bị thiếu vẫn là `null` trong JSON
 và hiển thị `-` trong bảng dễ đọc. `--indexes` là bắt buộc và nhận một giá trị
 phân tách bằng dấu phẩy; preview không lấy scope bị bỏ trống từ database.
