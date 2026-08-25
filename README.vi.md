@@ -170,12 +170,13 @@ và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; v
 
 ### Pipeline nguồn index daily
 
-Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem `docs/CLI_USAGE.vi.md`.
+Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem [hướng dẫn sử dụng CLI](docs/CLI_USAGE.vi.md).
 
 Trước khi ingest, có thể dùng `index-preview` để kiểm tra trực tiếp SSI mà không
 khởi tạo database client hoặc ghi row raw/clean. Ngày nhận `YYYY-MM-DD` hoặc
 `DD/MM/YYYY`; range là inclusive. Giá trị SSI bị thiếu vẫn là `null` trong JSON
-và hiển thị `-` trong bảng dễ đọc.
+và hiển thị `-` trong bảng dễ đọc. `--indexes` là bắt buộc và nhận một giá trị
+phân tách bằng dấu phẩy; preview không lấy scope bị bỏ trống từ database.
 
 ```bash
 python main.py index-preview --date 2026-08-24 --indexes VNINDEX
@@ -186,4 +187,5 @@ python main.py index-preview --date 2026-08-24 --indexes VNINDEX --json
 
 `--raw` in các row payload SSI do client phân trang hiện có trả về; `--json` in
 record đã normalize. Command không insert, upsert, delete, tính feature hoặc
-chạy signal/backtest.
+chạy signal/backtest. Hãy preview trước, kiểm tra field và giá trị, chạy
+`index-daily` hoặc `index-backfill`, rồi chạy `index-check`.
