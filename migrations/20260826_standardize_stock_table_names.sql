@@ -6,12 +6,17 @@ set local lock_timeout = '5s';
 
 create temporary table stock_table_rename_map(old_name text primary key, new_name text unique) on commit drop;
 insert into stock_table_rename_map(old_name,new_name) values
- ('raw_daily','stock_raw_daily'),
- ('raw_intraday','stock_raw_intraday'),
- ('features','stock_features'),
- ('foreign_trading','stock_foreign_trading'),
- ('orderbook_snapshot','stock_orderbook_snapshot'),
- ('data_quality_logs','stock_data_quality_logs');
+ ('symbols','stock_symbols'),('securities','stock_securities'),
+ ('raw_daily','stock_raw_daily'),('raw_intraday','stock_raw_intraday'),
+ ('features','stock_features'),('foreign_trading','stock_foreign_trading'),
+ ('orderbook_snapshot','stock_orderbook_snapshot'),('data_quality_logs','stock_data_quality_logs'),
+ ('analog_profiles','stock_analog_profiles'),('analog_snapshots','stock_analog_snapshots'),
+ ('analog_outcomes','stock_analog_outcomes'),('analog_queries','stock_analog_queries'),
+ ('analog_query_matches','stock_analog_query_matches'),('analog_validation_runs','stock_analog_validation_runs'),
+ ('analog_profile_reviews','stock_analog_profile_reviews'),
+ ('stream_quote_snapshot','stock_stream_quote_snapshot'),('stream_trade_snapshot','stock_stream_trade_snapshot'),
+ ('stream_foreign_snapshot','stock_stream_foreign_snapshot'),('stream_status_snapshot','stock_stream_status_snapshot'),
+ ('stream_bar_snapshot','stock_stream_bar_snapshot');
 
 do $migration$
 declare item record; old_oid oid; new_oid oid;
@@ -97,41 +102,45 @@ begin
   return query select v_deleted,v_replaced;
 end $function$;
 
+create or replace function public.persist_analog_query_v1(p_query jsonb,p_matches jsonb)
+returns setof public.stock_analog_queries language plpgsql security definer set search_path='' as $$
+declare v_query public.stock_analog_queries; v_count integer;
+begin
+  if jsonb_typeof(p_query)<>'object' or jsonb_typeof(p_matches)<>'array' then raise exception 'query must be an object and matches must be an array'; end if;
+  insert into public.stock_analog_queries(snapshot_id,profile_code,version,config_hash,symbol,timeframe,checkpoint,as_of_session,status,candidate_count,usable_sample,normalization_parameters,result_statistics,baseline_statistics,input_fingerprint,query_fingerprint,engine_version,executed_at)
+  select x.snapshot_id,x.profile_code,x.version,x.config_hash,x.symbol,x.timeframe,x.checkpoint,x.as_of_session,x.status,x.candidate_count,x.usable_sample,x.normalization_parameters,x.result_statistics,x.baseline_statistics,x.input_fingerprint,x.query_fingerprint,x.engine_version,x.executed_at
+  from jsonb_to_record(p_query) x(snapshot_id uuid,profile_code text,version integer,config_hash text,symbol text,timeframe text,checkpoint text,as_of_session date,status text,candidate_count integer,usable_sample integer,normalization_parameters jsonb,result_statistics jsonb,baseline_statistics jsonb,input_fingerprint text,query_fingerprint text,engine_version text,executed_at timestamptz)
+  on conflict(profile_code,version,config_hash,symbol,checkpoint,as_of_session,query_fingerprint) do update set executed_at=excluded.executed_at returning * into v_query;
+  insert into public.stock_analog_query_matches(query_id,rank,matched_snapshot_id,distance,similarity,normalized_differences)
+  select v_query.id,x.rank,x.matched_snapshot_id,x.distance,x.similarity,x.normalized_differences from jsonb_to_recordset(p_matches) x(rank integer,matched_snapshot_id uuid,distance double precision,similarity double precision,normalized_differences jsonb)
+  on conflict(query_id,rank) do update set matched_snapshot_id=excluded.matched_snapshot_id,distance=excluded.distance,similarity=excluded.similarity,normalized_differences=excluded.normalized_differences;
+  get diagnostics v_count=row_count; if v_count<>jsonb_array_length(p_matches) then raise exception 'match count mismatch'; end if; return next v_query;
+end $$;
 
--- CREATE OR REPLACE preserves the existing function identity, owner, grants,
--- security mode, and configured search_path of all three functions.
+-- Existing grants are retained by CREATE OR REPLACE; restate the restricted RPC grants.
+revoke all on function public.persist_analog_query_v1(jsonb,jsonb) from public,anon,authenticated;
+grant execute on function public.persist_analog_query_v1(jsonb,jsonb) to service_role;
+revoke all on function public.replace_features_atomic(text,text,timestamptz,timestamptz,jsonb) from public,anon,authenticated;
+grant execute on function public.replace_features_atomic(text,text,timestamptz,timestamptz,jsonb) to service_role;
+
+-- The renamed policy remains attached to the same table. Replacing it makes its
+-- dependency on the renamed query table explicit and verifiable.
+drop policy if exists analog_matches_authenticated_read on public.stock_analog_query_matches;
+create policy analog_matches_authenticated_read on public.stock_analog_query_matches for select to authenticated
+using (exists(select 1 from public.stock_analog_queries q where q.id=query_id and q.status in ('completed','insufficient_sample','not_evaluable')));
 
 notify pgrst, 'reload schema';
 commit;
 
--- Read-only verification SQL (run after COMMIT):
--- with expected(old_name,new_name) as (values
---   ('raw_daily','stock_raw_daily'),('raw_intraday','stock_raw_intraday'),
---   ('features','stock_features'),('foreign_trading','stock_foreign_trading'),
---   ('orderbook_snapshot','stock_orderbook_snapshot'),('data_quality_logs','stock_data_quality_logs'))
--- select old_name,to_regclass('public.'||old_name) old_relation,
---        new_name,to_regclass('public.'||new_name) new_relation from expected;
--- select c.relname as table_name,c.oid,c.relrowsecurity,c.relforcerowsecurity
--- from pg_class c where c.oid in ('public.stock_raw_daily'::regclass,
---   'public.stock_raw_intraday'::regclass,'public.stock_features'::regclass,
---   'public.stock_foreign_trading'::regclass,'public.stock_orderbook_snapshot'::regclass,
---   'public.stock_data_quality_logs'::regclass) order by c.relname;
--- select conname,conrelid::regclass,confrelid::regclass from pg_constraint
--- where conrelid in ('public.stock_raw_daily'::regclass,'public.stock_raw_intraday'::regclass,
---   'public.stock_features'::regclass,'public.stock_foreign_trading'::regclass,
---   'public.stock_orderbook_snapshot'::regclass,'public.stock_data_quality_logs'::regclass);
--- select pg_get_functiondef(oid) from pg_proc where pronamespace='public'::regnamespace
--- and proname in ('cleanup_old_orderbook','cleanup_old_raw_data','replace_features_atomic');
--- select table_name from information_schema.tables where table_schema='public' and table_name in
--- ('symbols','securities','analog_profiles','analog_snapshots','analog_outcomes','analog_queries',
---  'analog_query_matches','analog_validation_runs','analog_profile_reviews','stream_raw_snapshot',
---  'stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot',
---  'stream_status_snapshot','stream_bar_snapshot','index_master','index_components','index_raw_daily',
---  'index_daily','index_features_daily') order by table_name;
-
--- Rollback guidance: pause every scheduled writer, open a transaction, set the
--- same short local lock_timeout, and apply the six ALTER TABLE renames in reverse
--- (new_name -> old_name), after first verifying that each old name is absent.
--- Collision-safely reverse owned sequence/constraint/index names, restore the
--- three function bodies with raw_intraday/features/orderbook_snapshot references,
--- issue NOTIFY pgrst, 'reload schema', and commit. The rollback is metadata-only.
+-- Read-only verification SQL:
+-- select old_name,to_regclass('public.'||old_name),new_name,to_regclass('public.'||new_name) from stock_table_rename_map; -- run before COMMIT if desired
+-- select inhparent::regclass,count(*) from pg_inherits where inhparent='public.stock_intraday'::regclass group by 1;
+-- select conname,conrelid::regclass,confrelid::regclass from pg_constraint where confrelid='public.stock_symbols'::regclass;
+-- select tablename,policyname,roles,qual from pg_policies where tablename like 'stock_analog_%' order by 1,2;
+-- select pg_get_functiondef(oid) from pg_proc where pronamespace='public'::regnamespace and proname in ('cleanup_old_orderbook','cleanup_old_raw_data','persist_analog_query_v1','replace_features_atomic');
+-- select table_name,count(*) over() from information_schema.tables where table_schema='public' and table_name in ('index_master','index_raw_daily','index_daily','index_features_daily','index_components','stream_index_snapshot','stream_raw_snapshot');
+-- Practical rollback: pause writers in a maintenance window, BEGIN with the same
+-- lock_timeout, reverse every new_name -> old_name ALTER TABLE rename, collision-
+-- safely reverse renamed constraints/indexes/sequences, restore the four function
+-- bodies from their immediately preceding migrations/schema snapshot, restore the
+-- query-match policy body to public.analog_queries, NOTIFY pgrst, then COMMIT.

@@ -128,8 +128,9 @@ SET default_table_access_method = "heap";
 -- analog_validation_runs, analog_profile_reviews,
 -- stream_quote_snapshot, stream_trade_snapshot,
 -- stream_foreign_snapshot, stream_status_snapshot,
--- stream_bar_snapshot. Index-domain relations and the mixed-domain
--- stream_raw_snapshot are intentionally unchanged.
+-- stream_bar_snapshot. Index-domain relations index_master, index_components,
+-- index_raw_daily, index_daily, and index_features_daily, plus the mixed-domain
+-- stream_raw_snapshot and stream_index_snapshot are intentionally unchanged.
 
 CREATE TABLE IF NOT EXISTS "public"."index_master" (
     "index_code" text NOT NULL PRIMARY KEY, "index_name" text, "exchange" text,

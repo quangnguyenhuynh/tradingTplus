@@ -206,3 +206,21 @@ chạy signal/backtest. Hãy preview trước, kiểm tra field và giá trị, 
 ### Triển khai đổi tên bảng cổ phiếu
 
 Triển khai ứng dụng cùng `migrations/20260826_standardize_stock_table_names.sql` trong maintenance window: dừng scheduled/manual writer, chạy migration thủ công trên Supabase, kiểm tra các truy vấn read-only và PostgREST schema reload, triển khai code này, smoke-test đường đọc/ghi, rồi mới bật lại writer. Migration giữ nguyên mọi row và không cần backfill; không triển khai code trước khi đổi tên database hoặc chạy lại code cũ sau đó.
+
+### Triển khai sửa tên miền dữ liệu ngày 2026-08-27
+
+Migration `20260826_standardize_stock_table_names.sql` đã áp dụng thủ công có
+phạm vi quá rộng. `migrations/20260827_restore_domain_table_names.sql` khôi phục
+tên dữ liệu chủ (`symbols`, `securities`), Phase 1 (`analog_*`) và streaming
+(`stream_*`), đồng thời giữ nguyên sáu bảng pipeline `stock_*`. Đây chỉ là thay
+đổi metadata; không cần backfill, tính lại feature hoặc dựng lại Analog.
+
+Thứ tự an toàn: (1) tạm dừng GitHub Actions định kỳ và mọi tiến trình ghi DB;
+(2) chạy `sql/verify_restore_domain_table_names.sql`, lưu số dòng và catalog;
+(3) áp dụng migration sửa lỗi thủ công trong Supabase; (4) chạy lại truy vấn chỉ
+đọc và so sánh số dòng; (5) triển khai code đã sửa; (6) chạy smoke test CLI/
+Supabase chỉ đọc; (7) chỉ bật lại workflow khi DB và code đồng nhất. Nếu xác minh
+thất bại, tiếp tục dừng writer: lỗi trong transaction sẽ rollback toàn bộ; nếu đã
+commit, dùng hướng dẫn reverse-rename có kiểm tra xung đột ở cuối migration cùng
+phiên bản ứng dụng cũ tương ứng, rồi reload PostgREST. Không tạo compatibility
+view nếu chưa có đánh giá riêng về consumer và bảo mật.

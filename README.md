@@ -220,3 +220,22 @@ and values, run `index-daily` or `index-backfill`, then run `index-check`.
 ### Stock table rename deployment
 
 Deploy the application and `migrations/20260826_standardize_stock_table_names.sql` together in a maintenance window: pause scheduled and manual writers, apply the migration manually in Supabase, confirm its read-only verification queries and PostgREST schema reload, deploy this code, smoke-test reads/writes, and only then resume writers. The migration preserves rows and requires no backfill; do not deploy code before the database rename or resume old code afterward.
+
+### 2026-08-27 domain-name correction deployment
+
+The manually applied `20260826_standardize_stock_table_names.sql` migration had
+an over-broad scope. `migrations/20260827_restore_domain_table_names.sql` restores
+master data (`symbols`, `securities`), Phase 1 (`analog_*`), and streaming
+(`stream_*`) names while retaining the six stock pipeline names. This is a
+metadata-only correction; no backfill or feature/Analog rebuild is required.
+
+Safe deployment order: (1) pause scheduled GitHub Actions and all database
+writers; (2) run `sql/verify_restore_domain_table_names.sql` and retain its table
+counts/catalog output; (3) manually apply the corrective migration in Supabase;
+(4) rerun the read-only verification and compare counts; (5) deploy the corrected
+code; (6) run read-only CLI/Supabase smoke checks; and (7) resume workflows only
+when database and code agree. If migration verification fails, keep writers
+paused: an in-transaction error rolls back atomically; after commit, use the
+collision-checked reverse-rename guidance at the end of the migration together
+with the matching old application release, then reload PostgREST. Do not create
+compatibility views without a separate consumer and security review.
