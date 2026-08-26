@@ -29,7 +29,7 @@ clean data
     ↓
 validation và completeness
     ↓
-features
+stock_features
     ↓
 nghiên cứu historical analog Phase 1 (core EOD V1 đã triển khai)
 ```
@@ -43,7 +43,7 @@ Các quy tắc bắt buộc:
 - `stock_intraday` chỉ lưu nến nguồn chuẩn `timeframe='1m'`.
 - Feature production chỉ lưu `1d`, `15m`, `60m`.
 - `15m` và `60m` được aggregate từ clean 1m trong memory.
-- Không lưu row feature `1m` và `5m` vào bảng `features`.
+- Không lưu row feature `1m` và `5m` vào bảng `stock_features`.
 - Mọi output feature vẫn dùng một bảng với key `(symbol, timeframe, time)`.
 - Không tạo dữ liệu giả bằng cách đổi dữ liệu thiếu thành 0.
 
@@ -99,7 +99,7 @@ Feature có ba semantics tách biệt:
 
 - **Full** đọc toàn bộ lịch sử nguồn trong scope, tính lại và upsert toàn bộ kết
   quả; không delete feature cũ trước.
-- **Incremental** đọc watermark `features.time` mới nhất riêng cho từng
+- **Incremental** đọc watermark `stock_features.time` mới nhất riêng cho từng
   symbol/timeframe. Daily dùng warm-up 5 năm từ `stock_daily`; intraday dùng 250
   phiên giao dịch thực tế gần nhất từ nến clean 1m. Pipeline tính trên toàn bộ
   window đã load nhưng chỉ ghi row sau watermark đến target date (hoặc chỉ
@@ -141,7 +141,7 @@ Smoke test SSI/Supabase cần credential và mặc định phải read-only, tr�
 
 ## Ảnh hưởng database của chính sách timeframe
 
-Không cần migration schema. Các row `features` timeframe `1m` hoặc `5m` đã tồn tại không bị tự động xóa. Việc cleanup phải là thao tác database riêng, có phạm vi rõ ràng. Không cần backfill dữ liệu nguồn.
+Không cần migration schema. Các row `stock_features` timeframe `1m` hoặc `5m` đã tồn tại không bị tự động xóa. Việc cleanup phải là thao tác database riêng, có phạm vi rõ ràng. Không cần backfill dữ liệu nguồn.
 
 ## Trạng thái dự án
 
@@ -202,3 +202,7 @@ Ma trận audit đầy đủ 23 field từ source sang raw và clean, gồm các
 record đã normalize. Command không insert, upsert, delete, tính feature hoặc
 chạy signal/backtest. Hãy preview trước, kiểm tra field và giá trị, chạy
 `index-daily` hoặc `index-backfill`, rồi chạy `index-check`.
+
+### Triển khai đổi tên bảng cổ phiếu
+
+Triển khai ứng dụng cùng `migrations/20260826_standardize_stock_table_names.sql` trong maintenance window: dừng scheduled/manual writer, chạy migration thủ công trên Supabase, kiểm tra các truy vấn read-only và PostgREST schema reload, triển khai code này, smoke-test đường đọc/ghi, rồi mới bật lại writer. Migration giữ nguyên mọi row và không cần backfill; không triển khai code trước khi đổi tên database hoặc chạy lại code cũ sau đó.

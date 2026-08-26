@@ -7,13 +7,13 @@ Production ingest được tách thành các tầng fetch, mapping, tích hợp 
 ```text
 src/pipeline/
 ├── daily_fetcher.py          # chỉ gọi SSI DailyStockPrice
-├── daily_mapper.py           # payload -> record raw_daily / stock_daily
-├── daily_persistence.py      # chỉ ghi raw_daily / stock_daily
+├── daily_mapper.py           # payload -> record stock_raw_daily / stock_daily
+├── daily_persistence.py      # chỉ ghi stock_raw_daily / stock_daily
 ├── daily_service.py          # fetch -> map -> validate -> persist một mã/ngày
 ├── daily.py                  # batch orchestrator daily public
 ├── intraday_fetcher.py       # chỉ gọi SSI IntradayOhlc resolution 1
-├── intraday_mapper.py        # payload -> raw_intraday / stock_intraday 1m
-├── intraday_persistence.py   # chỉ ghi raw_intraday / stock_intraday
+├── intraday_mapper.py        # payload -> stock_raw_intraday / stock_intraday 1m
+├── intraday_persistence.py   # chỉ ghi stock_raw_intraday / stock_intraday
 ├── intraday_service.py       # fetch -> map -> validate -> deduplicate -> persist
 ├── intraday_ingest.py        # batch orchestrator intraday public
 ├── fetch_one_day.py          # wrapper/re-export compatibility mỏng
@@ -22,13 +22,13 @@ src/pipeline/
 ├── date_utils.py             # parse/kiểm tra ngày thị trường Việt Nam
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
-├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
+├── stock_foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
 ├── backfill.py               # nhánh daily/intraday độc lập + completeness kết hợp
 ├── refill.py                 # orchestration maintenance source + feature cho một mã
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
-└── orderbook_snapshot.py     # mapping orderbook từ quote stream
+└── stock_orderbook_snapshot.py     # mapping orderbook từ quote stream
 ```
 
 Các module streaming, index, master data, compatibility feature và dry-run vẫn tách khỏi daily/intraday REST ingest.
@@ -39,14 +39,14 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `p
 
 1. Resolve và validate ngày theo thị trường Việt Nam.
 2. `daily_fetcher.py` gọi SSI `DailyStockPrice` đúng một lần cho mỗi mã.
-3. `daily_mapper.py` tạo record giữ payload nguồn cho `raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`, còn placeholder `0` của SSI cho giá tham chiếu/trần/sàn trở thành `NULL` ở clean data mà không thay đổi raw payload.
+3. `daily_mapper.py` tạo record giữ payload nguồn cho `stock_raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`, còn placeholder `0` của SSI cho giá tham chiếu/trần/sàn trở thành `NULL` ở clean data mà không thay đổi raw payload.
 4. `daily_service.py` ghi raw evidence qua `daily_persistence.py`.
 5. `daily_service.py` gọi validator `validate_daily_record` hiện có.
 6. Clean candidate hợp lệ được ghi vào `stock_daily` qua `daily_persistence.py`. Price context bị thiếu không chặn row OHLCV hợp lệ; dải OHLC đồng nhất nằm hoàn toàn cùng một phía ngoài source limits được giữ dưới dạng corporate-action warning, còn vi phạm limit đơn lẻ vẫn blocking.
-7. Các field mua, bán, net và room khối ngoại cuối ngày nằm trong row `stock_daily`; daily ingest thông thường không ghi `foreign_trading`.
+7. Các field mua, bán, net và room khối ngoại cuối ngày nằm trong row `stock_daily`; daily ingest thông thường không ghi `stock_foreign_trading`.
 8. `daily.py` không gọi `DailyIndex`, `IndexList`, `IndexComponents` và không ghi `index_daily`, `index_master`, `index_components`.
 
-`stock_daily` là nguồn canonical cho dữ liệu daily, bao gồm dữ liệu giao dịch khối ngoại và room cuối ngày. `foreign_trading` là bảng legacy và không còn được daily ingest ghi dữ liệu mới; helper compatibility explicit vẫn được giữ lại. Snapshot khối ngoại intraday vẫn là streaming dataset riêng.
+`stock_daily` là nguồn canonical cho dữ liệu daily, bao gồm dữ liệu giao dịch khối ngoại và room cuối ngày. `stock_foreign_trading` là bảng legacy và không còn được daily ingest ghi dữ liệu mới; helper compatibility explicit vẫn được giữ lại. Snapshot khối ngoại intraday vẫn là streaming dataset riêng.
 
 ## Trình tự intraday
 
@@ -89,12 +89,12 @@ range chỉ có cuối tuần là no-op `OK`.
 
 | Dataset | Tạo record | Tích hợp validation | Ghi dữ liệu |
 | --- | --- | --- | --- |
-| `raw_daily` | `daily_mapper.py` | giữ raw evidence trước clean validation | `daily_persistence.py` |
+| `stock_raw_daily` | `daily_mapper.py` | giữ raw evidence trước clean validation | `daily_persistence.py` |
 | `stock_daily` | `daily_mapper.py` | `daily_service.py` + daily validator hiện có | `daily_persistence.py` |
-| `raw_intraday` | `intraday_mapper.py` | giữ raw evidence trước clean validation | `intraday_persistence.py` |
+| `stock_raw_intraday` | `intraday_mapper.py` | giữ raw evidence trước clean validation | `intraday_persistence.py` |
 
 Row intraday raw mới giữ toàn bộ object candle nguồn trong
-`raw_intraday.payload JSONB` nullable. Field SSI chưa biết hoặc lồng nhau vẫn
+`stock_raw_intraday.payload JSONB` nullable. Field SSI chưa biết hoặc lồng nhau vẫn
 được giữ; row lịch sử có thể `NULL`. Contract clean `stock_intraday` không đổi
 và không có backfill payload lịch sử.
 | `stock_intraday` | `intraday_mapper.py` | `intraday_service.py` + intraday validator hiện có | `intraday_persistence.py` |

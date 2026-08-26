@@ -93,11 +93,11 @@ or alerts. Apply the migration manually, register the profile, and build an
 explicit scope. Existing features need no backfill; snapshot/outcome history
 does.
 
-Tables: `analog_profiles` owns configuration/lifecycle;
-`analog_snapshots` owns state/lineage; `analog_outcomes` owns one H row;
-`analog_validation_runs` owns chronological evidence;
-`analog_profile_reviews` owns human decisions; `analog_queries` owns persisted
-results; `analog_query_matches` owns exact explanations. Mobile roles have no
+Tables: `stock_analog_profiles` owns configuration/lifecycle;
+`stock_analog_snapshots` owns state/lineage; `stock_analog_outcomes` owns one H row;
+`stock_analog_validation_runs` owns chronological evidence;
+`stock_analog_profile_reviews` owns human decisions; `stock_analog_queries` owns persisted
+results; `stock_analog_query_matches` owns exact explanations. Mobile roles have no
 writes.
 
 No HTTP framework exists in this repository. `AnalogReadService` supplies the
@@ -114,10 +114,10 @@ execution/P&L, alerts, ranking, and NAV.
 
 ## Production runtime commands
 
-V1 is EOD/`1d` only. `analogs profiles register` is a dry run unless `--apply`; list and applied registration use `analog_profiles` and require the exact source-controlled identity. `analogs history build` reads paginated `features` 1d and `stock_daily`, and only `--apply` upserts snapshots plus H+1/H+3/H+5 outcomes. Replace additionally requires `--confirm-replace` and is limited to the exact identity/symbol/date/EOD scope.
+V1 is EOD/`1d` only. `analogs profiles register` is a dry run unless `--apply`; list and applied registration use `stock_analog_profiles` and require the exact source-controlled identity. `analogs history build` reads paginated `stock_features` 1d and `stock_daily`, and only `--apply` upserts snapshots plus H+1/H+3/H+5 outcomes. Replace additionally requires `--confirm-replace` and is limited to the exact identity/symbol/date/EOD scope.
 
 V2 keeps the same dimensions and matching contract and adds H+10 as a fourth
-`analog_outcomes` row (`horizon_sessions=10`), never as a column. Exact profile
+`stock_analog_outcomes` row (`horizon_sessions=10`), never as a column. Exact profile
 resolution requires code/version and optionally verifies the source config hash;
 it never substitutes the latest version. V2 remains draft and needs
 its own history build and chronological validation, and cannot reuse V1 evidence.

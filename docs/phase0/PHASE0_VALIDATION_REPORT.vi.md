@@ -8,8 +8,8 @@
 
 | Gate | Kết quả | Evidence |
 | --- | --- | --- |
-| Schema production | `PASS_WITH_MANUAL_APPLY_NOTE` | `20260802_atomic_replace_features.sql` và `20260803_add_raw_intraday_payload.sql` đã được apply thủ công bằng Supabase SQL Editor. Kiểm tra production chỉ đọc xác nhận `raw_intraday.payload jsonb` nullable/không default, RPC atomic có `SECURITY DEFINER`, `search_path` rỗng an toàn, đúng quyền role và unique index feature bắt buộc. Supabase CLI migration history có thể không có record; Phase 0 chấp nhận vì schema deployed đúng. Không rerun/repair migration chỉ để sửa history. |
-| Lineage payload intraday mới | `PASS` | Chủ dự án đã kiểm tra row ingest intraday mới có `raw_intraday.payload` khác NULL. Payload lịch sử NULL là đúng thiết kế và không cần backfill. |
+| Schema production | `PASS_WITH_MANUAL_APPLY_NOTE` | `20260802_atomic_replace_features.sql` và `20260803_add_raw_intraday_payload.sql` đã được apply thủ công bằng Supabase SQL Editor. Kiểm tra production chỉ đọc xác nhận `stock_raw_intraday.payload jsonb` nullable/không default, RPC atomic có `SECURITY DEFINER`, `search_path` rỗng an toàn, đúng quyền role và unique index feature bắt buộc. Supabase CLI migration history có thể không có record; Phase 0 chấp nhận vì schema deployed đúng. Không rerun/repair migration chỉ để sửa history. |
+| Lineage payload intraday mới | `PASS` | Chủ dự án đã kiểm tra row ingest intraday mới có `stock_raw_intraday.payload` khác NULL. Payload lịch sử NULL là đúng thiết kế và không cần backfill. |
 | Sample SSI → raw → clean → feature | `PASS` | Chủ dự án chọn symbol/ngày/timeframe daily và intraday trên production, đối chiếu source, raw, clean và feature. Field khớp gồm identity/mapping payload cùng OHLCV/value; không còn mismatch critical chưa giải thích. Report chưa lưu exact identifier của sample, nên run sau phải lưu command output và scope. |
 | Regression offline | `PASS` | Test deterministic cover pagination, mapping, completeness, parity feature, atomic replacement và hành vi validation Phase 0. |
 | Calendar/completeness | `PASS_WITH_NOTES` | Completeness theo symbol, ngày Việt Nam, source, timeframe và session quan sát; report có count, first/last timestamp, duplicate và gap classification. Không dùng 226 candle làm chuẩn universal. |
@@ -34,7 +34,7 @@ Command schema bắt buộc PostgreSQL `default_transaction_read_only=on`. Comma
 
 ## Ảnh hưởng dữ liệu và migration
 
-Closure này không apply migration, ghi production, ingest, gọi RPC replace, delete, rebuild feature hay backfill. `raw_intraday.payload` lịch sử tiếp tục NULL nếu trước đây không capture. Không đổi formula feature nên không cần backfill feature.
+Closure này không apply migration, ghi production, ingest, gọi RPC replace, delete, rebuild feature hay backfill. `stock_raw_intraday.payload` lịch sử tiếp tục NULL nếu trước đây không capture. Không đổi formula feature nên không cần backfill feature.
 
 ## Rủi ro còn lại
 

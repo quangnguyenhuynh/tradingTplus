@@ -217,8 +217,8 @@ def check_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) 
         # Deprecated compatibility key. Completeness is stock-only and must not
         # query index_daily because daily/backfill no longer populate it.
         "index_daily_count": 0,
-        "foreign_trading_count": _count_query(db, 'foreign_trading', trading_date=date_iso),
-        "orderbook_snapshot_count": _count_time_range_query(db, 'orderbook_snapshot', start, end),
+        "foreign_trading_count": _count_query(db, 'stock_foreign_trading', trading_date=date_iso),
+        "orderbook_snapshot_count": _count_time_range_query(db, 'stock_orderbook_snapshot', start, end),
         "status": status,
         "utc_range": {"start": start, "end": end},
     }

@@ -78,23 +78,23 @@ SSI FastConnect Data
         │     └── index_components
         │
         ├── Daily ingest pipeline
-        │     ├── raw_daily
+        │     ├── stock_raw_daily
         │     ├── stock_daily (bao gồm foreign daily/room)
         │     └── index_daily
         │
         ├── Intraday ingest pipeline
-        │     ├── raw_intraday
+        │     ├── stock_raw_intraday
         │     └── stock_intraday 1m
         │
         └── Streaming/snapshot pipeline
               ├── stream_raw_snapshot
-              ├── stream_quote_snapshot
-              ├── stream_trade_snapshot
-              ├── stream_foreign_snapshot
+              ├── stock_stream_quote_snapshot
+              ├── stock_stream_trade_snapshot
+              ├── stock_stream_foreign_snapshot
               ├── stream_index_snapshot
-              ├── stream_status_snapshot
-              ├── stream_bar_snapshot
-              └── orderbook_snapshot utilities
+              ├── stock_stream_status_snapshot
+              ├── stock_stream_bar_snapshot
+              └── stock_orderbook_snapshot utilities
 
 stock_daily
     └── feature 1d
@@ -119,21 +119,21 @@ Tất cả feature
 ### `sync-master-data` / `init`
 
 - Đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`.
-- Ghi `symbols`, `securities`, `index_master` và `index_components`.
+- Ghi `stock_symbols`, `stock_securities`, `index_master` và `index_components`.
 - Không ingest history hoặc tính feature.
 
 ### `daily`
 
-- Một `DailyStockPrice` request mỗi symbol/date được reuse cho `raw_daily`, `stock_daily` và foreign fields.
+- Một `DailyStockPrice` request mỗi symbol/date được reuse cho `stock_raw_daily`, `stock_daily` và foreign fields.
 - Chỉ gọi `DailyStockPrice`; không gọi `DailyIndex`, `IndexList` hoặc `IndexComponents`.
-- Chỉ ghi `raw_daily`, `stock_daily`; không ghi `index_daily`, `index_master` hoặc `index_components`.
+- Chỉ ghi `stock_raw_daily`, `stock_daily`; không ghi `index_daily`, `index_master` hoặc `index_components`.
 - Không gọi `IntradayOhlc`.
 - Không tính feature/signal/backtest.
 
 ### `intraday-ingest`
 
 - Gọi SSI `IntradayOhlc` resolution `1`.
-- Ghi `raw_intraday` và `stock_intraday` với `timeframe='1m'`.
+- Ghi `stock_raw_intraday` và `stock_intraday` với `timeframe='1m'`.
 - Có thể đọc optional `stock_daily` context.
 - Chỉ đọc SSI `IntradayOhlc` resolution `1`; daily context đến từ database, không được fetch lại từ SSI.
 - Không gọi `DailyStockPrice` hoặc ghi daily tables.
@@ -149,7 +149,7 @@ daily
 
 EOD không chạy feature.
 
-### `features`
+### `stock_features`
 
 - Pipeline feature production duy nhất.
 - Chạy explicit theo mode/date/symbol/timeframe.
@@ -178,7 +178,7 @@ EOD không chạy feature.
 
 ```text
 DailyStockPrice
-    ├── raw_daily
+    ├── stock_raw_daily
     └── stock_daily (canonical, bao gồm foreign daily/room)
 
 `DailyIndex`/`index_daily` không thuộc daily, EOD hoặc backfill stock-only. Schema và dữ liệu index cũ vẫn được giữ nguyên.
@@ -186,18 +186,18 @@ DailyStockPrice
 
 `DailyOhlc` chỉ dùng inspector/cross-check.
 
-Normal daily ingest không ghi `foreign_trading`; bảng này chỉ còn là legacy historical storage. Intraday foreign snapshot vẫn thuộc streaming pipeline riêng.
+Normal daily ingest không ghi `stock_foreign_trading`; bảng này chỉ còn là legacy historical storage. Intraday foreign snapshot vẫn thuộc streaming pipeline riêng.
 
 ### Intraday
 
 ```text
 IntradayOhlc resolution=1
-    ├── raw_intraday
+    ├── stock_raw_intraday
     └── stock_intraday timeframe=1m
 ```
 
 Sau migration `20260803_add_raw_intraday_payload.sql`, ingest mới giữ toàn bộ
-object candle SSI theo ngữ nghĩa JSON trong `raw_intraday.payload JSONB` nullable.
+object candle SSI theo ngữ nghĩa JSON trong `stock_raw_intraday.payload JSONB` nullable.
 Row lịch sử có thể `NULL`; pipeline không dựng payload giả hoặc backfill, và
 `stock_intraday` clean không chứa payload này.
 
@@ -208,7 +208,7 @@ stock_daily → features 1d
 stock_intraday 1m → aggregate trong feature pipeline → features 15m/60m
 ```
 
-Tất cả timeframe nằm trong một bảng `features` với key `(symbol, timeframe, time)`.
+Tất cả timeframe nằm trong một bảng `stock_features` với key `(symbol, timeframe, time)`.
 Production chỉ persist `1d`, `15m`, `60m`; `1m` là timeframe nguồn clean và
 feature `1m`/`5m` bị public runner từ chối.
 
@@ -246,7 +246,7 @@ Mutable source rows receive `updated_at`, raw fetches receive `fetched_at`, stre
 messages retain app `received_at`, and feature rows receive `last_updated_at`. Database
 clock defaults are removed for these fields, so writers must send them explicitly.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## Canonical DailyIndex pipeline
 

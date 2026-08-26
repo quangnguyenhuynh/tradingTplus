@@ -76,8 +76,8 @@ Phase 1 chưa gồm:
 
 | Nguồn | Vai trò |
 | --- | --- |
-| `features`, timeframe `1d` | Xu hướng, động lượng và thanh khoản của phiên hoàn tất trước đó. |
-| `features`, timeframe `15m`/`60m` | Trạng thái intraday đã đóng và sẵn sàng tại checkpoint. |
+| `stock_features`, timeframe `1d` | Xu hướng, động lượng và thanh khoản của phiên hoàn tất trước đó. |
+| `stock_features`, timeframe `15m`/`60m` | Trạng thái intraday đã đóng và sẵn sàng tại checkpoint. |
 | `stock_intraday`, timeframe `1m` | Entry giả định và kiểm tra availability sau checkpoint. |
 | `stock_daily` | Trục phiên quan sát và outcome close/high/low H+. |
 | Evidence completeness/validation | Loại symbol-session-timeframe không đủ điều kiện. |
@@ -101,7 +101,7 @@ chứa quan sát SSI.
   `E`, thường là `D`.
 - Feature intraday chỉ hợp lệ khi nến đã đóng và
   `available_at <= checkpoint_time`.
-- `features.time` hiện là bucket start, không chứng minh nến đã sẵn sàng.
+- `stock_features.time` hiện là bucket start, không chứng minh nến đã sẵn sàng.
 - Row 15m bắt đầu 09:30 chưa dùng được lúc 09:30, chỉ dùng từ 09:45. Row 60m bắt
   đầu 09:00 chưa dùng được lúc 09:30.
 - Phải xử lý rõ biên phiên và nghỉ trưa; không aggregate xuyên ngày hoặc xuyên
@@ -250,13 +250,13 @@ Tên dưới đây là đề xuất; task code phải đối chiếu lại schem
 
 | Bảng đề xuất | Mục đích |
 | --- | --- |
-| `analog_profiles` | Metadata/config immutable và lifecycle của phương pháp. |
-| `analog_snapshots` | Trạng thái lịch sử/current an toàn thời điểm và lineage. |
-| `analog_outcomes` | Entry và outcome H+ của snapshot. |
-| `analog_validation_runs` | Evidence/metrics validation theo thời gian. |
+| `stock_analog_profiles` | Metadata/config immutable và lifecycle của phương pháp. |
+| `stock_analog_snapshots` | Trạng thái lịch sử/current an toàn thời điểm và lineage. |
+| `stock_analog_outcomes` | Entry và outcome H+ của snapshot. |
+| `stock_analog_validation_runs` | Evidence/metrics validation theo thời gian. |
 | `analog_group_stats` | Thống kê group cùng mã theo checkpoint/horizon. |
-| `analog_profile_reviews` | Quyết định approve/reject có audit. |
-| `analog_queries` | Audit phân tích runtime tùy chọn; không phải signal. |
+| `stock_analog_profile_reviews` | Quyết định approve/reject có audit. |
+| `stock_analog_queries` | Audit phân tích runtime tùy chọn; không phải signal. |
 
 CLI minh họa, hiện chưa tồn tại:
 

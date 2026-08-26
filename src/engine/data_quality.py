@@ -20,7 +20,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
     end = f"{trading_date} 23:59:59"
 
     intraday_res = db.get().table('stock_intraday').select('time, close, volume').eq('symbol', symbol).eq('timeframe', timeframe).gte('time', start).lte('time', end).execute()
-    feature_res = db.get().table('features').select('time').eq('symbol', symbol).eq('timeframe', timeframe).gte('time', start).lte('time', end).execute()
+    feature_res = db.get().table('stock_features').select('time').eq('symbol', symbol).eq('timeframe', timeframe).gte('time', start).lte('time', end).execute()
 
     intraday_df = pd.DataFrame(intraday_res.data or [])
     feature_df = pd.DataFrame(feature_res.data or [])
@@ -59,7 +59,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
         })
 
     if not feature_df.empty:
-        merged = db.get().table('features').select(','.join(['time'] + FEATURE_COLUMNS)).eq('symbol', symbol).eq('timeframe', timeframe).gte('time', start).lte('time', end).execute()
+        merged = db.get().table('stock_features').select(','.join(['time'] + FEATURE_COLUMNS)).eq('symbol', symbol).eq('timeframe', timeframe).gte('time', start).lte('time', end).execute()
         fdf = pd.DataFrame(merged.data or [])
         feature_nulls = int(fdf[FEATURE_COLUMNS].isna().sum().sum()) if not fdf.empty else 0
         logs.append({
@@ -74,7 +74,7 @@ def check_data_quality(symbol: str, trading_date: str, timeframe: str = '1m') ->
             'created_at': created_at,
         })
 
-    db._upsert_in_batches('data_quality_logs', logs, batch_size=500)
+    db._upsert_in_batches('stock_data_quality_logs', logs, batch_size=500)
     return logs
 
 

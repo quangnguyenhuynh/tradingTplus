@@ -92,7 +92,7 @@ Ví dụ: `python main.py daily 07/08/2026 --symbols SSI HPG`.
 - `--symbols` tùy chọn và cần ít nhất một giá trị nếu cung cấp. Bỏ qua nghĩa là
   toàn bộ active master symbol; cung cấp sẽ giới hạn scope.
 
-Command đọc SSI `DailyStockPrice`, ghi `raw_daily` có trace và `stock_daily`
+Command đọc SSI `DailyStockPrice`, ghi `stock_raw_daily` có trace và `stock_daily`
 canonical, có thể update row theo conflict key. Nó không delete dữ liệu theo
 scope, không ingest intraday/index history và không chạy completeness, feature,
 signal, backtest hoặc Analog.
@@ -105,7 +105,7 @@ python main.py intraday-ingest [DATE] [--symbols SYMBOL [SYMBOL ...]]
 
 Ví dụ: `python main.py intraday-ingest 07/08/2026 --symbols SSI`. `DATE` và
 `--symbols` có hành vi required/omitted giống `daily`. Command đọc SSI
-`IntradayOhlc` resolution 1, ghi `raw_intraday` và clean `stock_intraday` với
+`IntradayOhlc` resolution 1, ghi `stock_raw_intraday` và clean `stock_intraday` với
 `timeframe='1m'`; có thể đọc `stock_daily` làm daily context. Nó không ghi nến
 aggregate và không chạy daily ingest, completeness, feature, signal, backtest
 hoặc Analog.
@@ -170,7 +170,7 @@ feature chạy độc lập. Range chỉ có cuối tuần là no-op `OK`. Exit 
 
 ## Policy dữ liệu feature và mode
 
-`features` chỉ persist `1d`, `15m`, `60m`:
+`stock_features` chỉ persist `1d`, `15m`, `60m`:
 
 | Timeframe | Nguồn canonical | Hành vi |
 | --- | --- | --- |
@@ -217,7 +217,7 @@ trong `--date` hoặc cặp `--from`+`--to`; không kết hợp chúng. `full` c
 date/range. Replace mode cần range như trên. `--from-date`/`--to-date` là alias.
 Bỏ `--symbols` (hoặc flag không có value) nghĩa là mọi symbol phù hợp, trừ exact
 replace; cung cấp sẽ giới hạn computation. Command chỉ đọc `stock_daily`, chỉ
-ghi `features` 1d và không ingest/chạy signal/backtest/Analog.
+ghi `stock_features` 1d và không ingest/chạy signal/backtest/Analog.
 
 ### `features-intraday`
 
@@ -244,7 +244,7 @@ Không kết hợp nó với range. Command đọc clean 1m, aggregate trong mem
 feature row `15m`/`60m` đã đóng; không ingest, ghi nến aggregate nguồn hoặc chạy
 signal/backtest/Analog.
 
-### Router tương thích `features`
+### Router tương thích `stock_features`
 
 ```text
 python main.py features [--mode incremental|full] [--date DD/MM/YYYY]
@@ -255,7 +255,7 @@ Ví dụ: `python main.py features --date 07/08/2026 --symbols SSI --timeframes 
 `--mode` mặc định `incremental`; `--timeframes` mặc định `15m 60m 1d`; bỏ
 symbol nghĩa là mọi symbol phù hợp. `--date` là target tùy chọn cho incremental;
 cung cấp sẽ giới hạn output vào ngày đó. Full tính lại/upsert history được chọn
-mà không delete. Router tương thích này chỉ ghi `features`; nên dùng command
+mà không delete. Router tương thích này chỉ ghi `stock_features`; nên dùng command
 source-specific cho range/replace rõ ràng. Nó không ingest/chạy
 signal/backtest/Analog.
 

@@ -14,17 +14,17 @@ from src.config import config
 from src.database.client import SupabaseClient
 
 CORE_TABLE_COLUMNS = {
-    "securities": "symbol",
-    "raw_daily": "symbol",
+    "stock_securities": "symbol",
+    "stock_raw_daily": "symbol",
     "stock_daily": "symbol",
-    "raw_intraday": "symbol",
+    "stock_raw_intraday": "symbol",
     "stock_intraday": "symbol",
     "index_master": "index_code",
     "index_raw_daily": "index_code",
     "index_daily": "index_code",
-    "foreign_trading": "symbol",
-    "orderbook_snapshot": "symbol",
-    "features": "symbol",
+    "stock_foreign_trading": "symbol",
+    "stock_orderbook_snapshot": "symbol",
+    "stock_features": "symbol",
 }
 
 

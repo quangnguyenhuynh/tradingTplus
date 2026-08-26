@@ -22,7 +22,7 @@ stock_intraday (lưu nến nguồn 1m)                       v
         +-- aggregate trong memory --> feature 60m
 ```
 
-Mọi kết quả được upsert vào một bảng `features`. Conflict key là
+Mọi kết quả được upsert vào một bảng `stock_features`. Conflict key là
 `(symbol, timeframe, time)`. Nến đã aggregate không được ghi ngược vào
 `stock_intraday`.
 
@@ -51,7 +51,7 @@ xóa toàn bộ rồi dựng lại.
 
 ### Incremental: watermark và warm-up
 
-**Watermark** là `features.time` mới nhất đã lưu của đúng một cặp
+**Watermark** là `stock_features.time` mới nhất đã lưu của đúng một cặp
 `symbol + timeframe`. Mỗi stream có watermark riêng. Pipeline dùng mốc này để
 biết output mới bắt đầu từ đâu.
 
@@ -282,7 +282,7 @@ hoặc indicator đã ổn định bỗng thành `NULL` cần được điều t
   trước. Feature không tạo giả dữ liệu nguồn thiếu.
 - **Chạy nhầm timeframe:** dùng `features-daily` cho `1d` và
   `features-intraday --timeframes 15m 60m` cho output intraday.
-- **Mong đợi `1m`/`5m` trong `features`:** 1m là timeframe nguồn clean, còn 5m
+- **Mong đợi `1m`/`5m` trong `stock_features`:** 1m là timeframe nguồn clean, còn 5m
   không phải feature production được persist. Bị từ chối là đúng thiết kế.
 - **Nhầm full là delete + rebuild:** full chỉ upsert, không xóa row stale nằm
   ngoài kết quả tính.
@@ -297,7 +297,7 @@ hoặc indicator đã ổn định bỗng thành `NULL` cần được điều t
 
 | File | Trách nhiệm |
 | --- | --- |
-| `daily.py` | Đọc `stock_daily`, tính `1d`, ghi `features`. |
+| `daily.py` | Đọc `stock_daily`, tính `1d`, ghi `stock_features`. |
 | `intraday.py` | Đọc nến 1m, aggregate bucket đã đóng và tính feature intraday. |
 | `backfill.py` | Tính một khoảng lịch sử gồm cả hai đầu và chỉ ghi range đó. |
 | `common.py` | Công thức chung và chuẩn bị dataframe. |

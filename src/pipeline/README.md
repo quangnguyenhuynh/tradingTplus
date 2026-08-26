@@ -7,13 +7,13 @@ Production ingest is split into explicit fetch, mapping, validation-integration,
 ```text
 src/pipeline/
 ├── daily_fetcher.py          # call SSI DailyStockPrice only
-├── daily_mapper.py           # payload -> raw_daily / stock_daily records
-├── daily_persistence.py      # raw_daily / stock_daily DB writes only
+├── daily_mapper.py           # payload -> stock_raw_daily / stock_daily records
+├── daily_persistence.py      # stock_raw_daily / stock_daily DB writes only
 ├── daily_service.py          # fetch -> map -> validate -> persist for one symbol/date
 ├── daily.py                  # public batch daily orchestrator
 ├── intraday_fetcher.py       # call SSI IntradayOhlc resolution 1 only
-├── intraday_mapper.py        # payload -> raw_intraday / stock_intraday 1m records
-├── intraday_persistence.py   # raw_intraday / stock_intraday DB writes only
+├── intraday_mapper.py        # payload -> stock_raw_intraday / stock_intraday 1m records
+├── intraday_persistence.py   # stock_raw_intraday / stock_intraday DB writes only
 ├── intraday_service.py       # fetch -> map -> validate -> deduplicate -> persist
 ├── intraday_ingest.py        # public batch intraday orchestrator
 ├── fetch_one_day.py          # thin backward-compatibility wrapper/re-exports
@@ -25,13 +25,13 @@ src/pipeline/
 ├── index_daily*.py           # layered DailyIndex raw/clean ingest
 ├── index_backfill.py         # index-only range ingest
 ├── index_completeness.py     # index raw/clean completeness
-├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
+├── stock_foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # independent daily/intraday ranges + combined completeness
 ├── refill.py                 # explicit single-symbol source + feature maintenance orchestration
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
-└── orderbook_snapshot.py     # quote-stream orderbook mapping
+└── stock_orderbook_snapshot.py     # quote-stream orderbook mapping
 ```
 
 Existing streaming, index, master-data, feature-compatibility, and dry-run modules remain separate from the daily/intraday REST ingest layers.
@@ -42,14 +42,14 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed b
 
 1. Resolve and validate the requested Vietnam-market date.
 2. `daily_fetcher.py` calls SSI `DailyStockPrice` once per symbol.
-3. `daily_mapper.py` creates the source-preserving `raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`; SSI `0` placeholders for reference, ceiling, and floor prices become clean `NULL` without changing the raw payload.
+3. `daily_mapper.py` creates the source-preserving `stock_raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`; SSI `0` placeholders for reference, ceiling, and floor prices become clean `NULL` without changing the raw payload.
 4. `daily_service.py` persists raw evidence through `daily_persistence.py`.
 5. `daily_service.py` invokes the existing `validate_daily_record` validator.
 6. Valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`. Missing price context does not block an otherwise valid OHLCV row; a coherent OHLC range wholly on one side of source limits is retained as a corporate-action warning, while isolated limit violations remain blocking.
-7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `foreign_trading`.
+7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `stock_foreign_trading`.
 8. `daily.py` never calls `DailyIndex`, `IndexList`, or `IndexComponents`, and never writes `index_daily`, `index_master`, or `index_components`.
 
-`foreign_trading` is retained as legacy historical storage and for the explicit compatibility helper only. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
+`stock_foreign_trading` is retained as legacy historical storage and for the explicit compatibility helper only. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
 
 ## Intraday execution
 
@@ -92,12 +92,12 @@ yield final `OK`; a weekend-only range is an `OK` no-op.
 
 | Dataset | Record creation | Validation integration | Persistence |
 | --- | --- | --- | --- |
-| `raw_daily` | `daily_mapper.py` | raw evidence is retained before clean validation | `daily_persistence.py` |
+| `stock_raw_daily` | `daily_mapper.py` | raw evidence is retained before clean validation | `daily_persistence.py` |
 | `stock_daily` | `daily_mapper.py` | `daily_service.py` + existing daily validator | `daily_persistence.py` |
-| `raw_intraday` | `intraday_mapper.py` | raw evidence is retained before clean validation | `intraday_persistence.py` |
+| `stock_raw_intraday` | `intraday_mapper.py` | raw evidence is retained before clean validation | `intraday_persistence.py` |
 
 New raw intraday rows retain the complete source candle object in nullable
-`raw_intraday.payload JSONB`. Unknown and nested SSI fields are preserved;
+`stock_raw_intraday.payload JSONB`. Unknown and nested SSI fields are preserved;
 historical rows may be `NULL`. Clean `stock_intraday` is unchanged and no
 historical payload backfill is performed.
 | `stock_intraday` | `intraday_mapper.py` | `intraday_service.py` + existing intraday validators | `intraday_persistence.py` |

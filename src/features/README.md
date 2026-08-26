@@ -17,12 +17,12 @@ again or changing the clean source rows.
 stock_daily --------------------------------------> 1d features
                                                         |
 stock_intraday (persisted 1m source candles)            v
-        |                                         features table
+        |                                         stock_stock_features table
         +-- aggregate in memory --> 15m features   (symbol, timeframe, time)
         +-- aggregate in memory --> 60m features
 ```
 
-All results are upserted into the single `features` table. Its conflict key is
+All results are upserted into the single `stock_features` table. Its conflict key is
 `(symbol, timeframe, time)`. Aggregated candles are not written back to
 `stock_intraday`.
 
@@ -51,7 +51,7 @@ not a blanket delete and rebuild.
 
 ### Incremental: watermark and warm-up
 
-A **watermark** is the newest `features.time` already stored for one exact
+A **watermark** is the newest `stock_features.time` already stored for one exact
 `symbol + timeframe`. Each stream has its own watermark. The pipeline uses it
 to determine where new output begins.
 
@@ -291,7 +291,7 @@ deserves investigation.
   ingest first. Features never fabricate missing source data.
 - **Wrong timeframe:** use `features-daily` for `1d` and
   `features-intraday --timeframes 15m 60m` for intraday output.
-- **Expecting `1m`/`5m` in `features`:** 1m is a clean source timeframe and 5m
+- **Expecting `1m`/`5m` in `stock_features`:** 1m is a clean source timeframe and 5m
   is not a persisted production feature timeframe. Their rejection is expected.
 - **Treating full as delete + rebuild:** full only upserts; it cannot remove
   stale rows outside its computed result.
@@ -307,7 +307,7 @@ deserves investigation.
 
 | File | Responsibility |
 | --- | --- |
-| `daily.py` | Read `stock_daily`, calculate `1d`, and write `features`. |
+| `daily.py` | Read `stock_daily`, calculate `1d`, and write `stock_features`. |
 | `intraday.py` | Read 1m candles, aggregate closed buckets, and calculate intraday features. |
 | `backfill.py` | Calculate an inclusive historical range and write only that range. |
 | `common.py` | Shared formulas and dataframe preparation. |

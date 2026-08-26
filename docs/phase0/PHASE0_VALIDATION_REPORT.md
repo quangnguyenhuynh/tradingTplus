@@ -8,8 +8,8 @@
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Production schema | `PASS_WITH_MANUAL_APPLY_NOTE` | `20260802_atomic_replace_features.sql` and `20260803_add_raw_intraday_payload.sql` were applied manually through Supabase SQL Editor. Production was verified read-only to have nullable/no-default `raw_intraday.payload jsonb`, the secured atomic RPC, its role grants/revocations, safe empty `search_path`, and the required feature unique index. Supabase CLI migration history may not contain these records; matching deployed schema is accepted for Phase 0. Do not rerun or repair these migrations merely to change CLI history. |
-| New intraday payload lineage | `PASS` | The project owner verified a new intraday ingest row with non-NULL `raw_intraday.payload`. Historical NULL payloads remain valid by design and require no backfill. |
+| Production schema | `PASS_WITH_MANUAL_APPLY_NOTE` | `20260802_atomic_replace_features.sql` and `20260803_add_raw_intraday_payload.sql` were applied manually through Supabase SQL Editor. Production was verified read-only to have nullable/no-default `stock_raw_intraday.payload jsonb`, the secured atomic RPC, its role grants/revocations, safe empty `search_path`, and the required feature unique index. Supabase CLI migration history may not contain these records; matching deployed schema is accepted for Phase 0. Do not rerun or repair these migrations merely to change CLI history. |
+| New intraday payload lineage | `PASS` | The project owner verified a new intraday ingest row with non-NULL `stock_raw_intraday.payload`. Historical NULL payloads remain valid by design and require no backfill. |
 | SSI → raw → clean → feature sample | `PASS` | The owner selected production symbols, dates, and daily/intraday feature timeframes and reconciled source, raw, clean, and feature fields. Matched fields included raw payload identity/mapping plus OHLCV/value at clean and feature layers; no unexplained critical mismatch remained. Exact sample identifiers were not retained in this repository report, so future runs must record command output and scope. |
 | Offline regression suite | `PASS` | Pagination, mapping, completeness, feature parity, atomic replacement, and Phase 0 validation behavior are covered by deterministic tests. |
 | Calendar/completeness | `PASS_WITH_NOTES` | Completeness is evaluated per symbol, Vietnam trading date, source, timeframe, and observed sessions. Reports include counts, first/last timestamps, duplicates, and gap classification. There is no universal 226-candle rule. |
@@ -34,7 +34,7 @@ The schema command forces PostgreSQL `default_transaction_read_only=on`. The rec
 
 ## Data and migration impact
 
-This closure work applies no migration and performs no production write, ingest, RPC replacement, deletion, feature rebuild, or backfill. Historical `raw_intraday.payload` stays NULL where it was not captured. No feature formula changed, so no feature backfill is required.
+This closure work applies no migration and performs no production write, ingest, RPC replacement, deletion, feature rebuild, or backfill. Historical `stock_raw_intraday.payload` stays NULL where it was not captured. No feature formula changed, so no feature backfill is required.
 
 ## Remaining risks
 

@@ -69,7 +69,7 @@ CREATE OR REPLACE FUNCTION "public"."cleanup_old_orderbook"("days" integer DEFAU
     LANGUAGE "plpgsql"
     AS $$
 BEGIN
-    DELETE FROM orderbook_snapshot WHERE time < NOW() - (days || ' days')::INTERVAL;
+    DELETE FROM stock_orderbook_snapshot WHERE time < NOW() - (days || ' days')::INTERVAL;
     RAISE NOTICE 'Cleaned orderbook data older than % days', days;
 END;
 $$;
@@ -82,7 +82,7 @@ CREATE OR REPLACE FUNCTION "public"."cleanup_old_raw_data"() RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
 BEGIN
-    DELETE FROM raw_intraday WHERE fetched_at < NOW() - INTERVAL '1095 days';
+    DELETE FROM stock_raw_intraday WHERE fetched_at < NOW() - INTERVAL '1095 days';
     RAISE NOTICE 'Cleaned raw data older than 3 years';
 END;
 $$;
@@ -117,6 +117,20 @@ SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
 
+-- Post-20260826 stock-domain relation inventory. Definitions introduced by the
+-- later focused migrations retain their columns, constraints, RLS, grants, and
+-- policies under these metadata-renamed relations:
+-- stock_symbols, stock_securities, stock_raw_daily, stock_raw_intraday,
+-- stock_daily, stock_intraday, stock_features, stock_foreign_trading,
+-- stock_orderbook_snapshot, stock_data_quality_logs,
+-- stock_analog_profiles, stock_analog_snapshots, stock_analog_outcomes,
+-- stock_analog_queries, stock_analog_query_matches,
+-- stock_analog_validation_runs, stock_analog_profile_reviews,
+-- stock_stream_quote_snapshot, stock_stream_trade_snapshot,
+-- stock_stream_foreign_snapshot, stock_stream_status_snapshot,
+-- stock_stream_bar_snapshot. Index-domain relations and the mixed-domain
+-- stream_raw_snapshot are intentionally unchanged.
+
 CREATE TABLE IF NOT EXISTS "public"."index_master" (
     "index_code" text NOT NULL PRIMARY KEY, "index_name" text, "exchange" text,
     "raw" jsonb, "updated_at" timestamp with time zone
@@ -144,7 +158,7 @@ CREATE TABLE IF NOT EXISTS "public"."index_daily" (
 CREATE UNIQUE INDEX IF NOT EXISTS index_daily_index_code_trading_date_uidx ON public.index_daily(index_code,trading_date);
 
 
-CREATE TABLE IF NOT EXISTS "public"."features" (
+CREATE TABLE IF NOT EXISTS "public"."stock_features" (
     "symbol" "text" NOT NULL,
     "timeframe" "text" NOT NULL,
     "time" timestamp with time zone NOT NULL,
@@ -166,7 +180,7 @@ CREATE TABLE IF NOT EXISTS "public"."features" (
 );
 
 
-ALTER TABLE "public"."features" OWNER TO "postgres";
+ALTER TABLE "public"."stock_features" OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."replace_features_atomic"(
     "p_symbol" text,
@@ -187,9 +201,9 @@ BEGIN
   IF p_replacement_rows IS NULL OR jsonb_typeof(p_replacement_rows) <> 'array' OR jsonb_array_length(p_replacement_rows) = 0 THEN RAISE EXCEPTION 'empty replacement dataset'; END IF;
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_replacement_rows) r WHERE r->>'symbol' IS DISTINCT FROM p_symbol OR r->>'timeframe' IS DISTINCT FROM p_timeframe OR nullif(r->>'time','') IS NULL OR (r->>'time')::timestamptz < p_start_utc OR (r->>'time')::timestamptz >= p_end_exclusive_utc) THEN RAISE EXCEPTION 'replacement row outside scope'; END IF;
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_replacement_rows) r GROUP BY r->>'symbol',r->>'timeframe',(r->>'time')::timestamptz HAVING count(*) > 1) THEN RAISE EXCEPTION 'duplicate replacement key'; END IF;
-  DELETE FROM public.features WHERE symbol=p_symbol AND timeframe=p_timeframe AND time>=p_start_utc AND time<p_end_exclusive_utc;
+  DELETE FROM public.stock_features WHERE symbol=p_symbol AND timeframe=p_timeframe AND time>=p_start_utc AND time<p_end_exclusive_utc;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
-  INSERT INTO public.features SELECT x.* FROM jsonb_populate_recordset(NULL::public.features,p_replacement_rows) x;
+  INSERT INTO public.stock_features SELECT x.* FROM jsonb_populate_recordset(NULL::public.stock_features,p_replacement_rows) x;
   GET DIAGNOSTICS v_replaced = ROW_COUNT;
   IF v_replaced <> jsonb_array_length(p_replacement_rows) THEN RAISE EXCEPTION 'replacement count mismatch'; END IF;
   RETURN QUERY SELECT v_deleted,v_replaced;
@@ -198,7 +212,7 @@ REVOKE ALL ON FUNCTION "public"."replace_features_atomic"(text,text,timestamptz,
 GRANT EXECUTE ON FUNCTION "public"."replace_features_atomic"(text,text,timestamptz,timestamptz,jsonb) TO service_role;
 
 
-CREATE TABLE IF NOT EXISTS "public"."foreign_trading" (
+CREATE TABLE IF NOT EXISTS "public"."stock_foreign_trading" (
     "symbol" "text" NOT NULL,
     "time" timestamp with time zone NOT NULL,
     "buy_vol" bigint,
@@ -207,10 +221,10 @@ CREATE TABLE IF NOT EXISTS "public"."foreign_trading" (
 );
 
 
-ALTER TABLE "public"."foreign_trading" OWNER TO "postgres";
+ALTER TABLE "public"."stock_foreign_trading" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."orderbook_snapshot" (
+CREATE TABLE IF NOT EXISTS "public"."stock_orderbook_snapshot" (
     "id" bigint NOT NULL,
     "symbol" "text" NOT NULL,
     "time" timestamp with time zone NOT NULL,
@@ -261,7 +275,7 @@ CREATE TABLE IF NOT EXISTS "public"."orderbook_snapshot" (
 );
 
 
-ALTER TABLE "public"."orderbook_snapshot" OWNER TO "postgres";
+ALTER TABLE "public"."stock_orderbook_snapshot" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."orderbook_snapshot_id_seq"
@@ -275,11 +289,11 @@ CREATE SEQUENCE IF NOT EXISTS "public"."orderbook_snapshot_id_seq"
 ALTER SEQUENCE "public"."orderbook_snapshot_id_seq" OWNER TO "postgres";
 
 
-ALTER SEQUENCE "public"."orderbook_snapshot_id_seq" OWNED BY "public"."orderbook_snapshot"."id";
+ALTER SEQUENCE "public"."orderbook_snapshot_id_seq" OWNED BY "public"."stock_orderbook_snapshot"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."raw_intraday" (
+CREATE TABLE IF NOT EXISTS "public"."stock_raw_intraday" (
     "id" bigint NOT NULL,
     "symbol" "text" NOT NULL,
     "time" timestamp with time zone NOT NULL,
@@ -295,9 +309,9 @@ CREATE TABLE IF NOT EXISTS "public"."raw_intraday" (
 );
 
 
-ALTER TABLE "public"."raw_intraday" OWNER TO "postgres";
+ALTER TABLE "public"."stock_raw_intraday" OWNER TO "postgres";
 
-COMMENT ON COLUMN "public"."raw_intraday"."payload" IS 'Original semantic SSI candle JSON object; historical rows may be NULL.';
+COMMENT ON COLUMN "public"."stock_raw_intraday"."payload" IS 'Original semantic SSI candle JSON object; historical rows may be NULL.';
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."raw_intraday_id_seq"
@@ -311,7 +325,7 @@ CREATE SEQUENCE IF NOT EXISTS "public"."raw_intraday_id_seq"
 ALTER SEQUENCE "public"."raw_intraday_id_seq" OWNER TO "postgres";
 
 
-ALTER SEQUENCE "public"."raw_intraday_id_seq" OWNED BY "public"."raw_intraday"."id";
+ALTER SEQUENCE "public"."raw_intraday_id_seq" OWNED BY "public"."stock_raw_intraday"."id";
 
 
 
@@ -1345,7 +1359,7 @@ CREATE TABLE IF NOT EXISTS "public"."stock_intraday_2026_12" (
 ALTER TABLE "public"."stock_intraday_2026_12" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."symbols" (
+CREATE TABLE IF NOT EXISTS "public"."stock_symbols" (
     "symbol" "text" NOT NULL,
     "market" "text",
     "name" "text",
@@ -1353,7 +1367,7 @@ CREATE TABLE IF NOT EXISTS "public"."symbols" (
 );
 
 
-ALTER TABLE "public"."symbols" OWNER TO "postgres";
+ALTER TABLE "public"."stock_symbols" OWNER TO "postgres";
 
 
 
@@ -1549,11 +1563,11 @@ ALTER TABLE ONLY "public"."stock_intraday" ATTACH PARTITION "public"."stock_intr
 
 
 
-ALTER TABLE ONLY "public"."orderbook_snapshot" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."orderbook_snapshot_id_seq"'::"regclass");
+ALTER TABLE ONLY "public"."stock_orderbook_snapshot" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."orderbook_snapshot_id_seq"'::"regclass");
 
 
 
-ALTER TABLE ONLY "public"."raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."raw_intraday_id_seq"'::"regclass");
+ALTER TABLE ONLY "public"."stock_raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."raw_intraday_id_seq"'::"regclass");
 
 
 
@@ -1561,22 +1575,22 @@ ALTER TABLE ONLY "public"."raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"
 
 
 
-ALTER TABLE ONLY "public"."features"
+ALTER TABLE ONLY "public"."stock_features"
     ADD CONSTRAINT "features_pkey" PRIMARY KEY ("symbol", "timeframe", "time");
 
 
 
-ALTER TABLE ONLY "public"."foreign_trading"
+ALTER TABLE ONLY "public"."stock_foreign_trading"
     ADD CONSTRAINT "foreign_trading_pkey" PRIMARY KEY ("symbol", "time");
 
 
 
-ALTER TABLE ONLY "public"."orderbook_snapshot"
+ALTER TABLE ONLY "public"."stock_orderbook_snapshot"
     ADD CONSTRAINT "orderbook_snapshot_pkey" PRIMARY KEY ("id");
 
 
 
-ALTER TABLE ONLY "public"."raw_intraday"
+ALTER TABLE ONLY "public"."stock_raw_intraday"
     ADD CONSTRAINT "raw_intraday_pkey" PRIMARY KEY ("id");
 
 
@@ -1826,7 +1840,7 @@ ALTER TABLE ONLY "public"."stock_intraday_2026_12"
 
 
 
-ALTER TABLE ONLY "public"."symbols"
+ALTER TABLE ONLY "public"."stock_symbols"
     ADD CONSTRAINT "symbols_pkey" PRIMARY KEY ("symbol");
 
 
@@ -1839,11 +1853,11 @@ ALTER TABLE ONLY "public"."symbols"
 
 
 
-CREATE INDEX "idx_features_symbol_time" ON "public"."features" USING "btree" ("symbol", "timeframe", "time" DESC);
+CREATE INDEX "idx_features_symbol_time" ON "public"."stock_features" USING "btree" ("symbol", "timeframe", "time" DESC);
 
 
 
-CREATE INDEX "idx_foreign_symbol_time" ON "public"."foreign_trading" USING "btree" ("symbol", "time" DESC);
+CREATE INDEX "idx_foreign_symbol_time" ON "public"."stock_foreign_trading" USING "btree" ("symbol", "time" DESC);
 
 
 
@@ -1851,23 +1865,23 @@ CREATE INDEX "idx_intraday_symbol_time" ON ONLY "public"."stock_intraday" USING 
 
 
 
-CREATE INDEX "idx_orderbook_symbol_time" ON "public"."orderbook_snapshot" USING "btree" ("symbol", "time" DESC);
+CREATE INDEX "idx_orderbook_symbol_time" ON "public"."stock_orderbook_snapshot" USING "btree" ("symbol", "time" DESC);
 
 
 
-CREATE INDEX "idx_orderbook_time" ON "public"."orderbook_snapshot" USING "btree" ("time" DESC);
+CREATE INDEX "idx_orderbook_time" ON "public"."stock_orderbook_snapshot" USING "btree" ("time" DESC);
 
 
 
-CREATE INDEX "idx_raw_fetched" ON "public"."raw_intraday" USING "btree" ("fetched_at" DESC);
+CREATE INDEX "idx_raw_fetched" ON "public"."stock_raw_intraday" USING "btree" ("fetched_at" DESC);
 
 
 
-CREATE INDEX "idx_raw_symbol_time" ON "public"."raw_intraday" USING "btree" ("symbol", "time" DESC);
+CREATE INDEX "idx_raw_symbol_time" ON "public"."stock_raw_intraday" USING "btree" ("symbol", "time" DESC);
 
 
 
-CREATE UNIQUE INDEX "raw_intraday_symbol_time_data_hash_uidx" ON "public"."raw_intraday" USING "btree" ("symbol", "time", "data_hash");
+CREATE UNIQUE INDEX "raw_intraday_symbol_time_data_hash_uidx" ON "public"."stock_raw_intraday" USING "btree" ("symbol", "time", "data_hash");
 
 
 
@@ -2449,18 +2463,18 @@ ALTER INDEX "public"."idx_intraday_symbol_time" ATTACH PARTITION "public"."stock
 
 
 
-ALTER TABLE ONLY "public"."features"
-    ADD CONSTRAINT "features_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
+ALTER TABLE ONLY "public"."stock_features"
+    ADD CONSTRAINT "features_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
 
 
 
-ALTER TABLE ONLY "public"."foreign_trading"
-    ADD CONSTRAINT "foreign_trading_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
+ALTER TABLE ONLY "public"."stock_foreign_trading"
+    ADD CONSTRAINT "foreign_trading_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
 
 
 
 ALTER TABLE "public"."stock_intraday"
-    ADD CONSTRAINT "stock_intraday_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
+    ADD CONSTRAINT "stock_intraday_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
 
 
 
@@ -2663,21 +2677,21 @@ GRANT ALL ON FUNCTION "public"."create_partition_if_not_exists"("p_table" "text"
 
 
 
-GRANT ALL ON TABLE "public"."features" TO "anon";
-GRANT ALL ON TABLE "public"."features" TO "authenticated";
-GRANT ALL ON TABLE "public"."features" TO "service_role";
+GRANT ALL ON TABLE "public"."stock_features" TO "anon";
+GRANT ALL ON TABLE "public"."stock_features" TO "authenticated";
+GRANT ALL ON TABLE "public"."stock_features" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."foreign_trading" TO "anon";
-GRANT ALL ON TABLE "public"."foreign_trading" TO "authenticated";
-GRANT ALL ON TABLE "public"."foreign_trading" TO "service_role";
+GRANT ALL ON TABLE "public"."stock_foreign_trading" TO "anon";
+GRANT ALL ON TABLE "public"."stock_foreign_trading" TO "authenticated";
+GRANT ALL ON TABLE "public"."stock_foreign_trading" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."orderbook_snapshot" TO "anon";
-GRANT ALL ON TABLE "public"."orderbook_snapshot" TO "authenticated";
-GRANT ALL ON TABLE "public"."orderbook_snapshot" TO "service_role";
+GRANT ALL ON TABLE "public"."stock_orderbook_snapshot" TO "anon";
+GRANT ALL ON TABLE "public"."stock_orderbook_snapshot" TO "authenticated";
+GRANT ALL ON TABLE "public"."stock_orderbook_snapshot" TO "service_role";
 
 
 
@@ -2687,9 +2701,9 @@ GRANT ALL ON SEQUENCE "public"."orderbook_snapshot_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."raw_intraday" TO "anon";
-GRANT ALL ON TABLE "public"."raw_intraday" TO "authenticated";
-GRANT ALL ON TABLE "public"."raw_intraday" TO "service_role";
+GRANT ALL ON TABLE "public"."stock_raw_intraday" TO "anon";
+GRANT ALL ON TABLE "public"."stock_raw_intraday" TO "authenticated";
+GRANT ALL ON TABLE "public"."stock_raw_intraday" TO "service_role";
 
 
 
@@ -2993,9 +3007,9 @@ GRANT ALL ON TABLE "public"."stock_intraday_2026_12" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."symbols" TO "anon";
-GRANT ALL ON TABLE "public"."symbols" TO "authenticated";
-GRANT ALL ON TABLE "public"."symbols" TO "service_role";
+GRANT ALL ON TABLE "public"."stock_symbols" TO "anon";
+GRANT ALL ON TABLE "public"."stock_symbols" TO "authenticated";
+GRANT ALL ON TABLE "public"."stock_symbols" TO "service_role";
 
 
 

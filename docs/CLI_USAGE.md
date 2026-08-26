@@ -91,7 +91,7 @@ Example: `python main.py daily 07/08/2026 --symbols SSI HPG`.
 - `--symbols` is optional and requires one or more values when supplied.
   Omitted means all active master symbols; supplied values restrict that scope.
 
-It reads SSI `DailyStockPrice`, writes traceable `raw_daily` and canonical
+It reads SSI `DailyStockPrice`, writes traceable `stock_raw_daily` and canonical
 `stock_daily`, and may update existing conflict-key rows. It does not delete
 scope data, ingest intraday/index history, or run completeness, features,
 signals, backtests, or Analogs.
@@ -104,7 +104,7 @@ python main.py intraday-ingest [DATE] [--symbols SYMBOL [SYMBOL ...]]
 
 Example: `python main.py intraday-ingest 07/08/2026 --symbols SSI`.
 `DATE` and `--symbols` have the same required/omitted behavior as `daily`.
-It reads SSI `IntradayOhlc` at resolution 1 and writes `raw_intraday` plus clean
+It reads SSI `IntradayOhlc` at resolution 1 and writes `stock_raw_intraday` plus clean
 `stock_intraday` rows with persisted `timeframe='1m'`. It may read `stock_daily`
 for daily context. It does not write aggregate candles or run daily ingest,
 completeness, features, signals, backtests, or Analogs.
@@ -170,7 +170,7 @@ invalid arguments.
 
 ## Feature data policy and modes
 
-`features` persists only `1d`, `15m`, and `60m`:
+`stock_features` persists only `1d`, `15m`, and `60m`:
 
 | Timeframe | Canonical source | Behavior |
 | --- | --- | --- |
@@ -221,7 +221,7 @@ python main.py features-daily --mode replace --from 03/08/2026 --to 07/08/2026 -
 `--from-date` and `--to-date` are aliases. Omitted `--symbols` (or `--symbols`
 with no values) means all eligible symbols except in exact replace; supplying
 symbols restricts computation. This command reads only `stock_daily`, writes
-only `features` at `1d`, and does not ingest or run signals/backtests/Analogs.
+only `stock_features` at `1d`, and does not ingest or run signals/backtests/Analogs.
 
 ### `features-intraday`
 
@@ -249,7 +249,7 @@ the target scope. It cannot be combined with a range. This command reads clean
 rows. It does not ingest, write aggregate source candles, or run downstream
 signals/backtests/Analogs.
 
-### `features` compatibility router
+### `stock_features` compatibility router
 
 ```text
 python main.py features [--mode incremental|full] [--date DD/MM/YYYY]
@@ -261,7 +261,7 @@ Example: `python main.py features --date 07/08/2026 --symbols SSI --timeframes 1
 omitted symbols mean all eligible symbols. `--date` is an optional target for
 incremental routing; supplying it restricts output to that date. Full mode
 recomputes/upserts selected history without deleting. This compatibility router
-writes `features` only; prefer source-specific commands for explicit range or
+writes `stock_features` only; prefer source-specific commands for explicit range or
 replace. It runs no ingest, signals, backtests, or Analogs.
 
 ### `intraday` legacy feature alias

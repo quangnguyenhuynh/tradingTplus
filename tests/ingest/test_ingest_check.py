@@ -67,7 +67,7 @@ class _Query:
             if self.range_args:
                 rows = rows[self.range_args[0]:self.range_args[1] + 1]
             return _Result(data=rows, count=len(rows))
-        if self.table == "orderbook_snapshot":
+        if self.table == "stock_orderbook_snapshot":
             return _Result(count=2)
         return _Result(count=0)
 
@@ -107,10 +107,10 @@ def test_check_ingest_counts_orderbook_snapshots_in_vietnam_date_range(monkeypat
         "start": "2026-07-09T17:00:00Z",
         "end": "2026-07-10T17:00:00Z",
     }
-    orderbook_queries = [entry for entry in db.executed if entry[0] == "orderbook_snapshot"]
+    orderbook_queries = [entry for entry in db.executed if entry[0] == "stock_orderbook_snapshot"]
     assert orderbook_queries == [
         (
-            "orderbook_snapshot",
+            "stock_orderbook_snapshot",
             (
                 ("gte", "time", "2026-07-09T17:00:00Z"),
                 ("lt", "time", "2026-07-10T17:00:00Z"),

@@ -37,7 +37,7 @@ def _extract_level_list(raw: dict) -> list[dict]:
 
 
 def build_orderbook_record(symbol: str, raw: dict | None, snapshot_time: datetime | None = None) -> dict | None:
-    """Map SSI quote/marketdata depth payloads into orderbook_snapshot rows.
+    """Map SSI quote/marketdata depth payloads into stock_orderbook_snapshot rows.
 
     Supports FCData quote fields such as BidPrice1/BidVol1 and AskPrice1/AskVol1
     from the market data stream, plus common REST/list-shaped variants.
@@ -113,9 +113,9 @@ def snapshot_orderbook_from_stream(
                 print(f"  ⚠️ {symbol}: quote received but orderbook fields could not be mapped")
         if write and records:
             db.upsert_orderbook(records)
-            print(f"✅ Wrote orderbook_snapshot records: {len(records)}")
+            print(f"✅ Wrote stock_stock_orderbook_snapshot records: {len(records)}")
         else:
-            print(f"ℹ️ orderbook_snapshot records mapped: {len(records)}; write={write}")
+            print(f"ℹ️ stock_orderbook_snapshot records mapped: {len(records)}; write={write}")
         return len(records)
     finally:
         client.close()

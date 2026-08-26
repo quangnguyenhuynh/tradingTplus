@@ -34,7 +34,7 @@ clean data
     ↓
 validation and completeness
     ↓
-features
+stock_features
     ↓
 Phase 1 historical analog research (EOD V1 core implemented)
 ```
@@ -48,7 +48,7 @@ Non-negotiable rules:
 - `stock_intraday` persists only canonical `timeframe='1m'` source candles.
 - Persisted feature timeframes are only `1d`, `15m`, and `60m`.
 - `15m` and `60m` are aggregated from clean 1m candles in memory.
-- `1m` and `5m` feature rows are not persisted in `features`.
+- `1m` and `5m` feature rows are not persisted in `stock_features`.
 - All feature output stays in one table keyed by `(symbol, timeframe, time)`.
 - Missing or unsupported market data is not fabricated as zero-valued rows.
 
@@ -104,7 +104,7 @@ Feature execution has three explicit semantics:
 
 - **Full** loads the complete selected source history, recomputes it, and
   upserts every result. It never deletes existing feature rows first.
-- **Incremental** reads the latest `features.time` watermark independently for
+- **Incremental** reads the latest `stock_features.time` watermark independently for
   each symbol/timeframe. Daily uses five years of `stock_daily` warm-up;
   intraday uses the latest 250 observed trading sessions of clean 1m candles.
   Calculation uses the complete loaded window, but writes only rows after the
@@ -150,7 +150,7 @@ read-only unless an explicit scoped write test is intended.
 
 ## Database impact of feature timeframe policy
 
-No schema migration is required. Existing `features` rows with timeframe `1m`
+No schema migration is required. Existing `stock_features` rows with timeframe `1m`
 or `5m` are not deleted automatically. Any cleanup must be a separate,
 explicitly scoped database operation. Source data does not require backfill.
 
@@ -216,3 +216,7 @@ aliases and the intentionally raw-only `Time` field, is documented in
 `--json` prints normalized records. The command never inserts, upserts, deletes,
 calculates features, or runs signals/backtests. Preview first, verify the fields
 and values, run `index-daily` or `index-backfill`, then run `index-check`.
+
+### Stock table rename deployment
+
+Deploy the application and `migrations/20260826_standardize_stock_table_names.sql` together in a maintenance window: pause scheduled and manual writers, apply the migration manually in Supabase, confirm its read-only verification queries and PostgREST schema reload, deploy this code, smoke-test reads/writes, and only then resume writers. The migration preserves rows and requires no backfill; do not deploy code before the database rename or resume old code afterward.

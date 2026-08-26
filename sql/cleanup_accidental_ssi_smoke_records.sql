@@ -9,7 +9,7 @@ begin;
 --   trading_date: 2024-07-05
 --   intraday timestamp window: 2024-07-05 00:00:00 to 2024-07-06 00:00:00
 
-delete from public.raw_daily
+delete from public.stock_raw_daily
 where symbol = 'SSI'
   and trading_date = date '2024-07-05';
 
@@ -18,7 +18,7 @@ where symbol = 'SSI'
   and trading_date = date '2024-07-05';
 
 -- Only needed if smoke test was run with --write-intraday.
-delete from public.raw_intraday
+delete from public.stock_raw_intraday
 where symbol = 'SSI'
   and time >= timestamptz '2024-07-05 00:00:00+07'
   and time <  timestamptz '2024-07-06 00:00:00+07';

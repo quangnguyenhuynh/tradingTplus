@@ -44,7 +44,7 @@ class Client:
 
 
 def test_payload_historical_null_rows_do_not_fail_when_new_sample_exists():
-    client = Client({"raw_intraday": [
+    client = Client({"stock_raw_intraday": [
         {"symbol": "SSI", "time": "2026-08-03T02:00:00+00:00", "payload": None, "fetched_at": "old"},
         {"symbol": "SSI", "time": "2026-08-03T02:01:00+00:00", "payload": {"Time": "09:01:00"}, "fetched_at": "new"},
     ]})
@@ -55,7 +55,7 @@ def test_payload_historical_null_rows_do_not_fail_when_new_sample_exists():
 
 
 def test_payload_missing_post_migration_sample_is_unknown_not_pass():
-    result = check_intraday_payload(Client({"raw_intraday": [
+    result = check_intraday_payload(Client({"stock_raw_intraday": [
         {"symbol": "SSI", "time": "2026-08-03T02:00:00+00:00", "payload": None, "fetched_at": "old"},
     ]}), symbol="SSI", trading_date=date(2026, 8, 3))
     assert result["status"] == "UNKNOWN"
@@ -65,11 +65,11 @@ def _daily_rows(feature_close=20.0):
     payload = {"Symbol": "SSI", "TradingDate": "03/08/2026", "OpenPrice": 19, "HighestPrice": 21,
                "LowestPrice": 18, "ClosePrice": 20, "TotalTradedVol": 1000, "TotalTradedValue": 20000}
     return {
-        "raw_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "payload": payload}],
+        "stock_raw_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "payload": payload}],
         "stock_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "open_price": 19.0,
                          "highest_price": 21.0, "lowest_price": 18.0, "close_price": 20.0,
                          "total_traded_vol": 1000.0, "total_traded_value": 20000.0}],
-        "features": [{"symbol": "SSI", "timeframe": "1d", "time": "2026-08-02T17:00:00+00:00",
+        "stock_features": [{"symbol": "SSI", "timeframe": "1d", "time": "2026-08-02T17:00:00+00:00",
                       "open": 19.0, "high": 21.0, "low": 18.0, "close": feature_close,
                       "volume": 1000, "value": 20000}],
     }
@@ -91,7 +91,7 @@ def test_critical_numeric_mismatch_fails():
 
 
 def test_missing_layer_is_unknown():
-    rows = _daily_rows(); rows["features"] = []
+    rows = _daily_rows(); rows["stock_features"] = []
     result = reconcile_sample(Client(rows), symbol="SSI", trading_date=date(2026, 8, 3), timeframe="1d")
     assert result["status"] == "UNKNOWN"
     assert result["missing"] == ["features"]

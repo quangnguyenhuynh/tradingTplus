@@ -98,7 +98,7 @@ def _vn_bounds(trading_date: date) -> tuple[str, str]:
 def check_intraday_payload(client: Any, *, symbol: str | None = None,
                             trading_date: date | None = None) -> dict[str, Any]:
     """Find a bounded non-null payload sample; historical NULLs are informational."""
-    query = client.table("raw_intraday").select("symbol,time,payload,fetched_at")
+    query = client.table("stock_raw_intraday").select("symbol,time,payload,fetched_at")
     if symbol:
         query = query.eq("symbol", symbol.upper())
     if trading_date:
@@ -158,9 +158,9 @@ def reconcile_sample(client: Any, *, symbol: str, trading_date: date, timeframe:
     missing: list[str] = []
 
     if timeframe == "1d":
-        raw = _one(client, "raw_daily", "symbol,trading_date,payload", [("eq", "symbol", symbol), ("eq", "trading_date", trading_date.isoformat())])
+        raw = _one(client, "stock_raw_daily", "symbol,trading_date,payload", [("eq", "symbol", symbol), ("eq", "trading_date", trading_date.isoformat())])
         clean = _one(client, "stock_daily", "*", [("eq", "symbol", symbol), ("eq", "trading_date", trading_date.isoformat())])
-        feature = _one(client, "features", "symbol,timeframe,time,open,high,low,close,volume,value",
+        feature = _one(client, "stock_features", "symbol,timeframe,time,open,high,low,close,volume,value",
                        [("eq", "symbol", symbol), ("eq", "timeframe", "1d"), ("gte", "time", start), ("lt", "time", end)])
         if not raw or not isinstance(raw.get("payload"), dict): missing.append("raw_daily.payload")
         if not clean: missing.append("stock_daily")
@@ -177,7 +177,7 @@ def reconcile_sample(client: Any, *, symbol: str, trading_date: date, timeframe:
         feature_filters = [("eq", "symbol", symbol), ("eq", "timeframe", timeframe), ("gte", "time", start), ("lt", "time", end)]
         if timestamp:
             feature_filters = [("eq", "symbol", symbol), ("eq", "timeframe", timeframe), ("eq", "time", timestamp)]
-        feature = _one(client, "features", "symbol,timeframe,time,open,high,low,close,volume,value", feature_filters, order=("time", True))
+        feature = _one(client, "stock_features", "symbol,timeframe,time,open,high,low,close,volume,value", feature_filters, order=("time", True))
         if not feature: missing.append("features")
         if not missing:
             bucket_start = feature["time"]
@@ -191,7 +191,7 @@ def reconcile_sample(client: Any, *, symbol: str, trading_date: date, timeframe:
                              "low": min(row["low"] for row in clean_rows if row.get("low") is not None), "close": clean_rows[-1].get("close"),
                              "volume": sum(row.get("volume") or 0 for row in clean_rows), "value": sum(row.get("value") or 0 for row in clean_rows)}
                 comparisons += [{"layer": "clean_to_feature", **row} for row in compare_fields(aggregate, feature, (*OHLCV, "value"), tolerance)]
-                raw = _one(client, "raw_intraday", "symbol,time,payload,open,high,low,close,volume",
+                raw = _one(client, "stock_raw_intraday", "symbol,time,payload,open,high,low,close,volume",
                            [("eq", "symbol", symbol), ("eq", "time", clean_rows[0]["time"])])
                 if not raw or not isinstance(raw.get("payload"), dict): missing.append("raw_intraday.payload")
                 else:
