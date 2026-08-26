@@ -9,6 +9,32 @@ from typing import Any
 from src.pipeline.date_utils import parse_ddmmyyyy
 
 
+INDEX_DAILY_CLEAN_SOURCE_ALIASES: dict[str, tuple[str, ...]] = {
+    "index_code": ("IndexCode", "IndexId", "indexcode", "indexid"),
+    "trading_date": ("TradingDate",),
+    "index_value": ("IndexValue",),
+    "change": ("Change",),
+    "ratio_change": ("RatioChange",),
+    "total_trade": ("TotalTrade",),
+    "total_match_vol": ("TotalMatchVol",),
+    "total_match_val": ("TotalMatchVal",),
+    "type_index": ("TypeIndex",),
+    "index_name": ("IndexName",),
+    "advances": ("Advances",),
+    "no_changes": ("NoChanges", "Nochanges"),
+    "declines": ("Declines",),
+    "ceilings": ("Ceilings", "Ceiling"),
+    "floors": ("Floors", "Floor"),
+    "total_deal_vol": ("TotalDealVol",),
+    "total_deal_val": ("TotalDealVal",),
+    "total_vol": ("TotalVol",),
+    "total_val": ("TotalVal",),
+    "trading_session": ("TradingSession",),
+    "market": ("Market",),
+    "exchange": ("Exchange",),
+}
+
+
 def get_index_payload_value(payload: dict, *keys: str) -> Any:
     lower = {str(key).lower(): value for key, value in payload.items()}
     for key in keys:
@@ -18,12 +44,12 @@ def get_index_payload_value(payload: dict, *keys: str) -> Any:
 
 
 def payload_index_code(payload: dict) -> str | None:
-    value = get_index_payload_value(payload, "IndexCode", "IndexId", "indexcode", "indexid")
+    value = get_index_payload_value(payload, *INDEX_DAILY_CLEAN_SOURCE_ALIASES["index_code"])
     return str(value).strip() if value not in (None, "") else None
 
 
 def payload_index_date(payload: dict) -> str | None:
-    value = get_index_payload_value(payload, "TradingDate")
+    value = get_index_payload_value(payload, *INDEX_DAILY_CLEAN_SOURCE_ALIASES["trading_date"])
     if value in (None, ""):
         return None
     text = str(value).strip()
@@ -59,14 +85,31 @@ def build_index_daily_record(requested_code: str, date: str, payload: dict) -> d
         return None
     if source_code.casefold() != requested_code.casefold() or source_date != parse_ddmmyyyy(date).iso:
         return None
-    numeric = {
-        "index_value": "IndexValue", "change": "Change", "ratio_change": "RatioChange", "total_trade": "TotalTrade",
-        "total_match_vol": "TotalMatchVol", "total_match_val": "TotalMatchVal", "total_deal_vol": "TotalDealVol",
-        "total_deal_val": "TotalDealVal", "total_vol": "TotalVol", "total_val": "TotalVal", "advances": "Advances",
-        "no_changes": "NoChanges", "declines": "Declines", "ceilings": "Ceilings", "floors": "Floors",
-    }
+    numeric = (
+        "index_value", "change", "ratio_change", "total_trade", "total_match_vol",
+        "total_match_val", "total_deal_vol", "total_deal_val", "total_vol",
+        "total_val", "advances", "no_changes", "declines", "ceilings", "floors",
+    )
     record = {"index_code": requested_code, "trading_date": source_date}
-    record.update({field: _number(get_index_payload_value(payload, key)) for field, key in numeric.items()})
-    for field, key in {"type_index": "TypeIndex", "index_name": "IndexName", "trading_session": "TradingSession", "market": "Market", "exchange": "Exchange"}.items():
-        record[field] = get_index_payload_value(payload, key)
+    record.update({
+        field: _number(get_index_payload_value(payload, *INDEX_DAILY_CLEAN_SOURCE_ALIASES[field]))
+        for field in numeric
+    })
+    for field in ("type_index", "index_name", "trading_session", "market", "exchange"):
+        record[field] = get_index_payload_value(payload, *INDEX_DAILY_CLEAN_SOURCE_ALIASES[field])
     return record
+
+
+def summarize_index_payload_mapping(payload: dict, record: dict | None) -> dict[str, Any]:
+    """Expose source keys not represented by the normalized clean contract."""
+    clean_aliases = {
+        alias.casefold()
+        for aliases in INDEX_DAILY_CLEAN_SOURCE_ALIASES.values()
+        for alias in aliases
+    }
+    omitted = [str(key) for key in payload if str(key).casefold() not in clean_aliases]
+    return {
+        "raw_field_count": len(payload),
+        "normalized_field_count": len(record) if record is not None else 0,
+        "omitted_from_clean": omitted,
+    }

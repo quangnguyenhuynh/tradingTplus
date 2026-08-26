@@ -198,6 +198,12 @@ python main.py index-preview --date 2026-08-24 --indexes VNINDEX --raw
 python main.py index-preview --date 2026-08-24 --indexes VNINDEX --json
 ```
 
+The raw preview preserves the complete SSI item and includes a mapping summary;
+the normalized JSON includes every clean `index_daily` field, retaining missing
+values as `null`. The complete 23-field source-to-raw-to-clean audit, including
+aliases and the intentionally raw-only `Time` field, is documented in
+[SSI DailyIndex field mapping](docs/SSI_DAILY_INDEX_MAPPING.md).
+
 `--raw` prints the SSI payload rows returned by the existing paginated client;
 `--json` prints normalized records. The command never inserts, upserts, deletes,
 calculates features, or runs signals/backtests. Preview first, verify the fields

@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from typing import Any, Iterable
 
 from src.pipeline.index_daily_fetcher import fetch_index_daily
-from src.pipeline.index_daily_mapper import build_index_daily_record
+from src.pipeline.index_daily_mapper import build_index_daily_record, summarize_index_payload_mapping
 from src.pipeline.date_utils import parse_index_date
 from src.ssi.api import SSIApi
 
@@ -46,6 +46,13 @@ def run_index_daily_preview(
                 for payload in payloads
                 if (record := build_index_daily_record(code, request_date, payload)) is not None
             ]
+            mapping_summary = [
+                summarize_index_payload_mapping(
+                    payload,
+                    build_index_daily_record(code, request_date, payload),
+                )
+                for payload in payloads
+            ]
             status = "NO_DATA" if not payloads else "OK" if normalized else "REJECTED"
             results.append(
                 {
@@ -55,6 +62,7 @@ def run_index_daily_preview(
                     "status": status,
                     "raw": payloads,
                     "records": normalized,
+                    "mapping_summary": mapping_summary,
                     "rejected_rows": len(payloads) - len(normalized),
                 }
             )
@@ -77,6 +85,7 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
                     "source": item["source"],
                     "status": item["status"],
                     "raw": item["raw"],
+                    "mapping_summary": item["mapping_summary"],
                 }
                 for item in results
             ],
@@ -109,6 +118,14 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
                 record.get("total_val"), item["source"], item["status"],
             )
             lines.append(" | ".join(_display(value) for value in values))
+        for summary in item["mapping_summary"]:
+            omitted = ", ".join(summary["omitted_from_clean"]) or "none"
+            lines.append(
+                "Mapping fields: "
+                f"raw={summary['raw_field_count']}, "
+                f"normalized={summary['normalized_field_count']}, "
+                f"omitted_from_clean={omitted}"
+            )
         if item["rejected_rows"]:
             lines.append(
                 f"{item['index_code']} {item['trading_date']}: "
