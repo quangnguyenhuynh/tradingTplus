@@ -43,7 +43,7 @@ REQUIRED_UNIQUE_INDEXES = {
     "index_master": "primary key (index_code)",
     "index_raw_daily": "unique index on (index_code, trading_date, data_hash)",
     "index_components": "unique index on (index_code, symbol)",
-    "index_daily": "unique index on (index_code, trading_date)",
+    "index_daily": "primary key (index_code, trading_date)",
     "foreign_trading": "unique index on (symbol, trading_date)",
     "orderbook_snapshot": "unique index on (symbol, time)",
     "stream_raw_snapshot": "unique index on (payload_hash)",

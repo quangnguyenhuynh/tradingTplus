@@ -42,6 +42,16 @@ may omit them; do not rerun or repair them merely to populate history.
 
 Never run broad destructive SQL without exact table/date/symbol scope, a verified backup plan, and an explicit task. Do not assume production schema matches the latest repository migration until it is checked.
 
+## 20260826 index_daily primary key
+
+`20260826_add_index_daily_primary_key.sql` promotes the existing unique index on
+`(index_code, trading_date)` to `index_daily_pkey`. It fails before alteration if
+either key column is null, duplicate key groups exist, the table already has a
+primary key, or the expected reusable unique index is missing. It changes no row
+values and performs no cleanup/backfill. Apply it manually in a maintenance
+window because validating `NOT NULL` and adding the constraint lock
+`public.index_daily`.
+
 ## Retired signal/backtest storage
 
 `20260731_drop_legacy_signal_backtest.sql` is an explicitly approved cleanup migration. It is destructive only to the retired legacy tables; export their rows before deployment if audit retention is required. It does not affect raw, clean, or feature data, and requires no backfill.

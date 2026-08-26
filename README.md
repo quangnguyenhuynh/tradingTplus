@@ -184,6 +184,8 @@ evidence-retention risks are recorded in the report; the Historical Analog EOD V
 ### Index daily source pipeline
 
 Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See the [CLI usage guide](docs/CLI_USAGE.md).
+The normalized `index_daily` identity and primary key is
+`(index_code, trading_date)`: one row per index and trading date.
 
 Index Daily Feature V1 is intentionally separate from ingestion and stock
 features: it reads clean `index_daily` and writes the dedicated
