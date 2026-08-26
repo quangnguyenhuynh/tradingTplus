@@ -171,6 +171,8 @@ và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; v
 ### Pipeline nguồn index daily
 
 Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem [hướng dẫn sử dụng CLI](docs/CLI_USAGE.vi.md).
+Identity và primary key của bảng chuẩn hóa `index_daily` là
+`(index_code, trading_date)`: mỗi index chỉ có một dòng trong một ngày giao dịch.
 
 Index Daily Feature V1 được tách riêng có chủ đích khỏi ingest và stock feature:
 pipeline đọc clean `index_daily` và ghi bảng riêng `index_features_daily`. Dùng

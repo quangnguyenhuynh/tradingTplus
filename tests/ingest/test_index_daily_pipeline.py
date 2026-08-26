@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.database.client import SupabaseClient
 from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
 from src.pipeline.index_daily_persistence import _validate_index_raw_daily_row
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
@@ -22,6 +23,26 @@ FULL_PAYLOAD = {
     "Totalvol": "1002001", "Totalval": 25003000001.5, "TradingSession": "CLOSE",
     "Market": "HOSE", "Exchange": "HOSE",
 }
+
+
+def test_index_daily_writer_uses_composite_primary_key_conflict_target(monkeypatch):
+    captured = []
+    db = object.__new__(SupabaseClient)
+    monkeypatch.setattr(
+        db,
+        "_upsert_in_batches",
+        lambda table, rows, **kwargs: captured.append((table, rows, kwargs)),
+    )
+    rows = [
+        {"index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1},
+        {"index_code": "HNXINDEX", "trading_date": "2026-08-25", "index_value": 2},
+    ]
+
+    db.upsert_index_daily(rows)
+
+    assert captured == [
+        ("index_daily", rows, {"on_conflict": "index_code,trading_date"})
+    ]
 
 
 @pytest.mark.parametrize("value", ["2026-08-24", "24/08/2026"])

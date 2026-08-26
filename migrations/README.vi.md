@@ -1,5 +1,15 @@
 # Database migrations
 
+## 20260826 primary key cho index_daily
+
+`20260826_add_index_daily_primary_key.sql` nâng unique index hiện có trên
+`(index_code, trading_date)` thành `index_daily_pkey`. Migration dừng trước khi
+thay đổi nếu business key có null, có nhóm trùng, bảng đã có primary
+key hoặc thiếu unique index có thể tái sử dụng. Migration không đổi giá
+trị dòng, không cleanup và không backfill. Cần chạy thủ công trong
+maintenance window vì kiểm tra `NOT NULL` và thêm constraint sẽ lock
+`public.index_daily`.
+
 ## 20260803 payload nguồn intraday thô
 
 `20260803_add_raw_intraday_payload.sql` thêm cột nullable
