@@ -113,7 +113,7 @@ def snapshot_orderbook_from_stream(
                 print(f"  ⚠️ {symbol}: quote received but orderbook fields could not be mapped")
         if write and records:
             db.upsert_orderbook(records)
-            print(f"✅ Wrote stock_stock_orderbook_snapshot records: {len(records)}")
+            print(f"✅ Wrote stock_orderbook_snapshot records: {len(records)}")
         else:
             print(f"ℹ️ stock_orderbook_snapshot records mapped: {len(records)}; write={write}")
         return len(records)

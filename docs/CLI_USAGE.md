@@ -249,7 +249,7 @@ the target scope. It cannot be combined with a range. This command reads clean
 rows. It does not ingest, write aggregate source candles, or run downstream
 signals/backtests/Analogs.
 
-### `stock_features` compatibility router
+### `features` compatibility router
 
 ```text
 python main.py features [--mode incremental|full] [--date DD/MM/YYYY]

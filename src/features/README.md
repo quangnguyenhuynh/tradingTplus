@@ -17,7 +17,7 @@ again or changing the clean source rows.
 stock_daily --------------------------------------> 1d features
                                                         |
 stock_intraday (persisted 1m source candles)            v
-        |                                         stock_stock_features table
+        |                                         stock_features table
         +-- aggregate in memory --> 15m features   (symbol, timeframe, time)
         +-- aggregate in memory --> 60m features
 ```
@@ -250,7 +250,7 @@ Vietnam-market interval.
 -- Confirm symbol, timeframe, requested interval, and newest persisted row.
 select symbol, timeframe, min(time) as first_time, max(time) as latest_time,
        count(*) as row_count
-from public.features
+from public.stock_features
 where symbol = 'SSI'
   and timeframe in ('1d', '15m', '60m')
   and time >= '2026-07-01T00:00:00Z'
@@ -260,21 +260,21 @@ order by symbol, timeframe;
 
 -- The actual feature key must have no duplicates.
 select symbol, timeframe, time, count(*)
-from public.features
+from public.stock_features
 group by symbol, timeframe, time
 having count(*) > 1;
 
 -- Inspect expected and suspicious NULLs near the latest rows.
 select symbol, timeframe, time, close, ema50, rsi14, macd,
        volume_ma20, vwap_intraday
-from public.features
+from public.stock_features
 where symbol = 'SSI' and timeframe = '15m'
 order by time desc
 limit 20;
 
 -- Confirm the latest feature watermark for each persisted stream.
 select symbol, timeframe, max(time) as watermark
-from public.features
+from public.stock_features
 where symbol = 'SSI'
 group by symbol, timeframe
 order by timeframe;

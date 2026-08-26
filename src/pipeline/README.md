@@ -25,13 +25,13 @@ src/pipeline/
 ├── index_daily*.py           # layered DailyIndex raw/clean ingest
 ├── index_backfill.py         # index-only range ingest
 ├── index_completeness.py     # index raw/clean completeness
-├── stock_foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
+├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # independent daily/intraday ranges + combined completeness
 ├── refill.py                 # explicit single-symbol source + feature maintenance orchestration
 ├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
-└── stock_orderbook_snapshot.py     # quote-stream orderbook mapping
+└── orderbook_snapshot.py     # quote-stream orderbook mapping
 ```
 
 Existing streaming, index, master-data, feature-compatibility, and dry-run modules remain separate from the daily/intraday REST ingest layers.

@@ -111,19 +111,19 @@ def test_table_specific_timestamps_are_app_controlled():
     cases = {
         "stock_raw_daily": "created_at",
         "stock_raw_intraday": "fetched_at",
-        "stock_securities": "updated_at",
+        "securities": "updated_at",
         "index_master": "updated_at",
         "index_raw_daily": "created_at",
         "index_components": "updated_at",
         "stock_foreign_trading": "updated_at",
         "stock_orderbook_snapshot": "updated_at",
         "stream_raw_snapshot": "received_at",
-        "stock_stream_quote_snapshot": "created_at",
-        "stock_stream_trade_snapshot": "created_at",
-        "stock_stream_foreign_snapshot": "created_at",
+        "stream_quote_snapshot": "created_at",
+        "stream_trade_snapshot": "created_at",
+        "stream_foreign_snapshot": "created_at",
         "stream_index_snapshot": "created_at",
-        "stock_stream_status_snapshot": "created_at",
-        "stock_stream_bar_snapshot": "created_at",
+        "stream_status_snapshot": "created_at",
+        "stream_bar_snapshot": "created_at",
         "stock_features": "last_updated_at",
         "stock_data_quality_logs": "created_at",
     }
@@ -158,7 +158,7 @@ def test_streaming_payloads_keep_source_time_separate_from_write_time():
     }
 
     raw = SupabaseClient._stamp_write_timestamps("stream_raw_snapshot", [source], stamp)[0]
-    clean = SupabaseClient._stamp_write_timestamps("stock_stream_quote_snapshot", [source], stamp)[0]
+    clean = SupabaseClient._stamp_write_timestamps("stream_quote_snapshot", [source], stamp)[0]
 
     assert raw["received_at"] == source["received_at"]
     assert raw["created_at"] == stamp

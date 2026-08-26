@@ -88,12 +88,12 @@ SSI FastConnect Data
         │
         └── Streaming/snapshot pipeline
               ├── stream_raw_snapshot
-              ├── stock_stream_quote_snapshot
-              ├── stock_stream_trade_snapshot
-              ├── stock_stream_foreign_snapshot
+              ├── stream_quote_snapshot
+              ├── stream_trade_snapshot
+              ├── stream_foreign_snapshot
               ├── stream_index_snapshot
-              ├── stock_stream_status_snapshot
-              ├── stock_stream_bar_snapshot
+              ├── stream_status_snapshot
+              ├── stream_bar_snapshot
               └── stock_orderbook_snapshot utilities
 
 stock_daily
@@ -119,7 +119,7 @@ Tất cả feature
 ### `sync-master-data` / `init`
 
 - Đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`.
-- Ghi `stock_symbols`, `stock_securities`, `index_master` và `index_components`.
+- Ghi `symbols`, `securities`, `index_master` và `index_components`.
 - Không ingest history hoặc tính feature.
 
 ### `daily`
@@ -246,7 +246,7 @@ Mutable source rows receive `updated_at`, raw fetches receive `fetched_at`, stre
 messages retain app `received_at`, and feature rows receive `last_updated_at`. Database
 clock defaults are removed for these fields, so writers must send them explicitly.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## Canonical DailyIndex pipeline
 

@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.database.client import SupabaseClient
 
 REQUIRED_COLUMNS = {
-    "stock_securities": ["symbol", "market", "stock_name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
+    "securities": ["symbol", "market", "stock_name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
     "stock_daily": ["symbol", "trading_date", "price_change", "per_price_change", "ceiling_price", "floor_price", "ref_price", "open_price", "highest_price", "lowest_price", "close_price", "average_price", "close_price_adjusted", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_traded_vol", "total_traded_value", "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total", "foreign_current_room", "net_foreign_vol", "net_foreign_val", "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol", "raw", "created_at", "updated_at"],
     "stock_raw_daily": ["symbol", "trading_date", "data_hash", "payload", "created_at"],
     "index_master": ["index_code", "index_name", "exchange", "raw", "updated_at"],
@@ -28,16 +28,16 @@ REQUIRED_COLUMNS = {
     "stock_foreign_trading": ["symbol", "trading_date", "foreign_buy_vol", "foreign_sell_vol", "foreign_buy_val", "foreign_sell_val", "net_foreign_vol", "net_foreign_val", "foreign_current_room", "raw"],
     "stock_orderbook_snapshot": ["symbol", "time", "bid_price_1", "bid_vol_1", "ask_price_1", "ask_vol_1", "bid_price_10", "bid_vol_10", "ask_price_10", "ask_vol_10", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw"],
     "stream_raw_snapshot": ["channel", "requested_channel", "rtype", "symbol", "index_code", "time", "source_time", "received_at", "trading_date", "payload", "payload_hash", "validation_status", "validation_issues"],
-    "stock_stream_quote_snapshot": ["symbol", "time", "trading_date", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw"],
-    "stock_stream_trade_snapshot": ["symbol", "time", "trading_date", "raw"],
-    "stock_stream_foreign_snapshot": ["symbol", "time", "trading_date", "foreign_buy_vol", "foreign_sell_vol", "net_foreign_vol", "raw"],
+    "stream_quote_snapshot": ["symbol", "time", "trading_date", "total_bid_depth_10", "total_ask_depth_10", "orderbook_imbalance", "pressure_score", "raw"],
+    "stream_trade_snapshot": ["symbol", "time", "trading_date", "raw"],
+    "stream_foreign_snapshot": ["symbol", "time", "trading_date", "foreign_buy_vol", "foreign_sell_vol", "net_foreign_vol", "raw"],
     "stream_index_snapshot": ["index_code", "time", "trading_date", "index_value", "raw"],
-    "stock_stream_status_snapshot": ["symbol", "time", "trading_date", "trading_session", "trading_status", "raw"],
-    "stock_stream_bar_snapshot": ["symbol", "time", "trading_date", "open", "high", "low", "close", "volume", "value", "raw"],
+    "stream_status_snapshot": ["symbol", "time", "trading_date", "trading_session", "trading_status", "raw"],
+    "stream_bar_snapshot": ["symbol", "time", "trading_date", "open", "high", "low", "close", "volume", "value", "raw"],
 }
 
 REQUIRED_UNIQUE_INDEXES = {
-    "stock_securities": "primary key (symbol)",
+    "securities": "primary key (symbol)",
     "stock_daily": "unique index on (symbol, trading_date)",
     "stock_raw_daily": "unique index on (symbol, trading_date, data_hash)",
     "index_master": "primary key (index_code)",
@@ -47,12 +47,12 @@ REQUIRED_UNIQUE_INDEXES = {
     "stock_foreign_trading": "unique index on (symbol, trading_date)",
     "stock_orderbook_snapshot": "unique index on (symbol, time)",
     "stream_raw_snapshot": "unique index on (payload_hash)",
-    "stock_stream_quote_snapshot": "unique index on (symbol, time)",
-    "stock_stream_trade_snapshot": "unique index on (symbol, time)",
-    "stock_stream_foreign_snapshot": "unique index on (symbol, time)",
+    "stream_quote_snapshot": "unique index on (symbol, time)",
+    "stream_trade_snapshot": "unique index on (symbol, time)",
+    "stream_foreign_snapshot": "unique index on (symbol, time)",
     "stream_index_snapshot": "unique index on (index_code, time)",
-    "stock_stream_status_snapshot": "unique index on (symbol, time)",
-    "stock_stream_bar_snapshot": "unique index on (symbol, time)",
+    "stream_status_snapshot": "unique index on (symbol, time)",
+    "stream_bar_snapshot": "unique index on (symbol, time)",
 }
 
 
@@ -86,7 +86,7 @@ def main() -> None:
 select tablename, indexname, indexdef
 from pg_indexes
 where schemaname = 'public'
-  and tablename in ('stock_securities','stock_daily','stock_raw_daily','index_master','index_components','index_raw_daily','index_daily','stock_foreign_trading','stock_orderbook_snapshot','stream_raw_snapshot','stock_stream_quote_snapshot','stock_stream_trade_snapshot','stock_stream_foreign_snapshot','stream_index_snapshot','stock_stream_status_snapshot','stock_stream_bar_snapshot')
+  and tablename in ('securities','stock_daily','stock_raw_daily','index_master','index_components','index_raw_daily','index_daily','stock_foreign_trading','stock_orderbook_snapshot','stream_raw_snapshot','stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot','stream_status_snapshot','stream_bar_snapshot')
 order by tablename, indexname;
 """.strip())
 

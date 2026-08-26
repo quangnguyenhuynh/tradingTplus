@@ -113,7 +113,7 @@ python scripts/ssi_api_inspector/inspect.py run --help
 | Tên CLI | HTTP method | SSI endpoint | Tham số chính |
 | --- | --- | --- | --- |
 | `access-token` | POST | `AccessToken` | JSON `consumerID`, `consumerSecret` |
-| `stock_securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
+| `securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
 | `securities-details` | GET | `SecuritiesDetails` | `Market`, `Symbol`, `PageIndex`, `PageSize` |
 | `index-components` | GET | `IndexComponents` | `IndexCode`, `PageIndex`, `PageSize` |
 | `index-list` | GET | `IndexList` | `Exchange`, `PageIndex`, `PageSize` |
@@ -138,7 +138,7 @@ Theo kiến trúc hiện tại của Trading T+:
 | --- | --- | --- |
 | `--symbol` | `SSI` | Mã cổ phiếu dùng cho các endpoint theo symbol. |
 | `--date` | `10/07/2026` | Ngày rõ ràng theo định dạng `DD/MM/YYYY`. Được dùng cho cả `FromDate` và `ToDate`. |
-| `--market` | `HOSE` | Market cho `stock_securities`, `securities-details` và `daily-stock-price`. |
+| `--market` | `HOSE` | Market cho `securities`, `securities-details` và `daily-stock-price`. |
 | `--exchange` | `HOSE` | Exchange cho `index-list`. |
 | `--index-code` | `VNINDEX` | Mã chỉ số cho `index-components` và `daily-index`. |
 | `--page-index` | `1` | Số trang của SSI API. |
