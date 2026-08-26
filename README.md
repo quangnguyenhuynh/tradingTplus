@@ -185,6 +185,12 @@ evidence-retention risks are recorded in the report; the Historical Analog EOD V
 
 Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See the [CLI usage guide](docs/CLI_USAGE.md).
 
+Index Daily Feature V1 is intentionally separate from ingestion and stock
+features: it reads clean `index_daily` and writes the dedicated
+`index_features_daily` table. Use `index-features-preview`,
+`index-features-daily`, `index-features-backfill`, and the read-only
+`index-features-check`; see the [index feature guide](src/index_features/README.md).
+
 Before ingest, `index-preview` can inspect SSI directly without constructing a
 database client or writing raw/clean rows. All index CLI dates accept `YYYY-MM-DD` or
 `DD/MM/YYYY`; ranges are inclusive. Missing SSI values remain `null` in JSON

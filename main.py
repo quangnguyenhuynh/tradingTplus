@@ -62,6 +62,12 @@ from src.pipeline.symbol_scope import normalize_symbol_scope
 from src.pipeline.index_scope import normalize_index_scope
 from src.pipeline.index_daily_preview import render_index_daily_preview, run_index_daily_preview
 from src.analogs.cli import run as run_analogs
+from src.index_features import (
+    check_index_features,
+    run_index_features_backfill,
+    run_index_features_daily,
+    run_index_features_preview,
+)
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -119,6 +125,22 @@ def build_parser() -> argparse.ArgumentParser:
     preview_output = index_preview.add_mutually_exclusive_group()
     preview_output.add_argument("--raw", action="store_true", help="Print SSI payload rows as JSON")
     preview_output.add_argument("--json", action="store_true", dest="as_json", help="Print normalized rows as JSON")
+
+    for command, help_text in (
+        ("index-features-preview", "Read-only Index Daily Feature V1 calculation"),
+        ("index-features-daily", "Calculate and upsert one clean index_daily date"),
+    ):
+        feature_parser = sub.add_parser(command, help=help_text)
+        feature_parser.add_argument("--date", required=True, help="Trading date YYYY-MM-DD or DD/MM/YYYY")
+        feature_parser.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
+    index_feature_backfill = sub.add_parser("index-features-backfill", help="Inclusive Index Daily Feature V1 backfill")
+    index_feature_backfill.add_argument("--from", dest="from_date", required=True)
+    index_feature_backfill.add_argument("--to", dest="to_date", required=True)
+    index_feature_backfill.add_argument("--indexes", nargs="+", default=None)
+    index_feature_check = sub.add_parser("index-features-check", help="Read-only index feature completeness check")
+    index_feature_check.add_argument("--from", dest="from_date", required=True)
+    index_feature_check.add_argument("--to", dest="to_date", required=True)
+    index_feature_check.add_argument("--indexes", nargs="+", default=None)
     daily.add_argument(
         "--symbols",
         nargs="+",
@@ -540,6 +562,22 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(render_index_daily_preview(preview, raw=args.raw, as_json=args.as_json))
             return 0
+        if args.command == "index-features-preview":
+            summary = run_index_features_preview(args.date, normalize_index_scope(args.indexes))
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "index-features-daily":
+            summary = run_index_features_daily(args.date, normalize_index_scope(args.indexes))
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "index-features-backfill":
+            summary = run_index_features_backfill(args.from_date, args.to_date, normalize_index_scope(args.indexes))
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "index-features-check":
+            summary = check_index_features(args.from_date, args.to_date, normalize_index_scope(args.indexes))
+            _print_summary(summary)
+            return _status_to_exit(summary)
         if args.command == "intraday-ingest":
             summary = run_intraday_ingest(
                 args.date,

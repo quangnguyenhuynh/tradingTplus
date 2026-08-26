@@ -322,6 +322,10 @@ python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNI
 python main.py index-daily [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
 python main.py index-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
 python main.py index-check [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-features-preview --date YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-daily --date YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-check --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
 ```
 
 ### `index-preview` chỉ đọc
@@ -404,3 +408,14 @@ Quy trình khuyến nghị:
 2. Kiểm tra các field, ngày, index code và giá trị được trả về.
 3. Chạy `index-daily` cho một ngày hoặc `index-backfill` cho range inclusive.
 4. Chạy `index-check` để kiểm tra completeness.
+
+### Tính index feature riêng biệt
+
+Sau khi apply thủ công `20260826_create_index_features_daily.sql`, dùng bốn lệnh
+`index-features-*` ở trên. Preview tính từ database nhưng không ghi; daily và
+backfill chỉ upsert `index_features_daily`; check so sánh ngày clean hợp lệ với
+feature identity và báo ngày thiếu/trùng, pre-warm-up, null bất thường sau warm-up,
+raw-không-clean và lịch sử không đủ. Ingest không gọi các lệnh này và các lệnh này
+không gọi ingest hoặc research downstream. Xem công thức, quy tắc null, warm-up
+250 phiên và thứ tự backfill tại
+[`src/index_features/README.vi.md`](../src/index_features/README.vi.md).
