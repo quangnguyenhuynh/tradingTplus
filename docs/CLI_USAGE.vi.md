@@ -340,8 +340,10 @@ Command nhận đúng một cách chọn ngày:
 - `--indexes` là bắt buộc và nhận một giá trị phân tách bằng dấu phẩy, ví dụ
   `VNINDEX,HNXINDEX`. Khác với ingest, backfill và check, bỏ option này là lỗi
   argument; preview không lấy index code từ `index_master`.
-- Mặc định in bảng dễ đọc. `--raw` in các row payload SSI dưới dạng JSON, còn
-  `--json` in các row đã chuẩn hóa dưới dạng JSON. Hai flag loại trừ nhau.
+- Mặc định in bảng dễ đọc và tóm tắt số field/field không đưa vào clean cho từng
+  item SSI. `--raw` in đầy đủ row payload SSI cùng tóm tắt mapping dưới dạng
+  JSON, còn `--json` in đầy đủ row clean đã chuẩn hóa (kể cả key nullable) dưới
+  dạng JSON. Hai flag loại trừ nhau.
 
 Ví dụ:
 
@@ -371,6 +373,11 @@ Giá trị nguồn bị thiếu vẫn là JSON `null` và hiển thị thành `-
 trả row, preview exit thành công và in thông báo rõ ràng như
 `No SSI index daily data returned for VNINDEX on 2026-08-24`; command không tạo
 row giả.
+
+Hợp đồng raw/clean theo từng field và các alias được ghi tại
+[SSI DailyIndex field mapping](SSI_DAILY_INDEX_MAPPING.md). `Time` và key source
+chưa biết vẫn được giữ trong raw và được báo là không đưa vào clean; command
+không âm thầm xóa hoặc tự gán ý nghĩa clean cho các field này.
 
 Mọi đối số ngày của bốn command index nhận chính xác `YYYY-MM-DD` hoặc `DD/MM/YYYY`; ví dụ `2026-08-24` và `24/08/2026` là cùng một ngày. Separator khác như `24-08-2026` sẽ bị từ chối.
 

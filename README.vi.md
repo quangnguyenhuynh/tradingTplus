@@ -185,6 +185,12 @@ python main.py index-preview --date 2026-08-24 --indexes VNINDEX --raw
 python main.py index-preview --date 2026-08-24 --indexes VNINDEX --json
 ```
 
+Preview raw giữ nguyên toàn bộ item SSI và kèm tóm tắt mapping; JSON chuẩn hóa
+chứa mọi field clean của `index_daily`, đồng thời giữ giá trị thiếu là `null`.
+Ma trận audit đầy đủ 23 field từ source sang raw và clean, gồm các alias và field
+`Time` chủ ý chỉ lưu raw, nằm trong
+[SSI DailyIndex field mapping](docs/SSI_DAILY_INDEX_MAPPING.md).
+
 `--raw` in các row payload SSI do client phân trang hiện có trả về; `--json` in
 record đã normalize. Command không insert, upsert, delete, tính feature hoặc
 chạy signal/backtest. Hãy preview trước, kiểm tra field và giá trị, chạy

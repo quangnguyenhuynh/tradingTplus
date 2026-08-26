@@ -13,6 +13,16 @@ from src.validation.index_daily_validator import validate_index_daily_record
 
 PAYLOAD = {"IndexId": "VNINDEX", "TradingDate": "25/08/2026", "IndexValue": 1280.5, "TotalMatchVol": 10, "TotalDealVol": 2, "TotalVol": 12}
 
+FULL_PAYLOAD = {
+    "Indexcode": "VNINDEX", "IndexValue": "1280.50", "TradingDate": "25/08/2026",
+    "Time": "", "Change": -1.25, "RatioChange": "-0.0975", "TotalTrade": "1234",
+    "Totalmatchvol": 1_000_001, "Totalmatchval": "25000000001.5", "TypeIndex": "Market",
+    "IndexName": "VN Index", "Advances": "180", "Nochanges": 20, "Declines": "100",
+    "Ceiling": 4, "Floor": "3", "Totaldealvol": "2000", "Totaldealval": 3000000,
+    "Totalvol": "1002001", "Totalval": 25003000001.5, "TradingSession": "CLOSE",
+    "Market": "HOSE", "Exchange": "HOSE",
+}
+
 
 @pytest.mark.parametrize("value", ["2026-08-24", "24/08/2026"])
 def test_shared_index_date_parser_accepts_documented_formats(value):
@@ -39,6 +49,50 @@ def test_raw_mapper_preserves_mismatched_payload_with_deterministic_hash():
     assert first["data_hash"] == second["data_hash"]
 
 
+@pytest.mark.parametrize("time_value", [None, ""])
+def test_all_documented_fields_are_preserved_raw_and_promoted_when_selected(time_value):
+    payload = {**FULL_PAYLOAD, "Time": time_value}
+    raw = build_index_raw_daily_record("VNINDEX", "25/08/2026", payload)
+    clean = build_index_daily_record("VNINDEX", "25/08/2026", payload)
+
+    assert len(payload) == 23
+    assert raw["payload"] == payload
+    assert clean == {
+        "index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1280.5,
+        "change": -1.25, "ratio_change": -0.0975, "total_trade": 1234.0,
+        "total_match_vol": 1000001.0, "total_match_val": 25000000001.5,
+        "total_deal_vol": 2000.0, "total_deal_val": 3000000.0,
+        "total_vol": 1002001.0, "total_val": 25003000001.5, "advances": 180.0,
+        "no_changes": 20.0, "declines": 100.0, "ceilings": 4.0, "floors": 3.0,
+        "type_index": "Market", "index_name": "VN Index", "trading_session": "CLOSE",
+        "market": "HOSE", "exchange": "HOSE",
+    }
+
+
+@pytest.mark.parametrize(
+    ("ceiling_key", "floor_key", "no_changes_key"),
+    [("Ceiling", "Floor", "Nochanges"), ("Ceilings", "Floors", "NoChanges")],
+)
+def test_market_breadth_aliases(ceiling_key, floor_key, no_changes_key):
+    payload = {
+        "indexid": "VNINDEX", "TradingDate": "25/08/2026",
+        ceiling_key: "5", floor_key: 6, no_changes_key: "7",
+    }
+    clean = build_index_daily_record("VNINDEX", "25/08/2026", payload)
+    assert clean["ceilings"] == 5.0
+    assert clean["floors"] == 6.0
+    assert clean["no_changes"] == 7.0
+
+
+def test_missing_numeric_fields_remain_null_not_zero():
+    clean = build_index_daily_record(
+        "VNINDEX", "25/08/2026", {"Indexcode": "VNINDEX", "TradingDate": "25/08/2026"}
+    )
+    assert clean["index_value"] is None
+    assert clean["total_trade"] is None
+    assert clean["ceilings"] is None
+
+
 def test_validator_rejects_impossible_and_warns_on_component_difference():
     bad = validate_index_daily_record({"index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": -1})
     assert not bad.is_valid
@@ -61,7 +115,7 @@ def test_service_persists_raw_before_rejecting_clean():
 def test_valid_response_persists_raw_then_clean_without_downstream_work():
     calls = []
     class SSI:
-        def get_daily_index_items(self, code, date): return [PAYLOAD]
+        def get_daily_index_items(self, code, date): return [FULL_PAYLOAD]
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
@@ -73,6 +127,9 @@ def test_valid_response_persists_raw_then_clean_without_downstream_work():
     assert [name for name, _ in calls] == ["raw", "clean"]
     created_at = calls[0][1][0]["created_at"]
     assert datetime.fromisoformat(created_at).utcoffset() == timedelta(0)
+    assert calls[0][1][0]["payload"] == FULL_PAYLOAD
+    assert calls[1][1][0]["total_match_val"] == 25000000001.5
+    assert calls[1][1][0]["ceilings"] == 4.0
     assert "created_at" not in calls[0][1][0]["payload"]
 
 

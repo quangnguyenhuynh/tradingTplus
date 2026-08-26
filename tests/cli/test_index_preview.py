@@ -78,6 +78,11 @@ def test_preview_raw_prints_raw_payload_json(monkeypatch, capsys):
     output = json.loads(capsys.readouterr().out)
     assert output[0]["raw"] == [PAYLOAD]
     assert output[0]["source"] == "SSI_DailyIndex"
+    assert output[0]["mapping_summary"] == [{
+        "raw_field_count": len(PAYLOAD),
+        "normalized_field_count": 22,
+        "omitted_from_clean": [],
+    }]
 
 
 def test_preview_json_prints_valid_normalized_json(monkeypatch, capsys):
@@ -89,6 +94,24 @@ def test_preview_json_prints_valid_normalized_json(monkeypatch, capsys):
     assert output[0]["index_code"] == "VNINDEX"
     assert output[0]["change"] is None
     assert output[0]["total_val"] is None
+    assert set(output[0]) == {
+        "index_code", "trading_date", "index_value", "change", "ratio_change",
+        "total_trade", "total_match_vol", "total_match_val", "total_deal_vol",
+        "total_deal_val", "total_vol", "total_val", "advances", "no_changes",
+        "declines", "ceilings", "floors", "type_index", "index_name",
+        "trading_session", "market", "exchange",
+    }
+
+
+def test_preview_reports_raw_only_time_without_removing_it(monkeypatch, capsys):
+    payload = {**PAYLOAD, "Time": "", "FutureSSIField": "kept"}
+    _install_ssi(monkeypatch, FakeSSI([payload]))
+
+    assert main.main(["index-preview", "--date", "2026-08-24", "--indexes", "VNINDEX", "--raw"]) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    assert output[0]["raw"] == [payload]
+    assert output[0]["mapping_summary"][0]["omitted_from_clean"] == ["Time", "FutureSSIField"]
 
 
 def test_preview_range_fetches_each_inclusive_date(monkeypatch, capsys):

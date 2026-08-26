@@ -347,9 +347,10 @@ The command accepts exactly one date selection:
   `VNINDEX,HNXINDEX`. Unlike the ingest, backfill, and check commands, omitting
   it is an argument error; preview never resolves index codes from
   `index_master`.
-- Human-readable output is the default. `--raw` prints SSI payload rows as JSON,
-  while `--json` prints normalized rows as JSON. The two flags are mutually
-  exclusive.
+- Human-readable output is the default and includes a field-count/omission
+  summary for each SSI item. `--raw` prints complete SSI payload rows plus that
+  mapping summary as JSON, while `--json` prints complete normalized clean rows
+  (including nullable keys) as JSON. The two flags are mutually exclusive.
 
 Examples:
 
@@ -379,6 +380,11 @@ Missing source values remain JSON `null` and display as `-`. If SSI returns no
 rows, preview exits successfully and prints a clear message such as
 `No SSI index daily data returned for VNINDEX on 2026-08-24`; it does not
 fabricate a row.
+
+The field-by-field raw/clean contract and accepted aliases are documented in
+[SSI DailyIndex field mapping](SSI_DAILY_INDEX_MAPPING.md). `Time` and unknown
+source keys are preserved raw and reported as omitted from clean; they are not
+silently removed or assigned invented clean meanings.
 
 All date arguments for the four index commands accept exactly `YYYY-MM-DD` or `DD/MM/YYYY`; for example, `2026-08-24` and `24/08/2026` identify the same date. Other separators such as `24-08-2026` are rejected.
 
