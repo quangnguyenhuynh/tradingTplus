@@ -328,6 +328,10 @@ python main.py index-preview (--date DATE | --from DATE --to DATE) --indexes VNI
 python main.py index-daily [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
 python main.py index-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
 python main.py index-check [YYYY-MM-DD|DD/MM/YYYY] [--indexes VNINDEX VN30]
+python main.py index-features-preview --date YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-daily --date YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-backfill --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
+python main.py index-features-check --from YYYY-MM-DD|DD/MM/YYYY --to YYYY-MM-DD|DD/MM/YYYY [--indexes VNINDEX VN30]
 ```
 
 ### Read-only `index-preview`
@@ -411,3 +415,15 @@ Recommended workflow:
 2. Verify the returned fields, dates, index codes, and values.
 3. Run `index-daily` for one date or `index-backfill` for an inclusive range.
 4. Run `index-check` for completeness.
+
+### Separate index feature calculation
+
+After manually applying `20260826_create_index_features_daily.sql`, use the four
+`index-features-*` commands above. Preview calculates from the database but never
+writes; daily and backfill upsert only `index_features_daily`; check compares
+eligible clean dates with feature identities and reports missing/duplicate dates,
+pre-warm-up rows, unexpected post-warm-up nulls, raw-without-clean dates, and
+insufficient histories. Ingestion never invokes these commands, and these
+commands never invoke ingestion or downstream research. For formulas, null
+rules, the 250-session warm-up, and backfill order, see
+[`src/index_features/README.md`](../src/index_features/README.md).

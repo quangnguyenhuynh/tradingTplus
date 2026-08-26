@@ -57,6 +57,7 @@ class SupabaseClient:
         "index_components",
         "index_raw_daily",
         "index_daily",
+        "index_features_daily",
     }
     _CREATED_AT_TABLES = {
         "symbols",
@@ -73,6 +74,7 @@ class SupabaseClient:
         "stream_status_snapshot",
         "stream_bar_snapshot",
         "data_quality_logs",
+        "index_features_daily",
     }
     _UPDATED_AT_TABLES = {
         "stock_daily",
@@ -82,6 +84,7 @@ class SupabaseClient:
         "index_components",
         "foreign_trading",
         "orderbook_snapshot",
+        "index_features_daily",
     }
 
     def __new__(cls):
@@ -341,6 +344,12 @@ class SupabaseClient:
 
     def upsert_index_raw_daily(self, records):
         self._upsert_in_batches('index_raw_daily', records, on_conflict='index_code,trading_date,data_hash')
+
+    def upsert_index_features_daily(self, records):
+        """Persist only the dedicated index feature identity."""
+        self._upsert_in_batches(
+            'index_features_daily', records, on_conflict='index_code,trading_date'
+        )
 
     def upsert_intraday(self, records):
         if not records:
