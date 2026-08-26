@@ -22,13 +22,13 @@ src/pipeline/
 ├── date_utils.py             # parse/kiểm tra ngày thị trường Việt Nam
 ├── init_symbols.py           # đồng bộ master data
 ├── index_data.py             # ingest index master/daily
-├── stock_foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
+├── foreign_trading.py        # writer compatibility legacy explicit; không thuộc daily ingest thường
 ├── backfill.py               # nhánh daily/intraday độc lập + completeness kết hợp
 ├── refill.py                 # orchestration maintenance source + feature cho một mã
 ├── intraday.py               # alias feature legacy, không ingest candle
 ├── eod_dry_run.py            # utility preview EOD/feature read-only
 ├── streaming_snapshot.py     # streaming capture có giới hạn
-└── stock_orderbook_snapshot.py     # mapping orderbook từ quote stream
+└── orderbook_snapshot.py     # mapping orderbook từ quote stream
 ```
 
 Các module streaming, index, master data, compatibility feature và dry-run vẫn tách khỏi daily/intraday REST ingest.

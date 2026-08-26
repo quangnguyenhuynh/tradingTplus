@@ -250,13 +250,13 @@ Tên dưới đây là đề xuất; task code phải đối chiếu lại schem
 
 | Bảng đề xuất | Mục đích |
 | --- | --- |
-| `stock_analog_profiles` | Metadata/config immutable và lifecycle của phương pháp. |
-| `stock_analog_snapshots` | Trạng thái lịch sử/current an toàn thời điểm và lineage. |
-| `stock_analog_outcomes` | Entry và outcome H+ của snapshot. |
-| `stock_analog_validation_runs` | Evidence/metrics validation theo thời gian. |
+| `analog_profiles` | Metadata/config immutable và lifecycle của phương pháp. |
+| `analog_snapshots` | Trạng thái lịch sử/current an toàn thời điểm và lineage. |
+| `analog_outcomes` | Entry và outcome H+ của snapshot. |
+| `analog_validation_runs` | Evidence/metrics validation theo thời gian. |
 | `analog_group_stats` | Thống kê group cùng mã theo checkpoint/horizon. |
-| `stock_analog_profile_reviews` | Quyết định approve/reject có audit. |
-| `stock_analog_queries` | Audit phân tích runtime tùy chọn; không phải signal. |
+| `analog_profile_reviews` | Quyết định approve/reject có audit. |
+| `analog_queries` | Audit phân tích runtime tùy chọn; không phải signal. |
 
 CLI minh họa, hiện chưa tồn tại:
 

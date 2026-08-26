@@ -52,10 +52,10 @@ alert, ranking và NAV.
 
 ## Lệnh runtime production
 
-V1 chỉ hỗ trợ EOD/`1d`. `analogs profiles register` là dry-run nếu thiếu `--apply`; list và register thật dùng `stock_analog_profiles` với đúng identity trong source. `analogs history build` đọc phân trang feature 1d và `stock_daily`; chỉ `--apply` mới upsert snapshot và outcome H+1/H+3/H+5. Replace còn bắt buộc `--confirm-replace` và chỉ xóa đúng identity/mã/khoảng ngày/EOD.
+V1 chỉ hỗ trợ EOD/`1d`. `analogs profiles register` là dry-run nếu thiếu `--apply`; list và register thật dùng `analog_profiles` với đúng identity trong source. `analogs history build` đọc phân trang feature 1d và `stock_daily`; chỉ `--apply` mới upsert snapshot và outcome H+1/H+3/H+5. Replace còn bắt buộc `--confirm-replace` và chỉ xóa đúng identity/mã/khoảng ngày/EOD.
 
 V2 giữ nguyên dimension/matching và lưu H+10 thành row thứ tư trong
-`stock_analog_outcomes` với `horizon_sessions=10`, không thêm column. Resolver bắt buộc
+`analog_outcomes` với `horizon_sessions=10`, không thêm column. Resolver bắt buộc
 đúng code/version, có thể kiểm tra exact hash và không tự chọn version mới nhất.
 V2 vẫn draft, cần history build và validation riêng, không tái sử
 dụng evidence V1.

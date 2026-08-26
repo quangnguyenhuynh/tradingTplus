@@ -40,7 +40,7 @@ def normalize_feature_range(from_date, to_date) -> tuple[date, date]:
 
 def _resolve_symbols(db: SupabaseClient, symbols) -> list[str]:
     if symbols is None:
-        result = db.get().table("stock_symbols").select("symbol").execute()
+        result = db.get().table("symbols").select("symbol").execute()
         symbols = [row["symbol"] for row in result.data]
     return list(dict.fromkeys(str(symbol).strip().upper() for symbol in symbols))
 

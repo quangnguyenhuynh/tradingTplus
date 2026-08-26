@@ -43,13 +43,13 @@ class SupabaseClient:
         "stock_foreign_trading",
         "stock_orderbook_snapshot",
         "stream_raw_snapshot",
-        "stock_stream_quote_snapshot",
-        "stock_stream_trade_snapshot",
-        "stock_stream_foreign_snapshot",
+        "stream_quote_snapshot",
+        "stream_trade_snapshot",
+        "stream_foreign_snapshot",
         "stream_index_snapshot",
-        "stock_stream_status_snapshot",
-        "stock_stream_bar_snapshot",
-        "stock_securities",
+        "stream_status_snapshot",
+        "stream_bar_snapshot",
+        "securities",
         "stock_daily",
         "stock_raw_daily",
         "stock_raw_intraday",
@@ -60,26 +60,26 @@ class SupabaseClient:
         "index_features_daily",
     }
     _CREATED_AT_TABLES = {
-        "stock_symbols",
+        "symbols",
         "stock_raw_daily",
         "index_raw_daily",
         "stock_daily",
         "stock_intraday",
         "stock_orderbook_snapshot",
         "stream_raw_snapshot",
-        "stock_stream_quote_snapshot",
-        "stock_stream_trade_snapshot",
-        "stock_stream_foreign_snapshot",
+        "stream_quote_snapshot",
+        "stream_trade_snapshot",
+        "stream_foreign_snapshot",
         "stream_index_snapshot",
-        "stock_stream_status_snapshot",
-        "stock_stream_bar_snapshot",
+        "stream_status_snapshot",
+        "stream_bar_snapshot",
         "stock_data_quality_logs",
         "index_features_daily",
     }
     _UPDATED_AT_TABLES = {
         "stock_daily",
         "stock_intraday",
-        "stock_securities",
+        "securities",
         "index_master",
         "index_components",
         "stock_foreign_trading",
@@ -141,7 +141,7 @@ class SupabaseClient:
     def health_check(self) -> bool:
         try:
             self._with_retry(
-                lambda: self.client.table('stock_symbols').select('symbol').limit(1).execute(),
+                lambda: self.client.table('symbols').select('symbol').limit(1).execute(),
                 action_name="health_check",
                 max_retry=2,
                 base_sleep=0.2,
@@ -318,10 +318,10 @@ class SupabaseClient:
         self._upsert_in_batches('stock_raw_intraday', records, on_conflict='symbol,time,data_hash', batch_size=200)
 
     def upsert_symbols(self, symbols):
-        self._upsert_in_batches('stock_symbols', symbols, on_conflict='symbol')
+        self._upsert_in_batches('symbols', symbols, on_conflict='symbol')
 
     def upsert_securities(self, records):
-        self._upsert_in_batches('stock_securities', records, on_conflict='symbol')
+        self._upsert_in_batches('securities', records, on_conflict='symbol')
 
     def upsert_stock_daily(self, records):
         self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
@@ -446,22 +446,22 @@ class SupabaseClient:
         self._upsert_in_batches('stream_raw_snapshot', records, on_conflict='payload_hash')
 
     def upsert_stream_quote(self, records):
-        self._upsert_in_batches('stock_stream_quote_snapshot', records, on_conflict='symbol,time')
+        self._upsert_in_batches('stream_quote_snapshot', records, on_conflict='symbol,time')
 
     def upsert_stream_trade(self, records):
-        self._upsert_in_batches('stock_stream_trade_snapshot', records, on_conflict='symbol,time')
+        self._upsert_in_batches('stream_trade_snapshot', records, on_conflict='symbol,time')
 
     def upsert_stream_foreign_snapshot(self, records):
-        self._upsert_in_batches('stock_stream_foreign_snapshot', records, on_conflict='symbol,time')
+        self._upsert_in_batches('stream_foreign_snapshot', records, on_conflict='symbol,time')
 
     def upsert_stream_index_snapshot(self, records):
         self._upsert_in_batches('stream_index_snapshot', records, on_conflict='index_code,time')
 
     def upsert_stream_status_snapshot(self, records):
-        self._upsert_in_batches('stock_stream_status_snapshot', records, on_conflict='symbol,time')
+        self._upsert_in_batches('stream_status_snapshot', records, on_conflict='symbol,time')
 
     def upsert_stream_bar_snapshot(self, records):
-        self._upsert_in_batches('stock_stream_bar_snapshot', records, on_conflict='symbol,time')
+        self._upsert_in_batches('stream_bar_snapshot', records, on_conflict='symbol,time')
 
     def upsert_features(self, records):
         self._upsert_in_batches('stock_features', records, on_conflict='symbol,timeframe,time')
@@ -504,7 +504,7 @@ class SupabaseClient:
         }
 
     def get_symbols(self):
-        result = self._with_retry(lambda: self.client.table('stock_symbols').select('symbol').execute(), action_name="get_symbols")
+        result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")
         return [row['symbol'] for row in result.data]
 
     def get_stock_daily(self, symbol: str, trading_date: str | None):
@@ -519,7 +519,7 @@ class SupabaseClient:
 
     def get_symbol_count(self):
         result = self._with_retry(
-            lambda: self.client.table('stock_symbols').select('*', count='exact').execute(),
+            lambda: self.client.table('symbols').select('*', count='exact').execute(),
             action_name="get_symbol_count",
         )
         return result.count

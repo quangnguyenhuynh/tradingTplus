@@ -679,7 +679,7 @@ def run_source_summary(
             "Supabase health-check failed. Please check connection and credentials."
         )
     if symbols is None:
-        result = db.get().table("stock_symbols").select("symbol").execute()
+        result = db.get().table("symbols").select("symbol").execute()
         symbols = [row["symbol"] for row in result.data]
     symbols = [str(symbol).upper() for symbol in symbols]
     if mode not in {"full", "incremental"}:

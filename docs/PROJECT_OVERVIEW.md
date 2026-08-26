@@ -685,7 +685,7 @@ Dừng sau completeness.
 #### `stock_features`
 
 ```text
-validated clean data → feature computation → stock_stock_features table
+validated clean data → feature computation → stock_features table
 ```
 
 Được gọi riêng.
@@ -907,4 +907,4 @@ python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
 
 `python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

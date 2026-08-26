@@ -260,13 +260,13 @@ parser in the implementation task:
 
 | Proposed table | Purpose |
 | --- | --- |
-| `stock_analog_profiles` | Immutable method metadata/configuration and lifecycle. |
-| `stock_analog_snapshots` | Historical/current time-safe state and lineage. |
-| `stock_analog_outcomes` | Entry and H+ outcomes for each snapshot. |
-| `stock_analog_validation_runs` | Chronological evidence and metrics. |
+| `analog_profiles` | Immutable method metadata/configuration and lifecycle. |
+| `analog_snapshots` | Historical/current time-safe state and lineage. |
+| `analog_outcomes` | Entry and H+ outcomes for each snapshot. |
+| `analog_validation_runs` | Chronological evidence and metrics. |
 | `analog_group_stats` | Same-symbol group statistics by checkpoint/horizon. |
-| `stock_analog_profile_reviews` | Audited approve/reject decision. |
-| `stock_analog_queries` | Optional runtime-analysis audit; not a signal. |
+| `analog_profile_reviews` | Audited approve/reject decision. |
+| `analog_queries` | Optional runtime-analysis audit; not a signal. |
 
 Illustrative CLI only:
 

@@ -120,15 +120,15 @@ SET default_table_access_method = "heap";
 -- Post-20260826 stock-domain relation inventory. Definitions introduced by the
 -- later focused migrations retain their columns, constraints, RLS, grants, and
 -- policies under these metadata-renamed relations:
--- stock_symbols, stock_securities, stock_raw_daily, stock_raw_intraday,
+-- symbols, securities, stock_raw_daily, stock_raw_intraday,
 -- stock_daily, stock_intraday, stock_features, stock_foreign_trading,
 -- stock_orderbook_snapshot, stock_data_quality_logs,
--- stock_analog_profiles, stock_analog_snapshots, stock_analog_outcomes,
--- stock_analog_queries, stock_analog_query_matches,
--- stock_analog_validation_runs, stock_analog_profile_reviews,
--- stock_stream_quote_snapshot, stock_stream_trade_snapshot,
--- stock_stream_foreign_snapshot, stock_stream_status_snapshot,
--- stock_stream_bar_snapshot. Index-domain relations and the mixed-domain
+-- analog_profiles, analog_snapshots, analog_outcomes,
+-- analog_queries, analog_query_matches,
+-- analog_validation_runs, analog_profile_reviews,
+-- stream_quote_snapshot, stream_trade_snapshot,
+-- stream_foreign_snapshot, stream_status_snapshot,
+-- stream_bar_snapshot. Index-domain relations and the mixed-domain
 -- stream_raw_snapshot are intentionally unchanged.
 
 CREATE TABLE IF NOT EXISTS "public"."index_master" (
@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS "public"."stock_orderbook_snapshot" (
 ALTER TABLE "public"."stock_orderbook_snapshot" OWNER TO "postgres";
 
 
-CREATE SEQUENCE IF NOT EXISTS "public"."orderbook_snapshot_id_seq"
+CREATE SEQUENCE IF NOT EXISTS "public"."stock_orderbook_snapshot_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -286,10 +286,10 @@ CREATE SEQUENCE IF NOT EXISTS "public"."orderbook_snapshot_id_seq"
     CACHE 1;
 
 
-ALTER SEQUENCE "public"."orderbook_snapshot_id_seq" OWNER TO "postgres";
+ALTER SEQUENCE "public"."stock_orderbook_snapshot_id_seq" OWNER TO "postgres";
 
 
-ALTER SEQUENCE "public"."orderbook_snapshot_id_seq" OWNED BY "public"."stock_orderbook_snapshot"."id";
+ALTER SEQUENCE "public"."stock_orderbook_snapshot_id_seq" OWNED BY "public"."stock_orderbook_snapshot"."id";
 
 
 
@@ -314,7 +314,7 @@ ALTER TABLE "public"."stock_raw_intraday" OWNER TO "postgres";
 COMMENT ON COLUMN "public"."stock_raw_intraday"."payload" IS 'Original semantic SSI candle JSON object; historical rows may be NULL.';
 
 
-CREATE SEQUENCE IF NOT EXISTS "public"."raw_intraday_id_seq"
+CREATE SEQUENCE IF NOT EXISTS "public"."stock_raw_intraday_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -322,10 +322,10 @@ CREATE SEQUENCE IF NOT EXISTS "public"."raw_intraday_id_seq"
     CACHE 1;
 
 
-ALTER SEQUENCE "public"."raw_intraday_id_seq" OWNER TO "postgres";
+ALTER SEQUENCE "public"."stock_raw_intraday_id_seq" OWNER TO "postgres";
 
 
-ALTER SEQUENCE "public"."raw_intraday_id_seq" OWNED BY "public"."stock_raw_intraday"."id";
+ALTER SEQUENCE "public"."stock_raw_intraday_id_seq" OWNED BY "public"."stock_raw_intraday"."id";
 
 
 
@@ -1359,7 +1359,7 @@ CREATE TABLE IF NOT EXISTS "public"."stock_intraday_2026_12" (
 ALTER TABLE "public"."stock_intraday_2026_12" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."stock_symbols" (
+CREATE TABLE IF NOT EXISTS "public"."symbols" (
     "symbol" "text" NOT NULL,
     "market" "text",
     "name" "text",
@@ -1367,7 +1367,7 @@ CREATE TABLE IF NOT EXISTS "public"."stock_symbols" (
 );
 
 
-ALTER TABLE "public"."stock_symbols" OWNER TO "postgres";
+ALTER TABLE "public"."symbols" OWNER TO "postgres";
 
 
 
@@ -1563,11 +1563,11 @@ ALTER TABLE ONLY "public"."stock_intraday" ATTACH PARTITION "public"."stock_intr
 
 
 
-ALTER TABLE ONLY "public"."stock_orderbook_snapshot" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."orderbook_snapshot_id_seq"'::"regclass");
+ALTER TABLE ONLY "public"."stock_orderbook_snapshot" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."stock_orderbook_snapshot_id_seq"'::"regclass");
 
 
 
-ALTER TABLE ONLY "public"."stock_raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."raw_intraday_id_seq"'::"regclass");
+ALTER TABLE ONLY "public"."stock_raw_intraday" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."stock_raw_intraday_id_seq"'::"regclass");
 
 
 
@@ -1576,22 +1576,22 @@ ALTER TABLE ONLY "public"."stock_raw_intraday" ALTER COLUMN "id" SET DEFAULT "ne
 
 
 ALTER TABLE ONLY "public"."stock_features"
-    ADD CONSTRAINT "features_pkey" PRIMARY KEY ("symbol", "timeframe", "time");
+    ADD CONSTRAINT "stock_features_pkey" PRIMARY KEY ("symbol", "timeframe", "time");
 
 
 
 ALTER TABLE ONLY "public"."stock_foreign_trading"
-    ADD CONSTRAINT "foreign_trading_pkey" PRIMARY KEY ("symbol", "time");
+    ADD CONSTRAINT "stock_foreign_trading_pkey" PRIMARY KEY ("symbol", "time");
 
 
 
 ALTER TABLE ONLY "public"."stock_orderbook_snapshot"
-    ADD CONSTRAINT "orderbook_snapshot_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "stock_orderbook_snapshot_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."stock_raw_intraday"
-    ADD CONSTRAINT "raw_intraday_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "stock_raw_intraday_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1840,7 +1840,7 @@ ALTER TABLE ONLY "public"."stock_intraday_2026_12"
 
 
 
-ALTER TABLE ONLY "public"."stock_symbols"
+ALTER TABLE ONLY "public"."symbols"
     ADD CONSTRAINT "symbols_pkey" PRIMARY KEY ("symbol");
 
 
@@ -1853,7 +1853,7 @@ ALTER TABLE ONLY "public"."stock_symbols"
 
 
 
-CREATE INDEX "idx_features_symbol_time" ON "public"."stock_features" USING "btree" ("symbol", "timeframe", "time" DESC);
+CREATE INDEX "idx_stock_features_symbol_time" ON "public"."stock_features" USING "btree" ("symbol", "timeframe", "time" DESC);
 
 
 
@@ -1881,7 +1881,7 @@ CREATE INDEX "idx_raw_symbol_time" ON "public"."stock_raw_intraday" USING "btree
 
 
 
-CREATE UNIQUE INDEX "raw_intraday_symbol_time_data_hash_uidx" ON "public"."stock_raw_intraday" USING "btree" ("symbol", "time", "data_hash");
+CREATE UNIQUE INDEX "stock_raw_intraday_symbol_time_data_hash_uidx" ON "public"."stock_raw_intraday" USING "btree" ("symbol", "time", "data_hash");
 
 
 
@@ -2464,17 +2464,17 @@ ALTER INDEX "public"."idx_intraday_symbol_time" ATTACH PARTITION "public"."stock
 
 
 ALTER TABLE ONLY "public"."stock_features"
-    ADD CONSTRAINT "features_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
+    ADD CONSTRAINT "stock_features_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
 
 
 
 ALTER TABLE ONLY "public"."stock_foreign_trading"
-    ADD CONSTRAINT "foreign_trading_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
+    ADD CONSTRAINT "stock_foreign_trading_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
 
 
 
 ALTER TABLE "public"."stock_intraday"
-    ADD CONSTRAINT "stock_intraday_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."stock_symbols"("symbol");
+    ADD CONSTRAINT "stock_intraday_symbol_fkey" FOREIGN KEY ("symbol") REFERENCES "public"."symbols"("symbol");
 
 
 
@@ -2695,9 +2695,9 @@ GRANT ALL ON TABLE "public"."stock_orderbook_snapshot" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."orderbook_snapshot_id_seq" TO "anon";
-GRANT ALL ON SEQUENCE "public"."orderbook_snapshot_id_seq" TO "authenticated";
-GRANT ALL ON SEQUENCE "public"."orderbook_snapshot_id_seq" TO "service_role";
+GRANT ALL ON SEQUENCE "public"."stock_orderbook_snapshot_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."stock_orderbook_snapshot_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."stock_orderbook_snapshot_id_seq" TO "service_role";
 
 
 
@@ -2707,9 +2707,9 @@ GRANT ALL ON TABLE "public"."stock_raw_intraday" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."raw_intraday_id_seq" TO "anon";
-GRANT ALL ON SEQUENCE "public"."raw_intraday_id_seq" TO "authenticated";
-GRANT ALL ON SEQUENCE "public"."raw_intraday_id_seq" TO "service_role";
+GRANT ALL ON SEQUENCE "public"."stock_raw_intraday_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."stock_raw_intraday_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."stock_raw_intraday_id_seq" TO "service_role";
 
 
 
@@ -3007,9 +3007,9 @@ GRANT ALL ON TABLE "public"."stock_intraday_2026_12" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."stock_symbols" TO "anon";
-GRANT ALL ON TABLE "public"."stock_symbols" TO "authenticated";
-GRANT ALL ON TABLE "public"."stock_symbols" TO "service_role";
+GRANT ALL ON TABLE "public"."symbols" TO "anon";
+GRANT ALL ON TABLE "public"."symbols" TO "authenticated";
+GRANT ALL ON TABLE "public"."symbols" TO "service_role";
 
 
 

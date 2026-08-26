@@ -74,7 +74,7 @@ vẫn chặn final approval và production query.
 | Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `stock_features`, `intraday`, `streaming-ingest`. |
 | SSI REST client | Implemented | Authentication, paging, timeout, retry `401` một lần. |
 | SSI streaming client | Implemented, live chưa kiểm chứng | Classic SignalR, explicit channel, bounded timeout. |
-| Master data | Implemented | `stock_symbols`, `stock_securities`, `index_master`, `index_components`. |
+| Master data | Implemented | `symbols`, `securities`, `index_master`, `index_components`. |
 | Daily raw ingest | Implemented | `stock_raw_daily` giữ full `DailyStockPrice` payload và hash. |
 | Daily clean ingest | Implemented | `stock_daily` được validate trước khi ghi. |
 | Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
@@ -112,7 +112,7 @@ python main.py init
 Hiện thực hiện:
 
 - đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`;
-- ghi `stock_symbols`, `stock_securities`, `index_master` và `index_components`.
+- ghi `symbols`, `securities`, `index_master` và `index_components`.
 
 Không ingest history và không chạy feature/signal/backtest.
 
@@ -280,8 +280,8 @@ Streaming ingest không thay thế historical daily/intraday ingest và realtime
 Các bảng chính:
 
 ```text
-stock_symbols
-stock_securities
+symbols
+securities
 indexes
 index_components
 ```
@@ -450,12 +450,12 @@ Migration mới nhất trong repo bổ sung/reconcile:
 
 ```text
 stream_raw_snapshot
-stock_stream_quote_snapshot
-stock_stream_trade_snapshot
-stock_stream_foreign_snapshot
+stream_quote_snapshot
+stream_trade_snapshot
+stream_foreign_snapshot
 stream_index_snapshot
-stock_stream_status_snapshot
-stock_stream_bar_snapshot
+stream_status_snapshot
+stream_bar_snapshot
 ```
 
 Raw stream record có:
@@ -1025,7 +1025,7 @@ code with timezone-aware `Asia/Ho_Chi_Minh` values carrying an explicit `+07:00`
 offset. PostgreSQL `now()` defaults are removed for these audit fields. The database client uses a preserve-safe
 insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## Issue #110 Phase 0 closure review (updated 2026-08-03)
 
