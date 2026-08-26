@@ -71,11 +71,11 @@ vẫn chặn final approval và production query.
 
 | Thành phần | Trạng thái | Ghi chú hiện tại |
 | --- | --- | --- |
-| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `features`, `intraday`, `streaming-ingest`. |
+| Production CLI | Implemented | Có `sync-master-data`, `init`, `daily`, `intraday-ingest`, `eod`, `stock_features`, `intraday`, `streaming-ingest`. |
 | SSI REST client | Implemented | Authentication, paging, timeout, retry `401` một lần. |
 | SSI streaming client | Implemented, live chưa kiểm chứng | Classic SignalR, explicit channel, bounded timeout. |
-| Master data | Implemented | `symbols`, `securities`, `index_master`, `index_components`. |
-| Daily raw ingest | Implemented | `raw_daily` giữ full `DailyStockPrice` payload và hash. |
+| Master data | Implemented | `stock_symbols`, `stock_securities`, `index_master`, `index_components`. |
+| Daily raw ingest | Implemented | `stock_raw_daily` giữ full `DailyStockPrice` payload và hash. |
 | Daily clean ingest | Implemented | `stock_daily` được validate trước khi ghi. |
 | Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
 | Intraday clean ingest | Implemented | Chỉ persist `timeframe='1m'`. |
@@ -112,7 +112,7 @@ python main.py init
 Hiện thực hiện:
 
 - đọc SSI `Securities`, `SecuritiesDetails`, `IndexList` và `IndexComponents`;
-- ghi `symbols`, `securities`, `index_master` và `index_components`.
+- ghi `stock_symbols`, `stock_securities`, `index_master` và `index_components`.
 
 Không ingest history và không chạy feature/signal/backtest.
 
@@ -126,14 +126,14 @@ Flow hiện tại:
 
 ```text
 SSI DailyStockPrice — một request cho mỗi symbol/date
-    ├── raw_daily: full payload + data_hash
+    ├── stock_raw_daily: full payload + data_hash
     ├── validate daily mapper
     └── stock_daily nếu valid, bao gồm foreign daily/room fields
 
 Market-index daily ingest is outside the stock-only daily/EOD/backfill contract. Existing `index_daily` schema/data remains untouched.
 ```
 
-`daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `index_master`, `index_components`, `raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
+`daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `stock_raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `index_master`, `index_components`, `stock_raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
 
 Khi không truyền ngày, command dùng `latest_previous_weekday` theo logic hiện tại. Đây là weekday-based default, chưa phải exchange holiday calendar.
 
@@ -151,7 +151,7 @@ Flow hiện tại:
 SSI IntradayOhlc resolution=1
     ├── parse SSI local time as Asia/Ho_Chi_Minh
     ├── convert to UTC
-    ├── raw_intraday
+    ├── stock_raw_intraday
     ├── validate each clean candle
     ├── validate batch
     └── stock_intraday timeframe=1m
@@ -163,7 +163,7 @@ Hành vi quan trọng:
 - không gọi `DailyStockPrice`, `DailyIndex` hoặc master-data endpoints;
 - không ghi daily, foreign hoặc index tables;
 - đọc `stock_daily` cùng symbol/date làm optional validation context từ database;
-- chỉ ghi `raw_intraday` và `stock_intraday` với `timeframe='1m'`;
+- chỉ ghi `stock_raw_intraday` và `stock_intraday` với `timeframe='1m'`;
 - thiếu daily context không chặn ingest;
 - `reference_price`, `ceiling_price`, `floor_price` giữ `NULL` khi thiếu context;
 - summary được đánh dấu `PARTIAL` nếu daily context thiếu;
@@ -229,7 +229,7 @@ Supported timeframes:
 1d
 ```
 
-Feature chạy độc lập với ingest và chỉ ghi bảng `features`.
+Feature chạy độc lập với ingest và chỉ ghi bảng `stock_features`.
 
 ## 6. Legacy intraday feature alias
 
@@ -280,8 +280,8 @@ Streaming ingest không thay thế historical daily/intraday ingest và realtime
 Các bảng chính:
 
 ```text
-symbols
-securities
+stock_symbols
+stock_securities
 indexes
 index_components
 ```
@@ -297,7 +297,7 @@ Master sync là idempotent theo conflict key hiện tại và không tự chạy
 
 ## 2. Raw daily
 
-`raw_daily` hiện lưu:
+`stock_raw_daily` hiện lưu:
 
 - `symbol`;
 - `trading_date`;
@@ -340,7 +340,7 @@ symbol,trading_date
 
 ## 4. Raw intraday
 
-`raw_intraday` hiện lưu cho mỗi candle parse được:
+`stock_raw_intraday` hiện lưu cho mỗi candle parse được:
 
 - `symbol`;
 - UTC `time`;
@@ -430,7 +430,7 @@ Conflict key daily:
 symbol,trading_date
 ```
 
-`stock_daily` là nguồn canonical cho foreign data cuối ngày. Production `daily` không gọi helper và không ghi row `foreign_trading`; standalone helper `fetch_foreign_trading_day` chỉ còn là compatibility path explicit.
+`stock_daily` là nguồn canonical cho foreign data cuối ngày. Production `daily` không gọi helper và không ghi row `stock_foreign_trading`; standalone helper `fetch_foreign_trading_day` chỉ còn là compatibility path explicit.
 
 ## 8. Index data
 
@@ -450,12 +450,12 @@ Migration mới nhất trong repo bổ sung/reconcile:
 
 ```text
 stream_raw_snapshot
-stream_quote_snapshot
-stream_trade_snapshot
-stream_foreign_snapshot
+stock_stream_quote_snapshot
+stock_stream_trade_snapshot
+stock_stream_foreign_snapshot
 stream_index_snapshot
-stream_status_snapshot
-stream_bar_snapshot
+stock_stream_status_snapshot
+stock_stream_bar_snapshot
 ```
 
 Raw stream record có:
@@ -488,7 +488,7 @@ Daily validator kiểm tra các nhóm chính:
 
 Nếu daily validation error:
 
-- `raw_daily` vẫn giữ source payload;
+- `stock_raw_daily` vẫn giữ source payload;
 - `stock_daily` không được ghi;
 - production `intraday-ingest` vẫn là pipeline riêng và không bị chặn tự động bởi lỗi daily này.
 
@@ -551,8 +551,8 @@ Hiện query:
 - `stock_daily`;
 - `stock_intraday` timeframe `1m`;
 - `index_daily` count;
-- legacy `foreign_trading` count (observability only; normal daily ingest không ghi);
-- `orderbook_snapshot` count theo UTC range của ngày Việt Nam.
+- legacy `stock_foreign_trading` count (observability only; normal daily ingest không ghi);
+- `stock_orderbook_snapshot` count theo UTC range của ngày Việt Nam.
 
 Per-symbol summary có:
 
@@ -603,13 +603,13 @@ Completeness chưa bao phủ đầy đủ:
 
 ## Conflict-key caveat
 
-`raw_intraday` dùng:
+`stock_raw_intraday` dùng:
 
 ```text
 on_conflict = symbol,time,data_hash
 ```
 
-`raw_intraday` nằm trong `_CRITICAL_ON_CONFLICT_TABLES`; nếu production thiếu
+`stock_raw_intraday` nằm trong `_CRITICAL_ON_CONFLICT_TABLES`; nếu production thiếu
 unique index tương ứng, ingest fail-fast thay vì fallback sang upsert không có
 explicit conflict key.
 
@@ -637,7 +637,7 @@ Có migration trong repo không chứng minh migration đã được apply lên 
 Một bảng feature chung:
 
 ```text
-features
+stock_features
 ```
 
 Conflict key:
@@ -891,7 +891,7 @@ Kiểm tra:
 
 - tables/columns/data types;
 - unique indexes;
-- `raw_intraday` conflict key;
+- `stock_raw_intraday` conflict key;
 - partition function và partitions;
 - streaming snapshot tables;
 - migration application order;
@@ -1025,7 +1025,7 @@ code with timezone-aware `Asia/Ho_Chi_Minh` values carrying an explicit `+07:00`
 offset. PostgreSQL `now()` defaults are removed for these audit fields. The database client uses a preserve-safe
 insert-ignore/update sequence so upsert reruns do not reset existing `created_at`.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## Issue #110 Phase 0 closure review (updated 2026-08-03)
 
@@ -1039,7 +1039,7 @@ expected production schema was verified read-only. This is
 Daily feature reads now paginate `stock_daily`; incremental daily retains a five-year warm-up. Intraday incremental retains 250 observed trading sessions (configurable 200–250), not calendar days/bars. Full remains non-destructive; incremental no-output is an `OK` no-op; scoped replace computes and validates before one atomic service-role RPC. Historical corrections are not automatically detected without source-version metadata, so operators must request exact scoped replace/full work separately.
 
 New intraday ingest rows now preserve the complete semantic SSI candle object in
-nullable `raw_intraday.payload JSONB`; historical rows may remain `NULL` and no
+nullable `stock_raw_intraday.payload JSONB`; historical rows may remain `NULL` and no
 payload backfill occurred. The owner also verified scoped SSI/raw/clean/feature
 samples without unexplained critical mismatch. The authoritative/versioned
 exchange calendar and exact retained sample identifiers remain documented

@@ -154,9 +154,9 @@ def main() -> None:
         validate_safe_write_date(selected, force=args.force)
     except ValueError as exc:
         raise SystemExit(f"❌ Refusing smoke-test write: {exc}. Pass --force only if this is intentional.") from exc
-    target_tables = ["raw_daily", "stock_daily", "securities", "index_master", "index_raw_daily", "index_daily"]
+    target_tables = ["stock_raw_daily", "stock_daily", "stock_securities", "index_master", "index_raw_daily", "index_daily"]
     if args.write_intraday:
-        target_tables.extend(["raw_intraday", "stock_intraday"])
+        target_tables.extend(["stock_raw_intraday", "stock_intraday"])
     print("\n⚠️  WRITE CONFIRMATION")
     print(f"   symbol: {symbol}")
     print(f"   date  : {ssi_date} ({selected.iso})")
@@ -168,7 +168,7 @@ def main() -> None:
         db.upsert_raw_daily([raw_daily])
         print("✅ Wrote raw_daily: 1")
     else:
-        _warn_empty("raw_daily")
+        _warn_empty("stock_raw_daily")
     if daily_record:
         db.upsert_stock_daily([daily_record])
         print("✅ Wrote stock_daily: 1")
@@ -178,7 +178,7 @@ def main() -> None:
         db.upsert_securities(security_records)
         print(f"✅ written securities count: {len(security_records)}")
     else:
-        _warn_empty("securities")
+        _warn_empty("stock_securities")
     if index_records:
         db.upsert_index_master(index_records)
         print(f"✅ written index_master count: {len(index_records)}")

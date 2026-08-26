@@ -107,7 +107,7 @@ python scripts/ssi_api_inspector/inspect.py run --help
 | CLI name | HTTP method | SSI endpoint | Main parameters |
 | --- | --- | --- | --- |
 | `access-token` | POST | `AccessToken` | JSON `consumerID`, `consumerSecret` |
-| `securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
+| `stock_securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
 | `securities-details` | GET | `SecuritiesDetails` | `Market`, `Symbol`, `PageIndex`, `PageSize` |
 | `index-components` | GET | `IndexComponents` | `IndexCode`, `PageIndex`, `PageSize` |
 | `index-list` | GET | `IndexList` | `Exchange`, `PageIndex`, `PageSize` |
@@ -131,7 +131,7 @@ For the current Trading T+ architecture:
 | --- | --- | --- |
 | `--symbol` | `SSI` | Stock symbol used by symbol-based endpoints. |
 | `--date` | `10/07/2026` | Explicit date in `DD/MM/YYYY` format. Used as both `FromDate` and `ToDate`. |
-| `--market` | `HOSE` | Market for `securities`, `securities-details`, and `daily-stock-price`. |
+| `--market` | `HOSE` | Market for `stock_securities`, `securities-details`, and `daily-stock-price`. |
 | `--exchange` | `HOSE` | Exchange for `index-list`. |
 | `--index-code` | `VNINDEX` | Index code for `index-components` and `daily-index`. |
 | `--page-index` | `1` | SSI API page number. |

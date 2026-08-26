@@ -96,7 +96,7 @@ def read_inputs(
     closes: dict[tuple[str, date], Any] = {}
     for symbol in symbols:
         feature_rows = _paged(
-            lambda symbol=symbol: client.table("features")
+            lambda symbol=symbol: client.table("stock_features")
             .select(FEATURE_FIELDS)
             .eq("symbol", symbol)
             .eq("timeframe", "1d")

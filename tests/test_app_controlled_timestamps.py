@@ -109,23 +109,23 @@ def test_postgres_not_null_violation_is_not_retried_even_with_transient_wording(
 def test_table_specific_timestamps_are_app_controlled():
     stamp = "2026-07-24T12:00:00+00:00"
     cases = {
-        "raw_daily": "created_at",
-        "raw_intraday": "fetched_at",
-        "securities": "updated_at",
+        "stock_raw_daily": "created_at",
+        "stock_raw_intraday": "fetched_at",
+        "stock_securities": "updated_at",
         "index_master": "updated_at",
         "index_raw_daily": "created_at",
         "index_components": "updated_at",
-        "foreign_trading": "updated_at",
-        "orderbook_snapshot": "updated_at",
+        "stock_foreign_trading": "updated_at",
+        "stock_orderbook_snapshot": "updated_at",
         "stream_raw_snapshot": "received_at",
-        "stream_quote_snapshot": "created_at",
-        "stream_trade_snapshot": "created_at",
-        "stream_foreign_snapshot": "created_at",
+        "stock_stream_quote_snapshot": "created_at",
+        "stock_stream_trade_snapshot": "created_at",
+        "stock_stream_foreign_snapshot": "created_at",
         "stream_index_snapshot": "created_at",
-        "stream_status_snapshot": "created_at",
-        "stream_bar_snapshot": "created_at",
-        "features": "last_updated_at",
-        "data_quality_logs": "created_at",
+        "stock_stream_status_snapshot": "created_at",
+        "stock_stream_bar_snapshot": "created_at",
+        "stock_features": "last_updated_at",
+        "stock_data_quality_logs": "created_at",
     }
     for table, field in cases.items():
         assert SupabaseClient._stamp_write_timestamps(table, [{"value": 1}], stamp)[0][field] == stamp
@@ -134,9 +134,9 @@ def test_table_specific_timestamps_are_app_controlled():
 def test_daily_and_intraday_payloads_have_all_audit_fields_before_upsert():
     stamp = "2026-07-24T14:35:10+07:00"
 
-    raw_daily = SupabaseClient._stamp_write_timestamps("raw_daily", [{}], stamp)[0]
+    raw_daily = SupabaseClient._stamp_write_timestamps("stock_raw_daily", [{}], stamp)[0]
     stock_daily = SupabaseClient._stamp_write_timestamps("stock_daily", [{}], stamp)[0]
-    raw_intraday = SupabaseClient._stamp_write_timestamps("raw_intraday", [{}], stamp)[0]
+    raw_intraday = SupabaseClient._stamp_write_timestamps("stock_raw_intraday", [{}], stamp)[0]
     candle = {"time": "2026-07-24T02:00:00Z", "timeframe": "1m", "value": 25000}
     stock_intraday = SupabaseClient._stamp_write_timestamps("stock_intraday", [candle], stamp)[0]
 
@@ -158,7 +158,7 @@ def test_streaming_payloads_keep_source_time_separate_from_write_time():
     }
 
     raw = SupabaseClient._stamp_write_timestamps("stream_raw_snapshot", [source], stamp)[0]
-    clean = SupabaseClient._stamp_write_timestamps("stream_quote_snapshot", [source], stamp)[0]
+    clean = SupabaseClient._stamp_write_timestamps("stock_stream_quote_snapshot", [source], stamp)[0]
 
     assert raw["received_at"] == source["received_at"]
     assert raw["created_at"] == stamp

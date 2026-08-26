@@ -337,7 +337,7 @@ def fetch_feature_watermark(
     """Return the newest persisted feature time for one exact feature stream."""
     query = (
         db.get()
-        .table("features")
+        .table("stock_features")
         .select("time")
         .eq("symbol", symbol)
         .eq("timeframe", timeframe)
@@ -656,7 +656,7 @@ def upsert_feature_frame(
     records = build_feature_records(output_df, symbol, timeframe)
     if records:
         db._upsert_in_batches(
-            "features",
+            "stock_features",
             records,
             on_conflict="symbol,timeframe,time",
             batch_size=upsert_batch_size,
@@ -679,7 +679,7 @@ def run_source_summary(
             "Supabase health-check failed. Please check connection and credentials."
         )
     if symbols is None:
-        result = db.get().table("symbols").select("symbol").execute()
+        result = db.get().table("stock_symbols").select("symbol").execute()
         symbols = [row["symbol"] for row in result.data]
     symbols = [str(symbol).upper() for symbol in symbols]
     if mode not in {"full", "incremental"}:

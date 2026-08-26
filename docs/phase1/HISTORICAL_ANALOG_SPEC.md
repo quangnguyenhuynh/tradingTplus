@@ -79,8 +79,8 @@ Phase 1 excludes:
 
 | Source | Role |
 | --- | --- |
-| `features`, timeframe `1d` | Prior completed session trend, momentum, and liquidity context. |
-| `features`, timeframes `15m`/`60m` | Closed intraday state available by the checkpoint. |
+| `stock_features`, timeframe `1d` | Prior completed session trend, momentum, and liquidity context. |
+| `stock_features`, timeframes `15m`/`60m` | Closed intraday state available by the checkpoint. |
 | `stock_intraday`, timeframe `1m` | Candidate entry price and availability checks after the checkpoint. |
 | `stock_daily` | Observed trading-session axis and H+ close/high/low outcomes. |
 | Completeness/validation evidence | Exclude ineligible symbol-session-timeframe observations. |
@@ -105,7 +105,7 @@ outcome set for SSI still contains SSI observations only.
   before `E`, normally `D`.
 - Intraday features are eligible only when their candle is closed and its
   `available_at <= checkpoint_time`.
-- `features.time` is a bucket start under the current feature contract, not proof
+- `stock_features.time` is a bucket start under the current feature contract, not proof
   that the bucket was already available.
 - A 15m row starting at 09:30 is unavailable at 09:30 and first eligible at
   09:45. A 60m row starting at 09:00 is unavailable at 09:30.
@@ -260,13 +260,13 @@ parser in the implementation task:
 
 | Proposed table | Purpose |
 | --- | --- |
-| `analog_profiles` | Immutable method metadata/configuration and lifecycle. |
-| `analog_snapshots` | Historical/current time-safe state and lineage. |
-| `analog_outcomes` | Entry and H+ outcomes for each snapshot. |
-| `analog_validation_runs` | Chronological evidence and metrics. |
+| `stock_analog_profiles` | Immutable method metadata/configuration and lifecycle. |
+| `stock_analog_snapshots` | Historical/current time-safe state and lineage. |
+| `stock_analog_outcomes` | Entry and H+ outcomes for each snapshot. |
+| `stock_analog_validation_runs` | Chronological evidence and metrics. |
 | `analog_group_stats` | Same-symbol group statistics by checkpoint/horizon. |
-| `analog_profile_reviews` | Audited approve/reject decision. |
-| `analog_queries` | Optional runtime-analysis audit; not a signal. |
+| `stock_analog_profile_reviews` | Audited approve/reject decision. |
+| `stock_analog_queries` | Optional runtime-analysis audit; not a signal. |
 
 Illustrative CLI only:
 

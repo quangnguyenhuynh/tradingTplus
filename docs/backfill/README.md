@@ -28,8 +28,8 @@ Explicit symbols are stripped, uppercased, and deduplicated in first-seen order 
 
 ## Branch behavior and data impact
 
-- **`backfill-daily`** runs only historical stock daily ingest (`DailyStockPrice`), writing `raw_daily` and `stock_daily`. It never calls or writes market-index data and does not run intraday ingest or completeness.
-- **`backfill-intraday`** runs only historical SSI 1m intraday ingest and may write `raw_intraday` and `stock_intraday` with only `timeframe='1m'`. It reads existing `stock_daily` context when available; missing context remains visible as `PARTIAL`. It never runs daily ingest or completeness automatically.
+- **`backfill-daily`** runs only historical stock daily ingest (`DailyStockPrice`), writing `stock_raw_daily` and `stock_daily`. It never calls or writes market-index data and does not run intraday ingest or completeness.
+- **`backfill-intraday`** runs only historical SSI 1m intraday ingest and may write `stock_raw_intraday` and `stock_intraday` with only `timeframe='1m'`. It reads existing `stock_daily` context when available; missing context remains visible as `PARTIAL`. It never runs daily ingest or completeness automatically.
 - **`backfill`** runs the complete daily branch before the complete intraday branch, then reads source tables through scoped completeness checking for each eligible date. It retains both branch summaries and creates combined `backfill-day` summaries using EOD-compatible status rules. It does not call EOD directly.
 - **`refill`** requires exactly one trimmed, uppercased, non-`ALL` symbol. It
   delegates source and completeness to `backfill`, then upserts daily `1d` and

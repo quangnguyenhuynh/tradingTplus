@@ -83,7 +83,7 @@ class _DB:
         self.table_calls.append(name)
         if name == 'stock_daily':
             return _Query(self.daily_rows)
-        if name == 'features':
+        if name == 'stock_features':
             return _Query(self.feature_rows)
         return _Query(self.rows)
 
@@ -160,7 +160,7 @@ def test_daily_execution_reads_only_stock_daily(monkeypatch):
 
     assert count == 1
     assert db.table_calls == ["stock_daily", "stock_daily"]  # data + terminal empty page
-    assert [call[0] for call in db.upsert_calls] == ["features"]
+    assert [call[0] for call in db.upsert_calls] == ["stock_features"]
 
 
 def test_timestamp_conversion_utc_in_records():
@@ -263,7 +263,7 @@ def test_full_mode_derives_higher_timeframe_features_without_writing_stock_intra
     upserted = fe.calculate_features_for_symbol_full_chunked('SSI', timeframes=['1m', '5m'])
 
     assert upserted == 12
-    assert [call[0] for call in db.upsert_calls] == ['features', 'features']
+    assert [call[0] for call in db.upsert_calls] == ['stock_features', 'stock_features']
     assert {call[2] for call in db.upsert_calls} == {'symbol,timeframe,time'}
     assert {record['timeframe'] for _, records, _, _ in db.upsert_calls for record in records} == {'1m', '5m'}
 
@@ -504,7 +504,7 @@ def test_feature_watermark_is_scoped_to_exact_symbol_and_timeframe():
 
     class WatermarkDB(_DB):
         def table(self, name):
-            assert name == "features"
+            assert name == "stock_features"
             return WatermarkQuery([{"time": "2026-07-10T03:00:00Z"}])
 
     watermark = feature_runtime.fetch_feature_watermark(

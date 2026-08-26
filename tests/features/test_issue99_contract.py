@@ -52,7 +52,7 @@ def test_migration_and_schema_contract():
     for legacy in ('rsi', 'atr', 'ema_20', 'ema_50', 'vwap', 'bb_upper', 'bb_lower', 'volume_spike'):
         assert f'DROP COLUMN IF EXISTS {legacy}' in migration
     assert not any(line.strip().upper().endswith(' CASCADE;') for line in migration.splitlines())
-    feature_block = schema.split('CREATE TABLE IF NOT EXISTS "public"."features"', 1)[1].split(');', 1)[0]
+    feature_block = schema.split('CREATE TABLE IF NOT EXISTS "public"."stock_features"', 1)[1].split(');', 1)[0]
     for column in FEATURE_COLUMNS:
         assert f'"{column}"' in feature_block
 

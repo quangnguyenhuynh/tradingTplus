@@ -256,7 +256,7 @@ Nguồn feature:
 Tất cả feature được lưu vào một bảng:
 
 ```text
-features
+stock_features
 ```
 
 Key chính:
@@ -328,7 +328,7 @@ Phase 1 active hiện là historical analog cùng mã/cùng checkpoint:
 ```text
 validated data
     ↓
-features
+stock_features
     ↓
 time-safe same-symbol snapshot
     ↓
@@ -372,7 +372,7 @@ Production commands hiện có:
 - `init`;
 - `daily`;
 - `eod`;
-- `features`;
+- `stock_features`;
 - `intraday`.
 
 ---
@@ -489,7 +489,7 @@ Feature package hiện:
 - aggregate `1m` thành `5m`, `15m`, `60m`;
 - hỗ trợ incremental và full mode;
 - sử dụng warm-up history;
-- upsert vào bảng `features`.
+- upsert vào bảng `stock_features`.
 
 Các nhóm feature hiện có:
 
@@ -682,10 +682,10 @@ daily ingest → intraday ingest → completeness check
 
 Dừng sau completeness.
 
-#### `features`
+#### `stock_features`
 
 ```text
-validated clean data → feature computation → features table
+validated clean data → feature computation → stock_stock_features table
 ```
 
 Được gọi riêng.
@@ -735,7 +735,7 @@ Thứ tự ưu tiên bắt buộc:
 - Có data hash phù hợp.
 - Không tạo fake raw record.
 - Không mất field quan trọng.
-- Xác định rõ khoảng thiếu của `raw_intraday`.
+- Xác định rõ khoảng thiếu của `stock_raw_intraday`.
 
 ### Priority 3: Clean data correctness
 
@@ -803,7 +803,7 @@ Các hạng mục sau không phải ưu tiên hiện tại:
 - tối ưu signal rules;
 - quảng cáo khả năng sinh lợi;
 - xây UI hoàn chỉnh;
-- chia nhỏ hoặc thiết kế lại bảng `features` khi không có task schema riêng;
+- chia nhỏ hoặc thiết kế lại bảng `stock_features` khi không có task schema riêng;
 - lưu các cột lag có thể tính lúc query hoặc backtest;
 - xóa toàn bộ dữ liệu cũ để làm lại khi chưa chứng minh cần thiết;
 - thay đổi schema không có migration;
@@ -895,16 +895,16 @@ Daily and intraday ingest are separate production pipelines:
 
 ```text
 python main.py daily [DD/MM/YYYY]
-    DailyStockPrice → raw_daily, validation, stock_daily
+    DailyStockPrice → stock_raw_daily, validation, stock_daily
     DailyStockPrice foreign fields → canonical stock_daily fields
     (DailyIndex/index_daily legacy retained; not called or written)
 
 python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
-    IntradayOhlc resolution=1 → raw_intraday, validation, stock_intraday timeframe='1m'
+    IntradayOhlc resolution=1 → stock_raw_intraday, validation, stock_intraday timeframe='1m'
 ```
 
 `python main.py eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
 
 `python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

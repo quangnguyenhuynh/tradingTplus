@@ -3,9 +3,9 @@
 ## Stock-only historical ingest boundary
 
 Phase 0 historical source ingest is stock-only. `daily` and `backfill-daily`
-call SSI `DailyStockPrice` and write only `raw_daily`/`stock_daily`;
+call SSI `DailyStockPrice` and write only `stock_raw_daily`/`stock_daily`;
 `intraday-ingest` and `backfill-intraday` call `IntradayOhlc` resolution 1 and
-write only `raw_intraday`/`stock_intraday`. EOD and combined backfill compose
+write only `stock_raw_intraday`/`stock_intraday`. EOD and combined backfill compose
 those stock pipelines with stock-only completeness checks. They never call
 `DailyIndex`, `IndexList`, or `IndexComponents`, and never write
 `index_daily`, `index_master`, or `index_components`.
@@ -64,7 +64,7 @@ Các trạng thái được sử dụng:
 | ADR-004 | `stock_daily` là nguồn canonical cho timeframe `1d` | Implemented |
 | ADR-005 | `stock_intraday` chỉ lưu timeframe `1m` | Implemented |
 | ADR-006 | `5m`, `15m`, `60m` có thể aggregate từ `1m`; production chỉ persist feature `15m`, `60m` | Implemented |
-| ADR-007 | Giữ một bảng `features` có cột `timeframe` | Implemented |
+| ADR-007 | Giữ một bảng `stock_features` có cột `timeframe` | Implemented |
 | ADR-008 | Intraday value dùng `round(close * volume)` và được xem là ước tính | Implemented |
 | ADR-009 | Không biến dữ liệu thiếu thành `0` nếu chưa có rule | Accepted |
 | ADR-010 | Không tạo dữ liệu giả cho ngày không giao dịch hoặc API rỗng | Accepted |
@@ -240,7 +240,7 @@ Clean data phục vụ:
 - Không dùng clean table thay cho raw layer.
 - Không ghi feature vào clean market-data table.
 - Clean row phải có thể truy ngược về source hoặc mapper rõ ràng.
-- `raw_intraday.payload JSONB` nullable giữ full source candle cho ingest mới;
+- `stock_raw_intraday.payload JSONB` nullable giữ full source candle cho ingest mới;
   row lịch sử có thể `NULL` và clean `stock_intraday` không giữ payload.
 
 ---
@@ -375,7 +375,7 @@ Các timeframe:
 
 ---
 
-## ADR-007 — Giữ một bảng `features`
+## ADR-007 — Giữ một bảng `stock_features`
 
 ### Status
 
@@ -405,7 +405,7 @@ Tách thành nhiều bảng gây:
 Giữ một bảng:
 
 ```text
-features
+stock_features
 ```
 
 Key:
@@ -609,14 +609,14 @@ Các key chính:
 
 | Table | Conflict key |
 |---|---|
-| `raw_daily` | `symbol,trading_date,data_hash` |
+| `stock_raw_daily` | `symbol,trading_date,data_hash` |
 | `stock_daily` | `symbol,trading_date` |
-| `raw_intraday` | `symbol,time,data_hash` |
+| `stock_raw_intraday` | `symbol,time,data_hash` |
 | `stock_intraday` | `symbol,timeframe,time` |
-| `foreign_trading` | `symbol,trading_date` |
+| `stock_foreign_trading` | `symbol,trading_date` |
 | `index_daily` | `index_code,trading_date` |
-| `features` | `symbol,timeframe,time` |
-| `orderbook_snapshot` | `symbol,time` |
+| `stock_features` | `symbol,timeframe,time` |
+| `stock_orderbook_snapshot` | `symbol,time` |
 
 ### Consequences
 
@@ -893,15 +893,15 @@ SSI public REST specification hiện dùng trong project không có standalone `
 
 ### Decision
 
-Foreign trading daily được lấy từ `DailyStockPrice` và lưu trong row canonical `stock_daily`. Normal daily ingest không duplicate các giá trị này sang `foreign_trading`.
+Foreign trading daily được lấy từ `DailyStockPrice` và lưu trong row canonical `stock_daily`. Normal daily ingest không duplicate các giá trị này sang `stock_foreign_trading`.
 
 ### Consequences
 
 - Không tạo public REST URL giả cho foreign trading.
 - `stock_daily` là nguồn canonical daily duy nhất, bao gồm foreign buy/sell/net/room fields.
 - Foreign fields không được fetch từ standalone public REST endpoint.
-- Normal daily ingest không ghi `foreign_trading`.
-- Row `foreign_trading` hiện có không bị thay đổi và được giữ cho legacy compatibility/history.
+- Normal daily ingest không ghi `stock_foreign_trading`.
+- Row `stock_foreign_trading` hiện có không bị thay đổi và được giữ cho legacy compatibility/history.
 - Intraday foreign streaming snapshot vẫn là dataset riêng.
 - Task tương lai có thể thay legacy daily access bằng view hoặc xóa bảng cũ sau khi verify dependency.
 - Không cần migration hoặc backfill vì foreign fields đã có trong `stock_daily`.
@@ -1109,7 +1109,7 @@ Một số documentation cũ đề xuất tách feature thành hai bảng.
 Một bảng:
 
 ```text
-features
+stock_features
 ```
 
 với:
@@ -1323,7 +1323,7 @@ Tune RSI, EMA, signal score hoặc AI model ngay khi feature table đã có dữ
 
 # Pending Decisions
 
-## PEND-001 — Full payload cho `raw_intraday`
+## PEND-001 — Full payload cho `stock_raw_intraday`
 
 ### Status
 
@@ -1332,7 +1332,7 @@ Tune RSI, EMA, signal score hoặc AI model ngay khi feature table đã có dữ
 ### Question
 
 Có. Ingest mới lưu semantic source object trong nullable
-`raw_intraday.payload JSONB`; row lịch sử có thể `NULL`, không backfill giả và
+`stock_raw_intraday.payload JSONB`; row lịch sử có thể `NULL`, không backfill giả và
 clean `stock_intraday` không chứa payload.
 
 ### Cần xác minh
@@ -1469,7 +1469,7 @@ Có lưu:
 - calculation run ID;
 - source watermark;
 
-trong `features` hoặc metadata table không?
+trong `stock_features` hoặc metadata table không?
 
 ### Impact
 
@@ -1675,7 +1675,7 @@ Mọi task phải tuân thủ các guardrail sau.
 
 ## Features
 
-- Một bảng `features`.
+- Một bảng `stock_features`.
 - Timeframe là một phần của key.
 - Incremental phải có warm-up.
 - Không look-ahead.
@@ -1827,15 +1827,15 @@ Decision: production daily ingest and production intraday ingest are separate co
 
 Consequences:
 
-- `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `raw_intraday` or `stock_intraday`.
-- `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `raw_intraday` and `stock_intraday` for candle ingest.
+- `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `stock_raw_intraday` or `stock_intraday`.
+- `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `stock_raw_intraday` and `stock_intraday` for candle ingest.
 - `python main.py eod [DD/MM/YYYY]` is an orchestrator: daily ingest → intraday ingest → completeness check.
 - `python main.py intraday` remains a backward-compatible feature alias and must not be redefined as an ingest command.
 - Feature computation, signal generation, and backtesting remain explicit downstream stages.
 
 No schema change is required for this split.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `stock_features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## ADR-020 — Scoped feature replacement is one atomic RPC
 
