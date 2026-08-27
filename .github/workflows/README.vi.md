@@ -13,11 +13,14 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 | --- | --- | --- |
 | `tests.yml` | Pull request và push vào `dev` | `python -m pytest -q` trên Python 3.11, có service PostgreSQL 16 và `TEST_DATABASE_URL`. |
 | `eod.yml` | Thứ Hai–Thứ Sáu lúc 09:30 UTC (16:30 Việt Nam) và manual | `python main.py eod [date]`. |
+| `index-eod.yml` | Thứ Hai–Thứ Sáu lúc 09:45 UTC (16:45 Việt Nam) và manual | `python main.py index-daily [date] [--indexes ...]`. |
 | `features.yml` | Chỉ manual | `python main.py features ...` với input rõ ràng. |
 
 ## Lưu ý vận hành
 
-- `eod.yml` chạy daily ingest, intraday ingest và completeness validation; không tính feature.
+- `eod.yml` chạy stock daily ingest, stock intraday ingest, index daily ingest và completeness validation; không tính feature.
+- `index-eod.yml` chỉ chạy SSI DailyIndex raw/clean ingest qua `index-daily`. Có thể dùng để retry hoặc catch up dữ liệu nguồn index mà không chạy stock ingest, completeness, feature, signal, backtest hoặc Analog.
+- Workflow schedule chạy theo ngày trong tuần; ngày nghỉ sàn hoặc SSI trả rỗng vẫn hiện rõ trong summary command và không tạo dữ liệu giả.
 - `features.yml` tách khỏi ingest và cho phép chọn mode/date/symbol/timeframe.
 - Credential SSI/Supabase lấy từ repository secrets.
 - Test PostgreSQL atomic replace thuộc main suite và không được skip vì
