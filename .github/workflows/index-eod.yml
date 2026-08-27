@@ -1,0 +1,56 @@
+name: TradingTPlus Index EOD Pipeline
+
+on:
+  schedule:
+    # 16:45 Vietnam time (UTC+7) on weekdays = 09:45 UTC Monday-Friday.
+    - cron: "45 9 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional trading date in YYYY-MM-DD or DD/MM/YYYY format"
+        required: false
+        type: string
+      indexes:
+        description: "Optional space-separated index codes; empty means all index_master rows"
+        required: false
+        type: string
+
+concurrency:
+  group: tradingtplus-index-eod-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  index-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SSI_CONSUMER_ID: ${{ secrets.SSI_CONSUMER_ID }}
+      SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
+      DATE_INPUT: ${{ inputs.date }}
+      INDEXES_INPUT: ${{ inputs.indexes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run index EOD ingest
+        shell: bash
+        run: |
+          cmd=(python main.py index-daily)
+          if [ -n "$DATE_INPUT" ]; then
+            cmd+=("$DATE_INPUT")
+          fi
+          if [ -n "$INDEXES_INPUT" ]; then
+            read -r -a indexes <<< "$INDEXES_INPUT"
+            cmd+=(--indexes "${indexes[@]}")
+          fi
+          "${cmd[@]}"
