@@ -134,7 +134,9 @@ SET default_table_access_method = "heap";
 
 CREATE TABLE IF NOT EXISTS "public"."index_master" (
     "index_code" text NOT NULL PRIMARY KEY, "index_name" text, "exchange" text,
-    "raw" jsonb, "updated_at" timestamp with time zone
+    "raw" jsonb, "status" text NOT NULL DEFAULT 'active',
+    "updated_at" timestamp with time zone,
+    CONSTRAINT "index_master_status_check" CHECK ("status" IN ('active', 'inactive'))
 );
 CREATE TABLE IF NOT EXISTS "public"."index_components" (
     "index_code" text NOT NULL, "symbol" text NOT NULL, "exchange" text,
@@ -1364,7 +1366,9 @@ CREATE TABLE IF NOT EXISTS "public"."symbols" (
     "symbol" "text" NOT NULL,
     "market" "text",
     "name" "text",
-    "created_at" timestamp with time zone DEFAULT "now"()
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "symbols_status_check" CHECK ("status" IN ('active', 'inactive'))
 );
 
 

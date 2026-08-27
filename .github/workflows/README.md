@@ -18,8 +18,8 @@ Automation for tests and explicit Trading T+ pipelines.
 
 ## Operational notes
 
-- `eod.yml` orchestrates stock daily ingest, stock intraday ingest, index daily ingest, and completeness validation. It does not compute features.
-- `index-eod.yml` runs only SSI DailyIndex raw/clean ingest through `index-daily`. It can retry or catch up index source rows without running stock ingest, completeness, features, signals, backtests, or Analogs.
+- `eod.yml` orchestrates stock daily ingest, stock intraday ingest, index daily ingest, and completeness validation. Omitted scopes use only `status = 'active'` rows in `symbols` and `index_master`. It does not compute features.
+- `index-eod.yml` runs only SSI DailyIndex raw/clean ingest through `index-daily`. An empty index input uses active `index_master` rows; explicit indexes can retry or catch up source rows without running stock ingest, completeness, features, signals, backtests, or Analogs.
 - Scheduled workflows run on weekdays; exchange holidays or empty SSI responses remain visible in the command summary and are not fabricated.
 - `features.yml` is intentionally separate from ingest and supports explicit mode/date/symbol/timeframe inputs.
 - SSI/Supabase credentials are provided through repository secrets.

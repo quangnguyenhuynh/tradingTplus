@@ -405,9 +405,13 @@ All date arguments for the four index commands accept exactly `YYYY-MM-DD` or `D
   scope with raw and clean rows; it does not fetch preview data or write rows.
 
 For `index-daily`, `index-backfill`, and `index-check`, omitting `--indexes`
-resolves every canonical code from `index_master`, and unknown explicit codes
-fail. EOD composes index ingest and its separate completeness stage. None of
-these commands calculate features or research outputs.
+resolves only `status = 'active'` codes from `index_master`. Explicit codes are
+validated against the complete master and may intentionally target an inactive
+row; unknown explicit codes fail. Stock ingest follows the same rule through
+`symbols`: omitted scope uses active rows, while explicit symbols remain
+available for maintenance/backfill. EOD composes index ingest and its separate
+completeness stage. None of these commands calculate features or research
+outputs.
 
 Recommended workflow:
 

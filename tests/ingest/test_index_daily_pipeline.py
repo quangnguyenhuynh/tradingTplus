@@ -210,3 +210,22 @@ def test_index_scope_resolves_case_insensitively_and_rejects_unknown():
     assert resolve_index_scope(db, ["vnindex", "HNXINDEX"])[0] == ["VNINDEX", "HNXIndex"]
     with pytest.raises(ValueError, match="Unknown index"):
         resolve_index_scope(db, ["MISSING"])
+
+
+def test_omitted_index_scope_reads_only_active_master_rows():
+    calls = []
+
+    class Query:
+        def select(self, *_): return self
+        def eq(self, column, value):
+            calls.append((column, value)); return self
+        def order(self, *_): return self
+        def execute(self): return SimpleNamespace(data=[{"index_code": "VNINDEX"}])
+
+    db = SimpleNamespace(
+        client=SimpleNamespace(table=lambda *_: Query()),
+        _with_retry=lambda fn, **_: fn(),
+    )
+
+    assert resolve_index_scope(db, None) == (["VNINDEX"], None)
+    assert calls == [("status", "active")]

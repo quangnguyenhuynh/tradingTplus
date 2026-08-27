@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     index_daily = sub.add_parser("index-daily", help="SSI DailyIndex raw + validated clean ingest only")
     index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest previous weekday")
-    index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
+    index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
 
     index_backfill = sub.add_parser("index-backfill", help="Inclusive DailyIndex source-data backfill")
     index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
@@ -132,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         feature_parser = sub.add_parser(command, help=help_text)
         feature_parser.add_argument("--date", required=True, help="Trading date YYYY-MM-DD or DD/MM/YYYY")
-        feature_parser.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
+        feature_parser.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
     index_feature_backfill = sub.add_parser("index-features-backfill", help="Inclusive Index Daily Feature V1 backfill")
     index_feature_backfill.add_argument("--from", dest="from_date", required=True)
     index_feature_backfill.add_argument("--to", dest="to_date", required=True)
@@ -145,7 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--symbols",
         nargs="+",
         default=None,
-        help="Stock symbols to ingest; omitted means all master symbols",
+        help="Stock symbols to ingest; omitted means active master symbols",
     )
 
     intraday_ingest = sub.add_parser(
@@ -161,7 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--symbols",
         nargs="+",
         default=None,
-        help="Symbols to ingest; omitted means all master symbols",
+        help="Symbols to ingest; omitted means active master symbols",
     )
 
     eod = sub.add_parser(
@@ -173,12 +173,12 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
-    eod.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means all index_master rows")
+    eod.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
     eod.add_argument(
         "--symbols",
         nargs="+",
         default=None,
-        help="Stock symbols for daily, intraday, and completeness; omitted means all master symbols",
+        help="Stock symbols for daily, intraday, and completeness; omitted means active master symbols",
     )
 
     for command, help_text in (
@@ -214,7 +214,7 @@ def build_parser() -> argparse.ArgumentParser:
             "--symbols",
             nargs="+",
             default=None,
-            help="Stock symbols used for every date; omitted means all master symbols",
+            help="Stock symbols used for every date; omitted means active master symbols",
         )
 
     refill = sub.add_parser(

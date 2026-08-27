@@ -317,8 +317,43 @@ class SupabaseClient:
     def upsert_raw(self, records):
         self._upsert_in_batches('stock_raw_intraday', records, on_conflict='symbol,time,data_hash', batch_size=200)
 
+    def _load_master_statuses(self, table_name: str, key_column: str, keys) -> dict[str, str]:
+        """Load current operator status so master sync never reactivates disabled rows."""
+        normalized_keys = [str(key) for key in keys if key not in (None, "")]
+        statuses: dict[str, str] = {}
+        for offset in range(0, len(normalized_keys), 200):
+            chunk = normalized_keys[offset:offset + 200]
+            result = self._with_retry(
+                lambda chunk=chunk: self.client.table(table_name)
+                .select(f'{key_column},status')
+                .in_(key_column, chunk)
+                .execute(),
+                action_name=f"load {table_name} statuses [{offset}:{offset + len(chunk)}]",
+            )
+            statuses.update({
+                str(row[key_column]): str(row['status'])
+                for row in (result.data or [])
+                if row.get(key_column) not in (None, "") and row.get('status') in {'active', 'inactive'}
+            })
+        return statuses
+
+    def _preserve_master_status(self, table_name: str, key_column: str, records):
+        existing = self._load_master_statuses(
+            table_name,
+            key_column,
+            [record.get(key_column) for record in records],
+        )
+        prepared = []
+        for record in records:
+            row = dict(record)
+            key = str(row[key_column])
+            row['status'] = row.get('status') or existing.get(key, 'active')
+            prepared.append(row)
+        return prepared
+
     def upsert_symbols(self, symbols):
-        self._upsert_in_batches('symbols', symbols, on_conflict='symbol')
+        records = self._preserve_master_status('symbols', 'symbol', symbols)
+        self._upsert_in_batches('symbols', records, on_conflict='symbol')
 
     def upsert_securities(self, records):
         self._upsert_in_batches('securities', records, on_conflict='symbol')
@@ -330,7 +365,8 @@ class SupabaseClient:
         self._upsert_in_batches('stock_raw_daily', records, on_conflict='symbol,trading_date,data_hash')
 
     def upsert_index_master(self, records):
-        self._upsert_in_batches('index_master', records, on_conflict='index_code')
+        prepared = self._preserve_master_status('index_master', 'index_code', records)
+        self._upsert_in_batches('index_master', prepared, on_conflict='index_code')
 
     def upsert_indexes(self, records):
         """Deprecated compatibility alias for pre-migration callers."""
@@ -504,7 +540,14 @@ class SupabaseClient:
         }
 
     def get_symbols(self):
-        result = self._with_retry(lambda: self.client.table('symbols').select('symbol').execute(), action_name="get_symbols")
+        result = self._with_retry(
+            lambda: self.client.table('symbols')
+            .select('symbol')
+            .eq('status', 'active')
+            .order('symbol')
+            .execute(),
+            action_name="get active symbols",
+        )
         return [row['symbol'] for row in result.data]
 
     def get_stock_daily(self, symbol: str, trading_date: str | None):

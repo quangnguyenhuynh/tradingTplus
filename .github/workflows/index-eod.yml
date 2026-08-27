@@ -11,7 +11,7 @@ on:
         required: false
         type: string
       indexes:
-        description: "Optional space-separated index codes; empty means all index_master rows"
+        description: "Optional space-separated index codes; empty means active index_master rows"
         required: false
         type: string
 

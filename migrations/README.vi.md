@@ -52,6 +52,14 @@ record này; không rerun hoặc repair chỉ để bổ sung history.
 
 Không chạy SQL destructive diện rộng khi chưa có phạm vi table/date/symbol chính xác, phương án backup và task rõ ràng. Không giả định schema production đã giống migration mới nhất nếu chưa kiểm tra.
 
+## 20260827 trạng thái active cho master
+
+`20260827_add_master_status.sql` thêm cột trạng thái giới hạn `active`/`inactive`
+cho `symbols` và `index_master`. Mọi dòng hiện hữu được gán `active`; migration
+không sửa dữ liệu nguồn/lịch sử và không cần backfill lịch sử. Scope EOD mặc
+định sau đó chỉ đọc dòng master active. Đồng bộ master giữ nguyên trạng thái do
+người vận hành đã đặt, không tự bật lại dòng inactive.
+
 ## Storage signal/backtest đã retire
 
 `20260731_drop_legacy_signal_backtest.sql` là migration cleanup đã được phê duyệt rõ ràng. Migration chỉ destructive với hai bảng legacy đã retire; export row trước deployment nếu cần lưu audit. Raw, clean và feature data không bị ảnh hưởng, và không cần backfill.

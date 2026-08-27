@@ -398,9 +398,12 @@ Mọi đối số ngày của bốn command index nhận chính xác `YYYY-MM-DD
   với row raw và clean; command không fetch dữ liệu preview hoặc ghi row.
 
 Với `index-daily`, `index-backfill` và `index-check`, bỏ `--indexes` sẽ lấy toàn
-bộ mã chuẩn từ `index_master`; mã explicit không tồn tại sẽ báo lỗi. EOD kết hợp
-index ingest với stage completeness riêng. Không command nào trong số này tính
-feature hoặc kết quả research.
+bộ mã có `status = 'active'` từ `index_master`. Mã explicit được kiểm tra trên
+toàn bộ master và vẫn có thể chủ đích chạy một dòng inactive; mã không tồn tại
+sẽ báo lỗi. Stock ingest áp dụng cùng quy tắc qua bảng `symbols`: scope bỏ trống
+chỉ lấy dòng active, còn symbol explicit vẫn dùng được cho maintenance/backfill.
+EOD kết hợp index ingest với stage completeness riêng. Không command nào trong
+số này tính feature hoặc kết quả research.
 
 Quy trình khuyến nghị:
 

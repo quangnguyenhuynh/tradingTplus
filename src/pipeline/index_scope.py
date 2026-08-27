@@ -20,16 +20,24 @@ def normalize_index_scope(indexes: Iterable[Any] | None) -> list[str] | None:
     return values
 
 
-def _load_master(db: Any) -> list[str]:
-    result = db._with_retry(lambda: db.client.table("index_master").select("index_code").order("index_code").execute(), action_name="load index_master scope")
+def _load_master(db: Any, *, active_only: bool) -> list[str]:
+    def _query():
+        query = db.client.table("index_master").select("index_code")
+        if active_only:
+            query = query.eq("status", "active")
+        return query.order("index_code").execute()
+
+    scope = "active index_master scope" if active_only else "index_master scope"
+    result = db._with_retry(_query, action_name=f"load {scope}")
     return [str(row["index_code"]) for row in (result.data or []) if row.get("index_code")]
 
 
 def resolve_index_scope(db: Any, indexes: Iterable[Any] | None) -> tuple[list[str], list[str] | None]:
     requested = normalize_index_scope(indexes)
-    master = _load_master(db)
+    master = _load_master(db, active_only=requested is None)
     if not master:
-        raise ValueError("index_master is empty; run `python main.py sync-master-data` first")
+        detail = " has no active rows" if requested is None else " is empty"
+        raise ValueError(f"index_master{detail}; run `python main.py sync-master-data` or update master status")
     canonical = {code.casefold(): code for code in master}
     if requested is None:
         return master, None

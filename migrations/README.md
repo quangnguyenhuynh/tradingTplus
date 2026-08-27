@@ -42,6 +42,14 @@ may omit them; do not rerun or repair them merely to populate history.
 
 Never run broad destructive SQL without exact table/date/symbol scope, a verified backup plan, and an explicit task. Do not assume production schema matches the latest repository migration until it is checked.
 
+## 20260827 master active status
+
+`20260827_add_master_status.sql` adds constrained `active`/`inactive` status
+columns to `symbols` and `index_master`. Existing rows are backfilled to
+`active`; no source/history rows are changed and no history backfill is needed.
+Default EOD scopes then read only active master rows. Master synchronization
+preserves an existing operator status instead of reactivating disabled rows.
+
 ## 20260826 index_daily primary key
 
 `20260826_add_index_daily_primary_key.sql` promotes the existing unique index on
