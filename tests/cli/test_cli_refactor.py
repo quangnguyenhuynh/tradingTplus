@@ -3,7 +3,7 @@ from pathlib import Path
 
 import main
 import pytest
-from src.pipeline import eod, intraday
+from src.pipeline import intraday, stock_eod
 
 
 def test_main_without_command_returns_invalid_arguments(capsys):
@@ -32,12 +32,19 @@ def test_daily_without_date_calls_pipeline(monkeypatch):
     assert captured == {"called": True, "date": None, "symbols": None}
 
 
-def test_eod_command_calls_existing_pipeline(monkeypatch):
+def test_stock_eod_command_calls_pipeline(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "run_eod_pipeline", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
-    assert main.main(["eod", "10/07/2026"]) == 0
+    monkeypatch.setattr(main, "run_stock_eod_pipeline", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
+    assert main.main(["stock-eod", "10/07/2026"]) == 0
     assert captured["date"] == "10/07/2026"
 
+
+
+def test_stock_eod_help_has_no_indexes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main.build_parser().parse_args(["stock-eod", "--help"])
+    assert exc.value.code == 0
+    assert "--indexes" not in capsys.readouterr().out
 
 def test_intraday_ingest_cli_calls_pipeline_with_symbols(monkeypatch):
     captured = {}
@@ -46,8 +53,8 @@ def test_intraday_ingest_cli_calls_pipeline_with_symbols(monkeypatch):
     assert captured == {"date": "10/07/2026", "symbols": ["SSI", "HPG"]}
 
 
-def test_eod_default_timeframes_include_1d():
-    assert "1d" in eod.DEFAULT_EOD_TIMEFRAMES
+def test_old_eod_command_is_not_registered():
+    assert main.main(["eod"]) == 2
 
 
 def test_intraday_does_not_call_daily_ingest(monkeypatch):
@@ -189,10 +196,10 @@ def test_daily_cli_normalizes_and_deduplicates_symbols(monkeypatch):
     assert captured["symbols"] == ["SSI", "HPG"]
 
 
-def test_eod_cli_passes_symbols(monkeypatch):
+def test_stock_eod_cli_passes_symbols(monkeypatch):
     captured = {}
-    monkeypatch.setattr(main, "run_eod_pipeline", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
-    assert main.main(["eod", "10/07/2026", "--symbols", "ssi", "HPG"]) == 0
+    monkeypatch.setattr(main, "run_stock_eod_pipeline", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["stock-eod", "10/07/2026", "--symbols", "ssi", "HPG"]) == 0
     assert captured["symbols"] == ["SSI", "HPG"]
 
 
@@ -207,7 +214,7 @@ def test_ingest_commands_reject_symbols_flag_without_values():
     commands = [
         ["daily", "10/07/2026", "--symbols"],
         ["intraday-ingest", "10/07/2026", "--symbols"],
-        ["eod", "10/07/2026", "--symbols"],
+        ["stock-eod", "10/07/2026", "--symbols"],
         ["backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
         ["backfill-daily", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
         ["backfill-intraday", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],

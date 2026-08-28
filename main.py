@@ -6,7 +6,7 @@ Production commands:
   python main.py init
   python main.py daily [DD/MM/YYYY]
   python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
-  python main.py eod [DD/MM/YYYY]
+  python main.py stock-eod [DD/MM/YYYY]
   python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
@@ -48,7 +48,7 @@ from src.pipeline import (
     init_symbols,
     run_backfill_pipeline,
     run_daily_backfill_pipeline,
-    run_eod_pipeline,
+    run_stock_eod_pipeline,
     run_intraday_backfill_pipeline,
     run_intraday_ingest,
     run_intraday_pipeline,
@@ -164,17 +164,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Symbols to ingest; omitted means active master symbols",
     )
 
-    eod = sub.add_parser(
-        "eod",
-        help="EOD orchestrator: daily ingest + intraday ingest + completeness validation only; no features",
+    stock_eod = sub.add_parser(
+        "stock-eod",
+        help="Stock EOD: stock daily + intraday ingest and stock completeness only; no indexes/features",
     )
-    eod.add_argument(
+    stock_eod.add_argument(
         "date",
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
-    eod.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
-    eod.add_argument(
+    stock_eod.add_argument(
         "--symbols",
         nargs="+",
         default=None,
@@ -585,11 +584,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             _print_summary(summary)
             return _status_to_exit(summary)
-        if args.command == "eod":
-            kwargs = {"symbols": normalize_symbol_scope(args.symbols)}
-            if args.indexes is not None:
-                kwargs["indexes"] = normalize_index_scope(args.indexes)
-            summary = run_eod_pipeline(args.date, **kwargs)
+        if args.command == "stock-eod":
+            summary = run_stock_eod_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:

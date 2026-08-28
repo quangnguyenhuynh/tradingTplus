@@ -80,7 +80,7 @@ vẫn chặn final approval và production query.
 | Intraday raw ingest | Partial | Có OHLCV và hash nhưng chưa giữ full source candle JSON. |
 | Intraday clean ingest | Implemented | Chỉ persist `timeframe='1m'`. |
 | Foreign trading | Implemented | Production daily reuse cùng `DailyStockPrice` payload, không fetch lặp. |
-| Daily index | Implemented | `index-daily`/`index-backfill` write `index_raw_daily` then validated `index_daily`; EOD integrates ingest and separate completeness. |
+| Daily index | Implemented | `index-daily`/`index-backfill` write `index_raw_daily` then validated `index_daily`; index-eod handles ingest and completeness independently. |
 | Daily validation | Implemented | Required field, OHLC, limits, volume/value và consistency. |
 | Intraday validation | Implemented | Record validation và batch validation. |
 | Completeness | Partial | Daily/intraday là điều kiện chính; index/foreign/orderbook mới là count tham khảo. |
@@ -130,7 +130,7 @@ SSI DailyStockPrice — một request cho mỗi symbol/date
     ├── validate daily mapper
     └── stock_daily nếu valid, bao gồm foreign daily/room fields
 
-Market-index daily ingest is outside the stock-only daily/EOD/backfill contract. Existing `index_daily` schema/data remains untouched.
+Market-index daily ingest is outside the stock-only daily/stock-eod/backfill contract. Existing `index_daily` schema/data remains untouched.
 ```
 
 `daily` chỉ đọc SSI `DailyStockPrice`, rồi ghi `stock_raw_daily` và `stock_daily`. Pipeline không gọi `DailyIndex`, `IndexList`, `IndexComponents`, `Securities`, `SecuritiesDetails` hoặc `IntradayOhlc`; không ghi `index_daily`, `index_master`, `index_components`, `stock_raw_intraday` hoặc `stock_intraday`; và không chạy feature/signal/backtest.
@@ -175,7 +175,7 @@ Hành vi quan trọng:
 ## 4. EOD
 
 ```bash
-python main.py eod [DD/MM/YYYY]
+python main.py stock-eod [DD/MM/YYYY]
 ```
 
 Flow hiện tại:
@@ -571,7 +571,7 @@ Overall status hiện dựa chủ yếu trên:
 - missing symbol;
 - duplicate/gap intraday.
 
-Stock completeness remains symbol-scoped. Separate index completeness compares `index_master` scope with `index_raw_daily` and `index_daily`; EOD composes both reports.
+Stock completeness remains symbol-scoped. Separate index completeness compares `index_master` scope with `index_raw_daily` and `index_daily`; index-eod owns the index report independently.
 
 Completeness chưa bao phủ đầy đủ:
 

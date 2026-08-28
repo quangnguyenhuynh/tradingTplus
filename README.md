@@ -81,7 +81,7 @@ python main.py sync-master-data
 python main.py init
 python main.py daily [DD/MM/YYYY] --symbols SSI HPG
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
-python main.py eod [DD/MM/YYYY] --symbols SSI HPG
+python main.py stock-eod [DD/MM/YYYY] --symbols SSI HPG
 python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
@@ -183,7 +183,7 @@ evidence-retention risks are recorded in the report; the Historical Analog EOD V
 
 ### Index daily source pipeline
 
-Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; EOD composes this flow without calculating downstream features or research results. See the [CLI usage guide](docs/CLI_USAGE.md).
+Use `index-daily`, `index-backfill`, and the read-only `index-check` commands for SSI DailyIndex. The layered contract is `index_master` scope → `index_raw_daily` payload evidence → validated `index_daily`; The separate index-eod flow handles this without calculating downstream features or research results. See the [CLI usage guide](docs/CLI_USAGE.md).
 The normalized `index_daily` identity and primary key is
 `(index_code, trading_date)`: one row per index and trading date.
 
@@ -239,3 +239,5 @@ paused: an in-transaction error rolls back atomically; after commit, use the
 collision-checked reverse-rename guidance at the end of the migration together
 with the matching old application release, then reload PostgREST. Do not create
 compatibility views without a separate consumer and security review.
+
+See the [Stock EOD pipeline contract](docs/STOCK_EOD_PIPELINE.md) for its active-only stock scope and explicit separation from `index-eod`.

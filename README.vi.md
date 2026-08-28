@@ -76,7 +76,7 @@ python main.py sync-master-data
 python main.py init
 python main.py daily [DD/MM/YYYY] --symbols SSI HPG
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
-python main.py eod [DD/MM/YYYY] --symbols SSI HPG
+python main.py stock-eod [DD/MM/YYYY] --symbols SSI HPG
 python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
@@ -170,7 +170,7 @@ và lưu evidence còn lại; core Historical Analog EOD V1 đã triển khai; v
 
 ### Pipeline nguồn index daily
 
-Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; EOD kết hợp flow này nhưng không tính feature hoặc kết quả research downstream. Xem [hướng dẫn sử dụng CLI](docs/CLI_USAGE.vi.md).
+Dùng `index-daily`, `index-backfill` và lệnh chỉ đọc `index-check` cho SSI DailyIndex. Hợp đồng phân lớp là scope `index_master` → bằng chứng payload `index_raw_daily` → `index_daily` đã validate; Flow index-eod riêng xử lý phần này nhưng không tính feature hoặc kết quả research downstream. Xem [hướng dẫn sử dụng CLI](docs/CLI_USAGE.vi.md).
 Identity và primary key của bảng chuẩn hóa `index_daily` là
 `(index_code, trading_date)`: mỗi index chỉ có một dòng trong một ngày giao dịch.
 
@@ -224,3 +224,5 @@ thất bại, tiếp tục dừng writer: lỗi trong transaction sẽ rollback 
 commit, dùng hướng dẫn reverse-rename có kiểm tra xung đột ở cuối migration cùng
 phiên bản ứng dụng cũ tương ứng, rồi reload PostgREST. Không tạo compatibility
 view nếu chưa có đánh giá riêng về consumer và bảo mật.
+
+Xem [hợp đồng pipeline Stock EOD](docs/STOCK_EOD_PIPELINE.vi.md) về scope cổ phiếu active-only và việc tách biệt hoàn toàn khỏi `index-eod`.

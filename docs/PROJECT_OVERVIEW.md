@@ -167,7 +167,7 @@ Daily ingest không tự động tính:
 Command:
 
 ```bash
-python main.py eod DD/MM/YYYY
+python main.py stock-eod DD/MM/YYYY
 ```
 
 EOD hiện chạy:
@@ -903,7 +903,7 @@ python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
     IntradayOhlc resolution=1 → stock_raw_intraday, validation, stock_intraday timeframe='1m'
 ```
 
-`python main.py eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
+`python main.py stock-eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
 
 `python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
 

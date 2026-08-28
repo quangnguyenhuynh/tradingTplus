@@ -109,13 +109,13 @@ It reads SSI `IntradayOhlc` at resolution 1 and writes `stock_raw_intraday` plus
 for daily context. It does not write aggregate candles or run daily ingest,
 completeness, features, signals, backtests, or Analogs.
 
-### `eod`
+### `stock-eod`
 
 ```text
-python main.py eod [DATE] [--symbols SYMBOL [SYMBOL ...]]
+python main.py stock-eod [DATE] [--symbols SYMBOL [SYMBOL ...]]
 ```
 
-Example: `python main.py eod 07/08/2026 --symbols SSI HPG`.
+Example: `python main.py stock-eod 07/08/2026 --symbols SSI HPG`.
 
 - Omitted `DATE` means the latest weekday **on or before today** in Vietnam
   time. This differs from `daily`/`intraday-ingest`, which select the previous
@@ -409,7 +409,7 @@ resolves only `status = 'active'` codes from `index_master`. Explicit codes are
 validated against the complete master and may intentionally target an inactive
 row; unknown explicit codes fail. Stock ingest follows the same rule through
 `symbols`: omitted scope uses active rows, while explicit symbols remain
-available for maintenance/backfill. EOD composes index ingest and its separate
+available for maintenance/backfill. The independent index-eod pipeline runs index ingest and its separate
 completeness stage. None of these commands calculate features or research
 outputs.
 

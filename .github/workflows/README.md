@@ -12,13 +12,13 @@ Automation for tests and explicit Trading T+ pipelines.
 | File | Trigger | Current command |
 | --- | --- | --- |
 | `tests.yml` | Pull requests and pushes to `dev` | `python -m pytest -q` on Python 3.11, with a PostgreSQL 16 service and `TEST_DATABASE_URL`. |
-| `eod.yml` | Weekdays at 09:30 UTC (16:30 Vietnam time) and manual dispatch | `python main.py eod [date]`. |
+| `stock-eod.yml` | Weekdays at 09:30 UTC (16:30 Vietnam time) and manual dispatch | `python main.py stock-eod [date]`. |
 | `index-eod.yml` | Weekdays at 09:45 UTC (16:45 Vietnam time) and manual dispatch | `python main.py index-daily [date] [--indexes ...]`. |
 | `features.yml` | Manual dispatch only | Explicit `python main.py features ...`. |
 
 ## Operational notes
 
-- `eod.yml` orchestrates stock daily ingest, stock intraday ingest, index daily ingest, and completeness validation. Omitted scopes use only `status = 'active'` rows in `symbols` and `index_master`. It does not compute features.
+- `stock-eod.yml` orchestrates stock daily ingest, stock intraday ingest, and stock completeness validation. Its omitted scope uses only `symbols.status = 'active'`; it never reads or writes index data. It does not compute features.
 - `index-eod.yml` runs only SSI DailyIndex raw/clean ingest through `index-daily`. An empty index input uses active `index_master` rows; explicit indexes can retry or catch up source rows without running stock ingest, completeness, features, signals, backtests, or Analogs.
 - Scheduled workflows run on weekdays; exchange holidays or empty SSI responses remain visible in the command summary and are not fabricated.
 - `features.yml` is intentionally separate from ingest and supports explicit mode/date/symbol/timeframe inputs.

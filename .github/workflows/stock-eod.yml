@@ -1,4 +1,4 @@
-name: TradingTPlus EOD Pipeline
+name: TradingTPlus Stock EOD Pipeline
 
 on:
   schedule:
@@ -10,9 +10,17 @@ on:
         description: "Optional trading date in DD/MM/YYYY format"
         required: false
         type: string
+      symbols:
+        description: "Optional space-separated active stock symbols"
+        required: false
+        type: string
+
+concurrency:
+  group: tradingtplus-stock-eod-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  eod:
+  stock-eod:
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -31,10 +39,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run EOD pipeline
+      - name: Run Stock EOD pipeline
         run: |
+          cmd=(python main.py stock-eod)
           if [ -n "${{ inputs.date }}" ]; then
-            python main.py eod "${{ inputs.date }}"
-          else
-            python main.py eod
+            cmd+=("${{ inputs.date }}")
           fi
+          if [ -n "${{ inputs.symbols }}" ]; then
+            read -r -a symbols <<< "${{ inputs.symbols }}"
+            cmd+=(--symbols "${symbols[@]}")
+          fi
+          "${cmd[@]}"

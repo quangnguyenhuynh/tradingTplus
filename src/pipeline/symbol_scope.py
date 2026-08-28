@@ -36,6 +36,18 @@ def resolve_symbol_scope(db: Any, symbols: Iterable[Any] | None) -> tuple[list[s
     return master_symbols or [], None
 
 
+def resolve_active_symbol_scope(db: Any, symbols: Iterable[Any] | None) -> tuple[list[str], list[str] | None, list[str]]:
+    """Resolve active symbols and report explicit values excluded by master status."""
+    requested = normalize_symbol_scope(symbols)
+    active = normalize_symbol_scope(db.get_symbols() or []) or []
+    if requested is None:
+        return active, None, []
+    active_set = set(active)
+    resolved = [symbol for symbol in requested if symbol in active_set]
+    ignored = [symbol for symbol in requested if symbol not in active_set]
+    return resolved, requested, ignored
+
+
 def symbol_scope_summary(resolved: list[str], requested: list[str] | None) -> dict[str, Any]:
     return {
         "symbol_scope": "EXPLICIT" if requested is not None else "ALL_ACTIVE",
@@ -45,4 +57,4 @@ def symbol_scope_summary(resolved: list[str], requested: list[str] | None) -> di
     }
 
 
-__all__ = ["normalize_symbol_scope", "resolve_symbol_scope", "symbol_scope_summary"]
+__all__ = ["normalize_symbol_scope", "resolve_symbol_scope", "resolve_active_symbol_scope", "symbol_scope_summary"]
