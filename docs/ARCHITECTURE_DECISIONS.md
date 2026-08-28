@@ -181,7 +181,7 @@ Command hiện tại:
 
 ```text
 daily   = ingest only
-eod     = daily ingest + completeness
+stock-eod = daily stock ingest + intraday stock ingest + stock completeness
 features = explicit feature computation
 intraday = legacy feature alias, không ingest candle mới
 ```
@@ -1829,7 +1829,7 @@ Consequences:
 
 - `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `stock_raw_intraday` or `stock_intraday`.
 - `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `stock_raw_intraday` and `stock_intraday` for candle ingest.
-- `python main.py eod [DD/MM/YYYY]` is an orchestrator: daily ingest → intraday ingest → completeness check.
+- `python main.py stock-eod [DD/MM/YYYY]` is an orchestrator: daily ingest → intraday ingest → completeness check.
 - `python main.py intraday` remains a backward-compatible feature alias and must not be redefined as an ingest command.
 - Feature computation, signal generation, and backtesting remain explicit downstream stages.
 

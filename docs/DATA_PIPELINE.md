@@ -181,7 +181,7 @@ DailyStockPrice
     ├── stock_raw_daily
     └── stock_daily (canonical, bao gồm foreign daily/room)
 
-`DailyIndex`/`index_daily` không thuộc daily, EOD hoặc backfill stock-only. Schema và dữ liệu index cũ vẫn được giữ nguyên.
+`DailyIndex`/`index_daily` không thuộc daily, stock-eod hoặc backfill stock-only. Schema và dữ liệu index cũ vẫn được giữ nguyên.
 ```
 
 `DailyOhlc` chỉ dùng inspector/cross-check.
@@ -251,3 +251,7 @@ clock defaults are removed for these fields, so writers must send them explicitl
 ## Canonical DailyIndex pipeline
 
 `SSI DailyIndex -> index_raw_daily -> validation -> index_daily -> index completeness` is a separate source-data flow. Index definitions live in `index_master`; constituents remain in `index_components`. Raw payloads use `(index_code, trading_date, data_hash)` and clean rows use `(index_code, trading_date)`. A payload outside requested code/date scope is retained raw and rejected from clean storage. Historical repair uses the explicit `index-backfill` command.
+
+## Stock EOD versus Index EOD
+
+`stock-eod` resolves `symbols.status = 'active'` once and runs stock daily ingest, stock intraday ingest, then stock completeness. It has no index dependency or index output. `index-eod` remains the independent index source-data workflow. See [STOCK_EOD_PIPELINE.md](STOCK_EOD_PIPELINE.md).

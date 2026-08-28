@@ -8,7 +8,7 @@ from warnings import warn
 
 from src.pipeline.daily import run_daily_ingest
 from src.pipeline.date_utils import parse_ddmmyyyy, parse_iso_date, validate_not_future
-from src.pipeline.eod import _status_from_ingest, _validate_pipeline_summary
+from src.pipeline.pipeline_status import status_from_ingest as _status_from_ingest, validate_pipeline_summary as _validate_pipeline_summary
 from src.pipeline.ingest_check import check_ingest
 from src.pipeline.intraday_ingest import run_intraday_ingest
 from src.pipeline.symbol_scope import normalize_symbol_scope

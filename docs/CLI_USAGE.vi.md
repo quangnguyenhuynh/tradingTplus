@@ -110,13 +110,13 @@ Ví dụ: `python main.py intraday-ingest 07/08/2026 --symbols SSI`. `DATE` và
 aggregate và không chạy daily ingest, completeness, feature, signal, backtest
 hoặc Analog.
 
-### `eod`
+### `stock-eod`
 
 ```text
-python main.py eod [DATE] [--symbols SYMBOL [SYMBOL ...]]
+python main.py stock-eod [DATE] [--symbols SYMBOL [SYMBOL ...]]
 ```
 
-Ví dụ: `python main.py eod 07/08/2026 --symbols SSI HPG`.
+Ví dụ: `python main.py stock-eod 07/08/2026 --symbols SSI HPG`.
 
 - Bỏ `DATE` nghĩa là ngày trong tuần gần nhất **tính cả hôm nay** theo giờ Việt
   Nam. Điều này khác `daily`/`intraday-ingest` vốn chọn ngày trong tuần trước đó.
@@ -402,7 +402,7 @@ bộ mã có `status = 'active'` từ `index_master`. Mã explicit được ki�
 toàn bộ master và vẫn có thể chủ đích chạy một dòng inactive; mã không tồn tại
 sẽ báo lỗi. Stock ingest áp dụng cùng quy tắc qua bảng `symbols`: scope bỏ trống
 chỉ lấy dòng active, còn symbol explicit vẫn dùng được cho maintenance/backfill.
-EOD kết hợp index ingest với stage completeness riêng. Không command nào trong
+Pipeline index-eod độc lập chạy index ingest và stage completeness riêng. Không command nào trong
 số này tính feature hoặc kết quả research.
 
 Quy trình khuyến nghị:
