@@ -1,30 +1,13 @@
-# Pipeline Stock EOD
+# Pipeline Stock Daily EOD
 
-## Mục đích và lịch chạy
-
-`stock-eod` là orchestrator dữ liệu nguồn **cổ phiếu** cuối ngày. GitHub Actions chạy `.github/workflows/stock-eod.yml` lúc 09:30 UTC (16:30 Asia/Ho_Chi_Minh) từ thứ Hai đến thứ Sáu và hỗ trợ chạy manual. Workflow này độc lập với `.github/workflows/index-eod.yml`.
-
-## Chạy manual
+`stock-eod` là pipeline dữ liệu nguồn daily-only. Workflow độc lập chạy lúc 09:30 UTC (16:30 Asia/Ho_Chi_Minh), thứ Hai-thứ Sáu, hoặc manual.
 
 ```bash
 python main.py stock-eod [DD/MM/YYYY] [--symbols SSI HPG]
 ```
 
-Nếu bỏ ngày, pipeline chọn ngày trong tuần gần nhất không sau ngày hiện tại theo giờ Việt Nam. Đây chỉ là fallback lập lịch, không khẳng định đó là ngày giao dịch; completeness sẽ phản ánh response rỗng hoặc thiếu.
+Khi bỏ ngày, pipeline chọn ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam; fallback lịch này không chứng minh đó là phiên giao dịch. Khi bỏ symbols, scope là `symbols.status='active'`. Symbols explicit được normalize rồi giao với scope daily; mã inactive/unknown được báo trong `ignored_symbols`.
 
-## Scope symbol active
+Các stage: resolve scope, SSI `DailyStockPrice`, raw `stock_raw_daily`, clean đã validate `stock_daily`, rồi `check_daily_ingest`. Final status chỉ dùng bằng chứng daily. Compatibility key deprecated `intraday_summary` luôn là `null`.
 
-Pipeline đọc các dòng `symbols.status = 'active'`. Nếu bỏ `--symbols`, toàn bộ symbol active được dùng. Danh sách explicit được strip, uppercase, loại trùng theo lần xuất hiện đầu tiên, rồi giao với tập active. Symbol inactive/không tồn tại được báo trong `ignored_symbols` và không bao giờ được ingest. Cùng một list đã resolve được truyền nguyên vẹn qua mọi stage.
-
-## Thứ tự stage và hợp đồng dữ liệu
-
-1. Stock daily ingest: bằng chứng payload SSI `DailyStockPrice` vào `raw_daily`, sau đó row chuẩn hóa vào `stock_daily`.
-2. Stock intraday ingest: bằng chứng payload SSI `IntradayOhlc` vào `raw_intraday`, sau đó candle 1 phút canonical vào `stock_intraday`.
-3. Stock completeness: kiểm tra chỉ đọc theo scope active và ngày giao dịch.
-4. Tổng hợp trạng thái cuối chỉ từ các stage stock.
-
-`SUCCESS` trong mô tả vận hành tương ứng status summary `OK`: cả hai dataset stock có dữ liệu và không stage nào fail. `PARTIAL` nghĩa là completeness báo coverage stock thiếu/chưa đủ nhưng chưa fail toàn bộ. `FAILED` nghĩa là stage stock fail, completeness fail, hoặc count daily/intraday bắt buộc bằng 0.
-
-## Các phần tuyệt đối không thuộc Stock EOD
-
-Stock EOD không gọi `DailyIndex`, không đọc `index_master`, không ghi `index_raw_daily`/`index_daily`, và không chạy index completeness. Index do `index-eod` độc lập xử lý. Stock EOD không tính feature, signal, backtest hoặc Historical Analog. “EOD” trong Historical Analog vẫn là tên checkpoint và không bị đổi bởi việc chuẩn hóa interface pipeline này.
+Pipeline không gọi `IntradayOhlc`, không đọc/ghi intraday hoặc index, và không chạy feature, signal, backtest, Historical Analog hay automatic backfill.

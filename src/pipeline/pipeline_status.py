@@ -28,3 +28,24 @@ def status_from_ingest(summary: dict[str, Any], failures: list[str], warnings: l
         warnings.append("ingest completeness is partial")
         return "PARTIAL"
     return "OK"
+
+
+def _source_status(summary, count_key, missing_key, failures, warnings):
+    if int(summary.get(count_key) or 0) == 0:
+        failures.append(f"{count_key} == 0")
+    if summary.get("status") == "FAILED" and "completeness status FAILED" not in failures:
+        failures.append("completeness status FAILED")
+    if failures:
+        return "FAILED"
+    if summary.get("status") == "PARTIAL" or summary.get(missing_key, 0):
+        warnings.append("ingest completeness is partial")
+        return "PARTIAL"
+    return "OK"
+
+
+def status_from_daily_ingest(summary, failures, warnings):
+    return _source_status(summary, "stock_daily_count", "missing_stock_daily_count", failures, warnings)
+
+
+def status_from_intraday_ingest(summary, failures, warnings):
+    return _source_status(summary, "stock_intraday_count", "missing_intraday_count", failures, warnings)

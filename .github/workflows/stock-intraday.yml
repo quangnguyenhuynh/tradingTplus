@@ -1,9 +1,9 @@
-name: TradingTPlus Stock EOD Pipeline
+name: TradingTPlus Stock Intraday Pipeline
 
 on:
   schedule:
-    # 16:30 Vietnam time (UTC+7) on weekdays = 09:30 UTC Monday-Friday.
-    - cron: "30 9 * * 1-5"
+    # 17:00 Vietnam time (UTC+7) on weekdays = 10:00 UTC Monday-Friday.
+    - cron: "0 10 * * 1-5"
   workflow_dispatch:
     inputs:
       date:
@@ -11,16 +11,16 @@ on:
         required: false
         type: string
       symbols:
-        description: "Optional space-separated daily-active stock symbols"
+        description: "Optional space-separated symbols; still intersected with effective intraday active scope"
         required: false
         type: string
 
 concurrency:
-  group: tradingtplus-stock-eod-${{ github.ref }}
+  group: tradingtplus-stock-intraday-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  stock-eod:
+  stock-intraday:
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -30,21 +30,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Run Stock Daily EOD pipeline
+      - name: Run Stock Intraday 1m pipeline
         run: |
-          cmd=(python main.py stock-eod)
-          if [ -n "${{ inputs.date }}" ]; then
-            cmd+=("${{ inputs.date }}")
-          fi
+          cmd=(python main.py stock-intraday)
+          if [ -n "${{ inputs.date }}" ]; then cmd+=("${{ inputs.date }}"); fi
           if [ -n "${{ inputs.symbols }}" ]; then
             read -r -a symbols <<< "${{ inputs.symbols }}"
             cmd+=(--symbols "${symbols[@]}")

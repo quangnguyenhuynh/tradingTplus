@@ -73,10 +73,10 @@ Intraday gap validation normalizes timestamps to minute buckets in memory only; 
 Public entrypoint: `run_stock_eod_pipeline()` in `stock_eod.py`, exposed by `python main.py stock-eod [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 ```text
-daily ingest -> intraday ingest -> ingest completeness check -> OK/PARTIAL/FAILED
+daily ingest -> daily-only completeness check -> OK/PARTIAL/FAILED
 ```
 
-Stock EOD preserves the daily and intraday service boundaries. It does not calculate features and does not run signals or backtests.
+Stock EOD is daily-only. The independent Stock Intraday entrypoint runs 1m ingest and intraday-only completeness. Neither runs downstream computation.
 
 ## Backfill execution
 
@@ -133,7 +133,7 @@ Ingest commands never automatically calculate features, generate signals, or run
 
 ## Shared stock-symbol scope
 
-`daily`, `intraday-ingest`, `stock-eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. For Stock EOD, explicit symbols are intersected with the active master set and inactive or unknown values are reported and excluded. Stock EOD passes the same scope to all three source steps, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index scope and completeness belong to the independent index-eod flow; index master synchronization remains exclusive to `sync-master-data` / `init`.
+`daily`, `intraday-ingest`, `stock-eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. For Stock EOD, explicit symbols are intersected with the active master set and inactive or unknown values are reported and excluded. Stock EOD passes the same scope to daily ingest and daily completeness, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index scope and completeness belong to the independent index-eod flow; index master synchronization remains exclusive to `sync-master-data` / `init`.
 # Persistence timestamps
 
 Pipeline persistence timestamps are application-controlled ISO 8601 values in `Asia/Ho_Chi_Minh` with an explicit `+07:00` offset.
@@ -141,3 +141,7 @@ Market `time`, `source_time`, and `trading_date` keep source semantics. `created
 means first insert and is preserved on conflict; `updated_at`, `fetched_at`,
 `received_at`, and `last_updated_at` describe the latest corresponding app action.
 Database clock defaults are removed by migration; pipeline writes must supply these fields.
+
+## Split automatic stock pipelines (2026-08-29)
+
+`stock-eod` is daily-only and uses `symbols.status`. `stock-intraday` is 1m-only and requires both `symbols.status` and `symbols.intraday_status`. Each runs its source-specific completeness check and neither runs index or downstream computation. `check_ingest` remains a combined compatibility wrapper for backfill/refill. Explicit repair commands retain direct symbol scope and do not apply the automatic intraday filter.

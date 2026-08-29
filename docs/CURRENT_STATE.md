@@ -176,6 +176,7 @@ Hành vi quan trọng:
 
 ```bash
 python main.py stock-eod [DD/MM/YYYY]
+python main.py stock-intraday [DD/MM/YYYY] --symbols SSI HPG
 ```
 
 Flow hiện tại:

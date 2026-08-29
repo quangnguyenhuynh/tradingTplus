@@ -120,12 +120,9 @@ Example: `python main.py stock-eod 07/08/2026 --symbols SSI HPG`.
 - Omitted `DATE` means the latest weekday **on or before today** in Vietnam
   time. This differs from `daily`/`intraday-ingest`, which select the previous
   weekday. Neither rule proves the date is an exchange trading session.
-- Omitted `--symbols` means all active master symbols; supplied values restrict
-  daily ingest, intraday ingest, and completeness to the same scope.
+- Omitted `--symbols` means rows with `status=active`; supplied values are intersected with this daily scope.
 
-It writes the daily and 1m raw/clean ingest layers, then reads them for
-completeness and returns `OK`, `PARTIAL`, or `FAILED`. It does not calculate
-features or run signals, backtests, or Analogs.
+It writes only daily raw/clean data and runs daily-only completeness. The deprecated `intraday_summary` key is `null`; it does not run intraday, index, or downstream computation.
 
 ## Source-data backfill
 
@@ -431,3 +428,11 @@ insufficient histories. Ingestion never invokes these commands, and these
 commands never invoke ingestion or downstream research. For formulas, null
 rules, the 250-session warm-up, and backfill order, see
 [`src/index_features/README.md`](../src/index_features/README.md).
+
+### `stock-intraday`
+
+```text
+python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
+```
+
+Fetches only SSI `IntradayOhlc` resolution 1, writes raw and canonical 1m source data, then runs intraday-only completeness. It does not ingest daily/index data or run features, signals, backtests, or Analog. Automatic and explicit workflow scope requires both `symbols.status='active'` and `intraday_status='active'`; ignored values are reported. Omitted date uses the latest weekday on or before today in Vietnam.

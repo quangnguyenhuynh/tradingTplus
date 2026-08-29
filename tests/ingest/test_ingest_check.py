@@ -291,3 +291,28 @@ def test_completeness_readers_reject_invalid_page_size():
             assert "page_size" in str(exc)
         else:
             raise AssertionError("invalid page size must fail")
+
+
+def test_daily_and_intraday_completeness_are_source_isolated(monkeypatch):
+    times = _ssi_style_day_times()
+    daily_db = _DB(_intraday_rows(times))
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: daily_db)
+    daily = ingest_check.check_daily_ingest("20/07/2026", symbols=["SSI"])
+    assert daily["status"] == "OK"
+    assert {entry[0] for entry in daily_db.executed} == {"stock_daily"}
+
+    intraday_db = _DB(_intraday_rows(times))
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: intraday_db)
+    intraday = ingest_check.check_intraday_ingest("20/07/2026", symbols=["SSI"])
+    assert intraday["status"] == "OK"
+    assert {entry[0] for entry in intraday_db.executed} == {"stock_intraday"}
+
+
+def test_combined_completeness_wrapper_retains_legacy_keys(monkeypatch):
+    db = _DB(_intraday_rows(_ssi_style_day_times()))
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)
+    summary = ingest_check.check_ingest("20/07/2026", symbols=["SSI"])
+    assert summary["stock_daily_count"] == 1
+    assert summary["stock_intraday_count"] > 0
+    assert summary["index_daily_count"] == 0
+    assert summary["status"] == "OK"

@@ -121,12 +121,9 @@ Ví dụ: `python main.py stock-eod 07/08/2026 --symbols SSI HPG`.
 - Bỏ `DATE` nghĩa là ngày trong tuần gần nhất **tính cả hôm nay** theo giờ Việt
   Nam. Điều này khác `daily`/`intraday-ingest` vốn chọn ngày trong tuần trước đó.
   Cả hai rule đều không chứng minh đó là exchange trading session.
-- Bỏ `--symbols` nghĩa là toàn bộ active master symbol; cung cấp sẽ giới hạn
-  daily ingest, intraday ingest và completeness vào cùng scope.
+- Bỏ `--symbols` nghĩa là toàn bộ symbol có `status=active`; cung cấp sẽ được giao với scope daily này.
 
-Command ghi layer daily và 1m raw/clean, sau đó đọc để kiểm tra completeness và
-trả `OK`, `PARTIAL` hoặc `FAILED`. Nó không tính feature hoặc chạy signal,
-backtest, Analog.
+Command chỉ ghi daily raw/clean và chạy daily-only completeness. Compatibility key `intraday_summary` là `null`; command không chạy intraday, index hoặc downstream.
 
 ## Backfill dữ liệu nguồn
 
@@ -422,3 +419,11 @@ raw-không-clean và lịch sử không đủ. Ingest không gọi các lệnh n
 không gọi ingest hoặc research downstream. Xem công thức, quy tắc null, warm-up
 250 phiên và thứ tự backfill tại
 [`src/index_features/README.vi.md`](../src/index_features/README.vi.md).
+
+### `stock-intraday`
+
+```text
+python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
+```
+
+Chỉ lấy SSI `IntradayOhlc` resolution 1, ghi raw và source canonical 1m, rồi chạy intraday-only completeness. Không ingest daily/index hoặc chạy feature, signal, backtest, Analog. Scope automatic và explicit workflow yêu cầu cả `symbols.status='active'` và `intraday_status='active'`; mã bị loại được báo. Bỏ ngày sẽ dùng ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam.

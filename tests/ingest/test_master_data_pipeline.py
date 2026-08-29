@@ -55,7 +55,7 @@ def test_master_upserts_preserve_existing_inactive_status(monkeypatch):
     monkeypatch.setattr(
         db,
         "_load_master_statuses",
-        lambda table, key, keys: {"SSI": "inactive"} if table == "symbols" else {"VNINDEX": "inactive"},
+        lambda table, key, keys, columns=("status",): ({"SSI": {"status": "inactive", "intraday_status": "active"}} if table == "symbols" else {"VNINDEX": {"status": "inactive"}}),
     )
     monkeypatch.setattr(
         db,
@@ -67,8 +67,8 @@ def test_master_upserts_preserve_existing_inactive_status(monkeypatch):
     db.upsert_index_master([{"index_code": "VNINDEX"}, {"index_code": "VN30"}])
 
     assert writes[0][1] == [
-        {"symbol": "SSI", "status": "inactive"},
-        {"symbol": "HPG", "status": "active"},
+        {"symbol": "SSI", "status": "inactive", "intraday_status": "active"},
+        {"symbol": "HPG", "status": "active", "intraday_status": "inactive"},
     ]
     assert writes[1][1] == [
         {"index_code": "VNINDEX", "status": "inactive"},

@@ -1367,8 +1367,10 @@ CREATE TABLE IF NOT EXISTS "public"."symbols" (
     "market" "text",
     "name" "text",
     "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "intraday_status" "text" DEFAULT 'inactive'::"text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "symbols_status_check" CHECK ("status" IN ('active', 'inactive'))
+    CONSTRAINT "symbols_status_check" CHECK ("status" IN ('active', 'inactive')),
+    CONSTRAINT "symbols_intraday_status_check" CHECK ("intraday_status" IN ('active', 'inactive'))
 );
 
 
