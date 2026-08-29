@@ -317,42 +317,54 @@ class SupabaseClient:
     def upsert_raw(self, records):
         self._upsert_in_batches('stock_raw_intraday', records, on_conflict='symbol,time,data_hash', batch_size=200)
 
-    def _load_master_statuses(self, table_name: str, key_column: str, keys) -> dict[str, str]:
+    def _load_master_statuses(
+        self, table_name: str, key_column: str, keys, status_columns=("status",)
+    ) -> dict[str, dict[str, str]]:
         """Load current operator status so master sync never reactivates disabled rows."""
         normalized_keys = [str(key) for key in keys if key not in (None, "")]
-        statuses: dict[str, str] = {}
+        statuses: dict[str, dict[str, str]] = {}
         for offset in range(0, len(normalized_keys), 200):
             chunk = normalized_keys[offset:offset + 200]
             result = self._with_retry(
                 lambda chunk=chunk: self.client.table(table_name)
-                .select(f'{key_column},status')
+                .select(','.join((key_column, *status_columns)))
                 .in_(key_column, chunk)
                 .execute(),
                 action_name=f"load {table_name} statuses [{offset}:{offset + len(chunk)}]",
             )
-            statuses.update({
-                str(row[key_column]): str(row['status'])
-                for row in (result.data or [])
-                if row.get(key_column) not in (None, "") and row.get('status') in {'active', 'inactive'}
-            })
+            for row in result.data or []:
+                if row.get(key_column) in (None, ""):
+                    continue
+                statuses[str(row[key_column])] = {
+                    column: str(row[column]) for column in status_columns
+                    if row.get(column) in {'active', 'inactive'}
+                }
         return statuses
 
-    def _preserve_master_status(self, table_name: str, key_column: str, records):
+    def _preserve_master_status(
+        self, table_name: str, key_column: str, records, *, status_defaults=None
+    ):
+        status_defaults = status_defaults or {"status": "active"}
         existing = self._load_master_statuses(
             table_name,
             key_column,
             [record.get(key_column) for record in records],
+            tuple(status_defaults),
         )
         prepared = []
         for record in records:
             row = dict(record)
             key = str(row[key_column])
-            row['status'] = row.get('status') or existing.get(key, 'active')
+            for column, default in status_defaults.items():
+                row[column] = existing.get(key, {}).get(column, row.get(column) or default)
             prepared.append(row)
         return prepared
 
     def upsert_symbols(self, symbols):
-        records = self._preserve_master_status('symbols', 'symbol', symbols)
+        records = self._preserve_master_status(
+            'symbols', 'symbol', symbols,
+            status_defaults={'status': 'active', 'intraday_status': 'inactive'},
+        )
         self._upsert_in_batches('symbols', records, on_conflict='symbol')
 
     def upsert_securities(self, records):
@@ -547,6 +559,18 @@ class SupabaseClient:
             .order('symbol')
             .execute(),
             action_name="get active symbols",
+        )
+        return [row['symbol'] for row in result.data]
+
+    def get_intraday_symbols(self):
+        result = self._with_retry(
+            lambda: self.client.table('symbols')
+            .select('symbol')
+            .eq('status', 'active')
+            .eq('intraday_status', 'active')
+            .order('symbol')
+            .execute(),
+            action_name="get effective active intraday symbols",
         )
         return [row['symbol'] for row in result.data]
 

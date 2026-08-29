@@ -84,3 +84,7 @@ lock/data-loss warnings are in `sql/analogs/README.md`.
 ## 20260811 Historical Analog recovery and runtime RPC
 
 For a fresh installation, apply the corrected `20260809_create_historical_analog_core_eod_v1.sql`. It uses the immutable `analog_jsonb_object_size(jsonb)` helper rather than the unavailable `jsonb_object_length(jsonb)`, while retaining the exact nine-dimension CHECK. If the old 20260809 script stopped part-way, apply `20260811_recover_historical_analog_core_eod_v1.sql` instead (or immediately afterward): it is idempotent, preserves existing Analog rows, completes missing tables/indexes/RLS/grants/policies, and installs the service-role-only `persist_analog_query_v1(jsonb,jsonb)` transactional RPC. Then run the read-only verification SQL. Neither migration changes Phase 0 tables or backfills evidence.
+
+### `20260829_add_symbols_intraday_status.sql`
+
+Adds the operator-controlled `symbols.intraday_status` automatic-ingest scope. Existing rows copy `status`; new rows default to `inactive`. Deploy manually after `20260827_add_master_status.sql`; no market-data backfill is required. Verification and rollback SQL are comments in the migration.

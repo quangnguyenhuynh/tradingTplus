@@ -7,6 +7,7 @@ Production commands:
   python main.py daily [DD/MM/YYYY]
   python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
   python main.py stock-eod [DD/MM/YYYY]
+  python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]
   python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY
   python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY
@@ -49,6 +50,7 @@ from src.pipeline import (
     run_backfill_pipeline,
     run_daily_backfill_pipeline,
     run_stock_eod_pipeline,
+    run_stock_intraday_pipeline,
     run_intraday_backfill_pipeline,
     run_intraday_ingest,
     run_intraday_pipeline,
@@ -166,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     stock_eod = sub.add_parser(
         "stock-eod",
-        help="Stock EOD: stock daily + intraday ingest and stock completeness only; no indexes/features",
+        help="Stock EOD daily-only ingest and completeness; no intraday/indexes/features",
     )
     stock_eod.add_argument(
         "date",
@@ -174,10 +176,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
     stock_eod.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="Stock symbols for daily, intraday, and completeness; omitted means active master symbols",
+        "--symbols", nargs="+", default=None,
+        help="Daily stock symbols intersected with status=active",
+    )
+
+    stock_intraday = sub.add_parser(
+        "stock-intraday",
+        help="SSI IntradayOhlc 1m source ingest + intraday completeness only; no daily/features/signals/backtests",
+    )
+    stock_intraday.add_argument(
+        "date", nargs="?",
+        help="Trading date DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam",
+    )
+    stock_intraday.add_argument(
+        "--symbols", nargs="+", default=None,
+        help="Symbols intersected with status=active and intraday_status=active",
     )
 
     for command, help_text in (
@@ -586,6 +599,10 @@ def main(argv: list[str] | None = None) -> int:
             return _status_to_exit(summary)
         if args.command == "stock-eod":
             summary = run_stock_eod_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
+            _print_summary(summary)
+            return _status_to_exit(summary)
+        if args.command == "stock-intraday":
+            summary = run_stock_intraday_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:

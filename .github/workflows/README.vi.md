@@ -12,13 +12,16 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 | File | Trigger | Command hiện tại |
 | --- | --- | --- |
 | `tests.yml` | Pull request và push vào `dev` | `python -m pytest -q` trên Python 3.11, có service PostgreSQL 16 và `TEST_DATABASE_URL`. |
-| `stock-eod.yml` | Thứ Hai–Thứ Sáu lúc 09:30 UTC (16:30 Việt Nam) và manual | `python main.py stock-eod [date]`. |
+| `stock-eod.yml` | Thứ Hai–Thứ Sáu 09:30 UTC (16:30 Việt Nam) + manual | Daily-only `python main.py stock-eod [date]`. |
+| `stock-intraday.yml` | Thứ Hai–Thứ Sáu 10:00 UTC (17:00 Việt Nam) + manual | 1m-only `python main.py stock-intraday [date]`. |
 | `index-eod.yml` | Thứ Hai–Thứ Sáu lúc 09:45 UTC (16:45 Việt Nam) và manual | `python main.py index-daily [date] [--indexes ...]`. |
 | `features.yml` | Chỉ manual | `python main.py features ...` với input rõ ràng. |
 
 ## Lưu ý vận hành
 
-- `stock-eod.yml` chạy stock daily ingest, stock intraday ingest, index daily ingest và completeness validation. Scope bỏ trống chỉ dùng các dòng `status = 'active'` trong `symbols` và `index_master`; workflow không tính feature.
+- `stock-eod.yml` chỉ chạy daily ingest và daily completeness cho `symbols.status = 'active'`.
+- `stock-intraday.yml` chỉ chạy ingest 1m và intraday completeness khi cả `status` và `intraday_status` là `active`; manual symbols không vượt qua scope này.
+- Hai workflow độc lập với index và không chạy feature/signal/backtest/Analog.
 - `index-eod.yml` chỉ chạy SSI DailyIndex raw/clean ingest qua `index-daily`. Input index rỗng dùng các dòng active trong `index_master`; index explicit có thể retry hoặc catch up dữ liệu nguồn mà không chạy stock ingest, completeness, feature, signal, backtest hoặc Analog.
 - Workflow schedule chạy theo ngày trong tuần; ngày nghỉ sàn hoặc SSI trả rỗng vẫn hiện rõ trong summary command và không tạo dữ liệu giả.
 - `features.yml` tách khỏi ingest và cho phép chọn mode/date/symbol/timeframe.

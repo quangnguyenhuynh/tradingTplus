@@ -77,6 +77,7 @@ python main.py init
 python main.py daily [DD/MM/YYYY] --symbols SSI HPG
 python main.py intraday-ingest [DD/MM/YYYY] --symbols SSI HPG
 python main.py stock-eod [DD/MM/YYYY] --symbols SSI HPG
+python main.py stock-intraday [DD/MM/YYYY] --symbols SSI HPG
 python main.py backfill-daily --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill-intraday --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG
 python main.py backfill --from DD/MM/YYYY --to DD/MM/YYYY --symbols SSI HPG

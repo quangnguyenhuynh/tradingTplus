@@ -254,4 +254,4 @@ clock defaults are removed for these fields, so writers must send them explicitl
 
 ## Stock EOD versus Index EOD
 
-`stock-eod` resolves `symbols.status = 'active'` once and runs stock daily ingest, stock intraday ingest, then stock completeness. It has no index dependency or index output. `index-eod` remains the independent index source-data workflow. See [STOCK_EOD_PIPELINE.md](STOCK_EOD_PIPELINE.md).
+`stock-eod` uses `symbols.status = 'active'` for daily-only ingest and completeness. `stock-intraday` uses rows where both `status` and `intraday_status` are `active` for 1m-only ingest and completeness. Both are independent from `index-eod` and downstream computation. See [STOCK_EOD_PIPELINE.md](STOCK_EOD_PIPELINE.md) and [STOCK_INTRADAY_PIPELINE.md](STOCK_INTRADAY_PIPELINE.md).

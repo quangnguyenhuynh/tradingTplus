@@ -677,7 +677,7 @@ Dừng sau ingest.
 #### `eod`
 
 ```text
-daily ingest → intraday ingest → completeness check
+daily-only ingest → daily-only completeness; stock-intraday separately runs 1m ingest → intraday-only completeness
 ```
 
 Dừng sau completeness.
@@ -903,7 +903,7 @@ python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
     IntradayOhlc resolution=1 → stock_raw_intraday, validation, stock_intraday timeframe='1m'
 ```
 
-`python main.py stock-eod [DD/MM/YYYY]` orchestrates daily ingest, then intraday ingest, then ingest completeness checks. It does not calculate features, signals, or backtests.
+`python main.py stock-eod [DD/MM/YYYY]` runs daily-only ingest and completeness. `python main.py stock-intraday [DD/MM/YYYY]` independently runs automatic-scope 1m ingest and intraday completeness. Neither runs index or downstream computation.
 
 `python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
 

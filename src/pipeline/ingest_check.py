@@ -170,57 +170,93 @@ def _symbol_intraday_summary(symbol: str, rows: list[dict], has_daily: bool) -> 
     }
 
 
-def check_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+def _resolve_check_scope(db: SupabaseClient, symbols):
+    resolved, requested = resolve_symbol_scope(db, symbols)
+    return resolved, requested, symbol_scope_summary(resolved, requested)
+
+
+def check_daily_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+    """Check only canonical stock_daily presence for one exact scope and date."""
     db = SupabaseClient()
     validated = parse_ddmmyyyy(date)
-    date_iso = validated.iso
-    start, end = _vn_utc_range(validated)
-    active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
-    scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
-    query_scope = active_symbols if requested_symbols is not None else None
-    daily_present = _fetch_daily_symbols(db, date_iso, query_scope)
-    intraday_rows = _fetch_intraday_rows(db, start, end, query_scope)
-    by_symbol: dict[str, list[dict]] = defaultdict(list)
-    for row in intraday_rows:
-        by_symbol[row.get('symbol')].append(row)
-
-    per_symbol = [_symbol_intraday_summary(symbol, by_symbol.get(symbol, []), symbol in daily_present) for symbol in active_symbols]
-    missing_daily = [s for s in active_symbols if s not in daily_present]
-    missing_intraday = [s for s in active_symbols if not by_symbol.get(s)]
-    incomplete = [
-        {"symbol": r["symbol"], "candle_count": r["intraday_candle_count"], "missing_interval_count": r["missing_interval_count"], "missing_minutes": r["missing_minutes"]}
-        for r in per_symbol if r["intraday_candle_count"] and r["status"] == 'WARNING'
-    ]
-    stock_daily_count = len(daily_present)
-    stock_intraday_count = len(intraday_rows)
-    if stock_daily_count == 0 or stock_intraday_count == 0:
-        status = 'FAILED'
-    elif missing_daily or missing_intraday or incomplete:
-        status = 'PARTIAL'
-    else:
-        status = 'OK'
+    resolved, requested, scope_summary = _resolve_check_scope(db, symbols)
+    query_scope = resolved if requested is not None else None
+    daily_present = _fetch_daily_symbols(db, validated.iso, query_scope)
+    missing = [symbol for symbol in resolved if symbol not in daily_present]
+    count = len(daily_present)
+    status = 'FAILED' if not resolved or count == 0 else ('PARTIAL' if missing else 'OK')
     summary = {
-        "date": date_iso,
+        "date": validated.iso,
         **scope_summary,
-        "stock_daily_count": stock_daily_count,
-        "missing_stock_daily_count": len(missing_daily),
-        "missing_stock_daily_symbols": missing_daily,
-        "missing_stock_daily_symbols_sample": missing_daily[:100],
-        "stock_intraday_count": stock_intraday_count,
-        "intraday_symbol_count": len([s for s in active_symbols if by_symbol.get(s)]),
-        "missing_intraday_count": len(missing_intraday),
-        "missing_intraday_symbols": missing_intraday,
-        "missing_intraday_symbols_sample": missing_intraday[:100],
+        "stock_daily_count": count,
+        "missing_stock_daily_count": len(missing),
+        "missing_stock_daily_symbols": missing,
+        "missing_stock_daily_symbols_sample": missing[:100],
+        "status": status,
+    }
+    print(f"🔎 Daily ingest completeness for {date} ({validated.iso}) status={status}")
+    return summary
+
+
+def check_intraday_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+    """Check only canonical 1m stock_intraday structural coverage."""
+    db = SupabaseClient()
+    validated = parse_ddmmyyyy(date)
+    start, end = _vn_utc_range(validated)
+    resolved, requested, scope_summary = _resolve_check_scope(db, symbols)
+    query_scope = resolved if requested is not None else None
+    rows = _fetch_intraday_rows(db, start, end, query_scope)
+    by_symbol: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        by_symbol[row.get('symbol')].append(row)
+    # Intraday completeness is source-isolated; daily context is reported by the
+    # ingest stage and is not queried here.
+    per_symbol = [_symbol_intraday_summary(symbol, by_symbol.get(symbol, []), True) for symbol in resolved]
+    missing = [symbol for symbol in resolved if not by_symbol.get(symbol)]
+    incomplete = [
+        {"symbol": item["symbol"], "candle_count": item["intraday_candle_count"],
+         "missing_interval_count": item["missing_interval_count"], "missing_minutes": item["missing_minutes"]}
+        for item in per_symbol if item["intraday_candle_count"] and item["status"] == 'WARNING'
+    ]
+    count = len(rows)
+    status = 'FAILED' if not resolved or count == 0 else ('PARTIAL' if missing or incomplete else 'OK')
+    summary = {
+        "date": validated.iso,
+        **scope_summary,
+        "stock_intraday_count": count,
+        "intraday_symbol_count": sum(bool(by_symbol.get(symbol)) for symbol in resolved),
+        "missing_intraday_count": len(missing),
+        "missing_intraday_symbols": missing,
+        "missing_intraday_symbols_sample": missing[:100],
         "incomplete_intraday_count": len(incomplete),
         "incomplete_intraday_symbols": incomplete,
         "per_symbol": per_symbol,
-        # Deprecated compatibility key. Completeness is stock-only and must not
-        # query index_daily because daily/backfill no longer populate it.
+        "status": status,
+        "utc_range": {"start": start, "end": end},
+    }
+    print(f"🔎 Intraday ingest completeness for {date} ({validated.iso}) status={status}")
+    return summary
+
+
+def check_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+    """Compatibility wrapper for combined backfill/refill callers."""
+    daily = check_daily_ingest(date, symbols=symbols)
+    intraday = check_intraday_ingest(date, symbols=symbols)
+    db = SupabaseClient()
+    validated = parse_ddmmyyyy(date)
+    start, end = _vn_utc_range(validated)
+    if daily["status"] == 'FAILED' or intraday["status"] == 'FAILED':
+        status = 'FAILED'
+    elif daily["status"] == 'PARTIAL' or intraday["status"] == 'PARTIAL':
+        status = 'PARTIAL'
+    else:
+        status = 'OK'
+    return {
+        **daily,
+        **{key: value for key, value in intraday.items() if key not in {"date", "symbol_scope", "requested_symbols", "symbols", "symbol_count", "status"}},
         "index_daily_count": 0,
-        "foreign_trading_count": _count_query(db, 'stock_foreign_trading', trading_date=date_iso),
+        "foreign_trading_count": _count_query(db, 'stock_foreign_trading', trading_date=validated.iso),
         "orderbook_snapshot_count": _count_time_range_query(db, 'stock_orderbook_snapshot', start, end),
         "status": status,
         "utc_range": {"start": start, "end": end},
     }
-    print(f"🔎 Ingest completeness for {date} ({date_iso}) status={status}")
-    return summary
