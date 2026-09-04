@@ -388,7 +388,11 @@ Mọi đối số ngày của bốn command index nhận chính xác `YYYY-MM-DD
   command không đọc hoặc ghi database.
 - **Ingest ngày:** `index-daily` fetch một ngày giao dịch đã resolve, ghi bằng
   chứng payload vào `index_raw_daily`, sau đó ghi row chuẩn hóa đã validate vào
-  `index_daily`.
+  `index_daily`. Khi bỏ ngày, command dùng ngày trong tuần gần nhất bằng hoặc
+  trước ngày hiện tại tại Việt Nam; vì vậy lịch `index-eod` sau giờ đóng cửa
+  nhắm đúng ngày hiện tại từ thứ Hai đến thứ Sáu và thứ Sáu trước đó nếu chạy
+  cuối tuần. Đây chỉ là quy tắc ngày dương lịch, không chứng minh sàn Việt Nam
+  có giao dịch; ngày nghỉ và response SSI rỗng không tạo row giả.
 - **Backfill:** `index-backfill` chạy source-data ingest đó cho range lịch sử
   inclusive.
 - **Completeness:** `index-check` đọc database và so sánh scope index dự kiến

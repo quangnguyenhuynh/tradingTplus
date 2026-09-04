@@ -131,6 +131,12 @@ Ingest không bao giờ tự tính feature, sinh signal hoặc chạy backtest. 
 ## Scope mã cổ phiếu dùng chung
 
 `daily`, `intraday-ingest`, `stock-eod`, completeness, `backfill-daily`, `backfill-intraday` và `backfill` dùng một hợp đồng chuẩn hóa: bỏ scope thì dùng nguồn symbol master hiện có; giá trị explicit được strip, đổi chữ hoa, loại trùng theo thứ tự xuất hiện đầu tiên, và scope explicit rỗng làm phát sinh `ValueError`. Riêng Stock EOD giao scope explicit với tập master active; symbol inactive hoặc không tồn tại được báo rõ và loại khỏi ingest. Stock EOD truyền cùng scope cho daily ingest và daily completeness, completeness có scope lọc row cổ phiếu ngay trong query database, và backfill dùng lại scope đã chuẩn hóa cho mọi ngày. Scope và completeness index tách riêng khỏi stock; stock-eod và index-eod là hai flow độc lập, còn đồng bộ index master chỉ thuộc `sync-master-data` / `init`.
+
+Index EOD theo lịch chạy sau giờ đóng cửa và gọi `index-daily` không truyền ngày.
+Resolver riêng của Index dùng ngày trong tuần gần nhất bằng hoặc trước ngày hiện
+tại ở Việt Nam: giữ nguyên ngày từ thứ Hai đến thứ Sáu và lùi về thứ Sáu nếu là
+cuối tuần. Đây chỉ là fallback theo lịch, không phải lịch nghỉ giao dịch; validation
+response SSI rỗng vẫn là nguồn quyết định và pipeline không tạo row giả.
 # Timestamp tại persistence boundary
 
 Các timestamp persistence của pipeline do application tạo theo `Asia/Ho_Chi_Minh`, ở dạng ISO 8601 với offset `+07:00` rõ ràng.
