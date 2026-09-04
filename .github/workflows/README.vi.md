@@ -22,7 +22,7 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 - `stock-eod.yml` chỉ chạy daily ingest và daily completeness cho `symbols.status = 'active'`.
 - `stock-intraday.yml` chỉ chạy ingest 1m và intraday completeness khi cả `status` và `intraday_status` là `active`; manual symbols không vượt qua scope này.
 - Hai workflow độc lập với index và không chạy feature/signal/backtest/Analog.
-- `index-eod.yml` chỉ chạy SSI DailyIndex raw/clean ingest qua `index-daily`. Input index rỗng dùng các dòng active trong `index_master`; index explicit có thể retry hoặc catch up dữ liệu nguồn mà không chạy stock ingest, completeness, feature, signal, backtest hoặc Analog.
+- `index-eod.yml` chỉ chạy SSI DailyIndex raw/clean ingest qua `index-daily`. Lịch chạy sau giờ đóng cửa bỏ ngày để Python resolve ngày trong tuần gần nhất bằng hoặc trước ngày hiện tại tại Việt Nam (ngày hiện tại từ thứ Hai đến thứ Sáu, nếu cuối tuần thì thứ Sáu). Quy tắc lịch này không phải lịch nghỉ giao dịch. Input index rỗng dùng các dòng active trong `index_master`; index explicit có thể retry hoặc catch up dữ liệu nguồn mà không chạy stock ingest, completeness, feature, signal, backtest hoặc Analog.
 - Workflow schedule chạy theo ngày trong tuần; ngày nghỉ sàn hoặc SSI trả rỗng vẫn hiện rõ trong summary command và không tạo dữ liệu giả.
 - `features.yml` tách khỏi ingest và cho phép chọn mode/date/symbol/timeframe.
 - Credential SSI/Supabase lấy từ repository secrets.

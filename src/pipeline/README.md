@@ -134,6 +134,12 @@ Ingest commands never automatically calculate features, generate signals, or run
 ## Shared stock-symbol scope
 
 `daily`, `intraday-ingest`, `stock-eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. For Stock EOD, explicit symbols are intersected with the active master set and inactive or unknown values are reported and excluded. Stock EOD passes the same scope to daily ingest and daily completeness, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index scope and completeness belong to the independent index-eod flow; index master synchronization remains exclusive to `sync-master-data` / `init`.
+
+Scheduled Index EOD runs after market close and invokes `index-daily` without a
+date. The Index-specific resolver uses the latest weekday on or before the
+current Vietnam date: the same weekday Monday-Friday and the prior Friday on a
+weekend. This is a calendar fallback only, not an exchange holiday calendar;
+SSI empty-response validation remains authoritative and no rows are fabricated.
 # Persistence timestamps
 
 Pipeline persistence timestamps are application-controlled ISO 8601 values in `Asia/Ho_Chi_Minh` with an explicit `+07:00` offset.

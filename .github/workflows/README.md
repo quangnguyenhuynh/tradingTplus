@@ -22,7 +22,7 @@ Automation for tests and explicit Trading T+ pipelines.
 - `stock-eod.yml` runs daily ingest and daily-only completeness for `symbols.status = 'active'`.
 - `stock-intraday.yml` runs 1m ingest and intraday-only completeness for rows where both `status` and `intraday_status` are `active`. Manual symbols cannot bypass this automatic scope.
 - Both workflows are independent from index and never compute features/signals/backtests/Analog.
-- `index-eod.yml` runs only SSI DailyIndex raw/clean ingest through `index-daily`. An empty index input uses active `index_master` rows; explicit indexes can retry or catch up source rows without running stock ingest, completeness, features, signals, backtests, or Analogs.
+- `index-eod.yml` runs only SSI DailyIndex raw/clean ingest through `index-daily`. Scheduled post-market runs omit the date, so Python resolves the latest weekday on or before the current Vietnam date (the current date Monday-Friday, otherwise Friday). This calendar rule is not an exchange holiday calendar. An empty index input uses active `index_master` rows; explicit indexes can retry or catch up source rows without running stock ingest, completeness, features, signals, backtests, or Analogs.
 - Scheduled workflows run on weekdays; exchange holidays or empty SSI responses remain visible in the command summary and are not fabricated.
 - `features.yml` is intentionally separate from ingest and supports explicit mode/date/symbol/timeframe inputs.
 - SSI/Supabase credentials are provided through repository secrets.

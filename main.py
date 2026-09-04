@@ -99,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     index_daily = sub.add_parser("index-daily", help="SSI DailyIndex raw + validated clean ingest only")
-    index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest previous weekday")
+    index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
 
     index_backfill = sub.add_parser("index-backfill", help="Inclusive DailyIndex source-data backfill")
