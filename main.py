@@ -70,6 +70,14 @@ from src.index_features import (
     run_index_features_daily,
     run_index_features_preview,
 )
+from src.foreign_features import (
+    check as check_foreign_features,
+    preview as preview_foreign_features,
+    run_backfill as run_foreign_features_backfill,
+    run_daily as run_foreign_features_daily,
+    run_history_rpc,
+    run_ranking_rpc,
+)
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -143,6 +151,36 @@ def build_parser() -> argparse.ArgumentParser:
     index_feature_check.add_argument("--from", dest="from_date", required=True)
     index_feature_check.add_argument("--to", dest="to_date", required=True)
     index_feature_check.add_argument("--indexes", nargs="+", default=None)
+
+    foreign_preview = sub.add_parser("foreign-features-preview", help="Read-only foreign EOD feature preview")
+    foreign_preview.add_argument("--symbol", required=True)
+    foreign_preview.add_argument("--date", required=True, help="DD/MM/YYYY")
+    foreign_preview.add_argument("--calendar-file", help="Verified session calendar JSON")
+    foreign_preview.add_argument("--json", action="store_true", dest="as_json")
+    foreign_daily = sub.add_parser("foreign-features-daily", help="Calculate one explicit foreign EOD feature date")
+    foreign_daily.add_argument("--date", required=True, help="DD/MM/YYYY")
+    foreign_daily.add_argument("--symbols", nargs="+", default=None)
+    foreign_daily.add_argument("--mode", choices=["target", "incremental"], default="target")
+    foreign_daily.add_argument("--calendar-file", help="Verified session calendar JSON")
+    for command, help_text in (("foreign-features-backfill", "Inclusive foreign EOD feature backfill"), ("foreign-features-check", "Read-only foreign feature validation")):
+        fp = sub.add_parser(command, help=help_text)
+        fp.add_argument("--from", dest="from_date", required=True, help="DD/MM/YYYY")
+        fp.add_argument("--to", dest="to_date", required=True, help="DD/MM/YYYY")
+        fp.add_argument("--symbols", nargs="+", default=None)
+        fp.add_argument("--calendar-file", help="Verified session calendar JSON")
+    rank = sub.add_parser("foreign-rank", help="Read-only get_foreign_ranking RPC")
+    rank.add_argument("--date", required=True, help="DD/MM/YYYY")
+    rank.add_argument("--ranking", required=True, choices=["attention", "accumulation", "distribution", "emerging"])
+    rank.add_argument("--window", type=int, choices=[1, 5, 20], default=5)
+    rank.add_argument("--sort", choices=["value", "ratio"], default="value")
+    rank.add_argument("--market")
+    rank.add_argument("--symbols", nargs="+", default=None)
+    rank.add_argument("--top", type=int, default=20)
+    rank.add_argument("--offset", type=int, default=0)
+    history = sub.add_parser("foreign-symbol", help="Read-only get_foreign_symbol_history RPC")
+    history.add_argument("--symbol", required=True)
+    history.add_argument("--date", required=True, help="DD/MM/YYYY")
+    history.add_argument("--lookback", type=int, default=20)
     daily.add_argument(
         "--symbols",
         nargs="+",
@@ -590,6 +628,22 @@ def main(argv: list[str] | None = None) -> int:
             summary = check_index_features(args.from_date, args.to_date, normalize_index_scope(args.indexes))
             _print_summary(summary)
             return _status_to_exit(summary)
+        if args.command == "foreign-features-preview":
+            summary = preview_foreign_features(args.date, args.symbol, args.calendar_file)
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "foreign-features-daily":
+            summary = run_foreign_features_daily(args.date, normalize_symbol_scope(args.symbols), args.calendar_file, args.mode)
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "foreign-features-backfill":
+            summary = run_foreign_features_backfill(args.from_date, args.to_date, normalize_symbol_scope(args.symbols), args.calendar_file)
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "foreign-features-check":
+            summary = check_foreign_features(args.from_date, args.to_date, normalize_symbol_scope(args.symbols), args.calendar_file)
+            _print_summary(summary); return _status_to_exit(summary)
+        if args.command == "foreign-rank":
+            _print_summary(run_ranking_rpc(args.date, args.ranking, args.window, args.sort, args.market, args.symbols, args.top, args.offset)); return 0
+        if args.command == "foreign-symbol":
+            _print_summary(run_history_rpc(args.symbol, args.date, args.lookback)); return 0
         if args.command == "intraday-ingest":
             summary = run_intraday_ingest(
                 args.date,

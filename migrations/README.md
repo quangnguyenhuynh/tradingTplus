@@ -88,3 +88,7 @@ For a fresh installation, apply the corrected `20260809_create_historical_analog
 ### `20260829_add_symbols_intraday_status.sql`
 
 Adds the operator-controlled `symbols.intraday_status` automatic-ingest scope. Existing rows copy `status`; new rows default to `inactive`. Deploy manually after `20260827_add_master_status.sql`; no market-data backfill is required. Verification and rollback SQL are comments in the migration.
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](../docs/FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.
