@@ -255,3 +255,7 @@ clock defaults are removed for these fields, so writers must send them explicitl
 ## Stock EOD versus Index EOD
 
 `stock-eod` uses `symbols.status = 'active'` for daily-only ingest and completeness. `stock-intraday` uses rows where both `status` and `intraday_status` are `active` for 1m-only ingest and completeness. Both are independent from `index-eod` and downstream computation. See [STOCK_EOD_PIPELINE.md](STOCK_EOD_PIPELINE.md) and [STOCK_INTRADAY_PIPELINE.md](STOCK_INTRADAY_PIPELINE.md).
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

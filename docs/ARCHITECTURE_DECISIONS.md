@@ -1890,3 +1890,7 @@ nghĩa của kết quả và có thể che giấu việc một mã không đủ 
 
 - [`phase1/HISTORICAL_ANALOG_SPEC.vi.md`](phase1/HISTORICAL_ANALOG_SPEC.vi.md)
 - [`phase1/HISTORICAL_ANALOG_SPEC.md`](phase1/HISTORICAL_ANALOG_SPEC.md)
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

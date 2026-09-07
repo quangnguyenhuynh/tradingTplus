@@ -440,3 +440,7 @@ python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
 ```
 
 Fetches only SSI `IntradayOhlc` resolution 1, writes raw and canonical 1m source data, then runs intraday-only completeness. It does not ingest daily/index data or run features, signals, backtests, or Analog. Automatic and explicit workflow scope requires both `symbols.status='active'` and `intraday_status='active'`; ignored values are reported. Omitted date uses the latest weekday on or before today in Vietnam.
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

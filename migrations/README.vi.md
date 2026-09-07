@@ -85,3 +85,7 @@ Với cài đặt mới, chạy bản đã sửa `20260809_create_historical_ana
 ### `20260829_add_symbols_intraday_status.sql`
 
 Thêm scope tự động do operator kiểm soát qua `symbols.intraday_status`. Dòng hiện hữu copy `status`; dòng mới mặc định `inactive`. Chạy thủ công sau `20260827_add_master_status.sql`; không cần backfill market data. SQL verification và rollback nằm trong comment migration.
+
+## Foreign EOD Feature V1
+
+Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](../docs/FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.

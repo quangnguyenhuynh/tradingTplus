@@ -227,3 +227,8 @@ phiên bản ứng dụng cũ tương ứng, rồi reload PostgREST. Không tạ
 view nếu chưa có đánh giá riêng về consumer và bảo mật.
 
 Xem [hợp đồng pipeline Stock EOD](docs/STOCK_EOD_PIPELINE.vi.md) về scope cổ phiếu active-only và việc tách biệt hoàn toàn khỏi `index-eod`.
+
+## Foreign EOD Feature V1
+
+Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](docs/FOREIGN_EOD_FEATURES.vi.md
+../docs/FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.

@@ -242,3 +242,8 @@ with the matching old application release, then reload PostgREST. Do not create
 compatibility views without a separate consumer and security review.
 
 See the [Stock EOD pipeline contract](docs/STOCK_EOD_PIPELINE.md) for its active-only stock scope and explicit separation from `index-eod`.
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](docs/FOREIGN_EOD_FEATURES.md
+../docs/FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

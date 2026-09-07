@@ -1051,3 +1051,7 @@ the accepted historical-analog Phase 1 implementation is not present.
 
 The old rule-based command trees and runtime were removed. The active `analogs`
 CLI preserves same-symbol EOD analysis; its production gates remain enforced.
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

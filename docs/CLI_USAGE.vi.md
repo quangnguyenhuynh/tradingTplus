@@ -431,3 +431,7 @@ python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
 ```
 
 Chỉ lấy SSI `IntradayOhlc` resolution 1, ghi raw và source canonical 1m, rồi chạy intraday-only completeness. Không ingest daily/index hoặc chạy feature, signal, backtest, Analog. Scope automatic và explicit workflow yêu cầu cả `symbols.status='active'` và `intraday_status='active'`; mã bị loại được báo. Bỏ ngày sẽ dùng ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam.
+
+## Foreign EOD Feature V1
+
+Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.

@@ -91,6 +91,10 @@ Do not proactively split features into separate daily/intraday tables. The accep
 
 (symbol, timeframe, time)
 
+The user-approved exception is `stock_foreign_features_daily`: foreign EOD
+statistics derived only from `stock_daily` are intentionally isolated there.
+This exception does not authorize splitting any technical feature table.
+
 Avoid unnecessary lag storage
 
 Do not persist lag fields or future outcomes merely for convenience when they can be calculated with SQL windows, dataframe shifts, backtest-time joins, or a dedicated outcome table.

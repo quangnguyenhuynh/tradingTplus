@@ -118,3 +118,7 @@ These rules are documentation only. They require no migration, data change, or
 backfill.
 
 Feature aggregates retain `stock_intraday.time` as the UTC-represented Vietnam bucket start. Production feature writes require the bucket to be closed at the applicable session boundary; an observed partial aggregate is never proof of closure.
+
+## Foreign EOD Feature V1
+
+See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.

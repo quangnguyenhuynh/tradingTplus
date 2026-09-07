@@ -114,3 +114,7 @@ Các quy ước này chỉ là tài liệu. Không cần migration, thay đổi 
 backfill.
 
 Feature aggregate giữ `stock_intraday.time` làm bucket start theo giờ Việt Nam biểu diễn UTC. Production feature chỉ ghi bucket đã đóng theo biên phiên phù hợp; partial aggregate quan sát được không chứng minh bucket đã đóng.
+
+## Foreign EOD Feature V1
+
+Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.
