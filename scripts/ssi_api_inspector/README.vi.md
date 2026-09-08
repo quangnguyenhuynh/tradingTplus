@@ -1,37 +1,10 @@
-# Trình kiểm tra SSI REST API
+# SSI REST API Inspector
 
-CLI read-only dùng để kiểm tra trực tiếp SSI FastConnect Data REST trong Phase 0.
+CLI **chỉ đọc** để xem trực tiếp response SSI mà không đi qua production ingest hoặc database. Công cụ in nguồn thực tế, endpoint, request đã che bí mật, envelope/paging/sample và tùy chọn raw JSON. `PASS` không chứng minh dữ liệu đầy đủ hay đúng ngữ nghĩa. Công cụ không chạy feature, signal hoặc backtest.
 
-Công cụ này gửi request HTTP trực tiếp tới SSI, in response envelope thật ở dạng dễ đọc, và không ghi vào Supabase hay bất kỳ database nào. Dùng công cụ này để xác minh endpoint có hoạt động không, tham số request, phân trang, response rỗng, khóa dữ liệu, field trong record, và khác biệt giữa các endpoint SSI trước khi thay đổi pipeline ingest hoặc clean data.
+> Inspector mặc định REST v3. REST v2 là legacy và chỉ chạy khi truyền `--data-source ssi_v2`. Không fallback, không tự so sánh hai nguồn và không đổi source production.
 
-## Giới thiệu
-
-SSI REST API Inspector phục vụ giai đoạn Phase 0 của Trading T+: xây dựng hạ tầng dữ liệu và kiểm chứng dữ liệu nguồn trước khi tính feature, signal, backtest hoặc gợi ý giao dịch.
-
-Mục tiêu chính:
-
-- Kiểm tra contract thực tế của SSI REST API bằng request thật.
-- Quan sát response envelope, field, paging, mã lỗi và dữ liệu mẫu.
-- Hỗ trợ đối chiếu giữa các endpoint như `DailyStockPrice`, `DailyOhlc`, `IntradayOhlc`.
-- Giữ việc kiểm tra API tách biệt khỏi ingest, database, feature, signal và backtest.
-
-Tính an toàn:
-
-- Chỉ đọc đối với trạng thái database.
-- Không import `SupabaseClient`.
-- Không insert, update, upsert hoặc delete dữ liệu.
-- Tự lấy SSI access token khi gọi endpoint cần xác thực.
-- Tự retry xác thực một lần nếu SSI trả HTTP `401`.
-- Redact consumer credential, bearer token, authorization header và các khóa giống token trước khi in output.
-- Không tính feature, signal hoặc kết quả backtest.
-
-Không chia sẻ nguyên văn toàn bộ output CLI một cách tùy tiện. Dù token đã được redact, response SSI vẫn có thể chứa ngữ cảnh về thị trường, mã chứng khoán hoặc tài khoản.
-
-## Cài đặt
-
-Chạy các lệnh từ project root.
-
-Chuẩn bị Python environment của project và cài dependencies hiện có. Ví dụ:
+## Cài đặt và credential
 
 ```bash
 python -m venv .venv
@@ -39,474 +12,101 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Trên Windows PowerShell, kích hoạt môi trường bằng:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Cách cài đặt môi trường thực tế có thể khác ví dụ trên. Nếu project đã có virtual environment, hãy dùng lại environment đó.
-
-## Cấu hình `.env`
-
-Inspector đọc cấu hình hiện có của project từ environment variables. Thêm các biến sau vào file `.env` của project hoặc export trong shell hiện tại:
-
 ```env
-SSI_CONSUMER_ID=your_consumer_id
-SSI_CONSUMER_SECRET=your_consumer_secret
+# v3
+SSI_API_KEY=replace_me
+SSI_API_SECRET=replace_me
+# legacy v2
+SSI_CONSUMER_ID=replace_me
+SSI_CONSUMER_SECRET=replace_me
 ```
 
-Không đưa credential thật, token thật hoặc nội dung `.env` lên GitHub.
+V3 market data không cần credential v2, client ID, private key hay OTP. V2 không cần credential v3. Token chỉ giữ trong memory, không cache file. `list` và help không cần credential/network. Không in hoặc commit `.env`.
 
-Không cần Supabase credential vì inspector không truy cập database.
-
-## Quick Start
-
-Liệt kê tất cả tên endpoint mà CLI hỗ trợ:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py list
-```
-
-Kiểm tra một endpoint:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --limit 3
-```
-
-Kiểm tra tất cả data endpoint được hỗ trợ với cùng một nhóm tham số chung:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all \
-  --symbol SSI \
-  --market HOSE \
-  --exchange HOSE \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --page-size 20 \
-  --limit 3
-```
-
-`run all` không chạy report độc lập cho `access-token`. Client vẫn tự lấy token khi endpoint cần xác thực.
-
-## Cú pháp CLI
-
-```text
-python scripts/ssi_api_inspector/inspect.py list
-
-python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
-```
-
-Dùng help tích hợp để kiểm tra contract CLI hiện tại:
+## CLI và ngày
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py --help
-python scripts/ssi_api_inspector/inspect.py run --help
+python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
+python scripts/ssi_api_inspector/inspect.py run all [options]
 ```
 
-## Các endpoint
+Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, `--ascending`. Ngày nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. Dùng `--date` hoặc đủ cặp from/to (from <= to), không dùng chung. V3 daily gửi `YYYY/MM/DD`; intraday gửi datetime đầu/cuối ngày. `index-summary`/`daily-index` chỉ nhận một ngày. Intraday cố định `1m`.
 
-| Tên CLI | HTTP method | SSI endpoint | Tham số chính |
-| --- | --- | --- | --- |
-| `access-token` | POST | `AccessToken` | JSON `consumerID`, `consumerSecret` |
-| `securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
-| `securities-details` | GET | `SecuritiesDetails` | `Market`, `Symbol`, `PageIndex`, `PageSize` |
-| `index-components` | GET | `IndexComponents` | `IndexCode`, `PageIndex`, `PageSize` |
-| `index-list` | GET | `IndexList` | `Exchange`, `PageIndex`, `PageSize` |
-| `daily-ohlc` | GET | `DailyOhlc` | `Symbol`, `FromDate`, `ToDate`, paging, tùy chọn `ascending=true` |
-| `intraday-ohlc` | GET | `IntradayOhlc` | `Symbol`, dates, `resolution=1`, paging, tùy chọn `ascending=true` |
-| `daily-index` | GET | `DailyIndex` | `IndexCode`, `FromDate`, `ToDate`, paging |
-| `daily-stock-price` | GET | `DailyStockPrice` | `Symbol`, dates, `Market`, paging |
+`--page-size` là số record yêu cầu ở đúng một trang; `--limit` chỉ giới hạn sample được in. `--full-json` in toàn bộ response không qua mapper, không đổi field/type và chỉ redact bí mật.
 
-Theo kiến trúc hiện tại của Trading T+:
+## Endpoint
 
-- `DailyStockPrice` là nguồn daily chính cho nghiên cứu T+/swing.
-- `DailyOhlc` chỉ dùng để đối chiếu, không phải nguồn daily canonical.
-- `IntradayOhlc` được gọi với `resolution=1` vì raw intraday chỉ lưu dữ liệu 1 phút.
-- Dữ liệu 5 phút, 15 phút và 60 phút phải được aggregate sau trong feature pipeline; không fetch hoặc lưu các timeframe đó như raw data ở đây.
-- Các field giao dịch nước ngoài được kiểm tra từ `DailyStockPrice`; đặc tả public REST mà project dùng không định nghĩa endpoint `ForeignTrading` độc lập.
-- Kiểm tra orderbook/market depth qua public REST nằm ngoài CLI này. Hãy dùng utility streaming/snapshot được hỗ trợ riêng nếu cần.
-- Không hardcode một con số cố định như 226 nến để kết luận intraday đầy đủ cho mọi ngày giao dịch.
+| V3 CLI | REST | Contract | Alias cũ |
+|---|---|---|---|
+| `access-token` | POST `/api/v3/auth/token` | JSON apiKey/apiSecret | — |
+| `securities-by-board` | GET `/api/v3/data/securitiesByBoard` | đúng một symbol/board/index | `securities`, `securities-details`, `index-components` |
+| `securities-summary` | GET `/api/v3/data/securitiesSummary` | đúng một symbol/index, ngày, paging | `daily-stock-price` |
+| `index-list` | GET `/api/v3/data/indexList` | board tùy chọn | — |
+| `index-summary` | GET `/api/v3/data/indexSummary` | đúng một board/index, một ngày | `daily-index` |
+| `daily-ohlc` | GET `/api/v3/data/ohlc` | symbol, ngày, `timeFrame=1d`, paging | — |
+| `intraday-ohlc` | GET `/api/v3/data/ohlc` | symbol, datetime, `timeFrame=1m`, paging | — |
+| `master-data` | GET `/api/v3/data/masterdata` | ngày, paging; không symbol | — |
 
-## Các option
+V2 giữ `access-token`, `securities`, `securities-details`, `index-components`, `index-list`, `daily-ohlc`, `intraday-ohlc`, `daily-index`, `daily-stock-price`; luôn thêm `--data-source ssi_v2`. Endpoint không có ở nguồn đã chọn báo lỗi, không đổi nguồn. `run all` chỉ gọi một lần mỗi data endpoint native của đúng nguồn, tự auth nhưng không report access-token riêng, dùng builder riêng, tiếp tục sau lỗi và in summary.
 
-| Option | Mặc định | Mô tả |
-| --- | --- | --- |
-| `--symbol` | `SSI` | Mã cổ phiếu dùng cho các endpoint theo symbol. |
-| `--date` | `10/07/2026` | Ngày rõ ràng theo định dạng `DD/MM/YYYY`. Được dùng cho cả `FromDate` và `ToDate`. |
-| `--market` | `HOSE` | Market cho `securities`, `securities-details` và `daily-stock-price`. |
-| `--exchange` | `HOSE` | Exchange cho `index-list`. |
-| `--index-code` | `VNINDEX` | Mã chỉ số cho `index-components` và `daily-index`. |
-| `--page-index` | `1` | Số trang của SSI API. |
-| `--page-size` | `10` | Số record yêu cầu SSI trả về. |
-| `--limit` | `3` | Số record mẫu tối đa được in trong report. |
-| `--full-json` | tắt | In toàn bộ response envelope đã redact. |
-| `--timeout` | `30` | HTTP timeout tính bằng giây. |
-| `--ascending` | không gửi | Gửi `ascending=true` tới các OHLC endpoint có hỗ trợ. |
-
-### `--page-size` khác `--limit` như thế nào?
-
-Hai option này kiểm soát hai việc khác nhau:
-
-- `--page-size` quyết định request sẽ yêu cầu SSI trả về bao nhiêu record.
-- `--limit` quyết định CLI sẽ in bao nhiêu record phát hiện được trong mục `Sample records`.
-- `--full-json` in toàn bộ response envelope đã redact và không bị giới hạn bởi sample limit.
-
-Ví dụ:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-size 100 \
-  --limit 5
-```
-
-Lệnh này yêu cầu SSI trả tối đa 100 record, nhưng chỉ in 5 record đầu tiên trong phần sample.
-
-### `--ascending`
-
-Khi bỏ qua `--ascending`, CLI không gửi tham số `ascending`.
-
-Khi bật option này, CLI gửi:
-
-```text
-ascending=true
-```
-
-CLI hiện tại không có flag `--descending` và không gửi rõ `ascending=false`.
-
-## Ví dụ sử dụng
-
-### AccessToken
-
-Dùng để kiểm tra xác thực và xem token envelope đã redact:
+## Ví dụ
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py run access-token --full-json
+python scripts/ssi_api_inspector/inspect.py run securities-by-board --board HOSE
+python scripts/ssi_api_inspector/inspect.py run securities --market HOSE
+python scripts/ssi_api_inspector/inspect.py run securities-details --symbol SSI
+python scripts/ssi_api_inspector/inspect.py run index-components --index-code VNINDEX
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --from-date 01/09/2026 --to-date 08/09/2026 --page-index 1 --page-size 20 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-ohlc --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --symbol SSI --date 08/09/2026 --page-index 1 --page-size 100 --full-json
+python scripts/ssi_api_inspector/inspect.py run master-data --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run all --symbol SSI --board HOSE --index-code VNINDEX --date 08/09/2026 --limit 3
 ```
 
-Token thật và credential thật không được xuất hiện trong output.
-
-### Securities
-
-Liệt kê securities theo market:
+Đối chiếu thủ công cùng mã/ngày (không có auto compare và không kết luận field tương đương):
 
 ```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-index 1 \
-  --page-size 20 \
-  --limit 5
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json > /tmp/ssi-v3.txt
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json > /tmp/ssi-v2.txt
 ```
 
-Dùng paging để xem trang khác:
+## Output, trạng thái và bảo mật
 
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-index 2 \
-  --page-size 20 \
-  --limit 5
-```
+Report gồm source; endpoint native/alias; method; URL và params đã làm sạch; HTTP status; thời gian; Content-Type; rate-limit headers; top-level type/keys; vị trí list; số record của trang hiện tại; metadata provider `pageIndex/pageSize/pagesCount/itemsCount/totalRecord`; keys record đầu; sample; và full body khi yêu cầu.
 
-### SecuritiesDetails
+- **PASS:** shape hợp lệ và có data; auth PASS khi có token.
+- **EMPTY:** có list hợp lệ nhưng rỗng; không chứng minh ngày nghỉ.
+- **FAILED:** lỗi transport/auth/HTTP/API, shape sai, body rỗng hoặc non-JSON.
+- Exit `0` khi không FAILED, `1` khi có FAILED, lỗi cú pháp argparse là `2`.
 
-Kiểm tra một symbol:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities-details \
-  --market HOSE \
-  --symbol SSI \
-  --full-json
-```
-
-### IndexList
-
-Kiểm tra danh sách index theo exchange:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run index-list \
-  --exchange HOSE \
-  --page-size 50 \
-  --limit 10
-```
-
-### IndexComponents
-
-Kiểm tra thành phần của một index:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run index-components \
-  --index-code VNINDEX \
-  --page-size 100 \
-  --limit 10
-```
-
-### DailyStockPrice
-
-Kiểm tra endpoint daily stock-price canonical:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --full-json
-```
-
-Dùng endpoint này để xác minh daily OHLC, volume, value, field giao dịch nước ngoài và các field thực tế khác do SSI trả về trước khi chỉnh mapper ingest daily.
-
-### DailyOhlc
-
-Kiểm tra `DailyOhlc` để so sánh với `DailyStockPrice`:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --ascending \
-  --full-json
-```
-
-Không xem endpoint này là nguồn daily canonical trừ khi kiến trúc project được thay đổi rõ ràng.
-
-### IntradayOhlc
-
-Kiểm tra record intraday OHLCV 1 phút:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --page-size 1000 \
-  --limit 10 \
-  --ascending
-```
-
-CLI luôn gửi `resolution=1` cho endpoint này.
-
-Không giả định một số cố định như 226 nến là đầy đủ cho mọi ngày giao dịch. Cần kiểm tra cấu trúc phiên, ngắt giao dịch, paging của SSI, hành vi endpoint và khả năng có dữ liệu lịch sử cho ngày được yêu cầu.
-
-### DailyIndex
-
-Kiểm tra dữ liệu daily index:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-index \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --full-json
-```
-
-### Run all data endpoints
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all \
-  --symbol SSI \
-  --market HOSE \
-  --exchange HOSE \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --page-index 1 \
-  --page-size 20 \
-  --limit 3
-```
-
-Các giá trị option chung được truyền vào endpoint builder có sử dụng chúng. Option không liên quan tới endpoint cụ thể sẽ bị builder của endpoint đó bỏ qua.
-
-## Đọc kết quả
-
-Với mỗi endpoint, CLI in các thông tin sau:
-
-- Nhãn endpoint và tên CLI.
-- HTTP method và URL.
-- Request parameter đã redact.
-- HTTP status code.
-- Thời gian request.
-- Response content type.
-- Top-level response keys hoặc top-level response type.
-- Các giá trị SSI envelope phổ biến nếu có, gồm `status`, `message`, `responseCode` và `totalRecord`.
-- Vị trí data list được phát hiện.
-- Số record phát hiện được.
-- Keys của record đầu tiên.
-- Các path giống token được phát hiện trong response.
-- Sample records đã redact.
-- JSON đầy đủ đã redact nếu bật `--full-json`.
-
-Inspector tìm list dữ liệu ở các vị trí phổ biến như:
-
-```text
-data
-dataList
-items
-```
-
-Nếu response là dictionary, inspector cũng fallback sang list top-level đầu tiên tìm thấy.
-
-## Trạng thái kết quả
-
-### `PASS`
-
-Inspector tìm thấy một record list và list đó có ít nhất một record.
-
-`PASS` nghĩa là endpoint trả về dữ liệu có thể phát hiện được. Trạng thái này không chứng minh mọi field, ngày, record hoặc giá trị đều đúng.
-
-### `EMPTY`
-
-Inspector không tìm thấy record nào trong list được phát hiện.
-
-Nguyên nhân có thể gồm:
-
-- Cuối tuần hoặc ngày nghỉ thị trường.
-- Không có dữ liệu cho ngày lịch sử được yêu cầu.
-- Symbol không hợp lệ hoặc không được hỗ trợ.
-- Market, exchange hoặc index code không đúng.
-- Page được yêu cầu vượt quá số record hiện có.
-- SSI trả envelope shape khác.
-- Endpoint trả HTTP success nhưng data list rỗng.
-
-`EMPTY` không đồng nghĩa API bị lỗi. Không chuyển response API rỗng thành dữ liệu thị trường giá trị 0 trừ khi có business rule riêng đã được kiểm chứng rõ ràng.
-
-### `FAILED`
-
-Endpoint phát sinh `InspectorError`, ví dụ do xác thực, mạng, timeout, response không hợp lệ hoặc xử lý HTTP failure trong client.
-
-Khi chạy `run all`, CLI tiếp tục endpoint kế tiếp rồi in summary.
-
-## Exit code
-
-- Exit code `0`: không endpoint nào có status `FAILED`.
-- Exit code `1`: có ít nhất một endpoint có status `FAILED`.
-
-Endpoint `EMPTY` hiện không làm process trả exit code `1`. Khi cần đánh giá dữ liệu có tồn tại hay không, hãy đọc summary được in ra thay vì chỉ dựa vào process exit code.
-
-Ví dụ:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all --date 10/07/2026
-echo $?
-```
+Body JSON lỗi/4xx/5xx/non-JSON được giữ để report an toàn, không đổi thành `[]`. Key nhạy cảm nested (apiKey/apiSecret, consumer credential, token/refreshToken, Authorization...) được redact; giá trị secret/token bị echo trong text/exception được scrub. Redirect bị từ chối; retry mạng/429/5xx và phục hồi 401 đều hữu hạn; không ghi token ra file.
 
 ## Troubleshooting
 
-### Thiếu credential
+- **401:** kiểm tra credential đúng nguồn; chỉ có tối đa một chu kỳ phục hồi auth.
+- **403:** kiểm tra entitlement; không tự thêm OTP/private key.
+- **429:** xem header rate limit/Retry-After; thời gian retry có trần.
+- **Timeout/5xx:** dùng `--timeout` 1..120 hoặc thử lại; retry không vô hạn.
+- **EMPTY:** kiểm tra mã/ngày/page/envelope; không tạo row giả hay kết luận ngày nghỉ.
+- **Non-JSON/malformed:** dùng `--full-json` xem text đã scrub; status vẫn FAILED.
 
-Kiểm tra biến môi trường có tồn tại trong cùng shell chạy Python hay không:
+Tài liệu: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference) và [SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). Môi trường triển khai không truy cập được reference chính thức (HTTP/proxy từ chối), nên chưa thể live-verify contract ngoài nội dung task cung cấp.
 
-```bash
-python -c "from src.config import config; print(bool(config.SSI_CONSUMER_ID), bool(config.SSI_CONSUMER_SECRET))"
-```
-
-Lệnh này chỉ in boolean. Không in giá trị credential thật.
-
-### HTTP 401
-
-Client tự lấy token mới và retry một lần sau HTTP `401` đối với authenticated request.
-
-Nếu vẫn lỗi:
-
-- Kiểm tra `SSI_CONSUMER_ID` và `SSI_CONSUMER_SECRET`.
-- Kiểm tra tài khoản SSI còn hoạt động và có quyền gọi endpoint hay không.
-- Kiểm tra API host hoặc credential có thay đổi không.
-- Không thêm vòng retry vô hạn.
-
-### Response rỗng
-
-Thử một ngày giao dịch lịch sử đã biết và kiểm tra identifier theo endpoint:
+## Test và live smoke chỉ đọc
 
 ```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --full-json
-```
-
-Kiểm tra `message`, `responseCode`, `totalRecord`, vị trí data list được phát hiện và toàn bộ envelope đã redact.
-
-Cuối tuần, ngày nghỉ, response SSI rỗng hoặc endpoint không được hỗ trợ phải được giữ là dữ liệu thiếu. Không tạo row giả.
-
-### Record count bất thường
-
-Kiểm tra paging trước khi kết luận dữ liệu thiếu:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --page-index 1 \
-  --page-size 1000 \
-  --limit 5
-```
-
-So sánh `totalRecord`, record count trong response hiện tại, page size và page index. Không hardcode một candle count duy nhất làm chuẩn completeness cho mọi ngày.
-
-### Output quá lớn
-
-Bỏ `--full-json`, giảm `--limit`, hoặc giảm `--page-size`:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-size 10 \
-  --limit 2
-```
-
-### Python import error
-
-Chạy script từ project root với project environment đã được kích hoạt:
-
-```bash
-pwd
+pytest -q tests/inspectors/test_ssi_api_inspector.py
+python -m compileall scripts/ssi_api_inspector
+python scripts/ssi_api_inspector/inspect.py --help
 python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 ```
 
-Không chạy bản copy standalone của `inspect.py`, vì script phụ thuộc vào package file và `src.config` trong repository này.
-
-## Validation
-
-Chạy test offline tập trung:
-
-```bash
-pytest -q tests/test_ssi_api_inspector.py
-```
-
-Test suite kiểm tra các nội dung như:
-
-- Registry endpoint được hỗ trợ.
-- Tham số request cốt lõi.
-- Shape JSON cho POST authentication.
-- Cách dùng bearer token và deep redaction.
-- Giới hạn sample record.
-- Redaction khi in full JSON.
-- Phát hiện response rỗng.
-- Reauthentication một lần sau HTTP `401`.
-- Summary và exit code của `run all`.
-- Inspector package không import hoặc gọi database write.
-
-Để chạy live SSI smoke test, dùng symbol và ngày giao dịch lịch sử rõ ràng. Live smoke test cần SSI credential hợp lệ và vẫn chỉ đọc:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --limit 1
-```
-
-## Current limitations
-
-- Option ngày hiện chỉ biểu diễn một ngày cụ thể và được dùng cho cả `FromDate` và `ToDate`.
-- Intraday resolution cố định là 1 phút.
-- CLI chưa có option rõ ràng `--from-date` và `--to-date`.
-- CLI chưa có `--descending` hoặc cách gửi rõ `ascending=false`.
-- `run all` dùng một nhóm CLI argument chung cho các endpoint-specific builder.
-- Inspector chỉ báo cáo API response; không kết luận các row trả về có đầy đủ hoặc đúng ngữ nghĩa để ingest hay không.
-- Inspector không ghi raw table hoặc clean table.
-- Inspector không kích hoạt feature, signal hoặc backtest pipeline.
-
-Mọi thay đổi CLI trong tương lai phải giữ hành vi read-only mặc định và nên cập nhật README này, parser test, endpoint test và hướng dẫn troubleshooting trong cùng task.
+Chỉ live smoke khi credential đã có sẵn, dùng mã/ngày rõ ràng. Inspector không đọc/ghi Supabase.
