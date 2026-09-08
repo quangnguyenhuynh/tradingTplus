@@ -1,31 +1,12 @@
-# SSI REST API inspector
+# SSI REST API Inspector
 
-Read-only CLI for Phase 0 SSI FastConnect Data REST verification.
+A read-only command-line tool for inspecting SSI REST responses without using the production ingest pipeline or database. It prints the actual source, endpoint, sanitized request, response envelope, paging metadata, samples, and optionally the unmodified JSON fields/types with sensitive values redacted. It does **not** prove completeness or semantic correctness, and does not run features, signals, or backtests.
 
-The inspector sends direct HTTP requests to SSI, prints the real response envelope in a readable form, and never writes to Supabase or any database. Use it to verify endpoint availability, request parameters, paging, empty responses, response keys, record fields, and differences between SSI endpoints before changing the ingest or clean-data pipelines.
+> REST v3 is the inspector default. REST v2 is legacy and runs only with `--data-source ssi_v2`. There is no automatic fallback or automatic v2/v3 comparison. Production ingestion remains unchanged on its configured source.
 
-## Documentation
+## Install and credentials
 
-- 🇺🇸 English: [README.md](README.md)
-- 🇻🇳 Tiếng Việt: [README.vi.md](README.vi.md)
-
-## Scope and safety
-
-- Read-only for database state.
-- Does not import `SupabaseClient`.
-- Does not insert, update, upsert, or delete data.
-- Automatically obtains an SSI access token when an authenticated endpoint is called.
-- Retries authentication once when SSI returns HTTP `401`.
-- Redacts consumer credentials, bearer tokens, authorization headers, and nested token-like keys before printing output.
-- Does not calculate features, signals, or backtest results.
-
-Do not share complete CLI output blindly. Even after token redaction, an SSI response can still contain market, symbol, or account-related context.
-
-## Requirements
-
-Run all commands from the project root.
-
-Activate the project Python environment and install the existing project dependencies. For example:
+From the repository root:
 
 ```bash
 python -m venv .venv
@@ -33,473 +14,112 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-On Windows PowerShell, activate the environment with:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-The exact environment setup can differ from the examples above. Reuse the project environment when it already exists.
-
-## SSI credentials
-
-The inspector reads the existing project configuration from environment variables. Add the following values to the project `.env` file or export them in the current shell:
+`requests` and `python-dotenv` are supplied by `requirements.txt`. Configure only the selected source:
 
 ```env
-SSI_CONSUMER_ID=your_consumer_id
-SSI_CONSUMER_SECRET=your_consumer_secret
+# v3
+SSI_API_KEY=replace_me
+SSI_API_SECRET=replace_me
+
+# legacy v2
+SSI_CONSUMER_ID=replace_me
+SSI_CONSUMER_SECRET=replace_me
 ```
 
-Do not commit real credentials, tokens, or `.env` contents to GitHub.
+V3 market-data inspection does not require v2 credentials, client ID, private key, or OTP. V2 does not require v3 credentials. Tokens remain in memory and are never cached. `list` and help need neither credentials nor network. Never print or commit `.env`.
 
-Supabase credentials are not required because this inspector does not access the database.
-
-## Quick start
-
-List all supported CLI endpoint names:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py list
-```
-
-Inspect one endpoint:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --limit 3
-```
-
-Inspect all supported data endpoints with the same common arguments:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all \
-  --symbol SSI \
-  --market HOSE \
-  --exchange HOSE \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --page-size 20 \
-  --limit 3
-```
-
-`run all` excludes the standalone `access-token` report. The client still obtains a token automatically for authenticated endpoint calls.
-
-## CLI syntax
-
-```text
-python scripts/ssi_api_inspector/inspect.py list
-
-python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
-```
-
-Use built-in help to confirm the current CLI contract:
+## CLI
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py --help
-python scripts/ssi_api_inspector/inspect.py run --help
+python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
+python scripts/ssi_api_inspector/inspect.py run all [options]
 ```
 
-## Supported endpoints
+Common options are `--data-source`, `--symbol`, `--board`, compatibility aliases `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, and `--ascending`.
 
-| CLI name | HTTP method | SSI endpoint | Main parameters |
-| --- | --- | --- | --- |
-| `access-token` | POST | `AccessToken` | JSON `consumerID`, `consumerSecret` |
-| `securities` | GET | `Securities` | `Market`, `PageIndex`, `PageSize` |
-| `securities-details` | GET | `SecuritiesDetails` | `Market`, `Symbol`, `PageIndex`, `PageSize` |
-| `index-components` | GET | `IndexComponents` | `IndexCode`, `PageIndex`, `PageSize` |
-| `index-list` | GET | `IndexList` | `Exchange`, `PageIndex`, `PageSize` |
-| `daily-ohlc` | GET | `DailyOhlc` | `Symbol`, `FromDate`, `ToDate`, paging, optional `ascending=true` |
-| `intraday-ohlc` | GET | `IntradayOhlc` | `Symbol`, dates, `resolution=1`, paging, optional `ascending=true` |
-| `daily-index` | GET | `DailyIndex` | `IndexCode`, `FromDate`, `ToDate`, paging |
-| `daily-stock-price` | GET | `DailyStockPrice` | `Symbol`, dates, `Market`, paging |
+Dates accept `DD/MM/YYYY` and `YYYY-MM-DD`. Use either `--date` or the complete `--from-date`/`--to-date` pair; ranges must be ordered. V3 daily values are sent as `YYYY/MM/DD`; v3 intraday values include start/end datetimes. `index-summary`/`daily-index` accepts one `--date` only. Intraday OHLC is fixed to `1m`.
 
-For the current Trading T+ architecture:
+`--page-size` controls the page requested from SSI. `--limit` controls only displayed sample rows. `--full-json` shows the complete response without mapping, renaming, coercing, or dropping unknown fields; only secrets are replaced. One command fetches exactly one requested page.
 
-- `DailyStockPrice` is the canonical daily source for T+/swing research.
-- `DailyOhlc` is used for cross-checking only.
-- `IntradayOhlc` is requested with `resolution=1` because raw intraday storage is 1-minute data.
-- 5-minute, 15-minute, and 60-minute data should be aggregated later in the feature pipeline, not fetched or stored as raw timeframes here.
-- Foreign trading fields are inspected from `DailyStockPrice`; the public REST specification used by this project does not define a standalone `ForeignTrading` endpoint.
-- Public REST orderbook/market-depth inspection is outside this CLI. Use the separate supported streaming/snapshot utilities.
+## Endpoint registry
 
-## Command options
+### V3 (default)
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `--symbol` | `SSI` | Stock symbol used by symbol-based endpoints. |
-| `--date` | `10/07/2026` | Explicit date in `DD/MM/YYYY` format. Used as both `FromDate` and `ToDate`. |
-| `--market` | `HOSE` | Market for `securities`, `securities-details`, and `daily-stock-price`. |
-| `--exchange` | `HOSE` | Exchange for `index-list`. |
-| `--index-code` | `VNINDEX` | Index code for `index-components` and `daily-index`. |
-| `--page-index` | `1` | SSI API page number. |
-| `--page-size` | `10` | Number of records requested from the SSI endpoint. |
-| `--limit` | `3` | Maximum number of sample records printed in the report. |
-| `--full-json` | disabled | Prints the complete redacted response envelope. |
-| `--timeout` | `30` | HTTP timeout in seconds. |
-| `--ascending` | not sent | Sends `ascending=true` to supported OHLC endpoints. |
+| CLI name | HTTP/API | Required contract | Compatibility aliases |
+|---|---|---|---|
+| `access-token` | POST `/api/v3/auth/token` | JSON `apiKey`, `apiSecret` | — |
+| `securities-by-board` | GET `/api/v3/data/securitiesByBoard` | exactly one of symbol/board/index | `securities` (board), `securities-details` (symbol), `index-components` (index) |
+| `securities-summary` | GET `/api/v3/data/securitiesSummary` | exactly one symbol/index, dates, paging | `daily-stock-price` (symbol only) |
+| `index-list` | GET `/api/v3/data/indexList` | optional board | — |
+| `index-summary` | GET `/api/v3/data/indexSummary` | exactly one board/index and one date | `daily-index` (index only) |
+| `daily-ohlc` | GET `/api/v3/data/ohlc` | symbol, dates, `timeFrame=1d`, paging | — |
+| `intraday-ohlc` | GET `/api/v3/data/ohlc` | symbol, datetimes, `timeFrame=1m`, paging | — |
+| `master-data` | GET `/api/v3/data/masterdata` | dates and paging; no symbol | — |
 
-### `--page-size` versus `--limit`
+### Legacy v2
 
-These options control different things:
+V2 preserves: `access-token`, `securities`, `securities-details`, `index-components`, `index-list`, `daily-ohlc`, `intraday-ohlc`, `daily-index`, and `daily-stock-price`. Always add `--data-source ssi_v2`. A name unsupported by the chosen source fails explicitly.
 
-- `--page-size` controls how many records the request asks SSI to return.
-- `--limit` controls how many detected records are printed under `Sample records`.
-- `--full-json` prints the complete redacted response envelope and is not restricted to the sample limit.
+`run all` calls each unique **data** endpoint for only the selected source, authenticates as needed, does not separately report `access-token`, uses endpoint-specific parameters, continues after failures, then prints a summary.
 
-Example:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-size 100 \
-  --limit 5
-```
-
-This asks SSI for up to 100 records but prints only the first 5 detected records in the sample section.
-
-### `--ascending`
-
-When `--ascending` is omitted, the CLI does not send the `ascending` parameter.
-
-When it is supplied, the CLI sends:
-
-```text
-ascending=true
-```
-
-The current CLI does not expose a `--descending` flag and does not explicitly send `ascending=false`.
-
-## Endpoint examples
-
-### Access token
-
-Use this to verify authentication and inspect the redacted token envelope:
+## Examples
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py run access-token --full-json
+python scripts/ssi_api_inspector/inspect.py run securities-by-board --board HOSE --full-json
+python scripts/ssi_api_inspector/inspect.py run securities --market HOSE
+python scripts/ssi_api_inspector/inspect.py run securities-details --symbol SSI
+python scripts/ssi_api_inspector/inspect.py run index-components --index-code VNINDEX
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --from-date 01/09/2026 --to-date 08/09/2026 --page-index 1 --page-size 20 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-ohlc --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --symbol SSI --date 08/09/2026 --page-index 1 --page-size 100 --full-json
+python scripts/ssi_api_inspector/inspect.py run master-data --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run all --symbol SSI --board HOSE --index-code VNINDEX --date 08/09/2026 --limit 3
 ```
 
-The actual token and credentials must not appear in output.
-
-### Securities
-
-List securities for a market:
+Manual same-symbol/date comparison (outputs are not automatically compared and the tool makes no field-equivalence claim):
 
 ```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-index 1 \
-  --page-size 20 \
-  --limit 5
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json > /tmp/ssi-v3.txt
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json > /tmp/ssi-v2.txt
 ```
 
-Use paging to inspect another page:
+## Output, status, and security
 
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-index 2 \
-  --page-size 20 \
-  --limit 5
-```
+Reports include selected source; native endpoint and alias; method; actual sanitized URL and parameters; HTTP status and elapsed time; Content-Type; related rate-limit headers; top-level type/keys; data-list location (`$`, `data`, `dataList`, `items`, or supported nested envelope); current-page record count; provider paging values (`pageIndex`, `pageSize`, `pagesCount`, `itemsCount`, `totalRecord`); first-record keys; sample rows; and optional full body.
 
-### Securities details
+- **PASS**: valid endpoint shape with data; auth passes when a token exists.
+- **EMPTY**: valid data list is present but empty. It does not prove a non-trading day.
+- **FAILED**: transport/auth/HTTP/API error, invalid shape, empty HTTP body, or non-JSON response.
+- Exit `0` means no `FAILED`; exit `1` means at least one `FAILED`; syntax errors use argparse exit `2`.
 
-Inspect one symbol:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities-details \
-  --market HOSE \
-  --symbol SSI \
-  --full-json
-```
-
-### Index list
-
-Inspect indexes for an exchange:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run index-list \
-  --exchange HOSE \
-  --page-size 50 \
-  --limit 10
-```
-
-### Index components
-
-Inspect the components of an index:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run index-components \
-  --index-code VNINDEX \
-  --page-size 100 \
-  --limit 10
-```
-
-### DailyStockPrice
-
-Inspect the canonical daily stock-price endpoint:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --full-json
-```
-
-Use this endpoint to verify daily OHLC, volume, value, foreign-trading fields, and any other fields actually returned by SSI before modifying daily ingest mappings.
-
-### DailyOhlc
-
-Inspect DailyOhlc for comparison with `DailyStockPrice`:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --ascending \
-  --full-json
-```
-
-Do not treat this endpoint as the canonical daily source unless the project architecture is changed explicitly.
-
-### IntradayOhlc
-
-Inspect 1-minute intraday OHLCV records:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --page-size 1000 \
-  --limit 10 \
-  --ascending
-```
-
-The CLI always sends `resolution=1` for this endpoint.
-
-Do not assume a fixed number such as 226 candles is complete for every trading date. Session structure, trading interruptions, SSI response paging, endpoint behavior, and historical data availability must be checked for the requested date.
-
-### DailyIndex
-
-Inspect daily index data:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-index \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --full-json
-```
-
-### Run all data endpoints
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all \
-  --symbol SSI \
-  --market HOSE \
-  --exchange HOSE \
-  --index-code VNINDEX \
-  --date 10/07/2026 \
-  --page-index 1 \
-  --page-size 20 \
-  --limit 3
-```
-
-The same common option values are passed to endpoint builders that use them. Options irrelevant to a specific endpoint are ignored by that endpoint's parameter builder.
-
-## Reading the report
-
-For each endpoint, the CLI prints:
-
-- Endpoint label and CLI name.
-- HTTP method and URL.
-- Redacted request parameters.
-- HTTP status code.
-- Request elapsed time.
-- Response content type.
-- Top-level response keys or top-level response type.
-- Common SSI envelope values when present, including `status`, `message`, `responseCode`, and `totalRecord`.
-- Detected data-list location.
-- Number of detected records.
-- Keys from the first record.
-- Token-like paths detected in the response.
-- Redacted sample records.
-- Complete redacted JSON when `--full-json` is enabled.
-
-The inspector searches common list locations such as:
-
-```text
-data
-dataList
-items
-```
-
-It also falls back to the first top-level list found in a dictionary response.
-
-## Result statuses
-
-### `PASS`
-
-The inspector found a record list and the list contained at least one record.
-
-`PASS` means the endpoint returned detectable data. It does not prove that every field, date, record, or value is correct.
-
-### `EMPTY`
-
-The inspector did not find any records in the detected list.
-
-Possible causes include:
-
-- Weekend or market holiday.
-- No data for the requested historical date.
-- Invalid or unsupported symbol.
-- Incorrect market, exchange, or index code.
-- Requested page is beyond available records.
-- SSI returned a different envelope shape.
-- Endpoint returned HTTP success with an empty data list.
-
-Do not convert an empty API response into zero-valued market data unless a separate verified business rule explicitly requires that behavior.
-
-### `FAILED`
-
-The endpoint raised an `InspectorError`, for example because of authentication, network, timeout, invalid response, or HTTP failure handling inside the client.
-
-The CLI continues to the next endpoint during `run all`, then prints a summary.
-
-## Exit codes
-
-- Exit code `0`: no endpoint has status `FAILED`.
-- Exit code `1`: at least one endpoint has status `FAILED`.
-
-An `EMPTY` endpoint does not currently cause exit code `1`. Review the printed summary instead of relying only on the process exit code when data presence matters.
-
-Example:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run all --date 10/07/2026
-echo $?
-```
+JSON errors, HTTP 4xx/5xx bodies, empty bodies, and non-JSON text are retained for reporting rather than replaced with `[]`. Full JSON bypasses all production mappers. Sensitive key values—including nested API keys/secrets, consumer credentials, tokens, refresh tokens, and Authorization—are redacted. Configured secret/token values echoed in text or exceptions are scrubbed. Redirects are refused, retry and 401 recovery are bounded, and tokens are never written to disk.
 
 ## Troubleshooting
 
-### Missing credentials
+- **401:** verify credentials for the selected source. The client performs at most one authentication recovery cycle.
+- **403:** verify SSI entitlement and source; do not add OTP/private-key requirements unless SSI's REST contract requires them.
+- **429:** honor the displayed rate-limit metadata; bounded retry respects `Retry-After` within a capped wait.
+- **Timeout/5xx:** increase `--timeout` within 1–120 seconds or retry later; retries are bounded.
+- **EMPTY:** verify identifier, trading date, page, and provider envelope. Do not fabricate rows or conclude it was a holiday.
+- **Non-JSON/malformed JSON:** use `--full-json` to inspect sanitized text; status remains `FAILED`.
 
-Confirm the variables are available in the same shell that runs Python:
+Official reference: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference). Supplemental examples: [official SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). The official reference was not reachable from the implementation environment (HTTP/proxy rejection), so endpoint contracts supplied in the task could not be live-verified there.
 
-```bash
-python -c "from src.config import config; print(bool(config.SSI_CONSUMER_ID), bool(config.SSI_CONSUMER_SECRET))"
-```
-
-This command prints only booleans. Do not print the real credential values.
-
-### HTTP 401
-
-The client automatically obtains a new token and retries an authenticated request once after HTTP `401`.
-
-If it still fails:
-
-- Verify `SSI_CONSUMER_ID` and `SSI_CONSUMER_SECRET`.
-- Verify that the SSI account is active and permitted to call the endpoint.
-- Check whether the API host or credentials have changed.
-- Do not add unlimited retry loops.
-
-### Empty response
-
-Try a known historical trading date and verify the endpoint-specific identifiers:
+## Tests and read-only live smoke
 
 ```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --full-json
-```
-
-Check `message`, `responseCode`, `totalRecord`, the detected data-list location, and the complete redacted envelope.
-
-A weekend, holiday, empty SSI response, or unsupported endpoint must remain missing data. Do not create fake rows.
-
-### Unexpected record count
-
-Verify paging before concluding that data is incomplete:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc \
-  --symbol SSI \
-  --date 10/07/2026 \
-  --page-index 1 \
-  --page-size 1000 \
-  --limit 5
-```
-
-Compare `totalRecord`, record count in the current response, page size, and page index. Do not hardcode one candle count as the completeness standard for every date.
-
-### Output is too large
-
-Omit `--full-json`, lower `--limit`, or reduce `--page-size`:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run securities \
-  --market HOSE \
-  --page-size 10 \
-  --limit 2
-```
-
-### Python import error
-
-Run the script from the project root with the project environment activated:
-
-```bash
-pwd
+pytest -q tests/inspectors/test_ssi_api_inspector.py
+python -m compileall scripts/ssi_api_inspector
+python scripts/ssi_api_inspector/inspect.py --help
 python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 ```
 
-Do not run a copied standalone version of `inspect.py`, because it depends on the package files and `src.config` in this repository.
-
-## Validation and tests
-
-Run the focused offline test file:
-
-```bash
-pytest -q tests/test_ssi_api_inspector.py
-```
-
-The test suite verifies, among other things:
-
-- The supported endpoint registry.
-- Core request parameters.
-- POST JSON authentication shape.
-- Bearer-token usage and deep redaction.
-- Sample-record limits.
-- Full JSON redaction.
-- Empty-response detection.
-- One-time reauthentication after HTTP `401`.
-- `run all` summary and exit code.
-- Absence of database write imports and calls in the inspector package.
-
-To perform a live SSI smoke check, use an explicit symbol and historical trading date. Live smoke checks require valid SSI credentials and remain read-only:
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price \
-  --symbol SSI \
-  --market HOSE \
-  --date 10/07/2026 \
-  --limit 1
-```
-
-## Current limitations
-
-- The date option currently represents one explicit date and is used as both `FromDate` and `ToDate`.
-- Intraday resolution is fixed at 1 minute.
-- The CLI does not expose explicit `--from-date` and `--to-date` options.
-- The CLI does not expose `--descending` or explicit `ascending=false`.
-- `run all` uses one shared set of CLI arguments for endpoint-specific builders.
-- The inspector reports the API response but does not determine whether the returned rows are complete or semantically correct for ingestion.
-- The inspector does not write raw or clean tables.
-- The inspector does not trigger feature, signal, or backtest pipelines.
-
-Any future CLI change must preserve read-only behavior by default and should update this README, parser tests, endpoint tests, and troubleshooting instructions in the same task.
+Only run a live request when the appropriate credentials already exist. Use an explicit symbol/date; the inspector never reads or writes Supabase.

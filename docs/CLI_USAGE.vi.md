@@ -648,3 +648,16 @@ feature, signal, backtest hoặc Analog.
 
 Các endpoint SSI REST là constant cố định trong `src/config.py`, không phải env
 override. Ngày/session thị trường dùng ngữ nghĩa Asia/Ho_Chi_Minh.
+
+## SSI API Inspector chỉ đọc
+
+Inspector độc lập mặc định SSI REST v3, không đổi hoặc gọi production ingest. Muốn dùng v2 legacy phải chọn rõ; list/help không cần credential hay network:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py list
+python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json
+```
+
+V3 dùng `SSI_API_KEY`/`SSI_API_SECRET`; v2 legacy dùng `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. Xem [`scripts/ssi_api_inspector/README.vi.md`](../scripts/ssi_api_inspector/README.vi.md) để biết bảng endpoint, khoảng ngày, paging so với sample limit, status/exit code, redact và troubleshooting.

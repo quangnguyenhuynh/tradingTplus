@@ -12,6 +12,9 @@ class Config:
     # SSI
     SSI_CONSUMER_ID = os.getenv('SSI_CONSUMER_ID')
     SSI_CONSUMER_SECRET = os.getenv('SSI_CONSUMER_SECRET')
+    # REST v3 inspector credentials; production ingestion still uses v2 above.
+    SSI_API_KEY = os.getenv('SSI_API_KEY')
+    SSI_API_SECRET = os.getenv('SSI_API_SECRET')
 
      # SSI API URLs
     SSI_API_BASE_URL = 'https://fc-datahub.ssi.com.vn/api/v2/Market'
