@@ -9,9 +9,9 @@ from src.database.client import SupabaseClient
 from src.pipeline.date_utils import parse_ddmmyyyy, validate_not_future
 from src.pipeline.symbol_scope import resolve_active_symbol_scope, normalize_symbol_scope
 
-from .calendar import load_calendar
+from .calendar import TradingCalendar, build_calendar, load_calendar
 from .calculator import FORMULA_VERSION, calculate_symbol
-from .loader import load_rows
+from .loader import load_rows, load_session_dates
 from .persistence import load_existing, upsert
 
 
@@ -19,8 +19,24 @@ def _json_safe(row: dict[str, Any]) -> dict[str, Any]:
     return {key: (str(value) if isinstance(value, Decimal) else value) for key, value in row.items()}
 
 
-def _dates(from_date: str, to_date: str, calendar) -> list[str]:
+def _dates(from_date: str, to_date: str, calendar: TradingCalendar) -> list[str]:
     return [day for day in calendar.sessions if from_date <= day <= to_date]
+
+
+def _calendar_from_stock_daily(db: Any, symbols: list[str], start: str, end: str) -> TradingCalendar | None:
+    if not symbols:
+        return None
+    sessions = load_session_dates(db, symbols, end=end)
+    if not sessions:
+        return None
+    return build_calendar(list(sessions), "stock_daily", "scope")
+
+
+def _resolve_calendar(db: Any, symbols: list[str], start: str, end: str, calendar_file: str | None) -> TradingCalendar | None:
+    file_calendar = load_calendar(calendar_file)
+    if file_calendar is not None:
+        return file_calendar
+    return _calendar_from_stock_daily(db, symbols, start, end)
 
 
 def _run(from_value: str, to_value: str, symbols, calendar_file: str | None, *, db=None, write=False, mode="target") -> dict[str, Any]:
@@ -30,13 +46,13 @@ def _run(from_value: str, to_value: str, symbols, calendar_file: str | None, *, 
     validate_not_future(end)
     db = db or SupabaseClient()
     resolved, requested, unknown = resolve_active_symbol_scope(db, symbols)
-    calendar = load_calendar(calendar_file)
-    summary: dict[str, Any] = {"requested": len(resolved), "processed": 0, "written": 0, "invalid": 0, "stale": 0, "insufficient_history": 0, "window_unverified": 0, "errors": [], "unknown_symbols": unknown, "from": start.iso, "to": end.iso, "formula_version": FORMULA_VERSION, "mode": mode}
+    calendar = _resolve_calendar(db, resolved, start.iso, end.iso, calendar_file)
+    summary: dict[str, Any] = {"requested": len(resolved), "processed": 0, "written": 0, "invalid": 0, "stale": 0, "insufficient_history": 0, "window_unverified": 0, "errors": [], "unknown_symbols": unknown, "from": start.iso, "to": end.iso, "formula_version": FORMULA_VERSION, "mode": mode, "calendar_source": calendar.source if calendar else None}
     if unknown:
         summary["invalid"] += len(unknown)
         summary["errors"].append({"reason": "UNKNOWN_OR_INACTIVE_SYMBOLS", "symbols": unknown})
     if not calendar:
-        summary.update(status="PARTIAL", window_unverified=len(resolved), reason="WINDOW_UNVERIFIED: provide --calendar-file")
+        summary.update(status="PARTIAL", window_unverified=len(resolved), reason="WINDOW_UNVERIFIED: stock_daily has no sessions for scope; optionally provide --calendar-file")
         return summary
     output_dates = _dates(start.iso, end.iso, calendar)
     if not output_dates:
@@ -85,19 +101,27 @@ def preview(date: str, symbol: str, calendar_file: str | None, *, db=None) -> di
 
 def run_daily(date: str, symbols=None, calendar_file=None, mode="target", *, db=None) -> dict[str, Any]:
     if mode == "incremental":
-        calendar = load_calendar(calendar_file)
         parsed = parse_ddmmyyyy(date)
+        database = db or SupabaseClient()
+        resolved, _, _ = resolve_active_symbol_scope(database, symbols)
+        calendar = _resolve_calendar(database, resolved, parsed.iso, parsed.iso, calendar_file)
         affected = calendar.through(parsed.iso, 20) if calendar else []
         start = parse_ddmmyyyy(date) if not affected else type(parsed)(affected[0], Date.fromisoformat(affected[0]))
-        return _run(start.ddmmyyyy, date, symbols, calendar_file, db=db, write=True, mode=mode)
+        return _run(start.ddmmyyyy, date, symbols, calendar_file, db=database, write=True, mode=mode)
     return _run(date, date, symbols, calendar_file, db=db, write=True, mode=mode)
 
 
 def run_backfill(from_date: str, to_date: str, symbols=None, calendar_file=None, *, db=None) -> dict[str, Any]:
     summary = _run(from_date, to_date, symbols, calendar_file, db=db, write=True, mode="backfill")
-    calendar = load_calendar(calendar_file)
+    database = db or SupabaseClient()
     end = parse_ddmmyyyy(to_date).iso
-    summary["affected_after_range"] = list(calendar.sessions[calendar.sessions.index(end)+1:calendar.sessions.index(end)+20]) if calendar and end in calendar.sessions else []
+    resolved, _, _ = resolve_active_symbol_scope(database, symbols)
+    calendar = _resolve_calendar(database, resolved, end, end, calendar_file)
+    if calendar and end in calendar.sessions:
+        summary["affected_after_range"] = list(calendar.sessions[calendar.sessions.index(end)+1:calendar.sessions.index(end)+20])
+    else:
+        after_sessions = load_session_dates(database, resolved, start=end) if resolved else ()
+        summary["affected_after_range"] = [day for day in after_sessions if day > end][:19]
     return summary
 
 

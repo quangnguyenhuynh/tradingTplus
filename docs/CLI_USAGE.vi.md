@@ -75,37 +75,39 @@ Dữ liệu gốc nằm ở `stock_daily`; chỉ số 5/20 phiên nằm ở
    nếu chưa triển khai. File tạo bảng feature và hai RPC; CLI không tự apply.
 3. Đảm bảo `stock_daily` có trường foreign và tổng giá trị giao dịch cho mã/ngày cần xem.
    Nếu thiếu, chạy riêng `backfill-daily` đúng phạm vi, rồi kiểm tra kết quả.
-4. Chuẩn bị `calendar.json` đã xác minh cho sàn và khoảng ngày cần tính.
+4. Đảm bảo `stock_daily` đã có đủ phiên giao dịch cho mã được chọn.
+   Các lệnh foreign tự suy ra lịch từ các giá trị `stock_daily.trading_date` distinct.
    Bao gồm 19 phiên trước ngày output đầu tiên nếu cần đủ feature 20D.
    Để so hai nhóm 5 phiên cần ít nhất 10 phiên nguồn.
 
-Calendar nhận JSON với `source`, `market`, `sessions`. Ví dụ cấu trúc sau
-chỉ minh họa, **không phải lịch hoàn chỉnh để backfill**:
+`--calendar-file` là tùy chọn, chỉ dùng để override lịch suy ra từ `stock_daily`
+khi debug hoặc chạy lại theo lịch đã xác minh thủ công. Nếu truyền file, JSON cần
+`source`, `market`, `sessions`. Ví dụ cấu trúc sau chỉ minh họa:
 
 ```json
 {"source":"Nguồn lịch đã được người vận hành xác minh","market":"HOSE","sessions":["2026-08-27","2026-08-28"]}
 ```
 
 Ngày trong file lịch dùng `YYYY-MM-DD`; ngày trên CLI foreign dùng `DD/MM/YYYY`.
-File phải chứa đầy đủ phiên thực tế, không trùng. Bộ đọc hiện tại dựa vào xác minh
-của người cung cấp, chưa tự đối chiếu lịch với sàn/market của từng mã.
-Thiếu `--calendar-file` trả `PARTIAL / WINDOW_UNVERIFIED`, không tính rolling feature.
+Khi dùng override, file phải chứa đầy đủ phiên thực tế, không trùng. Bộ đọc file
+dựa vào xác minh của người cung cấp, chưa tự đối chiếu lịch với sàn/market của từng mã.
+Nếu không truyền file, calculation dùng các phiên có trong `stock_daily` theo scope đã chọn.
+Nếu `stock_daily` không có phiên nào cho scope đó, lệnh trả `PARTIAL / WINDOW_UNVERIFIED`.
 `foreign-rank` và `foreign-symbol` không nhận cờ calendar.
 
 ### Chạy thử trước, rồi lưu và kiểm tra
 
-Thay ngày/mã bằng phạm vi dữ liệu thực tế của bạn. `calendar.json` bên dưới
-là file lịch đã chuẩn bị, không phải file có sẵn trong repo.
+Thay ngày/mã bằng phạm vi dữ liệu thực tế của bạn.
 
 ```bash
 # 1. Chỉ tính thử SSI; chưa ghi
-python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --calendar-file calendar.json
+python main.py foreign-features-preview --symbol SSI --date 28/08/2026
 
 # 2. Ghi feature cho khoảng ngày, khi preview đã được kiểm tra
-python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI
 
 # 3. Đối chiếu dữ liệu nguồn với feature đã lưu
-python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI
 
 # 4. Xem mua ròng 5 phiên và lịch sử SSI
 python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 5 --symbols SSI --top 20
@@ -121,17 +123,17 @@ Check trả `missing_features`, `stale` khi có kết quả tính để đối c
 
 ```bash
 # Mặc định mode=target: chỉ ghi ngày chọn
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --calendar-file calendar.json
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB
 
 # Rà tối đa 20 phiên kết thúc tại ngày chọn, ghi feature mới/đổi fingerprint
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental --calendar-file calendar.json
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental
 ```
 
 Incremental hiện chỉ rà cửa sổ tối đa 20 phiên, không quét toàn bộ lịch sử.
 Sửa source cũ hơn cửa sổ này cần backfill phạm vi cụ thể.
 Source ngày D thay đổi có thể ảnh hưởng D và 19 phiên kế tiếp.
 Backfill chỉ ghi trong khoảng yêu cầu; xem `affected_after_range` để kiểm tra/tính lại
-phần sau khoảng đó. Danh sách này phụ thuộc các phiên có trong file lịch.
+phần sau khoảng đó. Danh sách này lấy từ lịch suy ra hoặc lịch override.
 
 Preview nhận một `--symbol`. Daily/backfill/check/rank nhận `--symbols SSI SHB`;
 bỏ cờ này dùng danh sách active hiện tại. Không truyền cờ rỗng.
@@ -191,7 +193,7 @@ Các mã bằng metric có cùng hạng; phân trang sắp thêm symbol.
 
 | Hiện tượng | Kiểm tra/làm tiếp |
 | --- | --- |
-| `WINDOW_UNVERIFIED` | Truyền file calendar đã xác minh và đủ khoảng phiên |
+| `WINDOW_UNVERIFIED` | Kiểm tra `stock_daily` có dữ liệu cho mã/range đã chọn; có thể truyền calendar override khi cần |
 | `INSUFFICIENT_HISTORY`, metric NULL | Xem lịch và source warm-up; không thay NULL bằng 0 |
 | `MISSING_SOURCE` trong quality | Kiểm tra source theo từng phiên; ingest bù riêng nếu cần |
 | `missing_features > 0` | Backfill foreign feature đúng phạm vi rồi check lại |

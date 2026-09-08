@@ -75,37 +75,39 @@ Source values stay in `stock_daily`; derived 5/20-session metrics are stored in
    if needed. It creates the feature table and two RPCs; CLI does not apply migrations.
 3. Verify foreign fields and turnover in `stock_daily` for the desired scope.
    If source is missing, run a separate scoped `backfill-daily` and inspect its result.
-4. Prepare a verified `calendar.json` for the correct market and range. Include
-   19 sessions before the first output date for full 20D metrics.
+4. Make sure `stock_daily` already contains enough trading sessions for the selected symbols.
+   The foreign feature commands infer the trading calendar from distinct `stock_daily.trading_date`
+   values. Include 19 sessions before the first output date for full 20D metrics.
    Comparing consecutive five-session windows requires ten source sessions.
 
-Calendar JSON requires `source`, `market`, and `sessions`. This is only a shape
-example, **not a complete backfill calendar**:
+`--calendar-file` is optional and only used to override the inferred `stock_daily`
+calendar during debugging or a manually verified rerun. If supplied, JSON requires
+`source`, `market`, and `sessions`. This is only a shape example:
 
 ```json
 {"source":"Operator-verified calendar source","market":"HOSE","sessions":["2026-08-27","2026-08-28"]}
 ```
 
 Calendar entries use `YYYY-MM-DD`; foreign CLI dates use `DD/MM/YYYY`.
-Supply complete, unique real sessions. The current reader trusts the operator's
-verification; it does not independently check exchange sessions or each symbol's market.
-Without `--calendar-file`, calculations return `PARTIAL / WINDOW_UNVERIFIED`.
+Supply complete, unique real sessions when using the override. The file reader trusts
+the operator's verification; it does not independently check exchange sessions or each symbol's market.
+Without an override, calculations use the available `stock_daily` sessions for the selected scope.
+If `stock_daily` has no sessions for that scope, calculations return `PARTIAL / WINDOW_UNVERIFIED`.
 Rank/history commands do not accept a calendar option.
 
 ### Preview, save, check, then read
 
 Replace the illustrative dates/symbols with your actual source scope.
-`calendar.json` below is your prepared file, not a bundled repository file.
 
 ```bash
 # 1. Calculate without writes
-python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --calendar-file calendar.json
+python main.py foreign-features-preview --symbol SSI --date 28/08/2026
 
 # 2. Save the range after inspecting preview
-python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI
 
 # 3. Compare source-derived and stored features
-python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI
 
 # 4. Read net buying and symbol history
 python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 5 --symbols SSI --top 20
@@ -121,17 +123,17 @@ Read `rows[].quality_status` as well: summary `status=OK` does not prove every
 
 ```bash
 # Default mode=target: save only this date
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --calendar-file calendar.json
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB
 
 # Inspect up to 20 sessions ending at the target; save new/changed fingerprints
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental --calendar-file calendar.json
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental
 ```
 
 Incremental currently examines only the last 20 calendar sessions, not all history.
 Older corrections need an explicit range backfill. Changing source date D can
 affect D and the next 19 sessions. Backfill writes only its requested range;
 inspect `affected_after_range` and check/rebuild later affected dates.
-That list is limited to sessions supplied in the calendar.
+That list comes from the inferred or overridden calendar.
 
 Preview takes one `--symbol`. Daily/backfill/check/rank accept `--symbols SSI SHB`;
 omitting it uses current active symbols. Do not supply an empty flag.
@@ -189,7 +191,7 @@ Equal metric values share rank; symbol provides stable pagination order.
 
 | Symptom | Next check/action |
 | --- | --- |
-| `WINDOW_UNVERIFIED` | Supply a verified calendar covering the required sessions |
+| `WINDOW_UNVERIFIED` | Check `stock_daily` has rows for the selected symbol/range; optionally supply a verified calendar override |
 | `INSUFFICIENT_HISTORY` or NULL metrics | Inspect calendar/source warm-up; never substitute zero |
 | `MISSING_SOURCE` in quality | Inspect each expected source session; ingest missing source separately |
 | `missing_features > 0` | Backfill the feature scope, then check again |
