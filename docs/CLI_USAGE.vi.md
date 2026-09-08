@@ -1,20 +1,221 @@
-# Tham chiếu CLI TradingTPlus
+# Hướng dẫn CLI TradingTPlus
 
-Đây là tài liệu đầy đủ cho cây command được đăng ký bởi `main.py`. Code runtime
-là nguồn sự thật nếu tài liệu này mâu thuẫn với tài liệu thiết kế cũ. Chạy lệnh
-từ thư mục gốc repo dưới dạng `python main.py ...`.
+[Bản tiếng Anh](CLI_USAGE.md) · Chạy từ thư mục chứa `main.py`.
+Ngày và mã trong ví dụ là minh họa; thay bằng phạm vi dữ liệu của bạn.
+
+## Bắt đầu: chọn việc cần làm
+
+| Bạn muốn làm gì? | Lệnh nên dùng | Tác động |
+| --- | --- | --- |
+| Xem khối ngoại quan tâm/mua ròng/bán ròng mã nào | `foreign-rank` | Chỉ đọc RPC |
+| Xem lịch sử khối ngoại của SSI | `foreign-symbol` | Chỉ đọc RPC |
+| Chuẩn bị chỉ số khối ngoại | `foreign-features-preview` → `foreign-features-backfill` → `foreign-features-check` | Chỉ backfill ghi feature |
+| Lấy daily cổ phiếu cuối ngày và kiểm tra | `stock-eod` | Ghi daily raw/clean |
+| Lấy intraday và kiểm tra | `stock-intraday` | Ghi raw/clean 1m |
+| Bổ sung daily lịch sử | `backfill-daily` | Ghi daily raw/clean |
+| Tính chỉ số kỹ thuật daily | `features-daily` | Ghi stock feature 1d |
+| Xem thử dữ liệu SSI VNINDEX | `index-preview` | Chỉ đọc SSI |
+| Lấy daily chỉ số | `index-daily` / `index-backfill` | Ghi index raw/clean |
+| Tính feature index | `index-features-daily` / `index-features-backfill` | Ghi index feature |
+| Phân tích các ngày tương đồng T+ | `analogs` | Quy trình research riêng |
+
+Không cần chạy tất cả nhóm. Để theo dõi khối ngoại, bắt đầu ở
+[phần foreign](#foreign-eod). `refill` còn chạy intraday và technical features,
+nên không phải bước bắt buộc để có báo cáo foreign.
+
+## Mục lục
+
+- [Khối ngoại: chuẩn bị, chạy và đọc kết quả](#foreign-eod)
+- [Quy ước ngày, phạm vi và status](#conventions)
+- [Master data](#master-data)
+- [Lấy dữ liệu cổ phiếu](#stock-source)
+- [Backfill và refill nguồn](#source-backfill)
+- [Feature kỹ thuật cổ phiếu](#stock-features)
+- [Dữ liệu và feature index](#index-data)
+- [Historical Analog](#analog)
+- [Streaming nâng cao](#streaming)
+- [Biến môi trường](#environment)
+
+## Cách đọc ví dụ
+
+Khối `bash` chứa lệnh mẫu để copy sau khi thay ngày/mã.
+Khối `text` có `[...]`, `DATE`, `COMMAND` là cú pháp tham khảo,
+không copy nguyên dấu ngoặc. `--help` xem tham số mà không chạy pipeline:
+
+```bash
+python main.py --help
+python main.py foreign-rank --help
+```
+
+<a id="foreign-eod"></a>
+
+## Khối ngoại EOD: từ dữ liệu đến bảng xếp hạng
+
+Phần này thống kê khối ngoại theo ngày, không chạy Analog/backtest T+.
+Dữ liệu gốc nằm ở `stock_daily`; chỉ số 5/20 phiên nằm ở
+`stock_foreign_features_daily`. CLI báo cáo gọi RPC chung với web/mobile.
+
+### Chọn lệnh foreign
+
+| Nhu cầu | Lệnh | Ghi DB? |
+| --- | --- | --- |
+| Tính thử một mã, một ngày | `foreign-features-preview` | Không |
+| Tính và lưu cho ngày chọn | `foreign-features-daily` | Có, bảng foreign feature |
+| Tính và lưu khoảng ngày | `foreign-features-backfill` | Có, bảng foreign feature |
+| Tính lại để đối chiếu feature đã lưu | `foreign-features-check` | Không |
+| Xem bảng xếp hạng | `foreign-rank` | Không, gọi RPC |
+| Xem lịch sử một mã | `foreign-symbol` | Không, gọi RPC |
+
+### Chuẩn bị lần đầu
+
+1. Cài môi trường theo README gốc, chạy từ thư mục chứa `main.py`.
+   Các lệnh foreign cần kết nối DB; chúng không gọi SSI.
+2. Kiểm tra và chạy thủ công migration
+   [20260907_create_stock_foreign_features_daily.sql](../migrations/20260907_create_stock_foreign_features_daily.sql)
+   nếu chưa triển khai. File tạo bảng feature và hai RPC; CLI không tự apply.
+3. Đảm bảo `stock_daily` có trường foreign và tổng giá trị giao dịch cho mã/ngày cần xem.
+   Nếu thiếu, chạy riêng `backfill-daily` đúng phạm vi, rồi kiểm tra kết quả.
+4. Chuẩn bị `calendar.json` đã xác minh cho sàn và khoảng ngày cần tính.
+   Bao gồm 19 phiên trước ngày output đầu tiên nếu cần đủ feature 20D.
+   Để so hai nhóm 5 phiên cần ít nhất 10 phiên nguồn.
+
+Calendar nhận JSON với `source`, `market`, `sessions`. Ví dụ cấu trúc sau
+chỉ minh họa, **không phải lịch hoàn chỉnh để backfill**:
+
+```json
+{"source":"Nguồn lịch đã được người vận hành xác minh","market":"HOSE","sessions":["2026-08-27","2026-08-28"]}
+```
+
+Ngày trong file lịch dùng `YYYY-MM-DD`; ngày trên CLI foreign dùng `DD/MM/YYYY`.
+File phải chứa đầy đủ phiên thực tế, không trùng. Bộ đọc hiện tại dựa vào xác minh
+của người cung cấp, chưa tự đối chiếu lịch với sàn/market của từng mã.
+Thiếu `--calendar-file` trả `PARTIAL / WINDOW_UNVERIFIED`, không tính rolling feature.
+`foreign-rank` và `foreign-symbol` không nhận cờ calendar.
+
+### Chạy thử trước, rồi lưu và kiểm tra
+
+Thay ngày/mã bằng phạm vi dữ liệu thực tế của bạn. `calendar.json` bên dưới
+là file lịch đã chuẩn bị, không phải file có sẵn trong repo.
+
+```bash
+# 1. Chỉ tính thử SSI; chưa ghi
+python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --calendar-file calendar.json
+
+# 2. Ghi feature cho khoảng ngày, khi preview đã được kiểm tra
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+
+# 3. Đối chiếu dữ liệu nguồn với feature đã lưu
+python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
+
+# 4. Xem mua ròng 5 phiên và lịch sử SSI
+python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 5 --symbols SSI --top 20
+python main.py foreign-symbol --symbol SSI --date 28/08/2026 --lookback 20
+```
+
+Preview luôn in JSON; `--json` được parser chấp nhận nhưng hiện không đổi cách hiển thị.
+Check trả `missing_features`, `stale` khi có kết quả tính để đối chiếu.
+Đọc cả `rows[].quality_status`: `status=OK` ở summary không chứng minh mọi metric
+5/20 phiên đều đủ dữ liệu. Các dòng warm-up có thể vẫn được ghi với metric NULL.
+
+### Cập nhật một ngày hoặc tính lại
+
+```bash
+# Mặc định mode=target: chỉ ghi ngày chọn
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --calendar-file calendar.json
+
+# Rà tối đa 20 phiên kết thúc tại ngày chọn, ghi feature mới/đổi fingerprint
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental --calendar-file calendar.json
+```
+
+Incremental hiện chỉ rà cửa sổ tối đa 20 phiên, không quét toàn bộ lịch sử.
+Sửa source cũ hơn cửa sổ này cần backfill phạm vi cụ thể.
+Source ngày D thay đổi có thể ảnh hưởng D và 19 phiên kế tiếp.
+Backfill chỉ ghi trong khoảng yêu cầu; xem `affected_after_range` để kiểm tra/tính lại
+phần sau khoảng đó. Danh sách này phụ thuộc các phiên có trong file lịch.
+
+Preview nhận một `--symbol`. Daily/backfill/check/rank nhận `--symbols SSI SHB`;
+bỏ cờ này dùng danh sách active hiện tại. Không truyền cờ rỗng.
+Mã unknown/inactive được service báo trong lỗi/tóm tắt; rank dùng giao với active.
+Daily bắt buộc `--date`; backfill/check bắt buộc cả `--from` và `--to`,
+không có alias `--from-date`/`--to-date` cho các lệnh foreign hiện tại.
+
+### Chọn cách xếp hạng
+
+| `--ranking` | Ý nghĩa | `--window` |
+| --- | --- | --- |
+| `attention` | Tổng giá trị mua + bán của khối ngoại lớn | 1, 5, 20 |
+| `accumulation` | Mua ròng mạnh, số dương lớn trước | 1, 5, 20 |
+| `distribution` | Bán ròng mạnh, số âm lớn về độ lớn trước | 1, 5, 20 |
+| `emerging` | Mức tham gia tăng so với 5 phiên trước | Chỉ 5 |
+
+```bash
+python main.py foreign-rank --date 28/08/2026 --ranking attention --window 1 --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 20 --sort value --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking distribution --window 5 --sort ratio --market HOSE --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking emerging --window 5 --sort ratio --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking attention --window 5 --top 20 --offset 20
+```
+
+- `--ranking` và `--date` bắt buộc.
+- `--window` mặc định 5; `--sort` mặc định `value`, có thể chọn `ratio`.
+- `--top` mặc định 20, RPC giới hạn 1..100; `--offset` mặc định 0, không âm.
+- `--market` so khớp giá trị trong master; `--symbols` giới hạn thêm scope.
+- `foreign-symbol --lookback` mặc định 20, RPC giới hạn 1..100.
+  Đây là số dòng daily gần nhất đến ngày chọn, không phải số ngày dương lịch.
+- Xếp hạng 1D không cần backfill foreign feature 20D, nhưng vẫn cần RPC đã triển khai
+  và dữ liệu nguồn hợp lệ. Hạng 5/20 dùng feature đã lưu.
+- `emerging --sort value` hiện cần cả feature 5D ở mốc trước trong DB;
+  chỉ tính target ngày cuối có thể chưa đủ dữ liệu để trả hạng này.
+
+### Đọc kết quả và giới hạn hiện tại
+
+Báo cáo trả `{meta, rows}`. Xem ngày, scope, `data_status`, số mã và metric chọn
+trước khi đọc hạng. Không mặc định danh sách active là toàn thị trường.
+
+Tiền là VND. Ratio là fraction: 0.05 = 5%; change 0.02 = 2 điểm phần trăm.
+Activity = mua + bán, gồm hai phía; không phải giá trị giao dịch duy nhất.
+NULL là thiếu/không đủ điều kiện, không phải 0.
+Các mã bằng metric có cùng hạng; phân trang sắp thêm symbol.
+
+**Giới hạn của code hiện tại cần biết:**
+- RPC chưa tính lại fingerprint từ toàn bộ source window khi truy vấn.
+  `freshness=CURRENT` không chứng minh mọi source lịch sử đều chưa thay đổi.
+  Check cũng chưa bao phủ đầy đủ orphan khi source target mất/không tính được.
+- `eligible_count/coverage_ratio` hiện được đếm trước khi loại metric chọn bị NULL;
+  có thể đánh giá độ phủ cao hơn thực tế. Không dùng coverage một mình để kết luận đủ dữ liệu.
+- RPC hiện yêu cầu turnover của ngày T hợp lệ ngay cả khi sort value.
+- Sửa/xóa source cần kiểm tra và tính lại đúng phạm vi trước khi sử dụng báo cáo;
+  không coi những hạn chế trên đã được xử lý chỉ vì summary là OK.
+
+### Khi lệnh chưa cho kết quả mong muốn
+
+| Hiện tượng | Kiểm tra/làm tiếp |
+| --- | --- |
+| `WINDOW_UNVERIFIED` | Truyền file calendar đã xác minh và đủ khoảng phiên |
+| `INSUFFICIENT_HISTORY`, metric NULL | Xem lịch và source warm-up; không thay NULL bằng 0 |
+| `MISSING_SOURCE` trong quality | Kiểm tra source theo từng phiên; ingest bù riêng nếu cần |
+| `missing_features > 0` | Backfill foreign feature đúng phạm vi rồi check lại |
+| `stale > 0` | Tính lại phạm vi bị ảnh hưởng; chú ý 19 phiên sau ngày sửa |
+| `rows=[]` | Kiểm tra active scope, cùng ngày, window, metric và chiều mua/bán |
+| Báo thiếu table/function | Kiểm tra migration đã được triển khai đúng DB |
+| RPC permission denied | Kiểm tra EXECUTE và quyền SELECT/RLS nguồn theo migration; không đưa service key vào app |
+
+CLI dùng backend credential; chạy CLI thành công không chứng minh quyền của
+web/mobile đã đúng. Migration không tự cấp toàn bộ quyền đọc nguồn cho client.
+Xem [đặc tả foreign](FOREIGN_EOD_FEATURES.vi.md) để tra công thức và
+[migration](../migrations/20260907_create_stock_foreign_features_daily.sql) để kiểm tra quyền.
+Các giới hạn executable code nêu ở đây cần được ưu tiên khi tài liệu thiết kế mô tả mạnh hơn.
+
+<a id="conventions"></a>
 
 ## An toàn, status và quy ước chung
 
-- Ngày dùng `DD/MM/YYYY`. Hai đầu range backfill dữ liệu nguồn/feature đều
-  inclusive.
-- Option symbol nhận các giá trị cách nhau bằng khoảng trắng. Giá trị được trim,
-  uppercase và deduplicate theo thứ tự xuất hiện đầu tiên. Với `--symbols` dùng
-  `nargs="*"`, danh sách rỗng tường minh được normalize như scope bị bỏ qua; các
-  command nguồn/feature sau đó resolve toàn bộ symbol phù hợp trong DB/master.
-  Command ingest dùng `nargs="+"` sẽ từ chối `--symbols` không có giá trị.
-  Streaming khác biệt: bỏ `--symbols`/`--indexes` nghĩa là danh sách rỗng, không
-  bao giờ tự hiểu là `ALL`.
+- CLI cổ phiếu/foreign dùng `DD/MM/YYYY`; index còn nhận `YYYY-MM-DD`.
+  Hai đầu khoảng backfill được tính vào phạm vi xử lý.
+- Symbol cách nhau bằng khoảng trắng, được bỏ khoảng trắng thừa, viết hoa và loại trùng.
+  Bỏ `--symbols` dùng scope mặc định của từng lệnh. Truyền cờ nhưng không có mã
+  bị từ chối ở parser hoặc bước chuẩn hóa; không đồng nghĩa chạy tất cả.
+  Riêng streaming: bỏ `--symbols`/`--indexes` là không đăng ký các mã đó.
 - Trừ khi nói khác, command in JSON summary. Phải kiểm tra `status`: exit `0`
   gồm `OK`, `PARTIAL`, `EMPTY`, và Analog `dry_run`, `blocked`,
   `apply_requires_database`; exit `1` là `FAILED` hoặc runtime exception; exit
@@ -23,38 +224,14 @@ từ thư mục gốc repo dưới dạng `python main.py ...`.
 - Ingest nguồn không tự chạy feature, signal, backtest hoặc Analog. Feature
   không tự chạy signal, backtest hoặc Analog. Không command nào tự tiến hành
   workflow Historical Analog explicit.
-- Command ghi dữ liệu cần access SSI/Supabase đã cấu hình. Không đưa credential
-  thật vào command line hoặc tài liệu.
+- Ingest cần SSI và DB; feature và báo cáo foreign chỉ cần DB.
+  Không đưa credential thật vào command line hoặc tài liệu.
 
-## Biến môi trường
-
-`.env` được load khi import config. Credential bắt buộc không có fallback.
-
-| Biến | Mặc định | Cách CLI sử dụng |
-| --- | --- | --- |
-| `SUPABASE_URL` | không có | Endpoint DB cho ingest, feature, streaming write và thao tác DB Historical Analog. |
-| `SUPABASE_SERVICE_KEY` | không có | Service credential mà database client sử dụng. |
-| `SUPABASE_KEY` | không có | Compatibility key được load; database client hiện dùng service key. |
-| `SSI_CONSUMER_ID` | không có | Xác thực SSI REST/streaming. |
-| `SSI_CONSUMER_SECRET` | không có | Xác thực SSI REST/streaming. |
-| `SSI_STREAMING_BASE_URL` | `https://fc-datahub.ssi.com.vn/` | SignalR base URL cho `streaming-ingest`. |
-| `SSI_SIGNALR_PATH` | `v2.0/signalr` | SignalR path. |
-| `SSI_SIGNALR_HUB` | `FcMarketDataV2Hub` | Tên SignalR hub. |
-| `SSI_SIGNALR_RECEIVE_METHOD` | `Broadcast` | SignalR method nhận vào. |
-| `SSI_SIGNALR_SWITCH_METHOD` | `SwitchChannels` | Method đăng ký subscription. |
-| `SSI_STREAMING_ENABLED` | `true` | `1`, `true`, `yes`, `y` bật streaming; giá trị khác sẽ tắt. |
-| `ORDERBOOK_SNAPSHOT_TIMEOUT_SEC` | `20` | Dùng cho snapshot utility, không phải mặc định `streaming-ingest --timeout`. |
-| `SSI_ORDERBOOK_URL` | không có | REST order-book account-specific tùy chọn; cây CLI này không dùng. |
-| `SSI_STREAMING_URL` | không có | Placeholder tương thích ngược; không phải cấu hình kết nối SignalR. |
-
-Các endpoint SSI REST là constant cố định trong `src/config.py`, không phải env
-override. Ngày/session thị trường dùng ngữ nghĩa Asia/Ho_Chi_Minh.
-
-## Thứ tự vận hành khuyến nghị
+## Luồng kỹ thuật và Analog (khi cần)
 
 ```text
 sync-master-data (hoặc init)
-→ daily / intraday-ingest, hoặc eod, hoặc source backfill có scope
+→ daily / intraday-ingest, hoặc stock-eod, hoặc source backfill có scope
 → kiểm tra JSON validation/completeness
 → chạy riêng features-daily và/hoặc features-intraday
 → kiểm tra feature summary
@@ -62,6 +239,8 @@ sync-master-data (hoặc init)
 ```
 
 CLI rule cũ đã bị xóa; `analogs` là command tree Phase 1 duy nhất.
+
+<a id="master-data"></a>
 
 ## Master data
 
@@ -75,6 +254,8 @@ python main.py init
 Ví dụ chính là hai lệnh trên. Cả hai không có option và gọi cùng đồng bộ master
 data idempotent. Chúng đọc master data SSI và ghi các bảng master được hỗ trợ;
 không ingest price history, tính feature hoặc chạy signal/backtest/Analog.
+
+<a id="stock-source"></a>
 
 ## Ingest dữ liệu nguồn
 
@@ -125,6 +306,16 @@ Ví dụ: `python main.py stock-eod 07/08/2026 --symbols SSI HPG`.
 
 Command chỉ ghi daily raw/clean và chạy daily-only completeness. Compatibility key `intraday_summary` là `null`; command không chạy intraday, index hoặc downstream.
 
+### `stock-intraday`
+
+```text
+python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
+```
+
+Chỉ lấy SSI `IntradayOhlc` resolution 1, ghi raw và source canonical 1m, rồi chạy intraday-only completeness. Không ingest daily/index hoặc chạy feature, signal, backtest, Analog. Scope automatic và explicit workflow yêu cầu cả `symbols.status='active'` và `intraday_status='active'`; mã bị loại được báo. Bỏ ngày sẽ dùng ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam.
+
+<a id="source-backfill"></a>
+
 ## Backfill dữ liệu nguồn
 
 Cú pháp chung (`--from-date`/`--to-date` là alias chính xác):
@@ -164,6 +355,8 @@ master, ghi nến source aggregate, signal, backtest hay Analog. Source `PARTIAL
 vẫn chạy feature và final giữ `PARTIAL`; source `FAILED` skip feature. Hai nhánh
 feature chạy độc lập. Range chỉ có cuối tuần là no-op `OK`. Exit code là `0` cho
 `OK`/`PARTIAL`, `1` cho `FAILED`, `2` cho argument không hợp lệ.
+
+<a id="stock-features"></a>
 
 ## Policy dữ liệu feature và mode
 
@@ -212,8 +405,8 @@ python main.py features-daily --mode replace --from 03/08/2026 --to 07/08/2026 -
 `--mode` tùy chọn, mặc định `incremental`. Ở incremental, bắt buộc đúng một
 trong `--date` hoặc cặp `--from`+`--to`; không kết hợp chúng. `full` cấm
 date/range. Replace mode cần range như trên. `--from-date`/`--to-date` là alias.
-Bỏ `--symbols` (hoặc flag không có value) nghĩa là mọi symbol phù hợp, trừ exact
-replace; cung cấp sẽ giới hạn computation. Command chỉ đọc `stock_daily`, chỉ
+Bỏ `--symbols` nghĩa là mọi symbol phù hợp, trừ exact replace.
+Flag không có value bị từ chối; cung cấp mã sẽ giới hạn computation. Command chỉ đọc `stock_daily`, chỉ
 ghi `stock_features` 1d và không ingest/chạy signal/backtest/Analog.
 
 ### `features-intraday`
@@ -241,7 +434,7 @@ Không kết hợp nó với range. Command đọc clean 1m, aggregate trong mem
 feature row `15m`/`60m` đã đóng; không ingest, ghi nến aggregate nguồn hoặc chạy
 signal/backtest/Analog.
 
-### Router tương thích `stock_features`
+### Router tương thích `features`
 
 ```text
 python main.py features [--mode incremental|full] [--date DD/MM/YYYY]
@@ -270,47 +463,7 @@ hiện chỉ đổi summary marker, **không** phải source/bucket cutoff an to
 `features-intraday --date ... --as-of ...` cho cutoff. Alias tính incremental
 intraday feature; không ingest candle/chạy signal/backtest/Analog.
 
-## Streaming ingest hữu hạn
-
-```text
-python main.py streaming-ingest [--symbols [SYMBOL ...]] [--indexes [INDEX ...]]
-  --channels {securities-status,quote,trade,foreign-room,index,realtime-bar} [...]
-  [--timeout SECONDS] [--max-messages-per-channel COUNT] [--write] [--debug]
-```
-
-Ví dụ read-only:
-
-```bash
-python main.py streaming-ingest --symbols SSI --indexes VNINDEX \
-  --channels quote index --timeout 60 --max-messages-per-channel 1 --debug
-```
-
-`--channels` bắt buộc và nhận một hay nhiều group đã liệt kê.
-`--symbols`/`--indexes` mặc định rỗng; cung cấp sẽ tạo explicit subscription đã
-uppercase. Compatibility channel/scope được validate. `--timeout` mặc định `60`,
-phải trong 1..3600 giây. `--max-messages-per-channel` mặc định `1`, phải trong
-1..1000. `--debug` mặc định false, in sanitized summary. Không có `--write`,
-command nhận/validate dữ liệu nhưng read-only; có `--write`, nó persist raw frame
-và normalized snapshot row hợp lệ. Command hữu hạn và không chạy batch ingest,
-feature, signal, backtest hoặc Analog.
-
-## Runtime Historical Analog EOD V1
-
-EOD V2 dùng cùng command với `--version 2` và exact config hash. Register rõ
-ràng bằng `python main.py analogs profiles register --profile
-TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 vẫn draft nên
-query/daily production bị chặn cho tới khi hoàn tất history, calibration, final
-validation và approve riêng.
-
-```bash
-python main.py analogs profiles list
-python main.py analogs profiles register [--apply]
-python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash <exact-hash> --symbols SSI --from DD/MM/YYYY --to DD/MM/YYYY --mode full [--apply]
-python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD [--apply]
-python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
-```
-
-History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved. Matching lấy `top_k` gần nhất; option threshold của inspect chỉ còn là input tương thích bị bỏ qua.
+<a id="index-data"></a>
 
 ## Dữ liệu nguồn Index Daily
 
@@ -424,14 +577,74 @@ không gọi ingest hoặc research downstream. Xem công thức, quy tắc null
 250 phiên và thứ tự backfill tại
 [`src/index_features/README.vi.md`](../src/index_features/README.vi.md).
 
-### `stock-intraday`
+<a id="analog"></a>
 
-```text
-python main.py stock-intraday [DATE] [--symbols SYMBOL [SYMBOL ...]]
+## Runtime Historical Analog EOD V1
+
+EOD V2 dùng cùng command với `--version 2` và exact config hash. Register rõ
+ràng bằng `python main.py analogs profiles register --profile
+TPLUS_ANALOG_CORE_EOD --version 2 [--apply]`. V2 vẫn draft nên
+query/daily production bị chặn cho tới khi hoàn tất history, calibration, final
+validation và approve riêng.
+
+```bash
+python main.py analogs profiles list
+python main.py analogs profiles register [--apply]
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash <exact-hash> --symbols SSI --from DD/MM/YYYY --to DD/MM/YYYY --mode full [--apply]
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD [--apply]
+python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5
 ```
 
-Chỉ lấy SSI `IntradayOhlc` resolution 1, ghi raw và source canonical 1m, rồi chạy intraday-only completeness. Không ingest daily/index hoặc chạy feature, signal, backtest, Analog. Scope automatic và explicit workflow yêu cầu cả `symbols.status='active'` và `intraday_status='active'`; mã bị loại được báo. Bỏ ngày sẽ dùng ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam.
+History mặc định chỉ đọc source/dry-run và chỉ persist snapshot/outcome khi có `--apply`; replace còn cần `--confirm-replace`. Query luôn đọc evidence đã persist, chỉ ghi audit với `--apply` và profile exact đã approved. Matching lấy `top_k` gần nhất; option threshold của inspect chỉ còn là input tương thích bị bỏ qua.
 
-## Foreign EOD Feature V1
+<a id="streaming"></a>
 
-Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.
+## Streaming ingest hữu hạn
+
+```text
+python main.py streaming-ingest [--symbols [SYMBOL ...]] [--indexes [INDEX ...]]
+  --channels {securities-status,quote,trade,foreign-room,index,realtime-bar} [...]
+  [--timeout SECONDS] [--max-messages-per-channel COUNT] [--write] [--debug]
+```
+
+Ví dụ read-only:
+
+```bash
+python main.py streaming-ingest --symbols SSI --indexes VNINDEX \
+  --channels quote index --timeout 60 --max-messages-per-channel 1 --debug
+```
+
+`--channels` bắt buộc và nhận một hay nhiều group đã liệt kê.
+`--symbols`/`--indexes` mặc định rỗng; cung cấp sẽ tạo explicit subscription đã
+uppercase. Compatibility channel/scope được validate. `--timeout` mặc định `60`,
+phải trong 1..3600 giây. `--max-messages-per-channel` mặc định `1`, phải trong
+1..1000. `--debug` mặc định false, in sanitized summary. Không có `--write`,
+command nhận/validate dữ liệu nhưng read-only; có `--write`, nó persist raw frame
+và normalized snapshot row hợp lệ. Command hữu hạn và không chạy batch ingest,
+feature, signal, backtest hoặc Analog.
+
+<a id="environment"></a>
+
+## Biến môi trường
+
+`.env` được load khi import config. Credential bắt buộc không có fallback.
+
+| Biến | Mặc định | Cách CLI sử dụng |
+| --- | --- | --- |
+| `SUPABASE_URL` | không có | Endpoint DB cho ingest, feature, streaming write và thao tác DB Historical Analog. |
+| `SUPABASE_SERVICE_KEY` | không có | Service credential mà database client sử dụng. |
+| `SUPABASE_KEY` | không có | Compatibility key được load; database client hiện dùng service key. |
+| `SSI_CONSUMER_ID` | không có | Xác thực SSI REST/streaming. |
+| `SSI_CONSUMER_SECRET` | không có | Xác thực SSI REST/streaming. |
+| `SSI_STREAMING_BASE_URL` | `https://fc-datahub.ssi.com.vn/` | SignalR base URL cho `streaming-ingest`. |
+| `SSI_SIGNALR_PATH` | `v2.0/signalr` | SignalR path. |
+| `SSI_SIGNALR_HUB` | `FcMarketDataV2Hub` | Tên SignalR hub. |
+| `SSI_SIGNALR_RECEIVE_METHOD` | `Broadcast` | SignalR method nhận vào. |
+| `SSI_SIGNALR_SWITCH_METHOD` | `SwitchChannels` | Method đăng ký subscription. |
+| `SSI_STREAMING_ENABLED` | `true` | `1`, `true`, `yes`, `y` bật streaming; giá trị khác sẽ tắt. |
+| `ORDERBOOK_SNAPSHOT_TIMEOUT_SEC` | `20` | Dùng cho snapshot utility, không phải mặc định `streaming-ingest --timeout`. |
+| `SSI_ORDERBOOK_URL` | không có | REST order-book account-specific tùy chọn; cây CLI này không dùng. |
+| `SSI_STREAMING_URL` | không có | Placeholder tương thích ngược; không phải cấu hình kết nối SignalR. |
+
+Các endpoint SSI REST là constant cố định trong `src/config.py`, không phải env
+override. Ngày/session thị trường dùng ngữ nghĩa Asia/Ho_Chi_Minh.
