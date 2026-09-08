@@ -24,9 +24,7 @@ def _dates(from_date: str, to_date: str, calendar: TradingCalendar) -> list[str]
 
 
 def _calendar_from_stock_daily(db: Any, symbols: list[str], start: str, end: str) -> TradingCalendar | None:
-    if not symbols:
-        return None
-    sessions = load_session_dates(db, symbols, end=end)
+    sessions = load_session_dates(db, None, end=end)
     if not sessions:
         return None
     return build_calendar(list(sessions), "stock_daily", "scope")

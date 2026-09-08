@@ -76,8 +76,8 @@ Dữ liệu gốc nằm ở `stock_daily`; chỉ số 5/20 phiên nằm ở
 3. Đảm bảo `stock_daily` có trường foreign và tổng giá trị giao dịch cho mã/ngày cần xem.
    Nếu thiếu, chạy riêng `backfill-daily` đúng phạm vi, rồi kiểm tra kết quả.
 4. Đảm bảo `stock_daily` đã có đủ phiên giao dịch cho mã được chọn.
-   Các lệnh foreign tự suy ra lịch từ các giá trị `stock_daily.trading_date` distinct.
-   Bao gồm 19 phiên trước ngày output đầu tiên nếu cần đủ feature 20D.
+   Các lệnh foreign tự suy ra lịch từ các giá trị `stock_daily.trading_date` distinct trên toàn bảng,
+   rồi tính từng mã được chọn theo lịch đó. Bao gồm 19 phiên trước ngày output đầu tiên nếu cần đủ feature 20D.
    Để so hai nhóm 5 phiên cần ít nhất 10 phiên nguồn.
 
 `--calendar-file` là tùy chọn, chỉ dùng để override lịch suy ra từ `stock_daily`
@@ -91,7 +91,7 @@ khi debug hoặc chạy lại theo lịch đã xác minh thủ công. Nếu truy
 Ngày trong file lịch dùng `YYYY-MM-DD`; ngày trên CLI foreign dùng `DD/MM/YYYY`.
 Khi dùng override, file phải chứa đầy đủ phiên thực tế, không trùng. Bộ đọc file
 dựa vào xác minh của người cung cấp, chưa tự đối chiếu lịch với sàn/market của từng mã.
-Nếu không truyền file, calculation dùng các phiên có trong `stock_daily` theo scope đã chọn.
+Nếu không truyền file, calculation dùng các ngày giao dịch có trong `stock_daily` làm lịch phiên thị trường.
 Nếu `stock_daily` không có phiên nào cho scope đó, lệnh trả `PARTIAL / WINDOW_UNVERIFIED`.
 `foreign-rank` và `foreign-symbol` không nhận cờ calendar.
 

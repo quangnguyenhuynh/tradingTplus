@@ -77,7 +77,8 @@ Source values stay in `stock_daily`; derived 5/20-session metrics are stored in
    If source is missing, run a separate scoped `backfill-daily` and inspect its result.
 4. Make sure `stock_daily` already contains enough trading sessions for the selected symbols.
    The foreign feature commands infer the trading calendar from distinct `stock_daily.trading_date`
-   values. Include 19 sessions before the first output date for full 20D metrics.
+   values across the table, then calculate each selected symbol against that calendar.
+   Include 19 sessions before the first output date for full 20D metrics.
    Comparing consecutive five-session windows requires ten source sessions.
 
 `--calendar-file` is optional and only used to override the inferred `stock_daily`
@@ -91,7 +92,7 @@ calendar during debugging or a manually verified rerun. If supplied, JSON requir
 Calendar entries use `YYYY-MM-DD`; foreign CLI dates use `DD/MM/YYYY`.
 Supply complete, unique real sessions when using the override. The file reader trusts
 the operator's verification; it does not independently check exchange sessions or each symbol's market.
-Without an override, calculations use the available `stock_daily` sessions for the selected scope.
+Without an override, calculations use the available `stock_daily` trading dates as the market-session calendar.
 If `stock_daily` has no sessions for that scope, calculations return `PARTIAL / WINDOW_UNVERIFIED`.
 Rank/history commands do not accept a calendar option.
 

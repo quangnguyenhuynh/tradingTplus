@@ -57,3 +57,13 @@ def test_missing_calendar_file_infers_sessions_from_stock_daily_and_writes():
     assert result["calendar_source"] == "stock_daily"
     assert len(db.writes) == 1
     assert db.writes[0][0][1][0]["trading_date"] == "2026-08-20"
+
+
+def test_stock_daily_calendar_uses_market_dates_to_expose_missing_symbol_source():
+    sessions=[f"2026-08-{i:02d}" for i in range(1,21)]
+    rows=[{"symbol":"HPG","trading_date":d,"foreign_buy_val_total":2,"foreign_sell_val_total":1,"net_foreign_val":1,"total_traded_value":10,"foreign_buy_vol_total":2,"foreign_sell_vol_total":1,"net_foreign_vol":1} for d in sessions]
+    rows.extend({"symbol":"SSI","trading_date":d,"foreign_buy_val_total":2,"foreign_sell_val_total":1,"net_foreign_val":1,"total_traded_value":10,"foreign_buy_vol_total":2,"foreign_sell_vol_total":1,"net_foreign_vol":1} for d in sessions if d!="2026-08-18")
+    db=DB(rows)
+    result=service.preview("20/08/2026","SSI",None,db=db)
+    assert result["status"] == "PARTIAL"
+    assert result["rows"][0]["quality_status"]["5"]["status"] == "MISSING_SOURCE"
