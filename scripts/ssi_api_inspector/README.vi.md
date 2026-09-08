@@ -33,7 +33,18 @@ python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
 python scripts/ssi_api_inspector/inspect.py run all [options]
 ```
 
-Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, `--ascending`. Ngày nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. Dùng `--date` hoặc đủ cặp from/to (from <= to), không dùng chung. V3 daily gửi `YYYY/MM/DD`; intraday gửi datetime đầu/cuối ngày. `index-summary`/`daily-index` chỉ nhận một ngày. Intraday cố định `1m`.
+Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, `--ascending`. Ngày nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. Dùng `--date` hoặc đủ cặp from/to (from <= to), không dùng chung. V3 summary/daily/master gửi `from`/`to` dạng `YYYY/MM/DD`; intraday gửi `from` lúc `00:00:00` và `to` lúc `23:59:59`, không dịch theo timezone máy. `index-summary`/`daily-index` chỉ nhận một ngày. Intraday cố định `1m`.
+
+### Ánh xạ input ngày CLI sang query REST
+
+| Source/endpoint | Query gửi đi | Timeframe |
+|---|---|---|
+| V3 `securities-summary` / `daily-stock-price` | `from`, `to` (`YYYY/MM/DD`) | không gửi |
+| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD`) | `timeFrame=1d` |
+| V3 `intraday-ohlc` | `from`, `to` (`YYYY/MM/DD HH:MM:SS`) | `timeFrame=1m` |
+| V3 `master-data` | `from`, `to` (`YYYY/MM/DD`) | không gửi |
+| V3 `index-summary` / `daily-index` | `tradingDate` (`YYYY/MM/DD`) | không gửi |
+| Endpoint có ngày V2 | `FromDate`, `ToDate` (`DD/MM/YYYY`) | contract legacy; intraday giữ `resolution=1` |
 
 `--page-size` là số record yêu cầu ở đúng một trang; `--limit` chỉ giới hạn sample được in. `--full-json` in toàn bộ response không qua mapper, không đổi field/type và chỉ redact bí mật.
 
@@ -62,6 +73,8 @@ python scripts/ssi_api_inspector/inspect.py run securities-details --symbol SSI
 python scripts/ssi_api_inspector/inspect.py run index-components --index-code VNINDEX
 python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
 python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --from-date 01/09/2026 --to-date 08/09/2026 --page-index 1 --page-size 20 --full-json
+python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --date 08/09/2026 --full-json
+# Alias tương thích của cùng endpoint native v3:
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
 python scripts/ssi_api_inspector/inspect.py run daily-ohlc --symbol SSI --date 2026-09-08
@@ -97,7 +110,7 @@ Body JSON lỗi/4xx/5xx/non-JSON được giữ để report an toàn, không đ
 - **EMPTY:** kiểm tra mã/ngày/page/envelope; không tạo row giả hay kết luận ngày nghỉ.
 - **Non-JSON/malformed:** dùng `--full-json` xem text đã scrub; status vẫn FAILED.
 
-Tài liệu: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference) và [SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). Môi trường triển khai không truy cập được reference chính thức (HTTP/proxy từ chối), nên chưa thể live-verify contract ngoài nội dung task cung cấp.
+Tài liệu: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference) và [SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). Nguồn contract: SSI API Reference và tutorial/request model FastConnect v3 chính thức. **Trạng thái live verification: UNVERIFIED / NOT_RUN trừ khi báo cáo triển khai cuối ghi khác.** Fixture offline tái hiện body `code=400` / `msg=invalid timeframe`, nhưng đó không phải response SSI đã quan sát và không chứng minh lỗi live người dùng báo đã được giải quyết.
 
 ## Test và live smoke chỉ đọc
 

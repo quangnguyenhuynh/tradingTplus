@@ -63,6 +63,7 @@ def test_list_and_help_need_no_credentials_or_network(monkeypatch, capsys):
     monkeypatch.setattr(inspect, "InspectorClient", lambda *a, **k: pytest.fail("client constructed"))
     assert inspect.main(["list"]) == 0
     assert "ssi_v3" in capsys.readouterr().out
+    assert inspect.main(["list", "--data-source", "ssi_v2"]) == 0
     with pytest.raises(SystemExit) as exc:
         inspect.main(["--help"])
     assert exc.value.code == 0
@@ -80,10 +81,25 @@ def test_registry_urls_methods_aliases_and_unique_run_all():
 
 def test_v3_params_date_conversion_and_no_v2_names():
     built = V3_ENDPOINTS["securities-summary"].build_params(args(symbol="SSI", from_date="01/09/2026", to_date="2026-09-08"))
-    assert built == {"symbol": "SSI", "fromDate": "2026/09/01", "toDate": "2026/09/08", "pageIndex": 1, "pageSize": 20}
+    assert built == {"symbol": "SSI", "from": "2026/09/01", "to": "2026/09/08", "pageIndex": 1, "pageSize": 20}
+    assert not ({"fromDate", "toDate"} & built.keys())
     assert not ({"Market", "PageIndex", "PageSize", "resolution"} & built.keys())
     ohlc = V3_ENDPOINTS["intraday-ohlc"].build_params(args(symbol="SSI", date="08/09/2026"))
-    assert ohlc["timeFrame"] == "1m" and ohlc["fromDate"].endswith("00:00:00")
+    assert ohlc["timeFrame"] == "1m" and ohlc["from"].endswith("00:00:00") and ohlc["to"].endswith("23:59:59")
+    daily = V3_ENDPOINTS["daily-ohlc"].build_params(args(symbol="SSI", date="2026-09-08"))
+    assert daily["timeFrame"] == "1d" and daily["from"] == "2026/09/08"
+    assert "timeFrame" not in built
+    assert V3_ENDPOINTS["master-data"].build_params(args(date="2026-09-08")) == {
+        "from": "2026/09/08", "to": "2026/09/08", "pageIndex": 1, "pageSize": 20}
+
+
+def test_v3_alias_matches_canonical_symbol_query_and_v2_stays_legacy():
+    value = args(symbol="SSI", date="08/09/2026")
+    assert V3_ENDPOINTS["daily-stock-price"].build_params(value) == V3_ENDPOINTS["securities-summary"].build_params(value)
+    v2 = V2_ENDPOINTS["daily-stock-price"].build_params(value)
+    assert v2["FromDate"] == "08/09/2026" and v2["ToDate"] == "08/09/2026"
+    index = V3_ENDPOINTS["index-summary"].build_params(args(index_code="VNINDEX", date="08/09/2026"))
+    assert index == {"index": "VNINDEX", "tradingDate": "2026/09/08"}
 
 
 def test_selector_and_date_exclusivity():
@@ -154,6 +170,22 @@ def test_http_api_errors_empty_non_json_and_malformed_are_failed(capsys):
     assert parsed.json_state == "non-json" and parsed.text == "{broken"
 
 
+@pytest.mark.parametrize("body", [
+    {"code": "400", "msg": "invalid timeframe", "data": []},
+    {"code": 400, "msg": "invalid timeframe", "data": [{"symbol": "SSI"}]},
+    {"code": "400", "msg": "invalid timeframe"},
+])
+def test_v3_code_msg_api_error_is_failed_and_visible(body, capsys):
+    status = inspect.print_report("ssi_v3", V3_ENDPOINTS["daily-ohlc"], {}, response(body), limit=1, full_json=False)
+    output = capsys.readouterr().out
+    assert status == "FAILED" and "code=400: invalid timeframe" in output
+
+
+def test_record_code_status_and_msg_do_not_cause_false_api_error():
+    body = {"code": 200, "msg": "success", "data": [{"code": 400, "status": "failed", "msg": "record value"}]}
+    assert inspect.print_report("ssi_v3", V3_ENDPOINTS["daily-ohlc"], {}, response(body), limit=1, full_json=False) == "PASS"
+
+
 def test_nested_and_echoed_secret_redaction(monkeypatch):
     monkeypatch.setattr("src.config.config.SSI_API_SECRET", "server-echo-secret")
     value = {"nested": {"apiKey": "abc", "rows": [{"refreshToken": "def"}]}}
@@ -189,6 +221,16 @@ def test_retry_429_and_5xx_is_bounded(monkeypatch):
     assert result.status_code == 200 and len(session.calls) == 3
 
 
+def test_http_400_is_not_retried_and_message_is_visible(capsys):
+    session = FakeSession([FakeResponse(400, {"msg": "invalid timeframe"})])
+    result = InspectorClient(session=session, max_attempts=3)._request(
+        "GET", "https://api.ssi.com.vn/test", auth=False)
+    assert len(session.calls) == 1
+    assert inspect.print_report("ssi_v3", V3_ENDPOINTS["daily-ohlc"], {}, result,
+                                limit=1, full_json=False) == "FAILED"
+    assert "invalid timeframe" in capsys.readouterr().out
+
+
 def test_run_all_continues_summary_and_does_not_duplicate(monkeypatch, capsys):
     class Client:
         def __init__(self, *a, **k): self.token = None
@@ -198,6 +240,33 @@ def test_run_all_continues_summary_and_does_not_duplicate(monkeypatch, capsys):
     code = inspect.main(["run", "all", "--symbol", "SSI", "--board", "HOSE", "--index-code", "VNINDEX", "--date", "08/09/2026"])
     assert code == 1 and seen == RUN_ALL_ORDER["ssi_v3"] and len(seen) == len(set(seen))
     assert "index-list: FAILED" in capsys.readouterr().out
+
+
+def test_run_all_uses_endpoint_builders(monkeypatch):
+    class Client:
+        token = "tok"
+        def __init__(self, *a, **k): self.calls = []
+        def request_endpoint(self, endpoint, params, post_json=None):
+            self.calls.append((endpoint.name, params))
+            return response({"data": [{"ok": True}]})
+    client = Client()
+    monkeypatch.setattr(inspect, "InspectorClient", lambda *a, **k: client)
+    code = inspect.main(["run", "all", "--symbol", "SSI", "--board", "HOSE", "--index-code", "VNINDEX", "--date", "08/09/2026"])
+    assert code == 0
+    calls = dict(client.calls)
+    assert calls["securities-summary"]["from"] == "2026/09/08"
+    assert calls["daily-ohlc"]["timeFrame"] == "1d"
+    assert calls["intraday-ohlc"]["timeFrame"] == "1m"
+    assert "symbol" not in calls["master-data"]
+
+
+def test_unsupported_v3_option_fails_before_network(monkeypatch):
+    class Client:
+        token = "tok"
+        def __init__(self, *a, **k): pass
+        def request_endpoint(self, *a, **k): pytest.fail("network called")
+    monkeypatch.setattr(inspect, "InspectorClient", Client)
+    assert inspect.main(["run", "master-data", "--symbol", "SSI", "--date", "08/09/2026"]) == 1
 
 
 def test_unsupported_endpoint_has_no_cross_source_fallback():

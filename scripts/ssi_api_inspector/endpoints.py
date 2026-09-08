@@ -82,7 +82,7 @@ def _v3_board(args: Any) -> dict[str, Any]:
 def _v3_summary(args: Any) -> dict[str, Any]:
     name, value = _one_selector(args, "symbol", "index_code")
     start, end = _dates(args)
-    return {"index" if name == "index_code" else name: value, "fromDate": start, "toDate": end, **_paging_v3(args)}
+    return {"index" if name == "index_code" else name: value, "from": start, "to": end, **_paging_v3(args)}
 
 
 def _v3_index_summary(args: Any) -> dict[str, Any]:
@@ -95,7 +95,7 @@ def _v3_ohlc(args: Any, intraday: bool) -> dict[str, Any]:
     if not args.symbol:
         raise ParameterError("This endpoint requires --symbol")
     start, end = _dates(args, intraday=intraday)
-    result = {"symbol": args.symbol, "fromDate": start, "toDate": end,
+    result = {"symbol": args.symbol, "from": start, "to": end,
               "timeFrame": "1m" if intraday else "1d", **_paging_v3(args)}
     if args.ascending is not None:
         result["ascending"] = bool(args.ascending)
@@ -104,7 +104,7 @@ def _v3_ohlc(args: Any, intraday: bool) -> dict[str, Any]:
 
 def _v3_master(args: Any) -> dict[str, Any]:
     start, end = _dates(args)
-    return {"fromDate": start, "toDate": end, **_paging_v3(args)}
+    return {"from": start, "to": end, **_paging_v3(args)}
 
 
 def _v3_auth(_args: Any) -> dict[str, Any]:
@@ -162,7 +162,13 @@ for alias, native in {
     elif alias == "index-components":
         builder = lambda a: {"index": a.index_code} if a.index_code else (_ for _ in ()).throw(ParameterError("index-components requires --index-code"))
     elif alias == "daily-stock-price":
-        builder = lambda a: ({"symbol": a.symbol, "fromDate": _dates(a)[0], "toDate": _dates(a)[1], **_paging_v3(a)} if a.symbol else (_ for _ in ()).throw(ParameterError("daily-stock-price requires --symbol")))
+        def builder(a: Any) -> dict[str, Any]:
+            if not a.symbol:
+                raise ParameterError("daily-stock-price requires --symbol")
+            params = _v3_summary(a)
+            if "index" in params:
+                raise ParameterError("daily-stock-price requires --symbol")
+            return params
     else:
         builder = lambda a: ({"index": a.index_code, "tradingDate": _dates(a, single_only=True)[0]} if a.index_code else (_ for _ in ()).throw(ParameterError("daily-index requires --index-code")))
     V3_ENDPOINTS[alias] = Endpoint(alias, native, base.label, base.method, base.url, base.auth_required,

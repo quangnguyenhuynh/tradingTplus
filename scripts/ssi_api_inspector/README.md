@@ -40,7 +40,18 @@ python scripts/ssi_api_inspector/inspect.py run all [options]
 
 Common options are `--data-source`, `--symbol`, `--board`, compatibility aliases `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, and `--ascending`.
 
-Dates accept `DD/MM/YYYY` and `YYYY-MM-DD`. Use either `--date` or the complete `--from-date`/`--to-date` pair; ranges must be ordered. V3 daily values are sent as `YYYY/MM/DD`; v3 intraday values include start/end datetimes. `index-summary`/`daily-index` accepts one `--date` only. Intraday OHLC is fixed to `1m`.
+Dates accept `DD/MM/YYYY` and `YYYY-MM-DD`. Use either `--date` or the complete `--from-date`/`--to-date` pair; ranges must be ordered. V3 summary/daily/master values are sent as `from`/`to` in `YYYY/MM/DD`; v3 intraday uses `from` at `00:00:00` and `to` at `23:59:59` without host-timezone conversion. `index-summary`/`daily-index` accepts one `--date` only. Intraday OHLC is fixed to `1m`.
+
+### CLI date input to REST query
+
+| Source/endpoint | Query sent | Timeframe |
+|---|---|---|
+| V3 `securities-summary` / `daily-stock-price` | `from`, `to` (`YYYY/MM/DD`) | omitted |
+| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD`) | `timeFrame=1d` |
+| V3 `intraday-ohlc` | `from`, `to` (`YYYY/MM/DD HH:MM:SS`) | `timeFrame=1m` |
+| V3 `master-data` | `from`, `to` (`YYYY/MM/DD`) | omitted |
+| V3 `index-summary` / `daily-index` | `tradingDate` (`YYYY/MM/DD`) | omitted |
+| V2 dated endpoints | `FromDate`, `ToDate` (`DD/MM/YYYY`) | legacy endpoint contract; intraday retains `resolution=1` |
 
 `--page-size` controls the page requested from SSI. `--limit` controls only displayed sample rows. `--full-json` shows the complete response without mapping, renaming, coercing, or dropping unknown fields; only secrets are replaced. One command fetches exactly one requested page.
 
@@ -75,6 +86,8 @@ python scripts/ssi_api_inspector/inspect.py run securities-details --symbol SSI
 python scripts/ssi_api_inspector/inspect.py run index-components --index-code VNINDEX
 python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
 python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --from-date 01/09/2026 --to-date 08/09/2026 --page-index 1 --page-size 20 --full-json
+python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --date 08/09/2026 --full-json
+# Compatibility alias for the same v3 native endpoint:
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
 python scripts/ssi_api_inspector/inspect.py run daily-ohlc --symbol SSI --date 2026-09-08
@@ -110,7 +123,7 @@ JSON errors, HTTP 4xx/5xx bodies, empty bodies, and non-JSON text are retained f
 - **EMPTY:** verify identifier, trading date, page, and provider envelope. Do not fabricate rows or conclude it was a holiday.
 - **Non-JSON/malformed JSON:** use `--full-json` to inspect sanitized text; status remains `FAILED`.
 
-Official reference: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference). Supplemental examples: [official SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). The official reference was not reachable from the implementation environment (HTTP/proxy rejection), so endpoint contracts supplied in the task could not be live-verified there.
+Official reference: [SSI API Reference](https://developers.ssi.com.vn/docs/api-reference). Supplemental examples: [official SSI FastConnect v3 tutorials](https://github.com/SSI-Securities-Inc/ssi-fastconnect-v3-tutorials). Contract references: SSI API Reference and the official FastConnect v3 tutorial/request models. **Live verification status: UNVERIFIED / NOT_RUN unless the final implementation report states otherwise.** Offline fixtures reproduce body `code=400` / `msg=invalid timeframe`, but that fixture is not an observed SSI response and does not prove the reported live issue is resolved.
 
 ## Tests and read-only live smoke
 
