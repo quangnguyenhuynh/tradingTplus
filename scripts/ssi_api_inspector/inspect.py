@@ -57,18 +57,29 @@ def _lookup(body: Any, key: str) -> Any:
 def _api_error(body: Any) -> str | None:
     if not isinstance(body, dict):
         return None
-    success = _lookup(body, "success")
-    if success is False:
-        return str(_lookup(body, "message") or "success=false")
-    error = _lookup(body, "error")
-    if error not in (None, "", False, [], {}):
-        return str(error)
-    status = _lookup(body, "status")
-    if isinstance(status, str) and status.lower() in {"error", "failed", "failure"}:
-        return str(_lookup(body, "message") or status)
-    code = _lookup(body, "responseCode")
-    if code is not None and str(code).strip().lower() not in {"0", "00", "200", "success", "ok"}:
-        return str(_lookup(body, "message") or f"responseCode={code}")
+    # Error markers are envelope fields. Do not recursively interpret fields in
+    # otherwise valid data records as provider status codes.
+    candidates = [body]
+    candidates.extend(body[key] for key in ("result", "response") if isinstance(body.get(key), dict))
+    for candidate in candidates:
+        envelope = {str(key).lower(): value for key, value in candidate.items()}
+        success = envelope.get("success")
+        if success is False:
+            return str(envelope.get("message") or "success=false")
+        error = envelope.get("error")
+        if error not in (None, "", False, [], {}):
+            return str(error)
+        status = envelope.get("status")
+        if isinstance(status, str) and status.lower() in {"error", "failed", "failure"}:
+            return str(envelope.get("message") or status)
+        code = envelope.get("responsecode")
+        if code is not None and str(code).strip().lower() not in {"0", "00", "200", "success", "ok"}:
+            return f"responseCode={code}: {envelope.get('message') or 'API request failed'}"
+        # REST v3 uses a top-level code/msg envelope. Successful codes observed
+        # in the documented contract are 0/00/200; record codes are ignored.
+        code = envelope.get("code")
+        if code is not None and str(code).strip().lower() not in {"0", "00", "200", "success", "ok"}:
+            return f"code={code}: {envelope.get('msg') or envelope.get('message') or 'API request failed'}"
     return None
 
 
@@ -125,6 +136,10 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
     print(f"Status: {status}")
     if error:
         print(f"API error: {scrub_text(error, [client.token] if client and client.token else [])}")
+    elif response.status_code >= 400:
+        safe_error_body = (redact(response.body) if response.json_state == "json"
+                           else scrub_text(response.text, [client.token] if client and client.token else []))
+        print(f"HTTP error body: {safe_error_body}")
     print(f"Sample records (limit={limit}):")
     _print_json((rows or [])[:max(0, limit)])
     if full_json:
@@ -151,6 +166,8 @@ def run_one(client: InspectorClient, source: str, name: str, args: argparse.Name
             endpoint_args.index_code = None
         elif name == "index-summary":
             endpoint_args.board = None
+    else:
+        _validate_endpoint_options(source, endpoint, endpoint_args)
     params = endpoint.build_params(endpoint_args)
     post_json = endpoint.post_json(endpoint_args) if endpoint.post_json else None
     response = client.request_endpoint(endpoint, params, post_json)
@@ -193,15 +210,52 @@ def _validate_numeric(parser: argparse.ArgumentParser, args: argparse.Namespace)
         parser.error("page-index/page-size must be positive, limit non-negative, and timeout 1..120")
 
 
+def _validate_endpoint_options(source: str, endpoint: Any, args: argparse.Namespace) -> None:
+    supplied = {
+        "symbol": args.symbol, "board": args.board, "market": args.market,
+        "exchange": args.exchange, "index_code": args.index_code,
+        "date": args.date, "from_date": args.from_date, "to_date": args.to_date,
+        "ascending": args.ascending,
+    }
+    v3_allowed = {
+        "access-token": set(),
+        "securities-by-board": {"symbol", "board", "index_code"},
+        "securities-summary": {"symbol", "index_code", "date", "from_date", "to_date"},
+        "index-list": {"board", "exchange"},
+        "index-summary": {"board", "index_code", "date"},
+        "daily-ohlc": {"symbol", "date", "from_date", "to_date", "ascending"},
+        "intraday-ohlc": {"symbol", "date", "from_date", "to_date", "ascending"},
+        "master-data": {"date", "from_date", "to_date"},
+        "securities": {"board", "market"},
+        "securities-details": {"symbol"},
+        "index-components": {"index_code"},
+        "daily-stock-price": {"symbol", "date", "from_date", "to_date"},
+        "daily-index": {"index_code", "date"},
+    }
+    if source != "ssi_v3":
+        return  # Legacy builders retain their established compatibility contract.
+    unsupported = ["--" + key.replace("_", "-") for key, value in supplied.items()
+                   if value is not None and key not in v3_allowed[endpoint.name]]
+    if unsupported:
+        raise ParameterError(f"{endpoint.name} does not support: {', '.join(unsupported)}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     endpoints = registry(args.data_source)
     if args.command == "list":
         print(f"Data source: {args.data_source}" + (" (legacy; select explicitly)" if args.data_source == "ssi_v2" else " (default)"))
-        for endpoint in endpoints.values():
-            alias = f" alias-for={endpoint.alias_for}" if endpoint.alias_for else ""
-            print(f"{endpoint.name}\t{endpoint.method}\t{endpoint.url}{alias}")
+        native = [endpoint for endpoint in endpoints.values() if not endpoint.alias_for]
+        aliases = [endpoint for endpoint in endpoints.values() if endpoint.alias_for]
+        print("Native endpoints:")
+        for endpoint in native:
+            print(f"{endpoint.name}\t{endpoint.method}\t{endpoint.url}")
+        print("Compatibility aliases:")
+        if not aliases:
+            print("(none; v2 names are native legacy contracts)")
+        for endpoint in aliases:
+            print(f"{endpoint.name}\t{endpoint.method}\t{endpoint.url}\talias-for={endpoint.alias_for}")
         return 0
     _validate_numeric(parser, args)
     if args.endpoint != "all" and args.endpoint not in endpoints:

@@ -664,8 +664,10 @@ The standalone inspector defaults to SSI REST v3 and does not change or invoke p
 ```bash
 python scripts/ssi_api_inspector/inspect.py list
 python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --date 08/09/2026 --full-json
+# v3 compatibility alias for securities-summary:
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json
 ```
 
-V3 uses `SSI_API_KEY`/`SSI_API_SECRET`; legacy v2 uses `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for endpoint tables, ranges, paging versus sample limits, status/exit codes, redaction, and troubleshooting.
+V3 sends summary/OHLC/master ranges as `from`/`to`; `daily-stock-price` is only a compatibility alias for native `securities-summary`. V3 uses `SSI_API_KEY`/`SSI_API_SECRET`; legacy v2 uses `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for endpoint tables, ranges, paging versus sample limits, status/exit codes, redaction, and troubleshooting.
