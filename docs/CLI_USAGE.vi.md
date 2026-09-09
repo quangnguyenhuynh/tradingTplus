@@ -663,3 +663,21 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source 
 ```
 
 V3 gửi khoảng summary/OHLC/master bằng `from`/`to`; `daily-stock-price` chỉ là alias tương thích của tên native `securities-summary`. V3 dùng `SSI_API_KEY`/`SSI_API_SECRET`; v2 legacy dùng `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. Xem [`scripts/ssi_api_inspector/README.vi.md`](../scripts/ssi_api_inspector/README.vi.md) để biết bảng endpoint, khoảng ngày, paging so với sample limit, status/exit code, redact và troubleshooting.
+
+## Preview dữ liệu chuẩn SSI (chỉ đọc)
+
+`data-preview` chỉ đọc payload SSI vào bộ nhớ, map vào contract canonical hiện có, validate và in bản ghi clean dự kiến; lệnh không khởi tạo writer, không ghi raw/clean/log, không chạy feature và không đổi nguồn v2 production.
+
+```bash
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3
+python main.py data-preview stock-intraday --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --only-diff
+python main.py data-preview index-daily --index VNINDEX --date 08/09/2026 --compare ssi_v2 ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --show-raw --format json
+```
+
+Nguồn mặc định chỉ của nhóm lệnh này là `ssi_v3`. V3 dùng `SSI_API_KEY`/`SSI_API_SECRET`; v2 dùng `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`; không cần biến Supabase. `--data-source` loại trừ `--compare`. JSON stdout luôn là một tài liệu JSON hợp lệ; lỗi thực thi đi stderr.
+
+Trace dùng `MAPPED` (chuẩn hóa trực tiếp), `DERIVED` (có công thức), `UNSUPPORTED` (chưa xác nhận tương đương ngữ nghĩa), `MISSING` (đường dẫn đã map nhưng response thiếu), `INVALID` (có giá trị nhưng không hợp lệ). Hai giá trị null được ghi `BOTH_MISSING`, không coi là bằng nhau. Số được so sánh với tolerance bằng 0, hiển thị chênh lệch tuyệt đối/tương đối. Table intraday giới hạn hiển thị; JSON không cắt.
+
+Exit code: `0` preview hoàn tất (khác số liệu không phải lỗi), `1` lỗi API/auth/dữ liệu rỗng/invalid/compare chưa đủ, `2` sai cú pháp. `indexSummary.totalTrade` đi vào `total_vol`, không đi vào số giao dịch. Adjusted close, tổng stock/số giao dịch và trường chưa rõ phạm vi giữ null với `UNSUPPORTED`.

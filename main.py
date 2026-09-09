@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from typing import Any
 
 from src.features import (
@@ -78,6 +79,7 @@ from src.foreign_features import (
     run_history_rpc,
     run_ranking_rpc,
 )
+from src.data_preview import run_preview, render_preview
 
 
 def _status_to_exit(summary: dict[str, Any]) -> int:
@@ -95,6 +97,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sync-master-data", help="Sync SSI master data into DB")
     sub.add_parser("init", help="Alias for sync-master-data")
+
+    data_preview = sub.add_parser("data-preview", help="Read/map/validate SSI data; never writes database")
+    preview_sub = data_preview.add_subparsers(dest="preview_dataset", required=True)
+    for name in ("stock-daily", "stock-intraday", "index-daily"):
+        dp = preview_sub.add_parser(name)
+        identity = "--index" if name == "index-daily" else "--symbol"
+        dp.add_argument(identity, required=True)
+        dp.add_argument("--date", required=True, help="DD/MM/YYYY or YYYY-MM-DD")
+        choice = dp.add_mutually_exclusive_group()
+        choice.add_argument("--data-source", choices=("ssi_v2", "ssi_v3"), default="ssi_v3")
+        choice.add_argument("--compare", nargs=2, choices=("ssi_v2", "ssi_v3"))
+        dp.add_argument("--show-raw", action="store_true")
+        dp.add_argument("--only-diff", action="store_true")
+        dp.add_argument("--format", choices=("table", "json"), default="table")
 
     daily = sub.add_parser(
         "daily",
@@ -579,6 +595,15 @@ def main(argv: list[str] | None = None) -> int:
         return int(exc.code) if exc.code else 0
 
     try:
+        if args.command == "data-preview":
+            date = datetime.strptime(args.date, "%d/%m/%Y").date().isoformat() if "/" in args.date else datetime.strptime(args.date, "%Y-%m-%d").date().isoformat()
+            dataset = args.preview_dataset.replace("-", "_")
+            code = (args.index if dataset == "index_daily" else args.symbol).strip().upper()
+            if args.only_diff and not args.compare:
+                raise ValueError("--only-diff requires --compare")
+            result = run_preview(dataset, code, date, args.data_source, tuple(args.compare) if args.compare else None)
+            print(render_preview(result, args.format, args.show_raw, args.only_diff))
+            return 1 if result.get("status") in {"INVALID", "INCOMPLETE", "EMPTY"} else 0
         if args.command == "analogs":
             summary = run_analogs(args)
             _print_summary(summary)

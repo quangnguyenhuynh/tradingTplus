@@ -1,0 +1,380 @@
+{
+  "source_id": "ssi_v3",
+  "datasets": {
+    "stock_daily": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "aliases": [
+            "summary.symbol"
+          ],
+          "transform": "symbol"
+        },
+        "trading_date": {
+          "aliases": [
+            "summary.tradingDate"
+          ],
+          "transform": "date"
+        },
+        "price_change": {
+          "aliases": [
+            "summary.change"
+          ],
+          "transform": "float"
+        },
+        "per_price_change": {
+          "aliases": [
+            "summary.ratioChange"
+          ],
+          "transform": "float"
+        },
+        "ceiling_price": {
+          "aliases": [
+            "masterdata.ceiling"
+          ],
+          "transform": "float"
+        },
+        "floor_price": {
+          "aliases": [
+            "masterdata.floor"
+          ],
+          "transform": "float"
+        },
+        "ref_price": {
+          "aliases": [
+            "masterdata.reference"
+          ],
+          "transform": "float"
+        },
+        "open_price": {
+          "aliases": [
+            "summary.open"
+          ],
+          "transform": "float"
+        },
+        "highest_price": {
+          "aliases": [
+            "summary.high"
+          ],
+          "transform": "float"
+        },
+        "lowest_price": {
+          "aliases": [
+            "summary.low"
+          ],
+          "transform": "float"
+        },
+        "close_price": {
+          "aliases": [
+            "summary.close"
+          ],
+          "transform": "float"
+        },
+        "average_price": {
+          "aliases": [
+            "summary.averagePrice"
+          ],
+          "transform": "float"
+        },
+        "foreign_buy_vol_total": {
+          "aliases": [
+            "summary.foreignBuyVolume"
+          ],
+          "transform": "float"
+        },
+        "foreign_sell_vol_total": {
+          "aliases": [
+            "summary.foreignSellVolume"
+          ],
+          "transform": "float"
+        },
+        "foreign_buy_val_total": {
+          "aliases": [
+            "summary.foreignBuyValue"
+          ],
+          "transform": "float"
+        },
+        "foreign_sell_val_total": {
+          "aliases": [
+            "summary.foreignSellValue"
+          ],
+          "transform": "float"
+        },
+        "foreign_current_room": {
+          "aliases": [
+            "summary.foreignRoom"
+          ],
+          "transform": "float"
+        },
+        "close_price_adjusted": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_match_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_match_val": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_deal_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_deal_val": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_traded_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_traded_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "net_foreign_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "net_foreign_val": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_buy_trade": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_buy_trade_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_sell_trade": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_sell_trade_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        }
+      }
+    },
+    "stock_intraday": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "context": "symbol",
+          "transform": "symbol"
+        },
+        "time": {
+          "aliases": [
+            "ohlc.time"
+          ],
+          "transform": "market_timestamp"
+        },
+        "open": {
+          "aliases": [
+            "ohlc.open"
+          ],
+          "transform": "float"
+        },
+        "high": {
+          "aliases": [
+            "ohlc.high"
+          ],
+          "transform": "float"
+        },
+        "low": {
+          "aliases": [
+            "ohlc.low"
+          ],
+          "transform": "float"
+        },
+        "close": {
+          "aliases": [
+            "ohlc.close"
+          ],
+          "transform": "float"
+        },
+        "volume": {
+          "aliases": [
+            "ohlc.volume"
+          ],
+          "transform": "float"
+        },
+        "timeframe": {
+          "constant": "1m",
+          "transform": "text"
+        },
+        "value": {
+          "context": "value",
+          "transform": "int"
+        },
+        "reference_price": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "ceiling_price": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "floor_price": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        }
+      }
+    },
+    "index_daily": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "aliases": [
+            "indexSummary.index"
+          ],
+          "transform": "symbol"
+        },
+        "trading_date": {
+          "aliases": [
+            "indexSummary.tradingDate"
+          ],
+          "transform": "date"
+        },
+        "index_value": {
+          "aliases": [
+            "indexSummary.indexValue"
+          ],
+          "transform": "float"
+        },
+        "change": {
+          "aliases": [
+            "indexSummary.change"
+          ],
+          "transform": "float"
+        },
+        "ratio_change": {
+          "aliases": [
+            "indexSummary.ratioChange"
+          ],
+          "transform": "float"
+        },
+        "total_vol": {
+          "aliases": [
+            "indexSummary.totalTrade"
+          ],
+          "transform": "float"
+        },
+        "total_val": {
+          "aliases": [
+            "indexSummary.totalValue"
+          ],
+          "transform": "float"
+        },
+        "advances": {
+          "aliases": [
+            "indexSummary.advances"
+          ],
+          "transform": "float"
+        },
+        "no_changes": {
+          "aliases": [
+            "indexSummary.noChanges"
+          ],
+          "transform": "float"
+        },
+        "declines": {
+          "aliases": [
+            "indexSummary.declines"
+          ],
+          "transform": "float"
+        },
+        "ceilings": {
+          "aliases": [
+            "indexSummary.ceilings"
+          ],
+          "transform": "float"
+        },
+        "floors": {
+          "aliases": [
+            "indexSummary.floors"
+          ],
+          "transform": "float"
+        },
+        "trading_session": {
+          "aliases": [
+            "indexSummary.tradingSession"
+          ],
+          "transform": "text"
+        },
+        "market": {
+          "aliases": [
+            "indexSummary.market"
+          ],
+          "transform": "text"
+        },
+        "exchange": {
+          "aliases": [
+            "indexSummary.exchange"
+          ],
+          "transform": "text"
+        },
+        "index_name": {
+          "aliases": [
+            "indexSummary.indexName"
+          ],
+          "transform": "text"
+        },
+        "type_index": {
+          "aliases": [
+            "indexSummary.typeIndex"
+          ],
+          "transform": "text"
+        },
+        "total_trade": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_match_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_match_val": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_deal_vol": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        },
+        "total_deal_val": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        }
+      }
+    }
+  }
+}

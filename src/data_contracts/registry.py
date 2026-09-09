@@ -49,13 +49,16 @@ def validate_mapping(source_id: str, dataset: str, mapping: dict[str, Any]) -> N
     if missing: raise MappingConfigurationError(f"required target field(s) not mapped: {sorted(missing)}")
     for target, rule in fields.items():
         if not isinstance(rule, dict): raise MappingConfigurationError(f"invalid rule for {target}")
+        if rule.get("unsupported"):
+            if not rule.get("reason"): raise MappingConfigurationError(f"unsupported field needs a reason: {target}")
+            continue
         aliases = rule.get("aliases", [])
         if not isinstance(aliases, list) or len(aliases) != len(set(a.casefold() for a in aliases)):
             raise MappingConfigurationError(f"duplicate or invalid aliases for {target}")
         transform = rule.get("transform")
         if transform not in TRANSFORMS: raise MappingConfigurationError(f"unknown transform for {target}: {transform}")
-        if not aliases and "context" not in rule and "constant" not in rule: raise MappingConfigurationError(f"no source for {target}")
-        if sum(k in rule for k in ("context", "constant")) + bool(aliases) != 1: raise MappingConfigurationError(f"conflicting sources for {target}")
+        if not aliases and "context" not in rule and "constant" not in rule and not rule.get("unsupported"): raise MappingConfigurationError(f"no source for {target}")
+        if not rule.get("unsupported") and sum(k in rule for k in ("context", "constant")) + bool(aliases) != 1: raise MappingConfigurationError(f"conflicting sources for {target}")
         multiplier = rule.get("unit_multiplier", 1)
         if isinstance(multiplier, bool) or not isinstance(multiplier, (int, float)) or not math.isfinite(multiplier):
             raise MappingConfigurationError(f"invalid unit_multiplier for {target}")

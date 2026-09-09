@@ -7,7 +7,7 @@ from src.data_contracts.registry import MappingConfigurationError, get_contract,
 
 
 def test_unknown_registry_coordinates_never_fallback():
-    with pytest.raises(MappingConfigurationError, match="unknown source"): get_mapping("ssi_v3", "stock_daily")
+    with pytest.raises(MappingConfigurationError, match="unknown source"): get_mapping("ssi_does_not_exist", "stock_daily")
     with pytest.raises(MappingConfigurationError, match="unknown source/dataset"): get_mapping("ssi_v2", "missing")
     with pytest.raises(MappingConfigurationError, match="unknown mapping version"): get_mapping("ssi_v2", "stock_daily", "9")
     with pytest.raises(MappingConfigurationError, match="unknown contract version"): get_contract("stock_daily", "9")
