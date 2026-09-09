@@ -17,7 +17,7 @@ src/pipeline/
 ├── intraday_service.py       # fetch -> map -> validate -> deduplicate -> persist
 ├── intraday_ingest.py        # batch orchestrator intraday public
 ├── fetch_one_day.py          # wrapper/re-export compatibility mỏng
-├── stock_eod.py                    # daily -> intraday -> completeness
+├── stock_eod.py                    # daily -> daily completeness
 ├── ingest_check.py           # báo cáo completeness/consistency
 ├── date_utils.py             # parse/kiểm tra ngày thị trường Việt Nam
 ├── init_symbols.py           # đồng bộ master data
@@ -39,7 +39,7 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` trong `daily.py`; CLI `p
 
 1. Resolve và validate ngày theo thị trường Việt Nam.
 2. `daily_fetcher.py` gọi SSI `DailyStockPrice` đúng một lần cho mỗi mã.
-3. `daily_mapper.py` tạo record giữ payload nguồn cho `stock_raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`, còn placeholder `0` của SSI cho giá tham chiếu/trần/sàn trở thành `NULL` ở clean data mà không thay đổi raw payload.
+3. Engine mapping SSI v2 dùng chung trong `src/data_contracts` lọc và chuẩn hóa clean candidate; `daily_mapper.py` giữ API tương thích và tạo record giữ payload nguồn cho `stock_raw_daily` và candidate chuẩn hóa cho `stock_daily`; field thiếu giữ `None`, còn placeholder `0` của SSI cho giá tham chiếu/trần/sàn trở thành `NULL` ở clean data mà không thay đổi raw payload.
 4. `daily_service.py` ghi raw evidence qua `daily_persistence.py`.
 5. `daily_service.py` gọi validator `validate_daily_record` hiện có.
 6. Clean candidate hợp lệ được ghi vào `stock_daily` qua `daily_persistence.py`. Price context bị thiếu không chặn row OHLCV hợp lệ; dải OHLC đồng nhất nằm hoàn toàn cùng một phía ngoài source limits được giữ dưới dạng corporate-action warning, còn vi phạm limit đơn lẻ vẫn blocking.
@@ -55,7 +55,7 @@ Public entrypoint: `run_intraday_ingest()` trong `intraday_ingest.py`; CLI `pyth
 1. Resolve ngày và scope symbol explicit hoặc active.
 2. Đọc daily context tùy chọn từ `stock_daily`; bước này không fetch hay ghi daily.
 3. `intraday_fetcher.py` gọi SSI `IntradayOhlc` resolution 1.
-4. `intraday_mapper.py` hiểu timestamp nguồn theo `Asia/Ho_Chi_Minh`, đổi sang UTC, loại timestamp sai và tạo raw/clean candidate.
+4. Engine mapping SSI v2 dùng chung trong `src/data_contracts` kiểm tra các field nến đã khai báo; `intraday_mapper.py` hiểu timestamp nguồn theo `Asia/Ho_Chi_Minh`, đổi sang UTC, loại timestamp sai và tạo raw/clean candidate.
 5. Mapper chỉ tạo `timeframe='1m'`; `value` là ước tính `round(close * volume)` và giữ `None` nếu đầu vào thiếu/sai.
 6. `intraday_service.py` ghi raw evidence qua `intraday_persistence.py`, gọi validator record/batch hiện có, deduplicate theo `(symbol, timeframe, time)` khi validator báo trùng, rồi ghi clean hợp lệ.
 

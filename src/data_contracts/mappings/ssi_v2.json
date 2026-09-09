@@ -1,0 +1,410 @@
+{
+  "source_id": "ssi_v2",
+  "datasets": {
+    "stock_daily": {
+      "mapping_version": "1.0.0",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "transform": "symbol",
+          "context": "symbol"
+        },
+        "trading_date": {
+          "transform": "context_date",
+          "context": "date"
+        },
+        "price_change": {
+          "aliases": [
+            "PriceChange",
+            "Change"
+          ],
+          "transform": "float"
+        },
+        "per_price_change": {
+          "aliases": [
+            "PerPriceChange",
+            "RatioChange"
+          ],
+          "transform": "float"
+        },
+        "ceiling_price": {
+          "aliases": [
+            "CeilingPrice"
+          ],
+          "transform": "ssi_v2_zero_price_to_null"
+        },
+        "floor_price": {
+          "aliases": [
+            "FloorPrice"
+          ],
+          "transform": "ssi_v2_zero_price_to_null"
+        },
+        "ref_price": {
+          "aliases": [
+            "RefPrice"
+          ],
+          "transform": "ssi_v2_zero_price_to_null"
+        },
+        "open_price": {
+          "aliases": [
+            "OpenPrice",
+            "Open"
+          ],
+          "transform": "float"
+        },
+        "highest_price": {
+          "aliases": [
+            "HighestPrice",
+            "High",
+            "Highest"
+          ],
+          "transform": "float"
+        },
+        "lowest_price": {
+          "aliases": [
+            "LowestPrice",
+            "Low",
+            "Lowest"
+          ],
+          "transform": "float"
+        },
+        "close_price": {
+          "aliases": [
+            "ClosePrice",
+            "Close"
+          ],
+          "transform": "float"
+        },
+        "average_price": {
+          "aliases": [
+            "AveragePrice",
+            "AvgPrice"
+          ],
+          "transform": "float"
+        },
+        "close_price_adjusted": {
+          "aliases": [
+            "ClosePriceAdjusted",
+            "AdjustedClose",
+            "CloseAdjusted"
+          ],
+          "transform": "float"
+        },
+        "total_match_vol": {
+          "aliases": [
+            "TotalMatchVol"
+          ],
+          "transform": "float"
+        },
+        "total_match_val": {
+          "aliases": [
+            "TotalMatchVal"
+          ],
+          "transform": "float"
+        },
+        "total_deal_vol": {
+          "aliases": [
+            "TotalDealVol"
+          ],
+          "transform": "float"
+        },
+        "total_deal_val": {
+          "aliases": [
+            "TotalDealVal"
+          ],
+          "transform": "float"
+        },
+        "total_traded_vol": {
+          "aliases": [
+            "TotalTradedVol",
+            "TotalVol"
+          ],
+          "transform": "float"
+        },
+        "total_traded_value": {
+          "aliases": [
+            "TotalTradedValue",
+            "TotalVal"
+          ],
+          "transform": "float"
+        },
+        "foreign_buy_vol_total": {
+          "aliases": [
+            "ForeignBuyVolTotal"
+          ],
+          "transform": "float"
+        },
+        "foreign_sell_vol_total": {
+          "aliases": [
+            "ForeignSellVolTotal"
+          ],
+          "transform": "float"
+        },
+        "foreign_buy_val_total": {
+          "aliases": [
+            "ForeignBuyValTotal"
+          ],
+          "transform": "float"
+        },
+        "foreign_sell_val_total": {
+          "aliases": [
+            "ForeignSellValTotal"
+          ],
+          "transform": "float"
+        },
+        "foreign_current_room": {
+          "aliases": [
+            "ForeignCurrentRoom"
+          ],
+          "transform": "float"
+        },
+        "net_foreign_vol": {
+          "aliases": [
+            "Netforeivol",
+            "NetForeignVol",
+            "netbuysellvol"
+          ],
+          "transform": "float"
+        },
+        "net_foreign_val": {
+          "aliases": [
+            "Netforeignval",
+            "netbuysellval"
+          ],
+          "transform": "float"
+        },
+        "total_buy_trade": {
+          "aliases": [
+            "TotalBuyTrade"
+          ],
+          "transform": "float"
+        },
+        "total_buy_trade_vol": {
+          "aliases": [
+            "TotalBuyTradeVol"
+          ],
+          "transform": "float"
+        },
+        "total_sell_trade": {
+          "aliases": [
+            "TotalSellTrade"
+          ],
+          "transform": "float"
+        },
+        "total_sell_trade_vol": {
+          "aliases": [
+            "TotalSellTradeVol"
+          ],
+          "transform": "float"
+        }
+      }
+    },
+    "stock_intraday": {
+      "mapping_version": "1.0.0",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "transform": "symbol",
+          "context": "symbol"
+        },
+        "time": {
+          "aliases": [
+            "Time"
+          ],
+          "transform": "candle_timestamp"
+        },
+        "open": {
+          "aliases": [
+            "Open"
+          ],
+          "transform": "float"
+        },
+        "high": {
+          "aliases": [
+            "High"
+          ],
+          "transform": "float"
+        },
+        "low": {
+          "aliases": [
+            "Low"
+          ],
+          "transform": "float"
+        },
+        "close": {
+          "aliases": [
+            "Close"
+          ],
+          "transform": "float"
+        },
+        "volume": {
+          "aliases": [
+            "Volume"
+          ],
+          "transform": "int"
+        },
+        "timeframe": {
+          "transform": "text",
+          "constant": "1m"
+        },
+        "value": {
+          "transform": "int",
+          "context": "value"
+        },
+        "reference_price": {
+          "transform": "float",
+          "context": "reference_price"
+        },
+        "ceiling_price": {
+          "transform": "float",
+          "context": "ceiling_price"
+        },
+        "floor_price": {
+          "transform": "float",
+          "context": "floor_price"
+        }
+      }
+    },
+    "index_daily": {
+      "mapping_version": "1.0.0",
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "aliases": [
+            "IndexCode",
+            "IndexId"
+          ],
+          "transform": "text"
+        },
+        "trading_date": {
+          "aliases": [
+            "TradingDate"
+          ],
+          "transform": "date"
+        },
+        "index_value": {
+          "aliases": [
+            "IndexValue"
+          ],
+          "transform": "float"
+        },
+        "change": {
+          "aliases": [
+            "Change"
+          ],
+          "transform": "float"
+        },
+        "ratio_change": {
+          "aliases": [
+            "RatioChange"
+          ],
+          "transform": "float"
+        },
+        "total_trade": {
+          "aliases": [
+            "TotalTrade"
+          ],
+          "transform": "float"
+        },
+        "total_match_vol": {
+          "aliases": [
+            "TotalMatchVol"
+          ],
+          "transform": "float"
+        },
+        "total_match_val": {
+          "aliases": [
+            "TotalMatchVal"
+          ],
+          "transform": "float"
+        },
+        "type_index": {
+          "aliases": [
+            "TypeIndex"
+          ],
+          "transform": "text"
+        },
+        "index_name": {
+          "aliases": [
+            "IndexName"
+          ],
+          "transform": "text"
+        },
+        "advances": {
+          "aliases": [
+            "Advances"
+          ],
+          "transform": "float"
+        },
+        "no_changes": {
+          "aliases": [
+            "NoChanges"
+          ],
+          "transform": "float"
+        },
+        "declines": {
+          "aliases": [
+            "Declines"
+          ],
+          "transform": "float"
+        },
+        "ceilings": {
+          "aliases": [
+            "Ceilings",
+            "Ceiling"
+          ],
+          "transform": "float"
+        },
+        "floors": {
+          "aliases": [
+            "Floors",
+            "Floor"
+          ],
+          "transform": "float"
+        },
+        "total_deal_vol": {
+          "aliases": [
+            "TotalDealVol"
+          ],
+          "transform": "float"
+        },
+        "total_deal_val": {
+          "aliases": [
+            "TotalDealVal"
+          ],
+          "transform": "float"
+        },
+        "total_vol": {
+          "aliases": [
+            "TotalVol"
+          ],
+          "transform": "float"
+        },
+        "total_val": {
+          "aliases": [
+            "TotalVal"
+          ],
+          "transform": "float"
+        },
+        "trading_session": {
+          "aliases": [
+            "TradingSession"
+          ],
+          "transform": "text"
+        },
+        "market": {
+          "aliases": [
+            "Market"
+          ],
+          "transform": "text"
+        },
+        "exchange": {
+          "aliases": [
+            "Exchange"
+          ],
+          "transform": "text"
+        }
+      }
+    }
+  }
+}

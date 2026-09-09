@@ -4,7 +4,7 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.intraday_fetcher import fetch_intraday_candles
-from src.pipeline.intraday_mapper import build_intraday_records, daily_context_payload, deduplicate_intraday_records
+from src.pipeline.intraday_mapper import daily_context_payload, deduplicate_intraday_records, map_intraday_records
 from src.pipeline.intraday_persistence import persist_raw_intraday, persist_stock_intraday
 from src.ssi.api import SSIApi
 from src.ssi.api import SSIEmptyResponseError
@@ -37,13 +37,14 @@ def fetch_intraday_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symb
         warning = f"{symbol} {date}: daily_context_missing"
         logger.warning(warning)
         summary["warnings"].append(warning)
-    raw, clean = build_intraday_records(symbol, date, daily_context_payload(daily_context), candles)
+    raw, clean, mapping_report = map_intraday_records(symbol, date, daily_context_payload(daily_context), candles)
+    summary["mapping_report"] = mapping_report
+    persist_raw_intraday(db, raw)
     if not clean:
         message = f"{symbol} {date}: intraday payload does not match the requested date/time contract"
         summary.update(error_type="MISMATCH", errors=[message], candles_rejected=len(candles))
         logger.error(message)
         return summary
-    persist_raw_intraday(db, raw)
     individually_valid = []
     for record in clean:
         result = validate_intraday_record(record)

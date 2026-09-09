@@ -5,7 +5,7 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.index_daily_fetcher import fetch_index_daily
-from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
+from src.pipeline.index_daily_mapper import build_index_raw_daily_record, map_index_daily_record
 from src.pipeline.index_daily_persistence import persist_index_daily, persist_index_raw_daily
 from src.ssi.api import SSIApi
 from src.validation.index_daily_validator import validate_index_daily_record
@@ -22,8 +22,10 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
     raw_records = [build_index_raw_daily_record(index_code, date, payload) for payload in payloads]
     persist_index_raw_daily(db, raw_records)
     summary["raw_rows"] = len(raw_records)
+    mapping_reports = []
     for payload in payloads:
-        clean = build_index_daily_record(index_code, date, payload)
+        clean, mapping_report = map_index_daily_record(index_code, date, payload)
+        mapping_reports.append(mapping_report)
         if clean is None:
             summary["rejected_rows"] += 1
             summary["errors"].append("Payload index code/date is missing or outside requested scope")
@@ -35,5 +37,12 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
             summary["errors"].extend(issue.message for issue in validation.errors)
             continue
         persist_index_daily(db, clean); summary["clean_rows"] += 1
+    summary["mapping_report"] = {
+        "source": "ssi_v2", "dataset": "index_daily", "contract_version": "1.0.0",
+        "mapping_version": "1.0.0", "records_received": len(payloads),
+        "records_valid": sum(report["records_valid"] for report in mapping_reports),
+        "records_rejected": sum(report["records_rejected"] for report in mapping_reports),
+        "record_reports": mapping_reports,
+    }
     summary["status"] = "OK" if summary["clean_rows"] and not summary["rejected_rows"] else "PARTIAL" if summary["clean_rows"] else "FAILED"
     return summary
