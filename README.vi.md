@@ -238,3 +238,9 @@ Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](docs/FOREIGN_EOD_FEATURES.vi.md
 Dùng `python main.py data-preview --help` để xem và đối chiếu mapping canonical v2/v3, không cần credential database và không ghi dữ liệu. Xem [hướng dẫn CLI](docs/CLI_USAGE.vi.md#preview-dữ-liệu-chuẩn-ssi-chỉ-đọc).
 
 Preview stock daily hoàn toàn chỉ đọc, mặc định SSI v3 và không fallback sang v2. Dùng `--show-raw --show-mapping` để xem payload gốc và từng phép chuyển đổi, hoặc `--compare ssi_v2 ssi_v3 [--only-diff]`. Xem hướng dẫn CLI để hiểu trạng thái, đơn vị, JSON và exit code.
+
+```bash
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-mapping
+```
+
+CLI nhận `DD/MM/YYYY` và `YYYY-MM-DD`; lớp request SSI v3 dùng chung chuyển cả hai dạng thành ngày của provider như `from=2026/09/08` và `to=2026/09/08`, kèm `pageIndex` và `pageSize`. Khi request lỗi, báo cáo gồm endpoint và tham số đã khử dữ liệu nhạy cảm, HTTP status, cùng code/message của envelope SSI nếu có. Authorization header và credential không bao giờ được đưa vào báo cáo.

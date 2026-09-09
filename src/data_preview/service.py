@@ -11,7 +11,7 @@ from typing import Any
 
 from src.data_contracts import get_contract, get_mapping, map_record
 from src.data_contracts.transforms import TRANSFORMS, TransformError
-from src.ssi.v3 import SSIV3Client, SSIReadError
+from src.ssi.v3 import SSIV3Client, SSIReadError, securities_summary_params
 from src.validation.daily_validator import validate_daily_record
 
 _MISSING = object()
@@ -26,10 +26,13 @@ def _flatten(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
     return {f"{endpoint}.{key}": value for key, value in row.items()}
 
 
-def _safe_params(dataset: str, code: str, date: str, source: str) -> Any:
+def _safe_params(dataset: str, code: str, date: str, source: str, client: Any = None) -> Any:
     if source == "ssi_v3":
         if dataset == "stock_daily":
-            return {"endpoint": "GET /api/v3/data/securitiesSummary", "params": {"symbol": code, "from": date.replace("-", "/"), "to": date.replace("-", "/")}}
+            params = securities_summary_params(
+                code, date, page_size=getattr(client, "page_size", 1000)
+            )
+            return {"endpoint": "GET /api/v3/data/securitiesSummary", "params": params}
         if dataset == "stock_intraday":
             return {"endpoint": "GET /api/v3/data/ohlc", "params": {"symbol": code, "from": date + " 00:00:00", "to": date + " 23:59:59", "timeFrame": "1m"}}
         return {"endpoint": "GET /api/v3/data/indexSummary", "params": {"index": code, "tradingDate": date}}
@@ -141,7 +144,8 @@ def _business_key(dataset: str, clean: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def _one_source(dataset: str, code: str, date: str, source: str, client: Any = None, v2_factory: Any = None) -> dict[str, Any]:
-    rows, raw, fetch = _fetch_v3(dataset, code, date, client or SSIV3Client()) if source == "ssi_v3" else _fetch_v2(dataset, code, date, v2_factory)
+    resolved_client = client or SSIV3Client() if source == "ssi_v3" else None
+    rows, raw, fetch = _fetch_v3(dataset, code, date, resolved_client) if source == "ssi_v3" else _fetch_v2(dataset, code, date, v2_factory)
     records, diagnostics = [], []
     context = {"symbol": code, "date": datetime.strptime(date, "%Y-%m-%d").strftime("%d/%m/%Y")}
     for row in rows:
@@ -176,7 +180,7 @@ def _one_source(dataset: str, code: str, date: str, source: str, client: Any = N
         if count > 1: diagnostics.append({"severity": "error", "code": "DUPLICATE_BUSINESS_KEY", "key": key, "count": count})
     status = "NO_DATA" if not rows else ("INVALID" if diagnostics or any(r["validation"]["status"] == "INVALID" for r in records) else "OK")
     mapping = get_mapping(source, dataset)
-    return {"mode": "READ-ONLY — NO DATABASE WRITES", "dataset": dataset, "source": source, "symbol_or_index": code, "requested_date": date, "request": _safe_params(dataset, code, date, source), "fetched_at": datetime.now(timezone.utc).isoformat(), "fetch": {**fetch, "status": "NO_DATA" if not rows else "SUCCESS"}, "contract_version": mapping["contract_version"], "mapping_version": mapping["mapping_version"], "status": status, "records": records, "diagnostics": diagnostics, "raw": raw}
+    return {"mode": "READ-ONLY — NO DATABASE WRITES", "dataset": dataset, "source": source, "symbol_or_index": code, "requested_date": date, "request": _safe_params(dataset, code, date, source, resolved_client), "fetched_at": datetime.now(timezone.utc).isoformat(), "fetch": {**fetch, "status": "NO_DATA" if not rows else "SUCCESS"}, "contract_version": mapping["contract_version"], "mapping_version": mapping["mapping_version"], "status": status, "records": records, "diagnostics": diagnostics, "raw": raw}
 
 
 def _verified(record: dict[str, Any] | None, field: str) -> bool:

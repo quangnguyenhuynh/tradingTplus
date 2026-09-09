@@ -68,8 +68,27 @@ def test_cli_show_mapping_help_conflicts_and_no_database_import(monkeypatch, cap
     assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "08/09/2026", "--compare", "ssi_v3", "ssi_v3"]) == 2
 
 
+def test_cli_ddmmyyyy_preview_reports_provider_formatted_v3_params(monkeypatch, capsys):
+    monkeypatch.setattr(main, "run_preview", lambda *a, **k: run_preview(*a, **k, client=V3()))
+    assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "08/09/2026", "--format", "json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["request"]["params"]["from"] == "2026/09/08"
+    assert result["request"]["params"]["to"] == "2026/09/08"
+
+
 def test_preview_module_has_no_database_or_persistence_import():
     tree = ast.parse(Path("src/data_preview/service.py").read_text())
     imports = [alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names]
     imports += [node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
     assert not any("database" in name or "persistence" in name for name in imports)
+
+
+def test_stock_daily_preview_is_read_only_and_exposes_actual_v3_request():
+    result = run_preview("stock_daily", "SSI", "2026-09-08", client=V3())
+    assert result["request"]["params"] == {
+        "symbol": "SSI",
+        "from": "2026/09/08",
+        "to": "2026/09/08",
+        "pageIndex": 1,
+        "pageSize": 1000,
+    }
