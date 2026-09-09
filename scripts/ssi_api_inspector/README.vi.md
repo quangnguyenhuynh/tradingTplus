@@ -40,7 +40,7 @@ Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/
 | Source/endpoint | Query gửi đi | Timeframe |
 |---|---|---|
 | V3 `securities-summary` / `daily-stock-price` | `from`, `to` (`YYYY/MM/DD`) | không gửi |
-| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD`) | `timeFrame=1d` |
+| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD 00:00:00`) | `timeFrame=1d` |
 | V3 `intraday-ohlc` | `from`, `to` (`YYYY/MM/DD HH:MM:SS`) | `timeFrame=1m` |
 | V3 `master-data` | `from`, `to` (`YYYY/MM/DD`) | không gửi |
 | V3 `index-summary` / `daily-index` | `tradingDate` (`YYYY/MM/DD`) | không gửi |
