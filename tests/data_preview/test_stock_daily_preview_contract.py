@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import main
 from src.data_preview.service import render_preview, run_preview
 
 FIXTURE = json.loads(Path("tests/fixtures/data_preview/ssi_v3_securities_summary_ssi_2026-09-08.json").read_text())
@@ -59,22 +58,6 @@ def test_compare_signed_delta_statuses_and_only_diff_keeps_unverified():
     assert by_field["total_match_vol"]["status"] == "UNVERIFIED"
     rendered = json.loads(render_preview(result, "json", only_diff=True))
     assert any(row["status"] == "UNVERIFIED" for row in rendered["comparison"])
-
-def test_cli_show_mapping_help_conflicts_and_no_database_import(monkeypatch, capsys):
-    monkeypatch.setattr(main, "run_preview", lambda *a, **k: run_preview(*a, **k, client=V3()))
-    assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "2026-09-08", "--show-mapping", "--format", "json"]) == 0
-    assert "mapping" in json.loads(capsys.readouterr().out)["records"][0]
-    assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "bad"]) == 2
-    assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "08/09/2026", "--compare", "ssi_v3", "ssi_v3"]) == 2
-
-
-def test_cli_ddmmyyyy_preview_reports_provider_formatted_v3_params(monkeypatch, capsys):
-    monkeypatch.setattr(main, "run_preview", lambda *a, **k: run_preview(*a, **k, client=V3()))
-    assert main.main(["data-preview", "stock-daily", "--symbol", "SSI", "--date", "08/09/2026", "--format", "json"]) == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["request"]["params"]["from"] == "2026/09/08"
-    assert result["request"]["params"]["to"] == "2026/09/08"
-
 
 def test_preview_module_has_no_database_or_persistence_import():
     tree = ast.parse(Path("src/data_preview/service.py").read_text())

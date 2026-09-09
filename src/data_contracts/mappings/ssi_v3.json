@@ -175,6 +175,10 @@
           "transform": "text",
           "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
         }
+      },
+      "inspector": {
+        "endpoint": "securities-summary",
+        "prefix": "summary"
       }
     },
     "stock_intraday": {
@@ -244,6 +248,10 @@
           "transform": "text",
           "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
         }
+      },
+      "inspector": {
+        "endpoint": "intraday-ohlc",
+        "prefix": "ohlc"
       }
     },
     "index_daily": {
@@ -377,6 +385,10 @@
           "transform": "text",
           "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
         }
+      },
+      "inspector": {
+        "endpoint": "index-summary",
+        "prefix": "indexSummary"
       }
     }
   }

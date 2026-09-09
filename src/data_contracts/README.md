@@ -33,4 +33,6 @@ print(result.report)
 5. Add a pure transform to `TRANSFORMS` when simple conversion is insufficient; arbitrary expressions and `eval`/`exec` are forbidden.
 6. Validate with `get_mapping(...)` and an offline fixture, including missing, malformed, duplicate-alias, and unused-field cases.
 
-Mapping does not prove that a source supplies every data group and does not replace its connector. Only SSI v2 is registered in this phase; no SSI v3 support is implied.
+Both `ssi_v2.json` and `ssi_v3.json` are registered. V3 is for inspector mapping/printing only; production ingestion remains on its existing source. Each dataset mapping includes `inspector.endpoint` and an optional `inspector.prefix`; the inspector uses these to map the already-fetched response without changing raw. An `unsupported` rule emits null and an explicit `unsupported_fields` reason; it never invents a value. Qualified aliases such as `summary.close` refer to a separate prefixed view of the raw row, not recursive field lookup.
+
+See [inspector usage](../../scripts/ssi_api_inspector/README.md). Mapping preserves the existing clean contract and does not implement a new provider's authentication or requests. No schema change or backfill is required.

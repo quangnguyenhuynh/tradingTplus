@@ -18,8 +18,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.ssi_api_inspector.client import (InspectorClient, InspectorError,
                                                find_token_paths, redact, scrub_text)
-from scripts.ssi_api_inspector.endpoints import (DATA_SOURCES, RUN_ALL_ORDER,
+from scripts.ssi_api_inspector.endpoints import (DATA_SOURCES, DEFAULT_DATA_SOURCE, RUN_ALL_ORDER,
                                                   ParameterError, registry)
+from scripts.ssi_api_inspector.mapping import endpoint_mapping, map_rows
+from src.data_contracts.registry import MappingConfigurationError
 
 LIST_KEYS = ("data", "dataList", "items")
 PAGING_KEYS = ("pageIndex", "pageSize", "pagesCount", "itemsCount", "totalRecord")
@@ -95,7 +97,8 @@ def _print_json(value: Any) -> None:
 
 
 def print_report(source: str, endpoint: Any, params: dict[str, Any], response: Any,
-                 *, limit: int, full_json: bool, client: InspectorClient | None = None) -> str:
+                 *, limit: int, full_json: bool, client: InspectorClient | None = None,
+                 show_mapping: bool = False) -> str:
     location, rows = _data_location(response.body)
     error = _api_error(response.body)
     if response.status_code >= 400 or response.json_state in {"empty", "non-json"} or error:
@@ -133,22 +136,51 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
     token_paths = find_token_paths(response.body)
     if token_paths:
         print(f"Sensitive fields detected and redacted: {token_paths}")
-    print(f"Status: {status}")
+    print(f"API status: {status}")
     if error:
         print(f"API error: {scrub_text(error, [client.token] if client and client.token else [])}")
     elif response.status_code >= 400:
         safe_error_body = (redact(response.body) if response.json_state == "json"
                            else scrub_text(response.text, [client.token] if client and client.token else []))
         print(f"HTTP error body: {safe_error_body}")
-    print(f"Sample records (limit={limit}):")
+    print(f"Raw sample records (limit={limit}):")
     _print_json((rows or [])[:max(0, limit)])
     if full_json:
         if response.json_state == "json":
-            print("Full raw JSON (redacted only; no mapper):")
+            print("Full raw JSON (redacted only):")
             _print_json(response.body)
         else:
             print("Full raw response text (redacted):")
             print(scrub_text(response.text, [client.token] if client and client.token else []))
+    if endpoint.response_kind != "auth":
+        if status == "FAILED":
+            print("Clean mapping: skipped because the API response failed")
+        else:
+            selected = endpoint_mapping(source, endpoint.native_name)
+            if selected is None:
+                print("Clean mapping: unavailable for this endpoint; raw inspection only")
+            else:
+                dataset, mapping = selected
+                clean, reports = map_rows(source, dataset, mapping, rows, params)
+                failed = any(report["errors"] for report in reports)
+                print(f"Clean dataset: {dataset}")
+                print(f"Mapping dictionary: src/data_contracts/mappings/{source}.json ({mapping['mapping_version']})")
+                print(f"Mapping status: {'FAILED' if failed else 'EMPTY' if not rows else 'PASS'}")
+                print("Full clean JSON:" if full_json else f"Clean sample records (limit={limit}):")
+                _print_json(clean if full_json else clean[:limit])
+                print("Mapping diagnostics (record numbers refer to the raw page):")
+                displayed = reports if full_json else reports[:limit] + [report for report in reports[limit:] if report["errors"]]
+                keys = ("record", "missing_required", "missing_optional", "unused_source_fields", "errors")
+                _print_json([{key: report[key] for key in keys if report.get(key)} for report in displayed])
+                unsupported = {field: rule["reason"] for field, rule in mapping["fields"].items() if rule.get("unsupported")}
+                if unsupported:
+                    print("Unverified clean fields (kept null):")
+                    _print_json(unsupported)
+                if show_mapping:
+                    print("Mapping rules (raw aliases/context -> existing clean fields):")
+                    _print_json(mapping["fields"])
+                if failed:
+                    status = "FAILED"
     return status
 
 
@@ -172,12 +204,13 @@ def run_one(client: InspectorClient, source: str, name: str, args: argparse.Name
     post_json = endpoint.post_json(endpoint_args) if endpoint.post_json else None
     response = client.request_endpoint(endpoint, params, post_json)
     return print_report(source, endpoint, params, response, limit=args.limit,
-                        full_json=args.full_json, client=client)
+                        full_json=args.full_json, client=client,
+                        show_mapping=getattr(args, "show_mapping", False))
 
 
 def _add_source(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--data-source", choices=DATA_SOURCES, default="ssi_v3",
-                        help="SSI REST source (default: ssi_v3; ssi_v2 is legacy and explicit)")
+    parser.add_argument("--data-source", choices=DATA_SOURCES, default=DEFAULT_DATA_SOURCE,
+                        help=f"SSI REST source (default: {DEFAULT_DATA_SOURCE}; newest supported API)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -200,6 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--page-size", type=int, default=10)
     run.add_argument("--limit", type=int, default=3)
     run.add_argument("--full-json", action="store_true")
+    run.add_argument("--show-mapping", action="store_true", help="Print the source dictionary rules used for clean output")
     run.add_argument("--timeout", type=int, default=30)
     run.add_argument("--ascending", action="store_true", default=None)
     return parser
@@ -258,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{endpoint.name}\t{endpoint.method}\t{endpoint.url}\talias-for={endpoint.alias_for}")
         return 0
     _validate_numeric(parser, args)
+    print("READ-ONLY — NO DATABASE WRITES")
     if args.endpoint != "all" and args.endpoint not in endpoints:
         parser.error(f"endpoint {args.endpoint!r} is not supported by {args.data_source}; no cross-source fallback")
     client = InspectorClient(args.data_source, timeout=args.timeout)
@@ -266,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in names:
         try:
             results[name] = run_one(client, args.data_source, name, args)
-        except (InspectorError, ParameterError) as exc:
+        except (InspectorError, ParameterError, MappingConfigurationError) as exc:
             results[name] = "FAILED"
             print(f"\n{name} FAILED: {scrub_text(str(exc), [client.token] if client.token else [])}")
     print("\nSummary:")

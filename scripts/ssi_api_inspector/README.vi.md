@@ -1,6 +1,6 @@
 # SSI REST API Inspector
 
-CLI **chỉ đọc** để xem trực tiếp response SSI mà không đi qua production ingest hoặc database. Công cụ in nguồn thực tế, endpoint, request đã che bí mật, envelope/paging/sample và tùy chọn raw JSON. `PASS` không chứng minh dữ liệu đầy đủ hay đúng ngữ nghĩa. Công cụ không chạy feature, signal hoặc backtest.
+CLI **chỉ đọc** để xem trực tiếp response SSI mà không đi qua production ingest hoặc database. Công cụ in nguồn thực tế, endpoint, request đã che bí mật, envelope/paging, sample raw và clean sau mapping; có thể in đầy đủ cả hai phần JSON. `PASS` không chứng minh dữ liệu đầy đủ hay đúng ngữ nghĩa. Công cụ không chạy feature, signal hoặc backtest.
 
 > Inspector mặc định REST v3. REST v2 là legacy và chỉ chạy khi truyền `--data-source ssi_v2`. Không fallback, không tự so sánh hai nguồn và không đổi source production.
 
@@ -33,7 +33,7 @@ python scripts/ssi_api_inspector/inspect.py run <endpoint> [options]
 python scripts/ssi_api_inspector/inspect.py run all [options]
 ```
 
-Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--timeout`, `--ascending`. Ngày nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. Dùng `--date` hoặc đủ cặp from/to (from <= to), không dùng chung. V3 summary/daily/master gửi `from`/`to` dạng `YYYY/MM/DD`; intraday gửi `from` lúc `00:00:00` và `to` lúc `23:59:59`, không dịch theo timezone máy. `index-summary`/`daily-index` chỉ nhận một ngày. Intraday cố định `1m`.
+Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/`--exchange`, `--index-code`, `--date`, `--from-date`, `--to-date`, `--page-index`, `--page-size`, `--limit`, `--full-json`, `--show-mapping`, `--timeout`, `--ascending`. Ngày nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. Dùng `--date` hoặc đủ cặp from/to (from <= to), không dùng chung. V3 summary/daily/master gửi `from`/`to` dạng `YYYY/MM/DD`; intraday gửi `from` lúc `00:00:00` và `to` lúc `23:59:59`, không dịch theo timezone máy. `index-summary`/`daily-index` chỉ nhận một ngày. Intraday cố định `1m`.
 
 ### Ánh xạ input ngày CLI sang query REST
 
@@ -46,7 +46,7 @@ Option: `--data-source`, `--symbol`, `--board`, alias tương thích `--market`/
 | V3 `index-summary` / `daily-index` | `tradingDate` (`YYYY/MM/DD`) | không gửi |
 | Endpoint có ngày V2 | `FromDate`, `ToDate` (`DD/MM/YYYY`) | contract legacy; intraday giữ `resolution=1` |
 
-`--page-size` là số record yêu cầu ở đúng một trang; `--limit` chỉ giới hạn sample được in. `--full-json` in toàn bộ response không qua mapper, không đổi field/type và chỉ redact bí mật.
+`--page-size` là số record yêu cầu ở đúng một trang; `--limit` giới hạn cả sample raw và clean. `--full-json` in toàn bộ response raw cùng mọi dòng clean tương ứng trong các phần JSON riêng. Raw giữ nguyên field/type và trường lạ, chỉ che bí mật. Mapping dùng chính response đã lấy, không gọi API lần hai.
 
 ## Endpoint
 
@@ -94,12 +94,32 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source 
 
 Report gồm source; endpoint native/alias; method; URL và params đã làm sạch; HTTP status; thời gian; Content-Type; rate-limit headers; top-level type/keys; vị trí list; số record của trang hiện tại; metadata provider `pageIndex/pageSize/pagesCount/itemsCount/totalRecord`; keys record đầu; sample; và full body khi yêu cầu.
 
-- **PASS:** shape hợp lệ và có data; auth PASS khi có token.
+- **PASS:** shape hợp lệ, có data và không lỗi mapping nếu endpoint có mapping; auth PASS khi có token.
 - **EMPTY:** có list hợp lệ nhưng rỗng; không chứng minh ngày nghỉ.
-- **FAILED:** lỗi transport/auth/HTTP/API, shape sai, body rỗng hoặc non-JSON.
+- **FAILED:** lỗi transport/auth/HTTP/API, shape sai, body rỗng, non-JSON hoặc lỗi mapping. Trạng thái API và mapping được in riêng.
 - Exit `0` khi không FAILED, `1` khi có FAILED, lỗi cú pháp argparse là `2`.
 
 Body JSON lỗi/4xx/5xx/non-JSON được giữ để report an toàn, không đổi thành `[]`. Key nhạy cảm nested (apiKey/apiSecret, consumer credential, token/refreshToken, Authorization...) được redact; giá trị secret/token bị echo trong text/exception được scrub. Redirect bị từ chối; retry mạng/429/5xx và phục hồi 401 đều hữu hạn; không ghi token ra file.
+
+## Mapping raw sang clean
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json --show-mapping
+```
+
+Mặc định dùng API mới nhất inspector đang hỗ trợ, hiện là `ssi_v3`. Thêm `--data-source ssi_v2` để chạy nguồn cũ và đối chiếu thủ công. `main.py` đã bỏ nhóm lệnh `data-preview`.
+
+| Dataset clean hiện có | Endpoint v2 | Endpoint v3 |
+|---|---|---|
+| `stock_daily` | `daily-stock-price` | `securities-summary` (alias `daily-stock-price`) |
+| `stock_intraday` (1m) | `intraday-ohlc` | `intraday-ohlc` |
+| `index_daily` | `daily-index` | `index-summary` (alias `daily-index`) |
+
+Từ điển `src/data_contracts/mappings/ssi_v2.json` và `ssi_v3.json` chứa quy tắc field và metadata `inspector` chỉ endpoint/prefix. `src/data_contracts/definitions.json` giữ cấu trúc clean hiện có. Inspector đưa từng row qua bộ mapping dùng chung; không sửa raw. `--show-mapping` in các quy tắc. Diagnostics báo field thiếu, raw chưa dùng và lỗi chuyển đổi. Field chưa xác nhận giữ null kèm lý do. Record lỗi hiển thị `null` ở đúng vị trí tương ứng trong danh sách clean và có diagnostics; response rỗng cho clean rỗng.
+
+Intraday dùng lại helper `round(close * volume)` để tính value ước lượng, không gọi thêm daily hoặc chạy feature. Khoảng nhiều ngày giữ ngày của từng row; không lấy ngày đầu khoảng để thay ngày bị thiếu. DailyOHLC chỉ dùng đối chiếu raw, không map thành stock daily chuẩn. Endpoint chưa có mapping báo rõ chỉ có raw.
+
+Luồng dừng sau khi in. Không khởi tạo DB client, không có option ghi DB, không chạy ingest/feature/signal/backtest. Không cần migration hoặc backfill. Nguồn mới dùng cùng cấu trúc clean bằng từ điển nguồn và metadata endpoint; phần auth/request tương ứng vẫn cần adapter. Việc đưa nguồn mới vào ingest sẽ thực hiện ở bước riêng sau khi được yêu cầu.
 
 ## Troubleshooting
 
@@ -115,7 +135,7 @@ Tài liệu: [SSI API Reference](https://developers.ssi.com.vn/docs/api-referenc
 ## Test và live smoke chỉ đọc
 
 ```bash
-pytest -q tests/inspectors/test_ssi_api_inspector.py
+pytest -q tests/inspectors/test_ssi_api_inspector.py tests/inspectors/test_ssi_api_mapping.py tests/data_contracts
 python -m compileall scripts/ssi_api_inspector
 python scripts/ssi_api_inspector/inspect.py --help
 python scripts/ssi_api_inspector/inspect.py list

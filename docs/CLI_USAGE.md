@@ -672,40 +672,14 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source 
 
 V3 sends summary/OHLC/master ranges as `from`/`to`; `daily-stock-price` is only a compatibility alias for native `securities-summary`. V3 uses `SSI_API_KEY`/`SSI_API_SECRET`; legacy v2 uses `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for endpoint tables, ranges, paging versus sample limits, status/exit codes, redaction, and troubleshooting.
 
-## SSI canonical data preview (read-only)
-
-`data-preview` fetches SSI payloads into memory, maps them to the existing canonical contract, validates them, prints the proposed clean rows, and exits. It never imports a database writer, writes raw/clean/log rows, runs features, or changes the production v2 source.
+The inspector now prints both raw and clean samples from the same fetched page by default. `--full-json` prints the entire raw response and all corresponding clean rows; `--show-mapping` additionally prints the dictionary rules. Output is a text report with separate JSON sections. `--limit` affects display only; `--page-size` affects the API request. There is no automatic pagination or comparison.
 
 ```bash
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3
-python main.py data-preview stock-intraday --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --only-diff
-python main.py data-preview index-daily --index VNINDEX --date 08/09/2026 --compare ssi_v2 ssi_v3
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --show-raw --format json
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json --show-mapping
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
 ```
 
-The default source for this command only is `ssi_v3`. Configure `SSI_API_KEY` and `SSI_API_SECRET` for v3; configure `SSI_CONSUMER_ID` and `SSI_CONSUMER_SECRET` for v2. No Supabase variables are required. `--data-source` and `--compare` are mutually exclusive. JSON stdout is one valid JSON document; execution errors go to stderr.
+Mappings target existing `stock_daily`, `stock_intraday` (1m), and `index_daily` fields. DailyOHLC remains a raw cross-check, and endpoints without a canonical mapping remain raw-only. Missing or unverified fields stay null; unsupported fields and conversion errors are reported. Empty responses produce no clean rows. Mapping errors cause exit `1`; raw remains visible.
 
-Field traces distinguish direct mapping, derivation, missing values, invalid values, and semantically `UNVERIFIED` fields. The stock-daily rules and comparison statuses are specified below.
-
-Exit codes are `0` for completion (differences are not execution errors), `1` for data/request/mapping/validation failure, and `2` for invalid arguments.
-
-### Stock daily v2/v3 mapping audit
-
-The stock-daily form below was tested against the parser. It fetches into memory only and never initializes a database client or writes raw, clean, log, or audit tables:
-
-```bash
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-raw --show-mapping
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --only-diff
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --format json
-```
-
-`--date` accepts exactly `DD/MM/YYYY` or `YYYY-MM-DD`. An explicit `--data-source` conflicts with `--compare`; `--only-diff` requires comparison. The default is v3 with no v2 fallback. Table and JSON headers distinguish fetch success, pagination completeness, mapping validity, and validation diagnostics. JSON stdout is exactly one document; legacy-client progress is redirected to stderr.
-
-Mapping rows preserve `ABSENT`, `NULL`, `EMPTY`, and present zero separately. `UNVERIFIED` means no confirmed semantically equivalent clean field; such fields remain null and are not treated as valid comparisons. Unmapped raw fields are listed with a reason. Comparison uses `(symbol, trading_date)`, exact values with zero tolerance, and signed `v3 - v2`; statuses are `MATCH`, `DIFFERENT`, `MISSING_V2`, `MISSING_V3`, `BOTH_NULL`, `INVALID`, and `UNVERIFIED`. `BOTH_NULL` is not completeness evidence.
-
-Prices use VND/share, volumes use shares, values use VND, and percentages remain provider percentage values: preview applies no implicit ×/÷100 or ×/÷1,000. Observed v3 `totalMatch`, `totalMatchValue`, `totalBuy`, `totalTradeBuy`, `totalSell`, and `totalTradeSell` remain unmapped and `UNVERIFIED` until their semantics and scope are confirmed. Foreign zero values are preserved, with a warning that an API zero alone does not prove absence of foreign trading.
-
-Exit codes are `0` for a completed valid preview/compare (ordinary differences included), `1` for request, API-envelope, no-data, mapping, validation, or incomplete-source failure, and `2` for invalid CLI arguments. The standalone inspector remains the endpoint/raw diagnostic tool and uses `--full-json`; it does not accept preview-only `--show-raw`, `--show-mapping`, or `--format` flags and does not perform clean mapping.
+`data-preview` has been removed from `main.py`. New-source inspection ends after mapping/printing: it never calls database writers or production pipelines. No migration or backfill is needed.
