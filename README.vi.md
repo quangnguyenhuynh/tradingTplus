@@ -232,3 +232,7 @@ Xem [hợp đồng pipeline Stock EOD](docs/STOCK_EOD_PIPELINE.vi.md) về scope
 
 Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](docs/FOREIGN_EOD_FEATURES.vi.md
 ../docs/FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.
+
+### Preview SSI v2/v3 chỉ đọc
+
+Dùng `python main.py data-preview --help` để xem và đối chiếu mapping canonical v2/v3, không cần credential database và không ghi dữ liệu. Xem [hướng dẫn CLI](docs/CLI_USAGE.vi.md#preview-dữ-liệu-chuẩn-ssi-chỉ-đọc).

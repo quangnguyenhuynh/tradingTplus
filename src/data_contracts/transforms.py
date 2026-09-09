@@ -59,6 +59,32 @@ def candle_timestamp(value: Any, context: dict[str, Any]) -> str:
     except (KeyError, TypeError, ValueError) as exc: raise TransformError("invalid candle timestamp") from exc
     return local.astimezone(UTC_TZ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+def market_timestamp(value: Any, context: dict[str, Any]) -> str:
+    """Normalize a v3 timestamp without ever inventing its calendar date."""
+    text = str(value).strip()
+    parsed = None
+    for candidate in (text, text.replace("Z", "+00:00")):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            break
+        except ValueError:
+            pass
+    if parsed is None:
+        for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                pass
+    if parsed is None:
+        raise TransformError("invalid timestamp with no source date")
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=VN_TZ)
+    expected = context.get("date")
+    if expected and parsed.astimezone(VN_TZ).date() != datetime.strptime(expected, "%d/%m/%Y").date():
+        raise TransformError("timestamp is outside requested Vietnam trading date")
+    return parsed.astimezone(UTC_TZ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 def zero_price_to_null(value: Any, context: dict[str, Any]) -> float | None:
     number = to_float(value, context)
     return None if number == 0 else number
@@ -66,5 +92,6 @@ def zero_price_to_null(value: Any, context: dict[str, Any]) -> float | None:
 TRANSFORMS: dict[str, Callable[[Any, dict[str, Any]], Any]] = {
     "float": to_float, "int": to_int, "text": to_text, "symbol": to_symbol,
     "date": to_date, "context_date": context_date, "candle_timestamp": candle_timestamp,
+    "market_timestamp": market_timestamp,
     "ssi_v2_zero_price_to_null": zero_price_to_null,
 }

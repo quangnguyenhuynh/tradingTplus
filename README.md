@@ -247,3 +247,7 @@ See the [Stock EOD pipeline contract](docs/STOCK_EOD_PIPELINE.md) for its active
 
 See [`docs/FOREIGN_EOD_FEATURES.md`](docs/FOREIGN_EOD_FEATURES.md
 ../docs/FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.
+
+### Read-only SSI v2/v3 preview
+
+Use `python main.py data-preview --help` to inspect and compare v2/v3 canonical mappings without database credentials or writes. See [CLI usage](docs/CLI_USAGE.md#ssi-canonical-data-preview-read-only).

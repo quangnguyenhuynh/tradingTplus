@@ -671,3 +671,21 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source 
 ```
 
 V3 sends summary/OHLC/master ranges as `from`/`to`; `daily-stock-price` is only a compatibility alias for native `securities-summary`. V3 uses `SSI_API_KEY`/`SSI_API_SECRET`; legacy v2 uses `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for endpoint tables, ranges, paging versus sample limits, status/exit codes, redaction, and troubleshooting.
+
+## SSI canonical data preview (read-only)
+
+`data-preview` fetches SSI payloads into memory, maps them to the existing canonical contract, validates them, prints the proposed clean rows, and exits. It never imports a database writer, writes raw/clean/log rows, runs features, or changes the production v2 source.
+
+```bash
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3
+python main.py data-preview stock-intraday --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --only-diff
+python main.py data-preview index-daily --index VNINDEX --date 08/09/2026 --compare ssi_v2 ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --show-raw --format json
+```
+
+The default source for this command only is `ssi_v3`. Configure `SSI_API_KEY` and `SSI_API_SECRET` for v3; configure `SSI_CONSUMER_ID` and `SSI_CONSUMER_SECRET` for v2. No Supabase variables are required. `--data-source` and `--compare` are mutually exclusive. JSON stdout is one valid JSON document; execution errors go to stderr.
+
+Field trace statuses are `MAPPED` (direct normalization), `DERIVED` (a displayed formula), `UNSUPPORTED` (no confirmed semantic equivalent), `MISSING` (mapped path absent), and `INVALID` (present but rejected). Trace shows endpoint-qualified source path, before/after values, transform/formula, and reason. In comparisons, two nulls are `BOTH_MISSING`, never evidence of equality. Numeric output includes exact absolute and relative differences with zero tolerance; table mode limits intraday display while JSON is complete.
+
+Exit codes: `0` completed preview (differences are not execution errors), `1` API/auth/empty/invalid/incomplete comparison, and `2` invalid CLI arguments. SSI v3 `totalTrade` maps to canonical index `total_vol`, not trade count. Unconfirmed adjusted close, stock totals/trade counts, and fields with unclear scope remain null and `UNSUPPORTED`.
