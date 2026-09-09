@@ -1,0 +1,503 @@
+{
+  "schema_version": "1",
+  "datasets": {
+    "stock_daily": {
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "description": "Canonical stock ticker",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false
+        },
+        "trading_date": {
+          "description": "Vietnam trading date",
+          "type": "date",
+          "unit": "YYYY-MM-DD",
+          "required": true,
+          "nullable": false,
+          "timezone": "Asia/Ho_Chi_Minh"
+        },
+        "price_change": {
+          "description": "Unadjusted close price change",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "per_price_change": {
+          "description": "Unadjusted close percentage change",
+          "type": "number",
+          "unit": "percent",
+          "required": false,
+          "nullable": true
+        },
+        "ceiling_price": {
+          "description": "Unadjusted session ceiling price; SSI v2 zero placeholder is unknown",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "floor_price": {
+          "description": "Unadjusted session floor price; SSI v2 zero placeholder is unknown",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "ref_price": {
+          "description": "Unadjusted reference price; SSI v2 zero placeholder is unknown",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "open_price": {
+          "description": "Unadjusted open price",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "highest_price": {
+          "description": "Unadjusted session high",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "lowest_price": {
+          "description": "Unadjusted session low",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "close_price": {
+          "description": "Unadjusted close price",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "average_price": {
+          "description": "Provider session average price",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "close_price_adjusted": {
+          "description": "Corporate-action-adjusted close price",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "total_match_vol": {
+          "description": "Matched-order volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_match_val": {
+          "description": "Provider matched-order value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_deal_vol": {
+          "description": "Put-through deal volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_deal_val": {
+          "description": "Provider put-through deal value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_traded_vol": {
+          "description": "Provider total traded volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_traded_value": {
+          "description": "Provider total traded value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_buy_vol_total": {
+          "description": "Foreign buy volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_sell_vol_total": {
+          "description": "Foreign sell volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_buy_val_total": {
+          "description": "Foreign buy value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_sell_val_total": {
+          "description": "Foreign sell value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_current_room": {
+          "description": "Remaining foreign room",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "net_foreign_vol": {
+          "description": "Provider foreign net volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true
+        },
+        "net_foreign_val": {
+          "description": "Provider foreign net value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true
+        },
+        "total_buy_trade": {
+          "description": "Number of buy-side trades",
+          "type": "number",
+          "unit": "trades",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_buy_trade_vol": {
+          "description": "Buy-side traded volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_sell_trade": {
+          "description": "Number of sell-side trades",
+          "type": "number",
+          "unit": "trades",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_sell_trade_vol": {
+          "description": "Sell-side traded volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        }
+      }
+    },
+    "stock_intraday": {
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "description": "Canonical stock ticker",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false
+        },
+        "time": {
+          "description": "Candle market timestamp converted from Vietnam time to UTC",
+          "type": "datetime",
+          "unit": "UTC ISO-8601",
+          "required": true,
+          "nullable": false,
+          "timezone": "source Asia/Ho_Chi_Minh; output UTC",
+          "bar_convention": "SSI v2 candle timestamp"
+        },
+        "open": {
+          "description": "Unadjusted candle open",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "high": {
+          "description": "Unadjusted candle high",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "low": {
+          "description": "Unadjusted candle low",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "close": {
+          "description": "Unadjusted candle close",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "volume": {
+          "description": "Per-candle matched volume; not cumulative",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "timeframe": {
+          "description": "Persisted candle timeframe",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false,
+          "allowed": [
+            "1m"
+          ]
+        },
+        "value": {
+          "description": "Estimated candle value: round(close * volume)",
+          "type": "integer",
+          "unit": "estimated VND",
+          "required": false,
+          "nullable": true
+        },
+        "reference_price": {
+          "description": "Optional daily reference-price context",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "ceiling_price": {
+          "description": "Optional daily ceiling-price context",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        },
+        "floor_price": {
+          "description": "Optional daily floor-price context",
+          "type": "number",
+          "unit": "VND/share",
+          "required": false,
+          "nullable": true
+        }
+      }
+    },
+    "index_daily": {
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "description": "Canonical index identifier",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false
+        },
+        "trading_date": {
+          "description": "Vietnam trading date",
+          "type": "date",
+          "unit": "YYYY-MM-DD",
+          "required": true,
+          "nullable": false,
+          "timezone": "Asia/Ho_Chi_Minh"
+        },
+        "index_value": {
+          "description": "Closing index level",
+          "type": "number",
+          "unit": "index points",
+          "required": false,
+          "nullable": true
+        },
+        "change": {
+          "description": "Index point change",
+          "type": "number",
+          "unit": "index points",
+          "required": false,
+          "nullable": true
+        },
+        "ratio_change": {
+          "description": "Index percentage change",
+          "type": "number",
+          "unit": "percent",
+          "required": false,
+          "nullable": true
+        },
+        "total_trade": {
+          "description": "Number of trades",
+          "type": "number",
+          "unit": "trades",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_match_vol": {
+          "description": "Matched-order constituent volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_match_val": {
+          "description": "Provider matched-order constituent value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_deal_vol": {
+          "description": "Put-through constituent volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_deal_val": {
+          "description": "Provider put-through constituent value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_vol": {
+          "description": "Provider total constituent volume",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_val": {
+          "description": "Provider total constituent value",
+          "type": "number",
+          "unit": "VND",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "type_index": {
+          "description": "Provider index type",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "index_name": {
+          "description": "Provider index name",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "advances": {
+          "description": "Advancing constituents",
+          "type": "number",
+          "unit": "constituents",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "no_changes": {
+          "description": "Unchanged constituents",
+          "type": "number",
+          "unit": "constituents",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "declines": {
+          "description": "Declining constituents",
+          "type": "number",
+          "unit": "constituents",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "ceilings": {
+          "description": "Ceiling-price constituents",
+          "type": "number",
+          "unit": "constituents",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "floors": {
+          "description": "Floor-price constituents",
+          "type": "number",
+          "unit": "constituents",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "trading_session": {
+          "description": "Provider trading-session label",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "market": {
+          "description": "Provider market label",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "exchange": {
+          "description": "Provider exchange label",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        }
+      }
+    }
+  }
+}

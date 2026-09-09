@@ -4,7 +4,7 @@ from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.daily_fetcher import fetch_daily_price
-from src.pipeline.daily_mapper import build_raw_daily_record, build_stock_daily_record
+from src.pipeline.daily_mapper import build_raw_daily_record, map_stock_daily_record
 from src.pipeline.daily_persistence import persist_raw_daily, persist_stock_daily
 from src.ssi.api import SSIApi
 from src.ssi.api import SSIDataMismatchError, SSIEmptyResponseError
@@ -38,7 +38,8 @@ def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol:
         return summary
     summary["daily_payload"] = daily
     persist_raw_daily(db, build_raw_daily_record(symbol, date, daily))
-    clean = build_stock_daily_record(symbol, date, daily)
+    clean, mapping_report = map_stock_daily_record(symbol, date, daily)
+    summary["mapping_report"] = mapping_report
     validation = validate_daily_record(clean) if clean else None
     if validation:
         summary.update(daily_valid=validation.is_valid, daily_errors=len(validation.errors), daily_warnings=len(validation.warnings))
