@@ -13,6 +13,7 @@ class PageResult:
     items: list[dict]
     pages: int
     raw_pages: list[Any]
+    complete: bool = True
 
 class SSIV3Client:
     def __init__(self, session=None, timeout=30, max_attempts=3, page_size=1000):
@@ -31,8 +32,15 @@ class SSIV3Client:
             if r.status_code in (429,) or r.status_code>=500:
                 if attempt<self.max_attempts: time.sleep(.05*attempt); continue
             if r.status_code>=400: raise SSIReadError(f'SSI HTTP {r.status_code} for {path}')
-            try:return r.json()
+            try:
+                body=r.json()
             except ValueError as exc: raise SSIReadError(f'non-JSON SSI response for {path}') from exc
+            if isinstance(body,dict):
+                code=next((v for k,v in body.items() if k.casefold() in ('code','statuscode','errorcode')),None)
+                message=next((v for k,v in body.items() if k.casefold() in ('message','msg','error')),None)
+                if code not in (None,0,'0',200,'200','SUCCESS','success'):
+                    raise SSIReadError(f'SSI API error for {path}: code={code!r} message={message!r}')
+            return body
         raise SSIReadError(f'retry limit reached for {path}')
     def login(self):
         if not config.SSI_API_KEY or not config.SSI_API_SECRET: raise SSIReadError('Missing SSI_API_KEY/SSI_API_SECRET for ssi_v3')

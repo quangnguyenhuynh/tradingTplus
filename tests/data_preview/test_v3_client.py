@@ -23,3 +23,7 @@ def test_parameter_error_not_retried_and_server_error_bounded():
  s=Session([Resp(500,{})]*3);c=SSIV3Client(s,max_attempts=3);c.token='x'
  with pytest.raises(SSIReadError):c._request('GET','/x')
  assert len(s.calls)==3
+
+def test_http_200_api_envelope_error_is_not_treated_as_empty_data():
+ s=Session([Resp(200,{'code':'E_INVALID','msg':'bad request'})]);c=SSIV3Client(s);c.token='x'
+ with pytest.raises(SSIReadError,match='API error'):c._request('GET','/x')

@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "symbol": "SSI", "tradingDate": "2026/09/08", "open": "20850",
+      "high": "21300", "low": "20850", "close": "21000", "average": "21106",
+      "priceChange": "150", "priceChangePercentage": "0.72",
+      "totalMatch": "13825100", "totalMatchValue": "291796245000",
+      "totalBuy": "10133", "totalTradeBuy": "25665273",
+      "totalSell": "8430", "totalTradeSell": "26176737",
+      "totalForeignBuy": "0", "totalForeignBuyValue": "0",
+      "totalForeignSell": "0", "totalForeignSellValue": "0",
+      "remainForeignRoom": "1750293719", "totalForeignRoom": null,
+      "totalDeal": null, "totalDealValue": null, "openInterest": null,
+      "settlementPrice": null
+    }
+  ]
+}

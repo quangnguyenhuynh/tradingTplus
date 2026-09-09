@@ -678,6 +678,26 @@ python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --show-ra
 
 Nguồn mặc định chỉ của nhóm lệnh này là `ssi_v3`. V3 dùng `SSI_API_KEY`/`SSI_API_SECRET`; v2 dùng `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`; không cần biến Supabase. `--data-source` loại trừ `--compare`. JSON stdout luôn là một tài liệu JSON hợp lệ; lỗi thực thi đi stderr.
 
-Trace dùng `MAPPED` (chuẩn hóa trực tiếp), `DERIVED` (có công thức), `UNSUPPORTED` (chưa xác nhận tương đương ngữ nghĩa), `MISSING` (đường dẫn đã map nhưng response thiếu), `INVALID` (có giá trị nhưng không hợp lệ). Hai giá trị null được ghi `BOTH_MISSING`, không coi là bằng nhau. Số được so sánh với tolerance bằng 0, hiển thị chênh lệch tuyệt đối/tương đối. Table intraday giới hạn hiển thị; JSON không cắt.
+Trace phân biệt mapping trực tiếp, giá trị dẫn xuất, giá trị thiếu, giá trị lỗi và field `UNVERIFIED` về ngữ nghĩa. Quy tắc stock daily và trạng thái compare được mô tả chi tiết bên dưới.
 
-Exit code: `0` preview hoàn tất (khác số liệu không phải lỗi), `1` lỗi API/auth/dữ liệu rỗng/invalid/compare chưa đủ, `2` sai cú pháp. `indexSummary.totalTrade` đi vào `total_vol`, không đi vào số giao dịch. Adjusted close, tổng stock/số giao dịch và trường chưa rõ phạm vi giữ null với `UNSUPPORTED`.
+Exit code là `0` khi hoàn tất (chênh lệch thông thường không phải lỗi), `1` khi lỗi dữ liệu/request/mapping/validation và `2` khi sai argument.
+
+### Đối chiếu mapping stock daily v2/v3
+
+Các dạng lệnh stock-daily dưới đây đã được test với parser. Lệnh chỉ fetch vào bộ nhớ, không khởi tạo database client và không ghi bảng raw, clean, log hay audit:
+
+```bash
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-raw --show-mapping
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --only-diff
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --compare ssi_v2 ssi_v3 --format json
+```
+
+`--date` chỉ nhận `DD/MM/YYYY` hoặc `YYYY-MM-DD`. `--data-source` truyền tường minh xung đột với `--compare`; `--only-diff` bắt buộc có compare. Mặc định là v3, không fallback v2. Header table/JSON tách trạng thái fetch, completeness phân trang, mapping và diagnostics validation. Stdout JSON chỉ có đúng một document; progress của client legacy được chuyển sang stderr.
+
+Mapping giữ riêng `ABSENT`, `NULL`, `EMPTY` và số 0 có mặt. `UNVERIFIED` nghĩa là chưa xác minh field clean tương đương; field đó giữ null và không được so như dữ liệu hợp lệ. Raw field chưa map được liệt kê kèm lý do. Compare ghép theo `(symbol, trading_date)`, so chính xác với tolerance 0, dùng delta có dấu `v3 - v2`, với các trạng thái `MATCH`, `DIFFERENT`, `MISSING_V2`, `MISSING_V3`, `BOTH_NULL`, `INVALID`, `UNVERIFIED`. `BOTH_NULL` không chứng minh dữ liệu đầy đủ.
+
+Giá dùng VND/cổ phiếu, khối lượng dùng cổ phiếu, giá trị dùng VND và phần trăm giữ nguyên giá trị percentage của nguồn; preview không tự nhân/chia 100 hay 1.000. Các field v3 quan sát được `totalMatch`, `totalMatchValue`, `totalBuy`, `totalTradeBuy`, `totalSell`, `totalTradeSell` vẫn chưa map và mang trạng thái `UNVERIFIED` cho tới khi xác minh semantics/phạm vi. Giá trị foreign bằng 0 được giữ nguyên, kèm cảnh báo rằng chỉ một số 0 từ API không đủ kết luận không có giao dịch khối ngoại.
+
+Exit code: `0` khi preview/compare hoàn tất và hợp lệ (kể cả có chênh lệch thông thường), `1` khi lỗi request, API envelope, no-data, mapping, validation hoặc thiếu nguồn compare, và `2` khi CLI argument sai. Inspector độc lập vẫn là công cụ chẩn đoán endpoint/raw và dùng `--full-json`; inspector không nhận các flag riêng của preview là `--show-raw`, `--show-mapping`, `--format`, và không mapping clean.

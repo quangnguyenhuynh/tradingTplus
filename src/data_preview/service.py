@@ -1,124 +1,257 @@
-"""Provider-neutral read/map/validate/compare preview; deliberately has no DB imports."""
+"""Read-only SSI canonical preview and comparison; this module has no DB imports."""
 from __future__ import annotations
-import json, math, sys
+
+import copy
+import json
+import sys
+from collections import Counter
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
+
 from src.data_contracts import get_contract, get_mapping, map_record
 from src.data_contracts.transforms import TRANSFORMS, TransformError
-from src.intraday_value import calculate_trade_value
 from src.ssi.v3 import SSIV3Client, SSIReadError
+from src.validation.daily_validator import validate_daily_record
 
-STATUSES=('MAPPED','DERIVED','UNSUPPORTED','MISSING','INVALID')
-def _get(row,path):
-    lower={str(k).casefold():v for k,v in row.items()}; return lower.get(path.casefold())
-def _flatten(endpoint,row): return {f'{endpoint}.{k}':v for k,v in row.items()}
-def _safe_params(dataset,code,date,source):
-    if source=='ssi_v3':
-        return {'stock_daily':{'securitiesSummary':{'symbol':code,'from':date,'to':date},'masterdata':{'from':date,'to':date}},'stock_intraday':{'ohlc':{'symbol':code,'from':date+' 00:00:00','to':date+' 23:59:59','timeFrame':'1m'}},'index_daily':{'indexSummary':{'index':code,'tradingDate':date}}}[dataset]
-    return {'source':'legacy SSI v2','symbol_or_index':code,'date':date}
-def _map_v3(dataset,row,context):
-    contract=get_contract(dataset); mapping=get_mapping('ssi_v3',dataset); clean={}; trace=[]; invalid=False
-    for field,spec in contract['fields'].items():
-        rule=mapping['fields'][field]; raw=None; path=None; status='MISSING'; reason='Mapped source field is absent'
-        if rule.get('unsupported'):
-            clean[field]=None; trace.append({'field':field,'status':'UNSUPPORTED','source_path':None,'before':None,'after':None,'transform':None,'reason':rule['reason']}); continue
-        if 'context' in rule: raw=context.get(rule['context']); path=f"request.{rule['context']}"
-        elif 'constant' in rule: raw=rule['constant']; path='mapping.constant'
+_MISSING = object()
+
+
+def _lookup(row: dict[str, Any], alias: str) -> tuple[str | None, Any]:
+    lookup = {str(key).casefold(): (str(key), value) for key, value in row.items()}
+    return lookup.get(alias.casefold(), (None, _MISSING))
+
+
+def _flatten(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
+    return {f"{endpoint}.{key}": value for key, value in row.items()}
+
+
+def _safe_params(dataset: str, code: str, date: str, source: str) -> Any:
+    if source == "ssi_v3":
+        if dataset == "stock_daily":
+            return {"endpoint": "GET /api/v3/data/securitiesSummary", "params": {"symbol": code, "from": date.replace("-", "/"), "to": date.replace("-", "/")}}
+        if dataset == "stock_intraday":
+            return {"endpoint": "GET /api/v3/data/ohlc", "params": {"symbol": code, "from": date + " 00:00:00", "to": date + " 23:59:59", "timeFrame": "1m"}}
+        return {"endpoint": "GET /api/v3/data/indexSummary", "params": {"index": code, "tradingDate": date}}
+    endpoint = "DailyStockPrice" if dataset == "stock_daily" else ("IntradayOhlc" if dataset == "stock_intraday" else "DailyIndex")
+    return {"endpoint": f"SSI v2 {endpoint}", "params": {"symbol_or_index": code, "date": date}}
+
+
+def _mapping_trace(source: str, dataset: str, row: dict[str, Any], context: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    contract = get_contract(dataset)
+    mapping = get_mapping(source, dataset)
+    clean: dict[str, Any] = {}
+    trace: list[dict[str, Any]] = []
+    used: set[str] = set()
+    for field, spec in contract["fields"].items():
+        rule = mapping["fields"].get(field)
+        status, raw_state, raw, source_field, warning = "MISSING", "ABSENT", None, None, None
+        if not rule or rule.get("unsupported"):
+            clean[field] = None
+            trace.append({"clean_field": field, "raw_field": None, "raw_state": "NOT_APPLICABLE", "raw_value": None, "rule": None, "clean_value": None, "type": spec["type"], "unit": spec["unit"], "status": "UNVERIFIED", "warning": (rule or {}).get("reason", "No mapping rule")})
+            continue
+        if "context" in rule:
+            source_field = f"request.{rule['context']}"
+            raw = context.get(rule["context"], _MISSING)
+        elif "constant" in rule:
+            source_field, raw = "mapping.constant", rule["constant"]
         else:
-            for alias in rule.get('aliases',[]):
-                value=_get(row,alias)
-                if value not in (None,''):raw=value;path=alias;break
-        value=None
-        if raw not in (None,''):
-            try:value=TRANSFORMS[rule['transform']](raw,context); status='MAPPED';reason=None
-            except TransformError as exc:status='INVALID';reason=str(exc);invalid=True
-        clean[field]=value; trace.append({'field':field,'status':status,'source_path':path or (rule.get('aliases') or [None])[0],'before':raw,'after':value,'transform':rule['transform'],'reason':reason})
-    # Confirmed same-row derivations only.
-    for target,left,right in [('net_foreign_vol','foreign_buy_vol_total','foreign_sell_vol_total'),('net_foreign_val','foreign_buy_val_total','foreign_sell_val_total')]:
-        if target in clean and clean.get(left) is not None and clean.get(right) is not None:
-            clean[target]=clean[left]-clean[right]; t=next(x for x in trace if x['field']==target); t.update(status='DERIVED',after=clean[target],transform=f'{left} - {right}',reason='Both normalized inputs are present from securitiesSummary')
-    if dataset=='stock_intraday' and clean.get('close') is not None and clean.get('volume') is not None:
-        clean['value']=calculate_trade_value(clean['close'],clean['volume']); t=next(x for x in trace if x['field']=='value');t.update(status='DERIVED',after=clean['value'],transform='round(close * volume)',reason='Canonical estimated value; API value remains raw')
-    # Business invariants are separate from mapping.
-    issues=[]
-    if all(clean.get(x) is not None for x in ('open','high','low','close')):
-        if clean['high']<max(clean['open'],clean['close'],clean['low']) or clean['low']>min(clean['open'],clean['close'],clean['high']):issues.append({'code':'INVALID_OHLC'})
-    for f,s in contract['fields'].items():
-        v=clean.get(f)
-        if s.get('required') and v is None:issues.append({'field':f,'code':'MISSING_REQUIRED'})
-        if isinstance(v,float) and not math.isfinite(v):issues.append({'field':f,'code':'NON_FINITE'})
-        if v is not None and s.get('minimum') is not None and v<s['minimum']:issues.append({'field':f,'code':'BELOW_MINIMUM'})
-    return {'canonical':clean,'fields':trace,'validation':{'status':'INVALID' if invalid or issues else 'VALID','issues':issues}}
-def _fetch_v3(dataset,code,date,client):
-    raw={}; meta={}
-    if dataset=='stock_daily':
-        s=client.securities_summary(code,date); m=client.masterdata(date); raw={'securitiesSummary':s.raw_pages,'masterdata':m.raw_pages}; meta={'pages':s.pages+m.pages,'records_received':len(s.items)+len(m.items)}
-        summaries=[x for x in s.items if str(x.get('symbol','')).upper()==code]
-        masters=[x for x in m.items if str(x.get('symbol','')).upper()==code and str(x.get('tradingDate',x.get('date',''))).replace('/','-')[:10] in (date,date.replace('-','/'))]
-        rows=[{**_flatten('summary',x),**(_flatten('masterdata',masters[0]) if masters else {})} for x in summaries]
-    elif dataset=='stock_intraday':
-        p=client.ohlc_1m(code,date);raw={'ohlc':p.raw_pages};meta={'pages':p.pages,'records_received':len(p.items)};rows=[_flatten('ohlc',x) for x in p.items]
-    else:
-        p=client.index_summary(code,date);raw={'indexSummary':p.raw_pages};meta={'pages':1,'records_received':len(p.items)};rows=[]
-        for x in p.items:
-            actual=x.get('index') or x.get('indexCode')
-            if actual and str(actual).upper()!=code:raise SSIReadError('indexSummary identity conflicts with requested single index')
-            y=dict(x);y.setdefault('index',code);y.setdefault('tradingDate',date);rows.append(_flatten('indexSummary',y))
-    return rows,raw,meta
+            raw = _MISSING
+            for alias in rule.get("aliases", []):
+                actual, value = _lookup(row, alias)
+                if actual is not None:
+                    used.add(actual)
+                    source_field, raw = actual, value
+                    break
+            source_field = source_field or (rule.get("aliases") or [None])[0]
+        if raw is _MISSING:
+            value = None
+        elif raw is None:
+            raw_state, value = "NULL", None
+        elif raw == "":
+            raw_state, value = "EMPTY", None
+        else:
+            raw_state = "PRESENT"
+            try:
+                value = TRANSFORMS[rule["transform"]](raw, context)
+                status = "MAPPED"
+            except TransformError as exc:
+                value, status, warning = None, "INVALID", str(exc)
+        clean[field] = value
+        if source == "ssi_v3" and field.startswith("foreign_") and raw_state == "PRESENT" and value == 0:
+            warning = "API returned zero; this does not prove that no foreign trading occurred"
+        trace.append({"clean_field": field, "raw_field": source_field, "raw_state": raw_state, "raw_value": None if raw is _MISSING else raw, "rule": rule["transform"], "clean_value": value, "type": spec["type"], "unit": spec["unit"], "status": status, "warning": warning})
+    if dataset == "stock_intraday" and clean.get("close") is not None and clean.get("volume") is not None:
+        from src.intraday_value import calculate_trade_value
+        clean["value"] = calculate_trade_value(clean["close"], clean["volume"])
+        item = next(entry for entry in trace if entry["clean_field"] == "value")
+        item.update(status="DERIVED", rule="round(close * volume)", clean_value=clean["value"], warning="Canonical estimated candle value")
+    if dataset == "stock_daily":
+        for target, left, right in (("net_foreign_vol", "foreign_buy_vol_total", "foreign_sell_vol_total"), ("net_foreign_val", "foreign_buy_val_total", "foreign_sell_val_total")):
+            if clean.get(left) is not None and clean.get(right) is not None:
+                clean[target] = clean[left] - clean[right]
+                item = next(entry for entry in trace if entry["clean_field"] == target)
+                item.update(status="DERIVED", rule=f"{left} - {right}", clean_value=clean[target], warning="Derived only because both normalized inputs are present")
+    unmapped = [{"raw_field": key, "raw_value": value, "reason": "UNVERIFIED: no confirmed clean target or intentionally not applicable"} for key, value in row.items() if key not in used]
+    return clean, trace, unmapped
 
-def _fetch_v2(dataset,code,date,client_factory=None):
+
+def _issues(validation: Any) -> list[dict[str, Any]]:
+    return [{"severity": issue.severity, "code": issue.code, "field": issue.field, "message": issue.message, "actual": issue.actual_value, "expected": issue.expected_value} for issue in validation.errors + validation.warnings]
+
+
+def _fetch_v3(dataset: str, code: str, date: str, client: Any) -> tuple[list[dict[str, Any]], Any, dict[str, Any]]:
+    if dataset == "stock_daily":
+        page = client.securities_summary(code, date)
+        rows = [_flatten("summary", item) for item in page.items]
+        endpoint = "securitiesSummary"
+    elif dataset == "stock_intraday":
+        page = client.ohlc_1m(code, date)
+        rows = [_flatten("ohlc", item) for item in page.items]
+        endpoint = "ohlc"
+    else:
+        page = client.index_summary(code, date)
+        rows = []
+        for item in page.items:
+            actual = item.get("index") or item.get("indexCode")
+            if actual and str(actual).upper() != code:
+                raise SSIReadError("indexSummary identity conflicts with requested single index")
+            item = dict(item)
+            item.setdefault("index", code); item.setdefault("tradingDate", date)
+            rows.append(_flatten("indexSummary", item))
+        endpoint = "indexSummary"
+    raw = {endpoint: copy.deepcopy(page.raw_pages)}
+    return rows, raw, {"pages_fetched": page.pages, "records_fetched": len(page.items), "pagination_complete": getattr(page, "complete", True)}
+
+
+def _fetch_v2(dataset: str, code: str, date: str, factory: Any = None) -> tuple[list[dict[str, Any]], Any, dict[str, Any]]:
     from src.ssi.api import SSIApi
-    # The legacy client emits progress to stdout; preserve valid JSON stdout.
     with redirect_stdout(sys.stderr):
-        c=(client_factory or SSIApi)(); dd=datetime.strptime(date,'%Y-%m-%d').strftime('%d/%m/%Y')
-        if dataset=='stock_daily':items=c.get_daily_price_items(code,dd)
-        elif dataset=='stock_intraday':items=c.get_intraday(code,dd)
-        else:items=c.get_daily_index_items(code,dd)
-    return items,{'legacy':items},{'pages':None,'records_received':len(items)}
-def _one_source(dataset,code,date,source,client=None,v2_factory=None):
-    fetched=datetime.now(timezone.utc).isoformat(); rows,raw,meta=(_fetch_v3(dataset,code,date,client or SSIV3Client()) if source=='ssi_v3' else _fetch_v2(dataset,code,date,v2_factory))
-    records=[]
-    for row in rows:
-        context={'symbol':code,'date':datetime.strptime(date,'%Y-%m-%d').strftime('%d/%m/%Y')}
-        if source=='ssi_v3':mapped=_map_v3(dataset,row,context)
-        else:
-            result=map_record('ssi_v2',dataset,row,context); mapped={'canonical':result.candidate or {f:None for f in get_contract(dataset)['fields']},'fields':[],'validation':{'status':'VALID' if result.candidate else 'INVALID','issues':result.report['errors']}}
-        records.append(mapped)
-    mapping=get_mapping(source,dataset)
-    return {'mode':'PREVIEW — no database writes','dataset':dataset,'source':source,'code':code,'requested_date':date,'endpoints':_safe_params(dataset,code,date,source),'fetched_at':fetched,'contract_version':mapping['contract_version'],'mapping_version':mapping['mapping_version'],**meta,'status':'EMPTY' if not rows else ('INVALID' if any(x['validation']['status']=='INVALID' for x in records) else 'OK'),'records':records,'raw':raw}
-def _key(dataset,r):
-    c=r['canonical'];return {'stock_daily':(c.get('symbol'),c.get('trading_date')),'stock_intraday':(c.get('symbol'),c.get('time'),c.get('timeframe')),'index_daily':(c.get('index_code'),c.get('trading_date'))}[dataset]
-def _compare(dataset,left,right):
-    a={_key(dataset,r):r for r in left['records']};b={_key(dataset,r):r for r in right['records']};out=[]
-    for key in sorted(set(a)|set(b),key=str):
-        for field in get_contract(dataset)['fields']:
-            av=a.get(key,{}).get('canonical',{}).get(field);bv=b.get(key,{}).get('canonical',{}).get(field);diff=abs(av-bv) if isinstance(av,(int,float)) and isinstance(bv,(int,float)) else None
-            status='BOTH_MISSING' if av is None and bv is None else 'MISSING_RECORD' if key not in a or key not in b else 'NOT_COMPARABLE' if av is None or bv is None else 'MATCH' if av==bv else 'DIFFERENT'
-            out.append({'key':key,'field':field,'ssi_v2':av,'ssi_v3':bv,'absolute_difference':diff,'relative_difference':diff/abs(av) if diff is not None and av else None,'status':status})
-    return out
+        client = (factory or SSIApi)()
+        day = datetime.strptime(date, "%Y-%m-%d").strftime("%d/%m/%Y")
+        rows = client.get_daily_price_items(code, day) if dataset == "stock_daily" else (client.get_intraday(code, day) if dataset == "stock_intraday" else client.get_daily_index_items(code, day))
+    rows = copy.deepcopy(rows)
+    return rows, {"legacy": copy.deepcopy(rows)}, {"pages_fetched": None, "records_fetched": len(rows), "pagination_complete": None}
 
-def run_preview(dataset,code,date,source='ssi_v3',compare=None,client=None,v2_factory=None):
+
+def _business_key(dataset: str, clean: dict[str, Any]) -> tuple[Any, ...]:
+    if dataset == "stock_daily": return clean.get("symbol"), clean.get("trading_date")
+    if dataset == "stock_intraday": return clean.get("symbol"), clean.get("time"), clean.get("timeframe")
+    return clean.get("index_code"), clean.get("trading_date")
+
+
+def _one_source(dataset: str, code: str, date: str, source: str, client: Any = None, v2_factory: Any = None) -> dict[str, Any]:
+    rows, raw, fetch = _fetch_v3(dataset, code, date, client or SSIV3Client()) if source == "ssi_v3" else _fetch_v2(dataset, code, date, v2_factory)
+    records, diagnostics = [], []
+    context = {"symbol": code, "date": datetime.strptime(date, "%Y-%m-%d").strftime("%d/%m/%Y")}
+    for row in rows:
+        original = copy.deepcopy(row)
+        clean, trace, unmapped = _mapping_trace(source, dataset, row, context)
+        engine_report = None
+        if source == "ssi_v2":
+            engine_result = map_record(source, dataset, row, context)
+            engine_report = engine_result.report
+            if engine_result.candidate is not None and engine_result.candidate != clean:
+                raise RuntimeError("preview trace differs from shared mapping engine")
+        if row != original:
+            raise RuntimeError("mapping mutated the raw response")
+        validation_issues = []
+        if dataset == "stock_daily":
+            validation_issues = _issues(validate_daily_record(clean))
+            raw_symbol = next((value for key, value in row.items() if key.casefold() in {"symbol", "ticker", "stocksymbol", "summary.symbol"}), None)
+            raw_date = next((value for key, value in row.items() if key.casefold() in {"tradingdate", "date", "tradingtime", "summary.tradingdate"}), None)
+            try: normalized_raw_date = TRANSFORMS["date"](raw_date, {}) if raw_date not in (None, "") else None
+            except TransformError: normalized_raw_date = "INVALID"
+            if raw_symbol not in (None, "") and str(raw_symbol).upper() != code:
+                validation_issues.append({"severity": "error", "code": "REQUEST_SYMBOL_MISMATCH", "field": "symbol", "message": f"raw symbol {raw_symbol!r} differs from request {code!r}"})
+            if normalized_raw_date not in (None, date):
+                validation_issues.append({"severity": "error", "code": "REQUEST_DATE_MISMATCH", "field": "trading_date", "message": f"raw date {raw_date!r} differs from request {date!r}"})
+            actual = (clean.get("symbol"), clean.get("trading_date"))
+            if actual != (code, date):
+                validation_issues.append({"severity": "error", "code": "REQUEST_IDENTITY_MISMATCH", "field": "business_key", "message": f"response key {actual!r} differs from request {(code, date)!r}"})
+        invalid = any(x["status"] == "INVALID" for x in trace) or any(x["severity"] == "error" for x in validation_issues)
+        records.append({"key": _business_key(dataset, clean), "clean": clean, "canonical": clean, "mapping": trace, "fields": [{**x, "status": "UNSUPPORTED" if x["status"] == "UNVERIFIED" else x["status"], "field": x["clean_field"], "source_path": x["raw_field"], "before": x["raw_value"], "after": x["clean_value"], "transform": x["rule"], "reason": x["warning"]} for x in trace], "unmapped_raw_fields": unmapped, "mapping_engine_report": engine_report, "validation": {"status": "INVALID" if invalid else "VALID", "issues": validation_issues}})
+    counts = Counter(record["key"] for record in records)
+    for key, count in counts.items():
+        if count > 1: diagnostics.append({"severity": "error", "code": "DUPLICATE_BUSINESS_KEY", "key": key, "count": count})
+    status = "NO_DATA" if not rows else ("INVALID" if diagnostics or any(r["validation"]["status"] == "INVALID" for r in records) else "OK")
+    mapping = get_mapping(source, dataset)
+    return {"mode": "READ-ONLY — NO DATABASE WRITES", "dataset": dataset, "source": source, "symbol_or_index": code, "requested_date": date, "request": _safe_params(dataset, code, date, source), "fetched_at": datetime.now(timezone.utc).isoformat(), "fetch": {**fetch, "status": "NO_DATA" if not rows else "SUCCESS"}, "contract_version": mapping["contract_version"], "mapping_version": mapping["mapping_version"], "status": status, "records": records, "diagnostics": diagnostics, "raw": raw}
+
+
+def _verified(record: dict[str, Any] | None, field: str) -> bool:
+    if record is None: return True
+    trace = next((x for x in record["mapping"] if x["clean_field"] == field), None)
+    return trace is None or trace["status"] != "UNVERIFIED"
+
+
+def _compare(dataset: str, left: dict[str, Any], right: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    a = {tuple(r["key"]): r for r in left["records"]}; b = {tuple(r["key"]): r for r in right["records"]}
+    output = []
+    for key in sorted(set(a) | set(b), key=str):
+        for field in get_contract(dataset)["fields"]:
+            ar, br = a.get(key), b.get(key)
+            av = ar["clean"].get(field) if ar else None; bv = br["clean"].get(field) if br else None
+            if not _verified(ar, field) or not _verified(br, field): status = "UNVERIFIED"
+            elif ar is None: status = "MISSING_V2"
+            elif br is None: status = "MISSING_V3"
+            elif any(next((x["status"] for x in r["mapping"] if x["clean_field"] == field), None) == "INVALID" for r in (ar, br)): status = "INVALID"
+            elif av is None and bv is None: status = "BOTH_NULL"
+            elif av is None: status = "MISSING_V2"
+            elif bv is None: status = "MISSING_V3"
+            else: status = "MATCH" if type(av) is type(bv) and av == bv else "DIFFERENT"
+            delta = bv - av if isinstance(av, (int, float)) and not isinstance(av, bool) and isinstance(bv, (int, float)) and not isinstance(bv, bool) else None
+            output.append({"key": list(key), "clean_field": field, "ssi_v2": av, "ssi_v3": bv, "delta_v3_minus_v2": delta, "status": status, "tolerance": 0})
+    return output, dict(Counter(row["status"] for row in output))
+
+
+def run_preview(dataset: str, code: str, date: str, source: str = "ssi_v3", compare: tuple[str, str] | None = None, client: Any = None, v2_factory: Any = None) -> dict[str, Any]:
     if compare:
-        results=[];errors=[]
-        for s in compare:
-            try:results.append(_one_source(dataset,code,date,s,client if s=='ssi_v3' else None,v2_factory))
-            except Exception as exc:errors.append({'source':s,'error':str(exc)})
-        return {'mode':'PREVIEW — no database writes','dataset':dataset,'requested_date':date,'sources':results,'errors':errors,'status':'INCOMPLETE' if errors else 'OK','comparison':_compare(dataset,next(x for x in results if x['source']=='ssi_v2'),next(x for x in results if x['source']=='ssi_v3')) if len(results)==2 else []}
-    return _one_source(dataset,code,date,source,client,v2_factory)
-def render_preview(result,fmt='table',show_raw=False,only_diff=False):
-    value=json.loads(json.dumps(result,default=str));
-    if not show_raw:
-        value.pop('raw',None)
-        for source in value.get('sources',[]):source.pop('raw',None)
-    if only_diff:value['comparison']=[x for x in value.get('comparison',[]) if x['status']!='MATCH']
-    if fmt=='json':return json.dumps(value,ensure_ascii=False,indent=2)
-    lines=[value['mode'],f"dataset={value['dataset']} date={value['requested_date']} status={value['status']}"]
-    if 'comparison' in value:
-        lines += ['field | v2 | v3 | abs diff | status']+[f"{x['field']} | {x['ssi_v2']} | {x['ssi_v3']} | {x['absolute_difference']} | {x['status']}" for x in value['comparison'][:100]]
-        if len(value['comparison'])>100:lines.append(f"… {len(value['comparison'])-100} rows omitted from table; use --format json for all rows")
-    else:
-        for record in value['records'][:20]:
-            lines.append(json.dumps(record['canonical'],ensure_ascii=False,default=str));lines.extend(f"  {x['field']}: {x['status']} {x['source_path']} {x['before']!r} -> {x['after']!r} {x['reason'] or ''}" for x in record['fields'])
-    if show_raw:lines.append(json.dumps(value.get('raw',[s.get('raw') for s in value.get('sources',[])]),ensure_ascii=False,default=str))
-    return '\n'.join(lines)
+        sources, errors = [], []
+        for item in compare:
+            try: sources.append(_one_source(dataset, code, date, item, client if item == "ssi_v3" else None, v2_factory))
+            except Exception as exc: errors.append({"source": item, "type": type(exc).__name__, "message": str(exc)})
+        comparison, summary = ([], {})
+        by_source = {item["source"]: item for item in sources}
+        if "ssi_v2" in by_source and "ssi_v3" in by_source:
+            comparison, summary = _compare(dataset, by_source["ssi_v2"], by_source["ssi_v3"])
+        bad = errors or any(item["status"] != "OK" for item in sources)
+        return {"mode": "READ-ONLY — NO DATABASE WRITES", "dataset": dataset, "symbol_or_index": code, "requested_date": date, "status": "INCOMPLETE" if bad else "OK", "sources": sources, "comparison": comparison, "summary": {"sources_completed": len(sources), "records_v2": len(by_source.get("ssi_v2", {}).get("records", [])), "records_v3": len(by_source.get("ssi_v3", {}).get("records", [])), "fields": summary}, "diagnostics": errors}
+    try:
+        return _one_source(dataset, code, date, source, client, v2_factory)
+    except Exception as exc:
+        if dataset != "stock_daily":
+            raise
+        return {"mode": "READ-ONLY — NO DATABASE WRITES", "dataset": dataset, "source": source, "symbol_or_index": code, "requested_date": date, "status": "ERROR", "records": [], "diagnostics": [{"source": source, "type": type(exc).__name__, "message": str(exc)}]}
+
+
+def render_preview(result: dict[str, Any], fmt: str = "table", show_raw: bool = False, only_diff: bool = False, show_mapping: bool = False) -> str:
+    value = copy.deepcopy(result)
+    for source in ([value] if "source" in value else value.get("sources", [])):
+        for record in source.get("records", []):
+            record.pop("fields", None); record.pop("canonical", None)
+        if not show_raw: source.pop("raw", None)
+        if not show_mapping:
+            for record in source.get("records", []): record.pop("mapping", None)
+    if only_diff:
+        value["comparison"] = [row for row in value.get("comparison", []) if row["status"] != "MATCH"]
+    if fmt == "json": return json.dumps(value, ensure_ascii=False, indent=2, default=str)
+    lines = [value["mode"], f"dataset={value['dataset']} code={value.get('symbol_or_index')} date={value['requested_date']} status={value['status']}"]
+    for source in ([value] if "source" in value else value.get("sources", [])):
+        if "request" not in source:
+            continue
+        lines.append(f"source={source['source']} endpoint={source['request']['endpoint']} fetch={source['fetch']['status']} records={source['fetch']['records_fetched']} pages={source['fetch']['pages_fetched']} pagination_complete={source['fetch']['pagination_complete']} contract={source['contract_version']} mapping={source['mapping_version']}")
+        for record in source["records"]:
+            lines.append("clean=" + json.dumps(record["clean"], ensure_ascii=False, default=str))
+            if show_mapping:
+                lines.append("clean field | raw field | raw state | raw value | rule | clean value | type/unit | status | warning")
+                for item in record["mapping"]: lines.append(f"{item['clean_field']} | {item['raw_field']} | {item['raw_state']} | {item['raw_value']!r} | {item['rule']} | {item['clean_value']!r} | {item['type']}/{item['unit']} | {item['status']} | {item['warning'] or ''}")
+            for issue in record["validation"]["issues"]: lines.append(f"{issue['severity'].upper()}: {issue['code']} {issue.get('field') or ''} {issue['message']}")
+            for item in record["unmapped_raw_fields"]: lines.append(f"UNMAPPED: {item['raw_field']}={item['raw_value']!r} — {item['reason']}")
+        if show_raw: lines.append("raw=" + json.dumps(source.get("raw"), ensure_ascii=False, default=str))
+    if "comparison" in value:
+        lines.append("clean field | v2 | v3 | v3-v2 | status")
+        for row in value["comparison"]: lines.append(f"{row['clean_field']} | {row['ssi_v2']} | {row['ssi_v3']} | {row['delta_v3_minus_v2']} | {row['status']}")
+        lines.append("summary=" + json.dumps(value["summary"], ensure_ascii=False))
+    for error in value.get("diagnostics", []): lines.append("ERROR: " + json.dumps(error, ensure_ascii=False))
+    return "\n".join(lines)

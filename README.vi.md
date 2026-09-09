@@ -236,3 +236,5 @@ Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](docs/FOREIGN_EOD_FEATURES.vi.md
 ### Preview SSI v2/v3 chỉ đọc
 
 Dùng `python main.py data-preview --help` để xem và đối chiếu mapping canonical v2/v3, không cần credential database và không ghi dữ liệu. Xem [hướng dẫn CLI](docs/CLI_USAGE.vi.md#preview-dữ-liệu-chuẩn-ssi-chỉ-đọc).
+
+Preview stock daily hoàn toàn chỉ đọc, mặc định SSI v3 và không fallback sang v2. Dùng `--show-raw --show-mapping` để xem payload gốc và từng phép chuyển đổi, hoặc `--compare ssi_v2 ssi_v3 [--only-diff]`. Xem hướng dẫn CLI để hiểu trạng thái, đơn vị, JSON và exit code.

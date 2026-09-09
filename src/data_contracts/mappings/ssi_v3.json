@@ -19,33 +19,30 @@
         },
         "price_change": {
           "aliases": [
-            "summary.change"
+            "summary.priceChange"
           ],
           "transform": "float"
         },
         "per_price_change": {
           "aliases": [
-            "summary.ratioChange"
+            "summary.priceChangePercentage"
           ],
           "transform": "float"
         },
         "ceiling_price": {
-          "aliases": [
-            "masterdata.ceiling"
-          ],
-          "transform": "float"
+          "unsupported": true,
+          "transform": "text",
+          "reason": "securitiesSummary has no confirmed ceiling-price field"
         },
         "floor_price": {
-          "aliases": [
-            "masterdata.floor"
-          ],
-          "transform": "float"
+          "unsupported": true,
+          "transform": "text",
+          "reason": "securitiesSummary has no confirmed floor-price field"
         },
         "ref_price": {
-          "aliases": [
-            "masterdata.reference"
-          ],
-          "transform": "float"
+          "unsupported": true,
+          "transform": "text",
+          "reason": "securitiesSummary has no confirmed reference-price field"
         },
         "open_price": {
           "aliases": [
@@ -73,39 +70,45 @@
         },
         "average_price": {
           "aliases": [
+            "summary.average",
             "summary.averagePrice"
           ],
           "transform": "float"
         },
         "foreign_buy_vol_total": {
           "aliases": [
+            "summary.totalForeignBuy",
             "summary.foreignBuyVolume"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "foreign_sell_vol_total": {
           "aliases": [
+            "summary.totalForeignSell",
             "summary.foreignSellVolume"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "foreign_buy_val_total": {
           "aliases": [
+            "summary.totalForeignBuyValue",
             "summary.foreignBuyValue"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "foreign_sell_val_total": {
           "aliases": [
+            "summary.totalForeignSellValue",
             "summary.foreignSellValue"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "foreign_current_room": {
           "aliases": [
+            "summary.remainForeignRoom",
             "summary.foreignRoom"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "close_price_adjusted": {
           "unsupported": true,
