@@ -9,6 +9,7 @@ from src.ssi.v3 import securities_summary_params
 
 V3_BASE = "https://api.ssi.com.vn/api/v3"
 DATA_SOURCES = ("ssi_v3", "ssi_v2")
+DEFAULT_DATA_SOURCE = DATA_SOURCES[0]  # Newest supported inspector source.
 
 
 class ParameterError(ValueError):

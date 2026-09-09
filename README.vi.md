@@ -233,14 +233,12 @@ Xem [hợp đồng pipeline Stock EOD](docs/STOCK_EOD_PIPELINE.vi.md) về scope
 Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](docs/FOREIGN_EOD_FEATURES.vi.md
 ../docs/FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, công thức, calendar/freshness, quyền RPC, CLI và runbook thủ công.
 
-### Preview SSI v2/v3 chỉ đọc
+### Xem raw và clean sau mapping SSI
 
-Dùng `python main.py data-preview --help` để xem và đối chiếu mapping canonical v2/v3, không cần credential database và không ghi dữ liệu. Xem [hướng dẫn CLI](docs/CLI_USAGE.vi.md#preview-dữ-liệu-chuẩn-ssi-chỉ-đọc).
-
-Preview stock daily hoàn toàn chỉ đọc, mặc định SSI v3 và không fallback sang v2. Dùng `--show-raw --show-mapping` để xem payload gốc và từng phép chuyển đổi, hoặc `--compare ssi_v2 ssi_v3 [--only-diff]`. Xem hướng dẫn CLI để hiểu trạng thái, đơn vị, JSON và exit code.
+Dùng inspector độc lập trong `scripts`. Lệnh mặc định nguồn mới nhất đang hỗ trợ (`ssi_v3`), in raw và clean sau mapping từ cùng response rồi kết thúc, không truy cập DB. Thêm `--data-source ssi_v2` để đối chiếu nguồn cũ.
 
 ```bash
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 ```
 
-CLI nhận `DD/MM/YYYY` và `YYYY-MM-DD`; lớp request SSI v3 dùng chung chuyển cả hai dạng thành ngày của provider như `from=2026/09/08` và `to=2026/09/08`, kèm `pageIndex` và `pageSize`. Khi request lỗi, báo cáo gồm endpoint và tham số đã khử dữ liệu nhạy cảm, HTTP status, cùng code/message của envelope SSI nếu có. Authorization header và credential không bao giờ được đưa vào báo cáo.
+Dùng `--show-mapping` nếu muốn in quy tắc từ điển. Từ điển nằm ở `src/data_contracts/mappings/ssi_v2.json` và `ssi_v3.json`; giữ cấu trúc clean hiện có. Xem [hướng dẫn inspector](scripts/ssi_api_inspector/README.vi.md).

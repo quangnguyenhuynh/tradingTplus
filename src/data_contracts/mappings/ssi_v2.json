@@ -197,6 +197,9 @@
           ],
           "transform": "float"
         }
+      },
+      "inspector": {
+        "endpoint": "daily-stock-price"
       }
     },
     "stock_intraday": {
@@ -263,6 +266,9 @@
           "transform": "float",
           "context": "floor_price"
         }
+      },
+      "inspector": {
+        "endpoint": "intraday-ohlc"
       }
     },
     "index_daily": {
@@ -404,6 +410,9 @@
           ],
           "transform": "text"
         }
+      },
+      "inspector": {
+        "endpoint": "daily-index"
       }
     }
   }

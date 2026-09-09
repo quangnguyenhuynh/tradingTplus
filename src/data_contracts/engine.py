@@ -23,6 +23,11 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
     used: set[str] = set(); candidate: dict[str, Any] = {}; errors: list[dict[str, Any]] = []
     missing_required: list[str] = []; missing_optional: list[str] = []; conflicts: list[dict[str, Any]] = []
     for target, rule in mapping["fields"].items():
+        if rule.get("unsupported"):
+            candidate[target] = None
+            if contract["fields"][target]["required"]:
+                missing_required.append(target)
+            continue
         values: list[tuple[str, Any]] = []
         if rule.get("aliases"):
             for alias in rule["aliases"]: values.extend(lower.get(alias.casefold(), []))
@@ -54,4 +59,7 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
         candidate[target] = value
     for field in missing_required: errors.append({"field": field, "code": "MISSING_REQUIRED"})
     report = {"source": source_id, "dataset": dataset, "contract_version": contract["contract_version"], "mapping_version": mapping["mapping_version"], "records_received": 1, "records_valid": 0 if errors else 1, "records_rejected": 1 if errors else 0, "missing_required": missing_required, "missing_optional": missing_optional, "unused_source_fields": [str(key) for key in record if str(key) not in used], "transform_errors": [e for e in errors if e["code"] == "TRANSFORM_ERROR"], "alias_conflicts": conflicts, "contract_errors": [e for e in errors if e["code"] not in {"TRANSFORM_ERROR", "ALIAS_CONFLICT"}], "errors": errors}
+    unsupported = {field: rule["reason"] for field, rule in mapping["fields"].items() if rule.get("unsupported")}
+    if unsupported:
+        report["unsupported_fields"] = unsupported
     return MappingResult(None if errors else candidate, report)

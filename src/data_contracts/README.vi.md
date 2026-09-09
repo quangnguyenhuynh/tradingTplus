@@ -33,4 +33,6 @@ print(result.report)
 5. Nếu phép đổi phức tạp, thêm pure function vào `TRANSFORMS`; cấm biểu thức tùy ý và `eval`/`exec`.
 6. Chạy `get_mapping(...)` và fixture offline, gồm missing, malformed, alias trùng/xung đột và field thừa.
 
-Mapping không chứng minh nguồn có đủ mọi nhóm dữ liệu và không thay thế connector. Đợt này chỉ đăng ký SSI v2; không hàm ý SSI v3 đã được hỗ trợ.
+Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. V3 dùng để mapping/in ở inspector; nguồn ingest production vẫn như hiện tại. Mỗi mapping dataset có `inspector.endpoint` và tùy chọn `inspector.prefix`; inspector dùng metadata này để map response đã lấy mà không sửa raw. Rule `unsupported` cho null kèm lý do `unsupported_fields`, không tạo giá trị giả. Alias như `summary.close` đọc từ bản view có prefix của raw, không tìm field đệ quy.
+
+Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md). Mapping giữ cấu trúc clean hiện tại, không thay phần auth/request của nguồn mới. Không cần migration hoặc backfill.

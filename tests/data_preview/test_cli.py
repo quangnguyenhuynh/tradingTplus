@@ -1,14 +1,14 @@
-import json
 import main
+import pytest
 
-def fake(*args,**kwargs):
- return {'mode':'PREVIEW — no database writes','dataset':args[0],'requested_date':args[2],'status':'OK','records':[],'raw':{'x':1}}
 
-def test_cli_default_source_json_without_database(monkeypatch,capsys):
- monkeypatch.setattr(main,'run_preview',fake)
- assert main.main(['data-preview','stock-daily','--symbol','SSI','--date','08/09/2026','--format','json'])==0
- assert json.loads(capsys.readouterr().out)['dataset']=='stock_daily'
+@pytest.mark.parametrize('dataset', ['stock-daily', 'stock-intraday', 'index-daily'])
+def test_data_preview_removed_from_production_cli(dataset, capsys):
+    assert main.main(['data-preview', dataset]) == 2
+    assert 'invalid choice' in capsys.readouterr().err
 
-def test_cli_source_compare_exclusive_and_only_diff_scope(capsys):
- assert main.main(['data-preview','stock-daily','--symbol','SSI','--date','08/09/2026','--data-source','ssi_v2','--compare','ssi_v2','ssi_v3'])==2
- assert main.main(['data-preview','stock-daily','--symbol','SSI','--date','08/09/2026','--only-diff'])==2
+
+def test_production_help_has_no_data_preview(capsys):
+    assert main.main(['--help']) == 0
+    assert 'data-preview' not in capsys.readouterr().out
+    assert not hasattr(main, 'run_preview') and not hasattr(main, 'render_preview')

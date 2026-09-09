@@ -248,14 +248,12 @@ See the [Stock EOD pipeline contract](docs/STOCK_EOD_PIPELINE.md) for its active
 See [`docs/FOREIGN_EOD_FEATURES.md`](docs/FOREIGN_EOD_FEATURES.md
 ../docs/FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.
 
-### Read-only SSI v2/v3 preview
+### Inspect SSI raw and mapped clean data
 
-Use `python main.py data-preview --help` to inspect and compare v2/v3 canonical mappings without database credentials or writes. See [CLI usage](docs/CLI_USAGE.md#ssi-canonical-data-preview-read-only).
-
-Stock-daily preview is strictly read-only and defaults to SSI v3 without falling back to v2. Use `--show-raw --show-mapping` to inspect the original payload and every conversion, or `--compare ssi_v2 ssi_v3 [--only-diff]`. See the CLI guide for status, units, JSON, and exit-code semantics.
+Use the standalone inspector. It defaults to the newest supported source (`ssi_v3`), prints raw and mapped clean data from the same API response, and exits without database access. Select `--data-source ssi_v2` for the legacy source.
 
 ```bash
-python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 ```
 
-The CLI accepts `DD/MM/YYYY` and `YYYY-MM-DD`; the shared SSI v3 request layer converts either form to provider dates such as `from=2026/09/08` and `to=2026/09/08`, with `pageIndex` and `pageSize`. Request failures report the sanitized endpoint and parameters, HTTP status, and SSI envelope code/message when supplied. Authorization headers and credentials are never included.
+Use `--show-mapping` to print dictionary rules. The dictionaries remain in `src/data_contracts/mappings/ssi_v2.json` and `ssi_v3.json`; existing clean fields and database schema are unchanged. See [inspector usage](scripts/ssi_api_inspector/README.md).

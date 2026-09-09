@@ -248,7 +248,7 @@ def test_run_all_uses_endpoint_builders(monkeypatch):
         def __init__(self, *a, **k): self.calls = []
         def request_endpoint(self, endpoint, params, post_json=None):
             self.calls.append((endpoint.name, params))
-            return response({"data": [{"ok": True}]})
+            return response({"data": []})
     client = Client()
     monkeypatch.setattr(inspect, "InspectorClient", lambda *a, **k: client)
     code = inspect.main(["run", "all", "--symbol", "SSI", "--board", "HOSE", "--index-code", "VNINDEX", "--date", "08/09/2026"])
