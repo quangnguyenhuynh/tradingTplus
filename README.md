@@ -251,3 +251,5 @@ See [`docs/FOREIGN_EOD_FEATURES.md`](docs/FOREIGN_EOD_FEATURES.md
 ### Read-only SSI v2/v3 preview
 
 Use `python main.py data-preview --help` to inspect and compare v2/v3 canonical mappings without database credentials or writes. See [CLI usage](docs/CLI_USAGE.md#ssi-canonical-data-preview-read-only).
+
+Stock-daily preview is strictly read-only and defaults to SSI v3 without falling back to v2. Use `--show-raw --show-mapping` to inspect the original payload and every conversion, or `--compare ssi_v2 ssi_v3 [--only-diff]`. See the CLI guide for status, units, JSON, and exit-code semantics.

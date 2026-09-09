@@ -109,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
         choice.add_argument("--data-source", choices=("ssi_v2", "ssi_v3"), default="ssi_v3")
         choice.add_argument("--compare", nargs=2, choices=("ssi_v2", "ssi_v3"))
         dp.add_argument("--show-raw", action="store_true")
+        dp.add_argument("--show-mapping", action="store_true", help="Show raw-to-clean field trace")
         dp.add_argument("--only-diff", action="store_true")
         dp.add_argument("--format", choices=("table", "json"), default="table")
 
@@ -601,9 +602,11 @@ def main(argv: list[str] | None = None) -> int:
             code = (args.index if dataset == "index_daily" else args.symbol).strip().upper()
             if args.only_diff and not args.compare:
                 raise ValueError("--only-diff requires --compare")
+            if args.compare and set(args.compare) != {"ssi_v2", "ssi_v3"}:
+                raise ValueError("--compare requires exactly ssi_v2 and ssi_v3")
             result = run_preview(dataset, code, date, args.data_source, tuple(args.compare) if args.compare else None)
-            print(render_preview(result, args.format, args.show_raw, args.only_diff))
-            return 1 if result.get("status") in {"INVALID", "INCOMPLETE", "EMPTY"} else 0
+            print(render_preview(result, args.format, args.show_raw, args.only_diff, args.show_mapping))
+            return 1 if result.get("status") in {"INVALID", "INCOMPLETE", "NO_DATA", "ERROR"} else 0
         if args.command == "analogs":
             summary = run_analogs(args)
             _print_summary(summary)
