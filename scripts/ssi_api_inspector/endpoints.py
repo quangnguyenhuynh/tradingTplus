@@ -39,7 +39,7 @@ def parse_date(value: str) -> datetime:
     raise ParameterError(f"Invalid date {value!r}; use DD/MM/YYYY or YYYY-MM-DD")
 
 
-def _dates(args: Any, *, intraday: bool = False, single_only: bool = False) -> tuple[str, str]:
+def _dates(args: Any, *, intraday: bool = False, daily_timestamp: bool = False, single_only: bool = False) -> tuple[str, str]:
     date, start, end = args.date, args.from_date, args.to_date
     if date and (start or end):
         raise ParameterError("--date cannot be used with --from-date/--to-date")
@@ -57,6 +57,8 @@ def _dates(args: Any, *, intraday: bool = False, single_only: bool = False) -> t
         raise ParameterError("--from-date must be earlier than or equal to --to-date")
     if intraday:
         return start_dt.strftime("%Y/%m/%d 00:00:00"), end_dt.strftime("%Y/%m/%d 23:59:59")
+    if daily_timestamp:
+        return start_dt.strftime("%Y/%m/%d 00:00:00"), end_dt.strftime("%Y/%m/%d 00:00:00")
     return start_dt.strftime("%Y/%m/%d"), end_dt.strftime("%Y/%m/%d")
 
 
@@ -100,7 +102,7 @@ def _v3_index_summary(args: Any) -> dict[str, Any]:
 def _v3_ohlc(args: Any, intraday: bool) -> dict[str, Any]:
     if not args.symbol:
         raise ParameterError("This endpoint requires --symbol")
-    start, end = _dates(args, intraday=intraday)
+    start, end = _dates(args, intraday=intraday, daily_timestamp=not intraday)
     result = {"symbol": args.symbol, "from": start, "to": end,
               "timeFrame": "1m" if intraday else "1d", **_paging_v3(args)}
     if args.ascending is not None:

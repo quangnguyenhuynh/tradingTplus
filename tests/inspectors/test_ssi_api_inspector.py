@@ -87,7 +87,7 @@ def test_v3_params_date_conversion_and_no_v2_names():
     ohlc = V3_ENDPOINTS["intraday-ohlc"].build_params(args(symbol="SSI", date="08/09/2026"))
     assert ohlc["timeFrame"] == "1m" and ohlc["from"].endswith("00:00:00") and ohlc["to"].endswith("23:59:59")
     daily = V3_ENDPOINTS["daily-ohlc"].build_params(args(symbol="SSI", date="2026-09-08"))
-    assert daily["timeFrame"] == "1d" and daily["from"] == "2026/09/08"
+    assert daily["timeFrame"] == "1d" and daily["from"] == "2026/09/08 00:00:00" and daily["to"] == "2026/09/08 00:00:00"
     assert "timeFrame" not in built
     assert V3_ENDPOINTS["master-data"].build_params(args(date="2026-09-08")) == {
         "from": "2026/09/08", "to": "2026/09/08", "pageIndex": 1, "pageSize": 20}

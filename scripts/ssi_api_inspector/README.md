@@ -47,7 +47,7 @@ Dates accept `DD/MM/YYYY` and `YYYY-MM-DD`. Use either `--date` or the complete 
 | Source/endpoint | Query sent | Timeframe |
 |---|---|---|
 | V3 `securities-summary` / `daily-stock-price` | `from`, `to` (`YYYY/MM/DD`) | omitted |
-| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD`) | `timeFrame=1d` |
+| V3 `daily-ohlc` | `from`, `to` (`YYYY/MM/DD 00:00:00`) | `timeFrame=1d` |
 | V3 `intraday-ohlc` | `from`, `to` (`YYYY/MM/DD HH:MM:SS`) | `timeFrame=1m` |
 | V3 `master-data` | `from`, `to` (`YYYY/MM/DD`) | omitted |
 | V3 `index-summary` / `daily-index` | `tradingDate` (`YYYY/MM/DD`) | omitted |
