@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from src.config import config
+from src.ssi.v3 import securities_summary_params
 
 V3_BASE = "https://api.ssi.com.vn/api/v3"
 DATA_SOURCES = ("ssi_v3", "ssi_v2")
@@ -82,7 +83,11 @@ def _v3_board(args: Any) -> dict[str, Any]:
 def _v3_summary(args: Any) -> dict[str, Any]:
     name, value = _one_selector(args, "symbol", "index_code")
     start, end = _dates(args)
-    return {"index" if name == "index_code" else name: value, "from": start, "to": end, **_paging_v3(args)}
+    if name == "symbol":
+        return securities_summary_params(
+            value, start, end, page_index=args.page_index, page_size=args.page_size
+        )
+    return {"index": value, "from": start, "to": end, **_paging_v3(args)}
 
 
 def _v3_index_summary(args: Any) -> dict[str, Any]:

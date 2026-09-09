@@ -26,4 +26,30 @@ def test_parameter_error_not_retried_and_server_error_bounded():
 
 def test_http_200_api_envelope_error_is_not_treated_as_empty_data():
  s=Session([Resp(200,{'code':'E_INVALID','msg':'bad request'})]);c=SSIV3Client(s);c.token='x'
- with pytest.raises(SSIReadError,match='API error'):c._request('GET','/x')
+ with pytest.raises(SSIReadError) as error:c._request('GET','/x',params={'symbol':'SSI'})
+ message=str(error.value)
+ assert "endpoint=GET /api/v3/x" in message
+ assert "params={'symbol': 'SSI'}" in message
+ assert "http_status=200" in message
+ assert "api_code='E_INVALID'" in message and "api_msg='bad request'" in message
+
+
+@pytest.mark.parametrize("day", ["08/09/2026", "2026-09-08"])
+def test_securities_summary_normalizes_dates_and_builds_required_v3_params(day):
+ s=Session([Resp(200,{'data':[]})]);c=SSIV3Client(s,page_size=10);c.token='x'
+ c.securities_summary('SSI',day)
+ _,kwargs=s.calls[0]
+ assert kwargs['params']=={
+  'symbol':'SSI','from':'2026/09/08','to':'2026/09/08',
+  'pageIndex':1,'pageSize':10,
+ }
+
+
+def test_http_error_reports_sanitized_request_and_envelope():
+ s=Session([Resp(400,{'code':'E_DATE','msg':'invalid date'})]);c=SSIV3Client(s,max_attempts=1);c.token='secret-token'
+ with pytest.raises(SSIReadError) as error:
+  c._request('GET','/data/securitiesSummary',params={'symbol':'SSI','from':'bad','accessToken':'must-not-leak'})
+ message=str(error.value)
+ assert 'GET /api/v3/data/securitiesSummary' in message and 'http_status=400' in message
+ assert "api_code='E_DATE'" in message and "api_msg='invalid date'" in message
+ assert 'must-not-leak' not in message and 'secret-token' not in message

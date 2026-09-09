@@ -253,3 +253,9 @@ See [`docs/FOREIGN_EOD_FEATURES.md`](docs/FOREIGN_EOD_FEATURES.md
 Use `python main.py data-preview --help` to inspect and compare v2/v3 canonical mappings without database credentials or writes. See [CLI usage](docs/CLI_USAGE.md#ssi-canonical-data-preview-read-only).
 
 Stock-daily preview is strictly read-only and defaults to SSI v3 without falling back to v2. Use `--show-raw --show-mapping` to inspect the original payload and every conversion, or `--compare ssi_v2 ssi_v3 [--only-diff]`. See the CLI guide for status, units, JSON, and exit-code semantics.
+
+```bash
+python main.py data-preview stock-daily --symbol SSI --date 08/09/2026 --data-source ssi_v3 --show-mapping
+```
+
+The CLI accepts `DD/MM/YYYY` and `YYYY-MM-DD`; the shared SSI v3 request layer converts either form to provider dates such as `from=2026/09/08` and `to=2026/09/08`, with `pageIndex` and `pageSize`. Request failures report the sanitized endpoint and parameters, HTTP status, and SSI envelope code/message when supplied. Authorization headers and credentials are never included.
