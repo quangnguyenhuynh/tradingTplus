@@ -90,6 +90,11 @@ def _print_summary(summary: Any) -> None:
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
 
 
+def _source_kwargs(args: argparse.Namespace) -> dict[str, str]:
+    """Preserve legacy callable compatibility unless the option was explicit."""
+    return {"data_source": args.data_source} if getattr(args, "data_source", None) is not None else {}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TradingTPlus production flows")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -106,15 +111,18 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
     )
+    daily.add_argument("--data-source", default=None, help="Production source (default: newest ready source for stock_daily)")
 
     index_daily = sub.add_parser("index-daily", help="SSI DailyIndex raw + validated clean ingest only")
     index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
+    index_daily.add_argument("--data-source", default=None, help="Production source (default: newest ready source for index_daily)")
 
     index_backfill = sub.add_parser("index-backfill", help="Inclusive DailyIndex source-data backfill")
     index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--indexes", nargs="+", default=None)
+    index_backfill.add_argument("--data-source", default=None)
 
     index_check = sub.add_parser("index-check", help="Read-only index raw/clean completeness check")
     index_check.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest previous weekday")
@@ -204,6 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Symbols to ingest; omitted means active master symbols",
     )
+    intraday_ingest.add_argument("--data-source", default=None)
 
     stock_eod = sub.add_parser(
         "stock-eod",
@@ -218,6 +227,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--symbols", nargs="+", default=None,
         help="Daily stock symbols intersected with status=active",
     )
+    stock_eod.add_argument("--data-source", default=None)
+
+    stock_daily = sub.add_parser("stock-daily", help="Alias for stock-eod")
+    stock_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY")
+    stock_daily.add_argument("--symbols", nargs="+", default=None)
+    stock_daily.add_argument("--data-source", default=None)
 
     stock_intraday = sub.add_parser(
         "stock-intraday",
@@ -231,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--symbols", nargs="+", default=None,
         help="Symbols intersected with status=active and intraday_status=active",
     )
+    stock_intraday.add_argument("--data-source", default=None)
 
     for command, help_text in (
         (
@@ -267,6 +283,7 @@ def build_parser() -> argparse.ArgumentParser:
             default=None,
             help="Stock symbols used for every date; omitted means active master symbols",
         )
+        command_parser.add_argument("--data-source", default=None)
 
     refill = sub.add_parser(
         "refill",
@@ -281,6 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--to", "--to-date", dest="to_date", required=True,
         help="Inclusive end date DD/MM/YYYY",
     )
+    refill.add_argument("--data-source", default=None)
 
     features = sub.add_parser(
         "features",
@@ -591,14 +609,15 @@ def main(argv: list[str] | None = None) -> int:
             summary = daily_run(
                 args.date,
                 symbols=normalize_symbol_scope(args.symbols),
+                **_source_kwargs(args),
             )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "index-daily":
-            summary = run_index_daily_ingest(args.date, indexes=normalize_index_scope(args.indexes))
+            summary = run_index_daily_ingest(args.date, indexes=normalize_index_scope(args.indexes), **_source_kwargs(args))
             _print_summary(summary); return _status_to_exit(summary)
         if args.command == "index-backfill":
-            summary = run_index_backfill_pipeline(args.from_date, args.to_date, indexes=normalize_index_scope(args.indexes))
+            summary = run_index_backfill_pipeline(args.from_date, args.to_date, indexes=normalize_index_scope(args.indexes), **_source_kwargs(args))
             _print_summary(summary); return _status_to_exit(summary)
         if args.command == "index-check":
             summary = check_index_completeness(args.date, indexes=normalize_index_scope(args.indexes))
@@ -649,15 +668,16 @@ def main(argv: list[str] | None = None) -> int:
             summary = run_intraday_ingest(
                 args.date,
                 symbols=normalize_symbol_scope(args.symbols),
+                **_source_kwargs(args),
             )
             _print_summary(summary)
             return _status_to_exit(summary)
-        if args.command == "stock-eod":
-            summary = run_stock_eod_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
+        if args.command in {"stock-eod", "stock-daily"}:
+            summary = run_stock_eod_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols), **_source_kwargs(args))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "stock-intraday":
-            summary = run_stock_intraday_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols))
+            summary = run_stock_intraday_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols), **_source_kwargs(args))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:
@@ -670,12 +690,13 @@ def main(argv: list[str] | None = None) -> int:
                 args.from_date,
                 args.to_date,
                 symbols=normalize_symbol_scope(args.symbols),
+                **_source_kwargs(args),
             )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "refill":
             symbol = normalize_symbol_scope([args.symbol])[0]
-            summary = run_refill_pipeline(args.from_date, args.to_date, symbol)
+            summary = run_refill_pipeline(args.from_date, args.to_date, symbol, **_source_kwargs(args))
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "features":

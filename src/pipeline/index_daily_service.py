@@ -14,7 +14,8 @@ from src.validation.index_daily_validator import validate_index_daily_record
 def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: str, date: str) -> dict[str, Any]:
     summary: dict[str, Any] = {"index_code": index_code, "date": date, "raw_rows": 0, "clean_rows": 0, "rejected_rows": 0, "warning_count": 0, "errors": [], "status": "FAILED"}
     try:
-        payloads = fetch_index_daily(ssi, index_code, date)
+        adapted = ssi.fetch("index_daily", index_code, date) if hasattr(ssi, "fetch") else None
+        payloads = adapted.raw if adapted is not None else fetch_index_daily(ssi, index_code, date)
     except Exception as exc:
         summary["errors"].append(str(exc)); return summary
     if not payloads:
@@ -23,8 +24,12 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
     persist_index_raw_daily(db, raw_records)
     summary["raw_rows"] = len(raw_records)
     mapping_reports = []
-    for payload in payloads:
-        clean, mapping_report = map_index_daily_record(index_code, date, payload)
+    for position, payload in enumerate(payloads):
+        if adapted is not None:
+            clean = adapted.clean[position]
+            mapping_report = adapted.mapping_report.get("record_reports", [{}])[position]
+        else:
+            clean, mapping_report = map_index_daily_record(index_code, date, payload)
         mapping_reports.append(mapping_report)
         if clean is None:
             summary["rejected_rows"] += 1
@@ -37,7 +42,7 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
             summary["errors"].extend(issue.message for issue in validation.errors)
             continue
         persist_index_daily(db, clean); summary["clean_rows"] += 1
-    summary["mapping_report"] = {
+    summary["mapping_report"] = adapted.mapping_report if adapted is not None else {
         "source": "ssi_v2", "dataset": "index_daily", "contract_version": "1.0.0",
         "mapping_version": "1.0.0", "records_received": len(payloads),
         "records_valid": sum(report["records_valid"] for report in mapping_reports),

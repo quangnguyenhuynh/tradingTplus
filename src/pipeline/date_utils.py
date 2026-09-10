@@ -55,11 +55,12 @@ def latest_weekday_on_or_before(reference: date | datetime | None = None) -> dat
 
 
 def parse_ddmmyyyy(value: str) -> ValidatedDate:
-    try:
-        parsed = datetime.strptime(value, "%d/%m/%Y").date()
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Date must use DD/MM/YYYY format, got: {value!r}") from exc
-    return ValidatedDate(raw=value, date=parsed)
+    for date_format in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return ValidatedDate(raw=value, date=datetime.strptime(value, date_format).date())
+        except (TypeError, ValueError):
+            continue
+    raise ValueError(f"Date must use YYYY-MM-DD or DD/MM/YYYY format, got: {value!r}")
 
 
 def trading_date_iso(value: str) -> str | None:

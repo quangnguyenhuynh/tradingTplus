@@ -115,12 +115,14 @@ def _run_ingest_backfill(
     requested_symbols: list[str] | None,
     ingest: Callable[..., dict[str, Any]],
     result_key: str,
+    data_source: str | None = None,
 ) -> dict[str, Any]:
     day_summaries: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
     for date_text in date_range.eligible_dates:
         try:
-            ingest_summary = ingest(date_text, symbols=requested_symbols)
+            kwargs = {"data_source": data_source} if data_source is not None else {}
+            ingest_summary = ingest(date_text, symbols=requested_symbols, **kwargs)
             status = ingest_summary.get("status") if isinstance(ingest_summary, dict) else None
             if status not in {"OK", "PARTIAL", "FAILED"}:
                 raise ValueError(f"{result_key} returned invalid status: {status!r}")
@@ -142,7 +144,7 @@ def _run_ingest_backfill(
 def run_daily_backfill_pipeline(
     from_date: str,
     to_date: str,
-    symbols: list[str] | tuple[str, ...] | None = None,
+    symbols: list[str] | tuple[str, ...] | None = None, data_source: str | None = None,
 ) -> dict[str, Any]:
     """Run stock-only DailyStockPrice ingest for each weekday in a date range."""
     date_range = _resolve_range(from_date, to_date)
@@ -154,13 +156,14 @@ def run_daily_backfill_pipeline(
         requested_symbols=requested_symbols,
         ingest=run_daily_ingest,
         result_key="daily_summary",
+        data_source=data_source,
     )
 
 
 def run_intraday_backfill_pipeline(
     from_date: str,
     to_date: str,
-    symbols: list[str] | tuple[str, ...] | None = None,
+    symbols: list[str] | tuple[str, ...] | None = None, data_source: str | None = None,
 ) -> dict[str, Any]:
     """Run only 1m intraday ingest for each weekday in an inclusive range."""
     date_range = _resolve_range(from_date, to_date)
@@ -172,6 +175,7 @@ def run_intraday_backfill_pipeline(
         requested_symbols=requested_symbols,
         ingest=run_intraday_ingest,
         result_key="intraday_summary",
+        data_source=data_source,
     )
 
 
@@ -192,14 +196,15 @@ def _branch_ingest(day_summary: dict[str, Any] | None, key: str) -> dict[str, An
 def run_backfill_pipeline(
     from_date: str,
     to_date: str,
-    symbols: list[str] | tuple[str, ...] | None = None,
+    symbols: list[str] | tuple[str, ...] | None = None, data_source: str | None = None,
 ) -> dict[str, Any]:
     """Run stock daily, stock intraday, then stock completeness for each date."""
     date_range = _resolve_range(from_date, to_date)
     requested_symbols = normalize_symbol_scope(symbols)
 
-    daily_backfill = run_daily_backfill_pipeline(date_range.from_date, date_range.to_date, requested_symbols)
-    intraday_backfill = run_intraday_backfill_pipeline(date_range.from_date, date_range.to_date, requested_symbols)
+    kwargs = {"data_source": data_source} if data_source is not None else {}
+    daily_backfill = run_daily_backfill_pipeline(date_range.from_date, date_range.to_date, requested_symbols, **kwargs)
+    intraday_backfill = run_intraday_backfill_pipeline(date_range.from_date, date_range.to_date, requested_symbols, **kwargs)
     daily_by_date = {item["date"]: item for item in daily_backfill["day_summaries"]}
     intraday_by_date = {item["date"]: item for item in intraday_backfill["day_summaries"]}
     day_summaries: list[dict[str, Any]] = []

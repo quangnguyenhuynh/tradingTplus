@@ -257,3 +257,23 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI -
 ```
 
 Use `--show-mapping` to print dictionary rules. The dictionaries remain in `src/data_contracts/mappings/ssi_v2.json` and `ssi_v3.json`; existing clean fields and database schema are unchanged. See [inspector usage](scripts/ssi_api_inspector/README.md).
+
+## API preview versus database ingest
+
+**Preview API (read-only):** use `scripts/ssi_api_inspector`; it never writes the database. The newest registered preview is `ssi_v3`, whose mappings remain unverified and are not production-capable.
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+```
+
+**Ingest into DB:** production chooses the newest `ready` capability independently for each dataset (currently `ssi_v2`). Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.
+
+```bash
+python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]
+python main.py stock-intraday 2026-09-08 --symbols SSI [--data-source ssi_v2]
+python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v2]
+```
+
+To add a source: obtain a real response/specification, add its adapter and mapping dictionary, add fixture tests (including paging/time/unit conversion), verify every dataset contract, then mark each dataset `ready` separately. A raw-only endpoint is not production-capable.

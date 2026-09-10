@@ -18,7 +18,7 @@ def _resolve_stock_intraday_date(date: str | None) -> str:
     return parse_ddmmyyyy(date.strip()).ddmmyyyy
 
 
-def run_stock_intraday_pipeline(date: str | None = None, *, symbols=None) -> dict:
+def run_stock_intraday_pipeline(date: str | None = None, *, symbols=None, data_source: str | None = None) -> dict:
     """Run automatic-scope SSI IntradayOhlc 1m ingest and completeness only."""
     target_date = _resolve_stock_intraday_date(date)
     resolved, requested, ignored = resolve_intraday_symbol_scope(SupabaseClient(), symbols)
@@ -32,7 +32,8 @@ def run_stock_intraday_pipeline(date: str | None = None, *, symbols=None) -> dic
                 "status": "FAILED", "failures": [failure], "warnings": []}
 
     print("1️⃣ Run stock intraday 1m ingest...")
-    ingest = run_intraday_ingest(target_date, symbols=resolved)
+    kwargs = {"data_source": data_source} if data_source is not None else {}
+    ingest = run_intraday_ingest(target_date, symbols=resolved, **kwargs)
     print("2️⃣ Check intraday-only completeness...")
     completeness = check_intraday_ingest(target_date, symbols=resolved)
     print(pformat(completeness, sort_dicts=True))

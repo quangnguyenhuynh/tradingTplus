@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 def fetch_intraday_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol: str, date: str, daily_context: dict | None = None) -> dict[str, Any]:
     summary: dict[str, Any] = {"symbol": symbol, "date": date, "candles_received": 0, "candles_valid": 0, "candles_rejected": 0, "daily_context_missing": daily_context is None, "batch_errors": 0, "batch_warnings": 0, "status": "FAILED", "error_type": None, "errors": [], "warnings": []}
     try:
-        candles = fetch_intraday_candles(ssi, symbol, date)
+        adapted = ssi.fetch("stock_intraday", symbol, date, context=daily_context) if hasattr(ssi, "fetch") else None
+        candles = adapted.raw if adapted is not None else fetch_intraday_candles(ssi, symbol, date)
     except SSIEmptyResponseError as exc:
         summary.update(error_type="EMPTY_RESPONSE", errors=[str(exc)])
         logger.error("%s %s: IntradayOhlc EMPTY_RESPONSE", symbol, date)
@@ -38,6 +39,8 @@ def fetch_intraday_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symb
         logger.warning(warning)
         summary["warnings"].append(warning)
     raw, clean, mapping_report = map_intraday_records(symbol, date, daily_context_payload(daily_context), candles)
+    if adapted is not None:
+        clean, mapping_report = adapted.clean, adapted.mapping_report
     summary["mapping_report"] = mapping_report
     persist_raw_intraday(db, raw)
     if not clean:

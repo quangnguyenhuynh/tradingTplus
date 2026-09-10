@@ -8,6 +8,8 @@ from src.pipeline.date_utils import trading_date_iso
 from src.pipeline.intraday_service import fetch_intraday_for_symbol_with_clients
 from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
 from src.ssi.api import SSIApi
+from src.data_sources.registry import resolve_source
+from src.data_sources.ssi_v2 import SSIV2Adapter
 
 
 def _resolve_intraday_date(date: str | None) -> str:
@@ -21,15 +23,18 @@ def _resolve_intraday_date(date: str | None) -> str:
     return validated.ddmmyyyy
 
 
-def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str, ...] | None = None) -> dict[str, Any]:
+def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str, ...] | None = None, data_source: str | None = None) -> dict[str, Any]:
     """Ingest SSI IntradayOhlc 1m only; no daily writes or feature calculation."""
     resolved_date = _resolve_intraday_date(date)
+    capability = resolve_source("stock_intraday", data_source)
+    print(f"ℹ️ Dataset: stock_intraday; data source: {capability.source}")
     db = SupabaseClient()
     active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
     scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
     if not active_symbols:
         return {
             'date': resolved_date,
+            'data_source': capability.source,
             **scope_summary,
             'candles_received': 0,
             'candles_valid': 0,
@@ -40,7 +45,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
             'status': 'FAILED',
         }
 
-    ssi = SSIApi()
+    ssi = SSIV2Adapter(SSIApi())
     trading_date = trading_date_iso(resolved_date)
     totals = {'candles_received': 0, 'candles_valid': 0, 'candles_rejected': 0}
     errors: list[dict[str, str]] = []
@@ -69,6 +74,7 @@ def run_intraday_ingest(date: str | None = None, symbols: list[str] | tuple[str,
         status = 'PARTIAL'
     return {
         'date': resolved_date,
+        'data_source': capability.source,
         **scope_summary,
         **totals,
         'daily_context_missing_count': len(daily_context_missing),

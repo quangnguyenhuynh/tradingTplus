@@ -675,3 +675,15 @@ python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX
 Mapping dùng các trường hiện có của `stock_daily`, `stock_intraday` (1m), `index_daily`. DailyOHLC vẫn để đối chiếu raw; endpoint chưa có mapping chuẩn chỉ in raw. Dữ liệu thiếu hoặc chưa xác nhận giữ null và có thông báo; lỗi chuyển kiểu được báo rõ. Response rỗng không tạo clean giả. Lỗi mapping trả exit `1` và vẫn giữ raw để xem.
 
 Đã bỏ nhóm `data-preview` khỏi `main.py`. Luồng kiểm tra nguồn mới dừng sau mapping/in dữ liệu, không gọi writer hoặc production pipeline. Không cần migration/backfill.
+
+## Source adapter: xem trước và ingest
+
+Dùng thống nhất `YYYY-MM-DD` (vẫn tương thích `DD/MM/YYYY`). Lệnh production ghi qua persistence raw/clean hiện có và nhận `--data-source`; nếu bỏ qua thì chọn nguồn ready mới nhất riêng từng dataset, hiện là `ssi_v2`:
+
+```bash
+python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2
+python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
+python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
+```
+
+`stock-daily` và lệnh cũ `stock-eod` dùng chung handler. Các lệnh backfill/refill ingest cũng nhận và truyền xuyên suốt `--data-source`. Chỉ xem trước API trong `scripts/ssi_api_inspector`, tuyệt đối không ghi DB; xem README inspector cho đủ ba dataset.

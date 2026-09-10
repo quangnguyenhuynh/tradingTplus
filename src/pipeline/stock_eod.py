@@ -18,7 +18,7 @@ def _resolve_stock_eod_date(date: str | None) -> str:
     return parse_ddmmyyyy(date.strip()).ddmmyyyy
 
 
-def run_stock_eod_pipeline(date: str | None = None, *, symbols=None) -> dict:
+def run_stock_eod_pipeline(date: str | None = None, *, symbols=None, data_source: str | None = None) -> dict:
     """Run daily-only stock ingest and daily-only completeness."""
     stock_eod_date = _resolve_stock_eod_date(date)
     resolved, requested, ignored = resolve_active_symbol_scope(SupabaseClient(), symbols)
@@ -32,7 +32,8 @@ def run_stock_eod_pipeline(date: str | None = None, *, symbols=None) -> dict:
                 "intraday_summary_deprecated": True, "ingest_summary": None,
                 "status": "FAILED", "failures": [failure], "warnings": []}
     print("1️⃣ Run stock daily ingest...")
-    daily_summary = daily_run(stock_eod_date, symbols=resolved)
+    kwargs = {"data_source": data_source} if data_source is not None else {}
+    daily_summary = daily_run(stock_eod_date, symbols=resolved, **kwargs)
     print("2️⃣ Check daily ingest completeness...")
     completeness = check_daily_ingest(stock_eod_date, symbols=resolved)
     print(pformat(completeness, sort_dicts=True))

@@ -242,3 +242,10 @@ def test_stock_intraday_cli_routes_normalized_symbols(monkeypatch):
     monkeypatch.setattr(main, "run_stock_intraday_pipeline", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
     assert main.main(["stock-intraday", "10/07/2026", "--symbols", "ssi", "HPG", "SSI"]) == 0
     assert captured == {"date": "10/07/2026", "symbols": ["SSI", "HPG"]}
+
+
+def test_stock_daily_alias_and_explicit_source(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(main, "run_stock_eod_pipeline", lambda date, symbols=None, data_source=None: captured.update(date=date, symbols=symbols, data_source=data_source) or {"status": "OK"})
+    assert main.main(["stock-daily", "2026-09-08", "--symbols", "ssi", "--data-source", "ssi_v2"]) == 0
+    assert captured == {"date": "2026-09-08", "symbols": ["SSI"], "data_source": "ssi_v2"}
