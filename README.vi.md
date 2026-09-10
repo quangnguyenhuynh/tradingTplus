@@ -242,3 +242,23 @@ python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI -
 ```
 
 Dùng `--show-mapping` nếu muốn in quy tắc từ điển. Từ điển nằm ở `src/data_contracts/mappings/ssi_v2.json` và `ssi_v3.json`; giữ cấu trúc clean hiện có. Xem [hướng dẫn inspector](scripts/ssi_api_inspector/README.vi.md).
+
+## Xem trước API và ingest vào DB
+
+**Xem trước API (chỉ đọc):** dùng `scripts/ssi_api_inspector`; công cụ không ghi DB. Preview mới nhất là `ssi_v3`; mapping chưa được xác minh đầy đủ nên không được dùng production.
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+```
+
+**Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (hiện là `ssi_v2`). Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.
+
+```bash
+python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]
+python main.py stock-intraday 2026-09-08 --symbols SSI [--data-source ssi_v2]
+python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v2]
+```
+
+Checklist nguồn mới: response/tài liệu thật → adapter → mapping → fixture tests (phân trang/thời gian/đơn vị) → xác minh contract → đánh dấu `ready` riêng từng dataset. Endpoint raw-only chưa đủ điều kiện nối production.

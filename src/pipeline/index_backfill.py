@@ -7,12 +7,13 @@ from src.pipeline.index_scope import normalize_index_scope
 from src.pipeline.date_utils import parse_index_date
 
 
-def run_index_backfill_pipeline(from_date: str, to_date: str, indexes: list[str] | tuple[str, ...] | None = None) -> dict:
+def run_index_backfill_pipeline(from_date: str, to_date: str, indexes: list[str] | tuple[str, ...] | None = None, data_source: str | None = None) -> dict:
     date_range = _resolve_range(parse_index_date(from_date).ddmmyyyy, parse_index_date(to_date).ddmmyyyy); requested = normalize_index_scope(indexes)
     days = []; errors = []
     for date_text in date_range.eligible_dates:
         try:
-            summary = run_index_daily_ingest(date_text, requested)
+            kwargs = {"data_source": data_source} if data_source is not None else {}
+            summary = run_index_daily_ingest(date_text, requested, **kwargs)
             days.append({"flow": "index-backfill-day", "date": date_text, "index_daily_summary": summary, "status": summary["status"]})
         except Exception as exc:
             errors.append({"date": date_text, "error": str(exc)}); days.append(_failure_day("index-backfill-day", date_text, exc))

@@ -683,3 +683,15 @@ python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX
 Mappings target existing `stock_daily`, `stock_intraday` (1m), and `index_daily` fields. DailyOHLC remains a raw cross-check, and endpoints without a canonical mapping remain raw-only. Missing or unverified fields stay null; unsupported fields and conversion errors are reported. Empty responses produce no clean rows. Mapping errors cause exit `1`; raw remains visible.
 
 `data-preview` has been removed from `main.py`. New-source inspection ends after mapping/printing: it never calls database writers or production pipelines. No migration or backfill is needed.
+
+## Source adapters: preview vs ingest
+
+Use `YYYY-MM-DD` consistently (legacy `DD/MM/YYYY` is also accepted). Production commands write through the existing raw/clean persistence layer and accept `--data-source`; omitted means newest ready source for that dataset, currently `ssi_v2`:
+
+```bash
+python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2
+python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
+python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
+```
+
+`stock-daily` and legacy `stock-eod` share one handler. Backfill/refill ingest commands also accept and propagate `--data-source`. API preview belongs only in `scripts/ssi_api_inspector` and never writes DB; see its README for all three datasets.

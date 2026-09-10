@@ -10,6 +10,7 @@ from src.ssi.api import SSIApi
 from src.ssi.api import SSIDataMismatchError, SSIEmptyResponseError
 from src.validation.daily_validator import validate_daily_record
 from src.validation.logging_utils import log_validation_result
+from src.data_sources.base import DataSourceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ logger = logging.getLogger(__name__)
 def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol: str, date: str) -> dict[str, Any]:
     summary: dict[str, Any] = {"symbol": symbol, "date": date, "daily_valid": False, "daily_rows": 0, "daily_errors": 0, "daily_warnings": 0, "status": "FAILED", "error_type": None, "errors": []}
     try:
-        daily = fetch_daily_price(ssi, symbol, date)
+        adapted = ssi.fetch("stock_daily", symbol, date) if hasattr(ssi, "fetch") else None
+        daily = adapted.raw[0] if adapted and adapted.raw else (fetch_daily_price(ssi, symbol, date) if adapted is None else None)
     except SSIEmptyResponseError as exc:
         summary.update(error_type="EMPTY_RESPONSE", errors=[str(exc)])
         logger.error("%s %s: DailyStockPrice EMPTY_RESPONSE", symbol, date)
@@ -38,7 +40,11 @@ def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol:
         return summary
     summary["daily_payload"] = daily
     persist_raw_daily(db, build_raw_daily_record(symbol, date, daily))
-    clean, mapping_report = map_stock_daily_record(symbol, date, daily)
+    if adapted is not None:
+        clean = adapted.clean[0] if adapted.clean else None
+        mapping_report = adapted.mapping_report
+    else:
+        clean, mapping_report = map_stock_daily_record(symbol, date, daily)
     summary["mapping_report"] = mapping_report
     validation = validate_daily_record(clean) if clean else None
     if validation:

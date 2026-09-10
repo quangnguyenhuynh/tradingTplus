@@ -63,14 +63,15 @@ def _run_feature_stage(
         return _failed_stage(flow, context)
 
 
-def run_refill_pipeline(from_date: str, to_date: str, symbol: str) -> dict[str, Any]:
+def run_refill_pipeline(from_date: str, to_date: str, symbol: str, data_source: str | None = None) -> dict[str, Any]:
     """Upsert one symbol's source data, validate it, then refill 1d/15m/60m features."""
     normalized_symbol = _normalize_single_symbol(symbol)
     errors: list[dict[str, str]] = []
     stages: dict[str, dict[str, Any]] = {}
 
     try:
-        source = run_backfill_pipeline(from_date, to_date, symbols=[normalized_symbol])
+        kwargs = {"data_source": data_source} if data_source is not None else {}
+        source = run_backfill_pipeline(from_date, to_date, symbols=[normalized_symbol], **kwargs)
         source_status = source.get("status") if isinstance(source, dict) else None
         if source_status not in {"OK", "PARTIAL", "FAILED"}:
             raise ValueError(f"runner returned invalid status: {source_status!r}")

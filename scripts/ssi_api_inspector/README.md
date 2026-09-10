@@ -156,3 +156,13 @@ python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 ```
 
 Only run a live request when the appropriate credentials already exist. Use an explicit symbol/date; the inspector never reads or writes Supabase.
+
+## Three dataset previews (no DB writes)
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+```
+
+The report prints endpoint, parameters, raw/clean samples, mapping diagnostics, and missing/unverified fields. Raw-only endpoints are explicitly not production-ready. `daily-ohlc` is not assumed to satisfy either complete daily contract; its v3 `from`/`to` parameters are endpoint-specific midnight timestamps.

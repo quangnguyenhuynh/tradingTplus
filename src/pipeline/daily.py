@@ -6,6 +6,8 @@ from src.ssi.api import SSIApi
 from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
+from src.data_sources.registry import resolve_source
+from src.data_sources.ssi_v2 import SSIV2Adapter
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -24,9 +26,12 @@ def _resolve_daily_date(date: str | None) -> str:
 def run_daily_ingest(
     date: str | None = None,
     symbols: list[str] | tuple[str, ...] | None = None,
+    data_source: str | None = None,
 ) -> dict[str, Any]:
     """Ingest SSI DailyStockPrice for stocks only; never ingest market indexes."""
     date = _resolve_daily_date(date)
+    capability = resolve_source("stock_daily", data_source)
+    print(f"ℹ️ Dataset: stock_daily; data source: {capability.source}")
     db = SupabaseClient()
     active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
     scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
@@ -34,6 +39,7 @@ def run_daily_ingest(
         print("❌ Chưa có dữ liệu symbols. Chạy 'python main.py init' trước!")
         return {
             'date': date,
+            'data_source': capability.source,
             **scope_summary,
             'daily_valid_count': 0,
             'total_daily_rows': 0,
@@ -46,7 +52,7 @@ def run_daily_ingest(
             'status': 'FAILED',
         }
 
-    ssi = SSIApi()
+    ssi = SSIV2Adapter(SSIApi())
     total_daily_rows = 0
     errors: list[dict[str, Any]] = []
     error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}
@@ -68,6 +74,7 @@ def run_daily_ingest(
     print("ℹ️ Intraday ingest and feature engine disabled in daily task.")
     return {
         'date': date,
+        'data_source': capability.source,
         **scope_summary,
         'daily_valid_count': total_daily_rows,
         'total_daily_rows': total_daily_rows,

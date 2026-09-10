@@ -143,3 +143,13 @@ python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 ```
 
 Chỉ live smoke khi credential đã có sẵn, dùng mã/ngày rõ ràng. Inspector không đọc/ghi Supabase.
+
+## Xem trước đủ ba dataset (không ghi DB)
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+```
+
+Báo cáo in endpoint, params, raw/clean, chẩn đoán mapping và trường thiếu/chưa xác minh. Endpoint raw-only chưa đủ điều kiện production. Không mặc định `daily-ohlc` đáp ứng đầy đủ contract daily; `from`/`to` v3 có mốc `00:00:00` là định dạng riêng của endpoint này.
