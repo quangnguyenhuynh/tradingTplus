@@ -68,7 +68,6 @@ V2 giữ `access-token`, `securities`, `securities-details`, `index-components`,
 ```bash
 python scripts/ssi_api_inspector/inspect.py run access-token --full-json
 python scripts/ssi_api_inspector/inspect.py run securities-by-board --board HOSE
-python scripts/ssi_api_inspector/inspect.py run securities --market HOSE
 python scripts/ssi_api_inspector/inspect.py run securities-details --symbol SSI
 python scripts/ssi_api_inspector/inspect.py run index-components --index-code VNINDEX
 python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
