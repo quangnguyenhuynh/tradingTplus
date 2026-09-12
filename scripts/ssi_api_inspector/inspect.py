@@ -21,6 +21,8 @@ from scripts.ssi_api_inspector.client import (InspectorClient, InspectorError,
 from scripts.ssi_api_inspector.endpoints import (DATA_SOURCES, DEFAULT_DATA_SOURCE, RUN_ALL_ORDER,
                                                   ParameterError, registry)
 from scripts.ssi_api_inspector.mapping import endpoint_mapping, map_rows
+from scripts.ssi_api_inspector.datasets import (CLI_DATASETS, DatasetRequest,
+                                                 build_dataset_plan, canonical_capabilities)
 from src.data_contracts.registry import MappingConfigurationError
 
 LIST_KEYS = ("data", "dataList", "items")
@@ -98,7 +100,10 @@ def _print_json(value: Any) -> None:
 
 def print_report(source: str, endpoint: Any, params: dict[str, Any], response: Any,
                  *, limit: int, full_json: bool, client: InspectorClient | None = None,
-                 show_mapping: bool = False) -> str:
+                 show_mapping: bool = False, dataset: str | None = None,
+                 requested_source: str | None = None, source_status: str | None = None,
+                 request_number: int = 1, request_count: int = 1,
+                 request_label: str | None = None, paging_supported: bool | None = None) -> str:
     location, rows = _data_location(response.body)
     error = _api_error(response.body)
     if response.status_code >= 400 or response.json_state in {"empty", "non-json"} or error:
@@ -112,6 +117,11 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
         status = "PASS" if rows else "EMPTY"
 
     print("\n" + "=" * 88)
+    if dataset:
+        print(f"Dataset requested: {dataset}")
+        print(f"Data source requested: {requested_source or 'auto'}")
+        print(f"Data source resolved: {source} ({source_status})")
+        print(f"Request: {request_number}/{request_count} ({request_label})")
     print(f"Data source: {source}")
     print(f"Endpoint: {endpoint.native_name}" + (f" (CLI alias: {endpoint.name})" if endpoint.alias_for else ""))
     print(f"Method: {endpoint.method}")
@@ -130,6 +140,8 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
     print(f"Data list location: {location or 'not found'}")
     print(f"Record count in current response: {len(rows) if rows is not None else 'n/a'}")
     paging = {key: _lookup(response.body, key) for key in PAGING_KEYS if _lookup(response.body, key) is not None}
+    if paging_supported is not None:
+        print(f"Paging applied: {'yes (one requested page)' if paging_supported else 'no (endpoint does not page)'}")
     print(f"Paging metadata (provider-reported): {json.dumps(redact(paging), ensure_ascii=False, default=str)}")
     first_keys = sorted(str(key) for key in rows[0]) if rows and isinstance(rows[0], dict) else []
     print(f"First record keys: {first_keys}")
@@ -210,7 +222,7 @@ def run_one(client: InspectorClient, source: str, name: str, args: argparse.Name
 
 def _add_source(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--data-source", choices=DATA_SOURCES, default=DEFAULT_DATA_SOURCE,
-                        help=f"SSI REST source (default: {DEFAULT_DATA_SOURCE}; newest supported API)")
+                        help="SSI REST source (default: newest registered inspector-capable source)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -219,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
     listing = sub.add_parser("list", help="List endpoints for one source; no credentials/network required")
     _add_source(listing)
     run = sub.add_parser("run", help="Run one endpoint or all data endpoints")
-    run.add_argument("endpoint", help="Endpoint name, compatibility alias, or 'all'")
+    run.add_argument("endpoint", help="Canonical dataset, endpoint name, compatibility alias, or 'all'")
     _add_source(run)
     run.add_argument("--symbol")
     run.add_argument("--date", help="One date in DD/MM/YYYY or YYYY-MM-DD")
@@ -229,8 +241,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--market", help="Compatibility alias for board where supported")
     run.add_argument("--exchange", help="Compatibility alias for board where supported")
     run.add_argument("--index-code")
-    run.add_argument("--page-index", type=int, default=1)
-    run.add_argument("--page-size", type=int, default=10)
+    run.add_argument("--page-index", type=int, default=None)
+    run.add_argument("--page-size", type=int, default=None)
     run.add_argument("--limit", type=int, default=3)
     run.add_argument("--full-json", action="store_true")
     run.add_argument("--show-mapping", action="store_true", help="Print the source dictionary rules used for clean output")
@@ -242,6 +254,39 @@ def build_parser() -> argparse.ArgumentParser:
 def _validate_numeric(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.page_index < 1 or args.page_size < 1 or args.limit < 0 or not 1 <= args.timeout <= 120:
         parser.error("page-index/page-size must be positive, limit non-negative, and timeout 1..120")
+
+
+def run_dataset(args: argparse.Namespace) -> dict[str, str]:
+    dataset = CLI_DATASETS[args.endpoint]
+    request = DatasetRequest(
+        dataset=dataset, symbol=args.symbol, index_code=args.index_code,
+        date=args.date, from_date=args.from_date, to_date=args.to_date,
+        page_index=args.page_index, page_size=args.page_size, ascending=args.ascending,
+        board=args.board, market=args.market, exchange=args.exchange,
+    )
+    plan = build_dataset_plan(request, args.data_source if args.data_source_explicit else None,
+                              page_index_explicit=args.page_index_explicit,
+                              page_size_explicit=args.page_size_explicit)
+    client = InspectorClient(plan.capability.source, timeout=args.timeout)
+    results: dict[str, str] = {}
+    for number, item in enumerate(plan.requests, 1):
+        key = item.label
+        try:
+            response = client.request_endpoint(plan.endpoint, item.params)
+            results[key] = print_report(
+                plan.capability.source, plan.endpoint, item.params, response,
+                limit=args.limit, full_json=args.full_json, client=client,
+                show_mapping=args.show_mapping, dataset=dataset,
+                requested_source=args.data_source if args.data_source_explicit else None,
+                source_status=plan.capability.status,
+                request_number=number, request_count=len(plan.requests),
+                request_label=item.label, paging_supported=plan.paging_supported,
+            )
+        except (InspectorError, ParameterError, MappingConfigurationError, ValueError) as exc:
+            results[key] = "FAILED"
+            print(f"\n{dataset} request {number}/{len(plan.requests)} ({item.label}) FAILED: "
+                  f"{scrub_text(str(exc), [client.token] if client.token else [])}")
+    return results
 
 
 def _validate_endpoint_options(source: str, endpoint: Any, args: argparse.Namespace) -> None:
@@ -276,10 +321,18 @@ def _validate_endpoint_options(source: str, endpoint: Any, args: argparse.Namesp
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
-    endpoints = registry(args.data_source)
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    args = parser.parse_args(raw_argv)
+    args.data_source_explicit = "--data-source" in raw_argv
+    requested_source = args.data_source if args.data_source_explicit else None
+    selected_source = args.data_source
+    endpoints = registry(selected_source)
     if args.command == "list":
-        print(f"Data source: {args.data_source}" + (" (legacy; select explicitly)" if args.data_source == "ssi_v2" else " (default)"))
+        print("Canonical datasets (selection is registry-order based; preview is inspector-only):")
+        for dataset, capability, endpoint_name in canonical_capabilities():
+            if requested_source is None or capability.source == requested_source:
+                print(f"{dataset.replace('_', '-')}\t{dataset}\t{capability.source}\t{capability.status}\t{endpoint_name}")
+        print(f"\nEndpoint compatibility view — data source: {selected_source}")
         native = [endpoint for endpoint in endpoints.values() if not endpoint.alias_for]
         aliases = [endpoint for endpoint in endpoints.values() if endpoint.alias_for]
         print("Native endpoints:")
@@ -291,16 +344,29 @@ def main(argv: list[str] | None = None) -> int:
         for endpoint in aliases:
             print(f"{endpoint.name}\t{endpoint.method}\t{endpoint.url}\talias-for={endpoint.alias_for}")
         return 0
+    args.page_index_explicit = args.page_index is not None
+    args.page_size_explicit = args.page_size is not None
+    args.page_index = args.page_index or 1
+    args.page_size = args.page_size or 10
     _validate_numeric(parser, args)
     print("READ-ONLY — NO DATABASE WRITES")
+    if args.endpoint in CLI_DATASETS:
+        try:
+            results = run_dataset(args)
+        except (ParameterError, MappingConfigurationError, ValueError) as exc:
+            parser.error(str(exc))
+        print("\nSummary:")
+        for name, status in results.items():
+            print(f"{name}: {status}")
+        return 1 if "FAILED" in results.values() else 0
     if args.endpoint != "all" and args.endpoint not in endpoints:
-        parser.error(f"endpoint {args.endpoint!r} is not supported by {args.data_source}; no cross-source fallback")
-    client = InspectorClient(args.data_source, timeout=args.timeout)
-    names = RUN_ALL_ORDER[args.data_source] if args.endpoint == "all" else [args.endpoint]
+        parser.error(f"endpoint {args.endpoint!r} is not supported by {selected_source}; no cross-source fallback")
+    client = InspectorClient(selected_source, timeout=args.timeout)
+    names = RUN_ALL_ORDER[selected_source] if args.endpoint == "all" else [args.endpoint]
     results: dict[str, str] = {}
     for name in names:
         try:
-            results[name] = run_one(client, args.data_source, name, args)
+            results[name] = run_one(client, selected_source, name, args)
         except (InspectorError, ParameterError, MappingConfigurationError) as exc:
             results[name] = "FAILED"
             print(f"\n{name} FAILED: {scrub_text(str(exc), [client.token] if client.token else [])}")

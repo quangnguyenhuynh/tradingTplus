@@ -659,30 +659,28 @@ overrides. Vietnam market dates/session logic uses Asia/Ho_Chi_Minh semantics.
 
 ## Read-only SSI API Inspector
 
-The standalone inspector defaults to SSI REST v3 and does not change or invoke production ingestion. Select legacy v2 explicitly; listing/help need no credentials or network:
+The standalone, read-only inspector now has a provider-neutral dataset API:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
+```
+
+Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all three datasets. Preview is not production readiness: production independently remains on the newest `ready` source, currently ssi_v2. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`. There is no cross-source fallback.
+
+Use one `--date` or an ordered `--from-date`/`--to-date` pair. Range-capable endpoints make one request; v3 index ranges make one request per calendar day. Plans above 100 data requests fail before network access. `--page-index`/`--page-size` request one supported page, while `--limit` only controls each displayed sample. `--full-json` prints the complete response fetched and corresponding CLEAN rows, not all pages.
+
+The inspector prints RAW and maps that same response once through the source+dataset dictionary into the existing CLEAN contract; `--show-mapping` prints rules. Missing/unverified values remain null with diagnostics. `PASS` is not completeness or production readiness; `EMPTY` does not prove a holiday; any request/API/mapping `FAILED` yields exit `1` after remaining range requests run.
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py list
 python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
-python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --date 08/09/2026 --full-json
-# v3 compatibility alias for securities-summary:
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --full-json --show-mapping
 ```
 
-V3 sends summary/OHLC/master ranges as `from`/`to`; `daily-stock-price` is only a compatibility alias for native `securities-summary`. V3 uses `SSI_API_KEY`/`SSI_API_SECRET`; legacy v2 uses `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for endpoint tables, ranges, paging versus sample limits, status/exit codes, redaction, and troubleshooting.
-
-The inspector now prints both raw and clean samples from the same fetched page by default. `--full-json` prints the entire raw response and all corresponding clean rows; `--show-mapping` additionally prints the dictionary rules. Output is a text report with separate JSON sections. `--limit` affects display only; `--page-size` affects the API request. There is no automatic pagination or comparison.
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json --show-mapping
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --symbol SSI --date 08/09/2026 --full-json
-python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
-```
-
-Mappings target existing `stock_daily`, `stock_intraday` (1m), and `index_daily` fields. DailyOHLC remains a raw cross-check, and endpoints without a canonical mapping remain raw-only. Missing or unverified fields stay null; unsupported fields and conversion errors are reported. Empty responses produce no clean rows. Mapping errors cause exit `1`; raw remains visible.
-
-`data-preview` has been removed from `main.py`. New-source inspection ends after mapping/printing: it never calls database writers or production pipelines. No migration or backfill is needed.
+Help/list need no credential or network. Existing endpoint commands and `run all` remain available for compatibility; aliases are not duplicated by `run all`, and `daily-ohlc` remains a RAW cross-check rather than canonical stock daily. Adding a provider requires request/auth support, a mapping and a registered capability. The inspector never initializes DB/pipeline writers; no migration or backfill is involved. See [`scripts/ssi_api_inspector/README.md`](../scripts/ssi_api_inspector/README.md) for the full contract and live-verification limits.
 
 ## Source adapters: preview vs ingest
 
