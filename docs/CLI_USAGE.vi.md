@@ -651,30 +651,28 @@ override. Ngày/session thị trường dùng ngữ nghĩa Asia/Ho_Chi_Minh.
 
 ## SSI API Inspector chỉ đọc
 
-Inspector độc lập mặc định SSI REST v3, không đổi hoặc gọi production ingest. Muốn dùng v2 legacy phải chọn rõ; list/help không cần credential hay network:
+Inspector độc lập, chỉ đọc có CLI chuẩn không phụ thuộc tên endpoint nhà cung cấp:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
+```
+
+Không truyền `--data-source` sẽ chọn capability inspector mới nhất theo thứ tự registry, hiện là `ssi_v3 (preview)` cho cả ba dataset. Preview không phải production-ready: production chọn nguồn `ready` độc lập và hiện vẫn là ssi_v2. Routing: `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` 1m cố định: cả hai dùng `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`. Không fallback khác nguồn.
+
+Dùng một `--date` hoặc đủ cặp from/to có thứ tự. Endpoint hỗ trợ range nhận một request; range index v3 tách một request cho từng ngày lịch. Kế hoạch quá 100 data request bị chặn trước network. `--page-index`/`--page-size` chỉ lấy một trang được hỗ trợ; `--limit` chỉ giới hạn sample mỗi response. `--full-json` in response đã lấy và CLEAN tương ứng, không tự lấy mọi trang.
+
+Inspector in RAW rồi map chính response đó đúng một lần bằng mapping source+dataset vào contract CLEAN hiện có; `--show-mapping` in quy tắc. Giá trị thiếu/chưa xác minh giữ null kèm diagnostics. `PASS` không chứng minh completeness/production-ready; `EMPTY` không chứng minh ngày nghỉ; có request/API/mapping `FAILED` thì exit `1` sau khi các request range còn lại chạy xong.
 
 ```bash
 python scripts/ssi_api_inspector/inspect.py list
 python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
-python scripts/ssi_api_inspector/inspect.py run securities-summary --symbol SSI --date 08/09/2026 --full-json
-# Alias tương thích v3 của securities-summary:
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v2 --symbol SSI --date 08/09/2026 --full-json
+python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --full-json --show-mapping
 ```
 
-V3 gửi khoảng summary/OHLC/master bằng `from`/`to`; `daily-stock-price` chỉ là alias tương thích của tên native `securities-summary`. V3 dùng `SSI_API_KEY`/`SSI_API_SECRET`; v2 legacy dùng `SSI_CONSUMER_ID`/`SSI_CONSUMER_SECRET`. Xem [`scripts/ssi_api_inspector/README.vi.md`](../scripts/ssi_api_inspector/README.vi.md) để biết bảng endpoint, khoảng ngày, paging so với sample limit, status/exit code, redact và troubleshooting.
-
-Inspector mặc định in cả sample raw và clean sau mapping từ cùng trang API đã lấy. `--full-json` in toàn bộ response raw cùng các dòng clean tương ứng; `--show-mapping` in thêm quy tắc từ điển. Output là báo cáo text có các phần JSON riêng. `--limit` chỉ giới hạn phần in; `--page-size` quyết định trang API. Không tự phân trang hoặc so sánh.
-
-```bash
-python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json --show-mapping
-python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --symbol SSI --date 08/09/2026 --full-json
-python scripts/ssi_api_inspector/inspect.py run daily-index --index-code VNINDEX --date 08/09/2026 --full-json
-```
-
-Mapping dùng các trường hiện có của `stock_daily`, `stock_intraday` (1m), `index_daily`. DailyOHLC vẫn để đối chiếu raw; endpoint chưa có mapping chuẩn chỉ in raw. Dữ liệu thiếu hoặc chưa xác nhận giữ null và có thông báo; lỗi chuyển kiểu được báo rõ. Response rỗng không tạo clean giả. Lỗi mapping trả exit `1` và vẫn giữ raw để xem.
-
-Đã bỏ nhóm `data-preview` khỏi `main.py`. Luồng kiểm tra nguồn mới dừng sau mapping/in dữ liệu, không gọi writer hoặc production pipeline. Không cần migration/backfill.
+Help/list không cần credential/network. Lệnh endpoint cũ và `run all` vẫn tương thích; alias không bị gọi trùng trong `run all`, `daily-ohlc` vẫn chỉ đối chiếu RAW. Thêm nguồn mới cần request/auth, mapping và capability đăng ký. Inspector không khởi tạo DB/pipeline writer; không migration/backfill. Xem [`scripts/ssi_api_inspector/README.vi.md`](../scripts/ssi_api_inspector/README.vi.md) để biết contract đầy đủ và giới hạn live verification.
 
 ## Source adapter: xem trước và ingest
 
