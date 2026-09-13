@@ -657,12 +657,14 @@ Inspector độc lập, chỉ đọc có CLI chuẩn không phụ thuộc tên e
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run index-list
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
 ```
 
-Không truyền `--data-source` sẽ chọn capability inspector mới nhất theo thứ tự registry, hiện là `ssi_v3 (preview)` cho cả ba dataset. Preview không phải production-ready: production chọn nguồn `ready` độc lập và hiện vẫn là ssi_v2. Routing: `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` 1m cố định: cả hai dùng `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`. Không fallback khác nguồn.
+Không truyền `--data-source` sẽ chọn capability inspector mới nhất theo thứ tự registry, hiện là `ssi_v3 (preview)` cho cả năm dataset. Preview không phải production-ready: production chọn nguồn `ready` độc lập và hiện vẫn là ssi_v2. Routing: `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` 1m cố định: cả hai dùng `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: cả hai dùng `index-list`. Capability danh mục chỉ là preview. Không fallback khác nguồn.
 
-Dùng một `--date` hoặc đủ cặp from/to có thứ tự. Endpoint hỗ trợ range nhận một request; range index v3 tách một request cho từng ngày lịch. Kế hoạch quá 100 data request bị chặn trước network. `--page-index`/`--page-size` chỉ lấy một trang được hỗ trợ; `--limit` chỉ giới hạn sample mỗi response. `--full-json` in response đã lấy và CLEAN tương ứng, không tự lấy mọi trang.
+Dataset giá dùng một `--date` hoặc đủ cặp from/to có thứ tự. Endpoint hỗ trợ range nhận một request; range index v3 tách một request cho từng ngày lịch. Dataset danh mục từ chối ngày; `symbol-list` yêu cầu sàn (có alias market/exchange), còn `index-list` cho phép bỏ sàn. Kế hoạch quá 100 data request bị chặn trước network. `--page-index`/`--page-size` chỉ lấy một trang được hỗ trợ; `--limit` chỉ giới hạn sample mỗi response. `--full-json` in response đã lấy và CLEAN tương ứng, không tự lấy mọi trang.
 
 Inspector in RAW rồi map chính response đó đúng một lần bằng mapping source+dataset vào contract CLEAN hiện có; `--show-mapping` in quy tắc. Giá trị thiếu/chưa xác minh giữ null kèm diagnostics. `PASS` không chứng minh completeness/production-ready; `EMPTY` không chứng minh ngày nghỉ; có request/API/mapping `FAILED` thì exit `1` sau khi các request range còn lại chạy xong.
 
@@ -684,4 +686,4 @@ python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
 python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
 ```
 
-`stock-daily` và lệnh cũ `stock-eod` dùng chung handler. Các lệnh backfill/refill ingest cũng nhận và truyền xuyên suốt `--data-source`. Chỉ xem trước API trong `scripts/ssi_api_inspector`, tuyệt đối không ghi DB; xem README inspector cho đủ ba dataset.
+`stock-daily` và lệnh cũ `stock-eod` dùng chung handler. Các lệnh backfill/refill ingest cũng nhận và truyền xuyên suốt `--data-source`. Chỉ xem trước API trong `scripts/ssi_api_inspector`, tuyệt đối không ghi DB; xem README inspector cho đủ năm dataset.

@@ -9,7 +9,7 @@ from src.intraday_value import calculate_trade_value
 
 
 def endpoint_mapping(source: str, native_name: str) -> tuple[str, dict[str, Any]] | None:
-    for dataset in ("stock_daily", "stock_intraday", "index_daily"):
+    for dataset in ("stock_daily", "stock_intraday", "index_daily", "symbol_list", "index_list"):
         mapping = get_mapping(source, dataset)
         if mapping.get("inspector", {}).get("endpoint") == native_name:
             return dataset, mapping
@@ -23,6 +23,8 @@ def _first(values: dict[str, Any], *keys: str) -> Any:
 def _context(dataset: str, row: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     raw = {str(key).casefold(): value for key, value in row.items()}
     request = {str(key).casefold(): value for key, value in params.items()}
+    if dataset in {"symbol_list", "index_list"}:
+        return {}
     is_index = dataset == "index_daily"
     keys = ("index", "indexcode", "indexid") if is_index else ("symbol", "ticker", "stocksymbol")
     actual = _first(raw, *keys)
@@ -68,4 +70,21 @@ def map_rows(source: str, dataset: str, mapping: dict[str, Any],
             result = map_record(source, dataset, record, context)
         clean.append(result.candidate)
         reports.append({"record": index + 1, **result.report})
+    identity = "symbol" if dataset == "symbol_list" else "index_code" if dataset == "index_list" else None
+    if identity:
+        positions: dict[str, list[int]] = {}
+        for index, candidate in enumerate(clean):
+            if candidate and candidate.get(identity) not in (None, ""):
+                positions.setdefault(str(candidate[identity]).casefold(), []).append(index)
+        for duplicate_positions in positions.values():
+            if len(duplicate_positions) < 2:
+                continue
+            raw_records = [position + 1 for position in duplicate_positions]
+            for position in duplicate_positions:
+                reports[position]["errors"].append({
+                    "field": identity, "code": "DUPLICATE_IDENTITY", "records": raw_records,
+                })
+                reports[position]["records_valid"] = 0
+                reports[position]["records_rejected"] = 1
+                clean[position] = None
     return clean, reports

@@ -372,3 +372,50 @@ def test_bad_canonical_arguments_fail_before_client_or_network(argv, monkeypatch
     with pytest.raises(SystemExit) as exc:
         inspect.main(argv)
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize(("name", "source", "native", "selector", "expected"), [
+    ("symbol-list", "ssi_v2", "securities", ["--board", "HOSE"], {"Market": "HOSE", "PageIndex": 1, "PageSize": 10}),
+    ("symbol-list", "ssi_v3", "securities-by-board", ["--market", "HOSE"], {"board": "HOSE"}),
+    ("index-list", "ssi_v2", "index-list", ["--exchange", "HOSE"], {"Exchange": "HOSE", "PageIndex": 1, "PageSize": 10}),
+    ("index-list", "ssi_v3", "index-list", ["--board", "HOSE"], {"board": "HOSE"}),
+    ("index-list", "ssi_v3", "index-list", [], {}),
+])
+def test_catalog_canonical_routing_without_dates(name, source, native, selector, expected,
+                                                  monkeypatch, capsys):
+    calls = []
+    class Client:
+        token = None
+        def __init__(self, selected, **_kwargs): assert selected == source
+        def request_endpoint(self, endpoint, params, post_json=None):
+            calls.append((endpoint.native_name, params)); return response({"data": []})
+    monkeypatch.setattr(inspect, "InspectorClient", Client)
+    assert inspect.main(["run", name, *selector, f"--data-source={source}"]) == 0
+    assert calls == [(native, expected)]
+    assert "Catalog completeness: unverified" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("argv", [
+    ["run", "symbol-list"],
+    ["run", "symbol-list", "--board", "HOSE", "--date", "2026-09-08"],
+    ["run", "index-list", "--symbol", "SSI"],
+    ["run", "index-list", "--board", "HOSE", "--exchange", "HNX"],
+    ["run", "symbol-list", "--board", "HOSE", "--page-size", "20"],
+])
+def test_catalog_invalid_options_fail_before_network(argv, monkeypatch):
+    monkeypatch.setattr(inspect, "InspectorClient", lambda *_a, **_k: pytest.fail("client constructed"))
+    with pytest.raises(SystemExit) as exc:
+        inspect.main(argv)
+    assert exc.value.code == 2
+
+
+def test_catalog_auto_source_and_explicit_equals_form(monkeypatch):
+    sources = []
+    class Client:
+        token = None
+        def __init__(self, source, **_kwargs): sources.append(source)
+        def request_endpoint(self, endpoint, params, post_json=None): return response({"data": []})
+    monkeypatch.setattr(inspect, "InspectorClient", Client)
+    assert inspect.main(["run", "index-list"]) == 0
+    assert inspect.main(["run", "index-list", "--data-source=ssi_v2"]) == 0
+    assert sources == ["ssi_v3", "ssi_v2"]

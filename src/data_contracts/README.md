@@ -1,6 +1,6 @@
 # Canonical data contracts and source mappings
 
-This package separates the application's clean-data meaning from a provider's payload shape. `definitions.json` is the canonical dictionary for `stock_daily`, 1-minute `stock_intraday`, and `index_daily`. Each field states its business meaning, type, unit, required/null policy, field constraints, and relevant date/time/timeframe convention. Every dataset currently has `contract_version: 1.0.0`.
+This package separates the application's clean-data meaning from a provider's payload shape. `definitions.json` is the canonical dictionary for `stock_daily`, 1-minute `stock_intraday`, `index_daily`, and inspector-only `symbol_list`/`index_list`. Each field states its business meaning, type, unit, required/null policy, field constraints, and relevant date/time/timeframe convention. All five datasets currently have `contract_version: 1.0.0`.
 
 `mappings/ssi_v2.json` is the independently versioned (`mapping_version: 1.0.0`) SSI v2 adapter. It declares only confirmed aliases, allow-listed transforms, source-specific missing/placeholder handling, and any evidenced unit multiplier. In particular, SSI v2 zero placeholders for daily reference/ceiling/floor prices use `ssi_v2_zero_price_to_null`; this is not a global contract rule.
 
