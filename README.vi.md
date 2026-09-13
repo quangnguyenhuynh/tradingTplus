@@ -251,6 +251,8 @@ Dùng `--show-mapping` nếu muốn in quy tắc từ điển. Từ điển nằ
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
 python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
 python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-mapping
+python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
 **Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (hiện là `ssi_v2`). Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.

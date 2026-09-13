@@ -1,6 +1,7 @@
 import pytest
 
-from src.data_sources.registry import SourceNotReadyError, resolve_source
+from src.data_sources.registry import (SourceNotReadyError, create_production_adapter,
+                                       resolve_source)
 
 
 @pytest.mark.parametrize("dataset", ["stock_daily", "stock_intraday", "index_daily"])
@@ -21,3 +22,11 @@ def test_explicit_ready_source_is_honoured():
 def test_preview_source_is_rejected_for_production_before_api_use():
     with pytest.raises(SourceNotReadyError, match="ssi_v3.*stock_daily"):
         resolve_source("stock_daily", "ssi_v3")
+
+
+@pytest.mark.parametrize("dataset", ["symbol_list", "index_list"])
+def test_catalog_datasets_are_inspector_only_for_both_sources(dataset):
+    assert resolve_source(dataset, production=False).source == "ssi_v3"
+    assert resolve_source(dataset, "ssi_v2", production=False).status == "preview"
+    with pytest.raises(SourceNotReadyError):
+        create_production_adapter(dataset)

@@ -158,3 +158,28 @@ runpy.run_path("scripts/ssi_api_inspector/inspect.py", run_name="__main__")
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "ssi_v3" in result.stdout
+
+
+@pytest.mark.parametrize(("source", "dataset", "row", "identity"), [
+    ("ssi_v2", "symbol_list", {"Symbol": "SSI", "StockName": "SSI Securities", "Market": "HOSE", "Extra": 7}, "symbol"),
+    ("ssi_v3", "symbol_list", {"symbol": "SSI", "unknown": True}, "symbol"),
+    ("ssi_v2", "index_list", {"IndexCode": "VNINDEX", "IndexName": "VN Index", "Exchange": "HOSE"}, "index_code"),
+    ("ssi_v3", "index_list", {"index": "VNINDEX", "unknown": True}, "index_code"),
+])
+def test_catalog_mapping_preserves_raw_and_maps_verified_identity(source, dataset, row, identity):
+    from src.data_contracts.registry import get_mapping
+    before = copy.deepcopy(row)
+    clean, reports = map_rows(source, dataset, get_mapping(source, dataset), [row], {})
+    assert clean[0][identity] in {"SSI", "VNINDEX"}
+    assert row == before and not reports[0]["errors"]
+
+
+def test_catalog_missing_and_duplicate_identity_are_traceable_outside_sample(capsys):
+    body = {"data": [{"Symbol": "SSI"}, {"Symbol": ""}, {"Symbol": "ssi"}]}
+    status = inspect.print_report("ssi_v2", V2_ENDPOINTS["securities"], {"Market": "HOSE"},
+                                  response(body), limit=1, full_json=False,
+                                  dataset="symbol_list", requested_source="ssi_v2",
+                                  source_status="preview", paging_supported=True)
+    output = capsys.readouterr().out
+    assert status == "FAILED"
+    assert "MISSING_REQUIRED" in output and "DUPLICATE_IDENTITY" in output

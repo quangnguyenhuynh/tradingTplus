@@ -390,6 +390,68 @@
         "endpoint": "index-summary",
         "prefix": "indexSummary"
       }
+    },
+    "symbol_list": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "aliases": [
+            "securitiesByBoard.symbol"
+          ],
+          "transform": "symbol"
+        },
+        "stock_name": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 securitiesByBoard name field has been verified from a live response"
+        },
+        "market": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 securitiesByBoard market field has been verified from a live response"
+        },
+        "exchange": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 securitiesByBoard exchange field has been verified from a live response"
+        },
+        "security_type": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 securitiesByBoard security-type field has been verified from a live response"
+        }
+      },
+      "inspector": {
+        "endpoint": "securities-by-board",
+        "prefix": "securitiesByBoard"
+      }
+    },
+    "index_list": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "aliases": [
+            "indexList.index"
+          ],
+          "transform": "symbol"
+        },
+        "index_name": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 indexList name field has been verified from a live response"
+        },
+        "exchange": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "No v3 indexList exchange field has been verified from a live response"
+        }
+      },
+      "inspector": {
+        "endpoint": "index-list",
+        "prefix": "indexList"
+      }
     }
   }
 }

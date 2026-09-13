@@ -83,6 +83,12 @@ def _v3_board(args: Any) -> dict[str, Any]:
     return {"index" if name == "index_code" else name: value}
 
 
+def _catalog_board(args: Any, key: str) -> dict[str, Any]:
+    values = [getattr(args, name, None) for name in ("board", "market", "exchange")
+              if getattr(args, name, None)]
+    return {key: values[0]} if values else {}
+
+
 def _v3_summary(args: Any) -> dict[str, Any]:
     name, value = _one_selector(args, "symbol", "index_code")
     start, end = _dates(args)
@@ -149,7 +155,7 @@ V3_ENDPOINTS: dict[str, Endpoint] = {
     "access-token": Endpoint("access-token", "access-token", "Auth token", "POST", f"{V3_BASE}/auth/token", False, "auth", lambda a: {}, _v3_auth),
     "securities-by-board": Endpoint("securities-by-board", "securities-by-board", "securitiesByBoard", "GET", f"{V3_BASE}/data/securitiesByBoard", True, "data", _v3_board),
     "securities-summary": Endpoint("securities-summary", "securities-summary", "securitiesSummary", "GET", f"{V3_BASE}/data/securitiesSummary", True, "data", _v3_summary),
-    "index-list": Endpoint("index-list", "index-list", "indexList", "GET", f"{V3_BASE}/data/indexList", True, "data", lambda a: ({"board": a.board or a.exchange} if a.board or a.exchange else {})),
+    "index-list": Endpoint("index-list", "index-list", "indexList", "GET", f"{V3_BASE}/data/indexList", True, "data", lambda a: _catalog_board(a, "board")),
     "index-summary": Endpoint("index-summary", "index-summary", "indexSummary", "GET", f"{V3_BASE}/data/indexSummary", True, "data", _v3_index_summary),
     "daily-ohlc": Endpoint("daily-ohlc", "daily-ohlc", "OHLC (1d)", "GET", f"{V3_BASE}/data/ohlc", True, "data", lambda a: _v3_ohlc(a, False)),
     "intraday-ohlc": Endpoint("intraday-ohlc", "intraday-ohlc", "OHLC (1m)", "GET", f"{V3_BASE}/data/ohlc", True, "data", lambda a: _v3_ohlc(a, True)),
@@ -184,10 +190,10 @@ for alias, native in {
 
 V2_ENDPOINTS: dict[str, Endpoint] = {
     "access-token": Endpoint("access-token", "access-token", "AccessToken (legacy v2)", "POST", config.SSI_AUTH_URL, False, "auth", lambda a: {}, _v2_auth),
-    "securities": Endpoint("securities", "securities", "Securities (legacy v2)", "GET", config.SSI_SECURITIES_URL, True, "data", lambda a: {"Market": a.market or a.board, **_paging_v2(a)} if a.market or a.board else (_ for _ in ()).throw(ParameterError("securities requires --market or --board"))),
+    "securities": Endpoint("securities", "securities", "Securities (legacy v2)", "GET", config.SSI_SECURITIES_URL, True, "data", lambda a: {**_catalog_board(a, "Market"), **_paging_v2(a)} if _catalog_board(a, "Market") else (_ for _ in ()).throw(ParameterError("securities requires --market or --board"))),
     "securities-details": Endpoint("securities-details", "securities-details", "SecuritiesDetails (legacy v2)", "GET", config.SSI_SECURITIES_DETAILS_URL, True, "data", lambda a: {"Market": a.market or a.board, "Symbol": a.symbol, **_paging_v2(a)} if (a.market or a.board) and a.symbol else (_ for _ in ()).throw(ParameterError("securities-details requires --symbol and --market/--board"))),
     "index-components": Endpoint("index-components", "index-components", "IndexComponents (legacy v2)", "GET", config.SSI_INDEX_COMPONENTS_URL, True, "data", lambda a: {"IndexCode": a.index_code, **_paging_v2(a)} if a.index_code else (_ for _ in ()).throw(ParameterError("index-components requires --index-code"))),
-    "index-list": Endpoint("index-list", "index-list", "IndexList (legacy v2)", "GET", config.SSI_INDEX_LIST_URL, True, "data", lambda a: {"Exchange": a.exchange or a.board, **_paging_v2(a)} if a.exchange or a.board else _paging_v2(a)),
+    "index-list": Endpoint("index-list", "index-list", "IndexList (legacy v2)", "GET", config.SSI_INDEX_LIST_URL, True, "data", lambda a: {**_catalog_board(a, "Exchange"), **_paging_v2(a)}),
     "daily-ohlc": Endpoint("daily-ohlc", "daily-ohlc", "DailyOhlc (legacy v2)", "GET", config.SSI_DAILY_OHLC_URL, True, "data", lambda a: _v2_symbol_dates(a)),
     "intraday-ohlc": Endpoint("intraday-ohlc", "intraday-ohlc", "IntradayOhlc (legacy v2)", "GET", config.SSI_INTRADAY_OHLC_URL, True, "data", lambda a: _v2_symbol_dates(a, intraday=True)),
     "daily-index": Endpoint("daily-index", "daily-index", "DailyIndex (legacy v2)", "GET", config.SSI_DAILY_INDEX_URL, True, "data", lambda a: {"IndexId": a.index_code, "FromDate": _v2_dates(a)[0], "ToDate": _v2_dates(a)[1], **_paging_v2(a)} if a.index_code else (_ for _ in ()).throw(ParameterError("daily-index requires --index-code"))),

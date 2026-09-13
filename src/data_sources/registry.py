@@ -6,7 +6,9 @@ from typing import Callable
 
 from .ssi_v2 import SSIV2Adapter
 
-DATASETS = ("stock_daily", "stock_intraday", "index_daily")
+PRODUCTION_DATASETS = ("stock_daily", "stock_intraday", "index_daily")
+INSPECTOR_ONLY_DATASETS = ("symbol_list", "index_list")
+DATASETS = PRODUCTION_DATASETS + INSPECTOR_ONLY_DATASETS
 
 
 class DataSourceError(ValueError): pass
@@ -25,10 +27,14 @@ class Capability:
 
 
 _CAPABILITIES = tuple(
-    [Capability("ssi_v2", dataset, 2, "ready", SSIV2Adapter) for dataset in DATASETS]
+    [Capability("ssi_v2", dataset, 2, "ready", SSIV2Adapter) for dataset in PRODUCTION_DATASETS]
     + [Capability("ssi_v3", dataset, 3, "preview", None,
                   "Response semantics and clean mapping are not fully verified; inspector only")
-       for dataset in DATASETS]
+       for dataset in PRODUCTION_DATASETS]
+    + [Capability(source, dataset, order, "preview", None,
+                  "Catalog preview for API inspection only; not a production sync capability")
+       for source, order in (("ssi_v2", 2), ("ssi_v3", 3))
+       for dataset in INSPECTOR_ONLY_DATASETS]
 )
 
 
@@ -50,6 +56,8 @@ def resolve_source(dataset: str, requested: str | None = None, *, production: bo
         selected = matches[0]
     else:
         eligible = [item for item in candidates if not production or item.status == "ready"]
+        if not eligible:
+            raise SourceNotReadyError(f"no production-ready data source supports dataset {dataset}")
         selected = max(eligible, key=lambda item: item.order)
     if production and selected.status != "ready":
         raise SourceNotReadyError(

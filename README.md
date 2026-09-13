@@ -266,6 +266,8 @@ Use `--show-mapping` to print dictionary rules. The dictionaries remain in `src/
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
 python scripts/ssi_api_inspector/inspect.py run intraday-ohlc --data-source ssi_v3 --symbol SSI --date 2026-09-08 --show-mapping
 python scripts/ssi_api_inspector/inspect.py run daily-index --data-source ssi_v3 --index-code VNINDEX --date 2026-09-08 --show-mapping
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-mapping
+python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
 **Ingest into DB:** production chooses the newest `ready` capability independently for each dataset (currently `ssi_v2`). Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.

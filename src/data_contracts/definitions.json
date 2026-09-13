@@ -498,6 +498,72 @@
           "nullable": true
         }
       }
+    },
+    "symbol_list": {
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "description": "Canonical security identifier returned by the catalog endpoint",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false
+        },
+        "stock_name": {
+          "description": "Provider security name when verified and present",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "market": {
+          "description": "Provider market/board classification when verified and present",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "exchange": {
+          "description": "Provider exchange classification when verified and present",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "security_type": {
+          "description": "Provider security type; no ordinary-share assumption",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        }
+      }
+    },
+    "index_list": {
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "description": "Canonical index identifier returned by the catalog endpoint",
+          "type": "string",
+          "unit": "none",
+          "required": true,
+          "nullable": false
+        },
+        "index_name": {
+          "description": "Provider index name when verified and present",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        },
+        "exchange": {
+          "description": "Provider exchange classification when verified and present",
+          "type": "string",
+          "unit": "none",
+          "required": false,
+          "nullable": true
+        }
+      }
     }
   }
 }

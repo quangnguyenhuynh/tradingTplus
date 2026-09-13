@@ -1,6 +1,6 @@
 # Contract dữ liệu chuẩn và mapping theo nguồn
 
-Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút và `index_daily`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. Cả ba dataset hiện dùng `contract_version: 1.0.0`.
+Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. Cả năm dataset hiện dùng `contract_version: 1.0.0`.
 
 `mappings/ssi_v2.json` là adapter SSI v2 có phiên bản riêng (`mapping_version: 1.0.0`). File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
 

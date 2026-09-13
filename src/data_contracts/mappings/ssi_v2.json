@@ -414,6 +414,73 @@
       "inspector": {
         "endpoint": "daily-index"
       }
+    },
+    "symbol_list": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "symbol": {
+          "aliases": [
+            "Symbol"
+          ],
+          "transform": "symbol"
+        },
+        "stock_name": {
+          "aliases": [
+            "StockName"
+          ],
+          "transform": "text"
+        },
+        "market": {
+          "aliases": [
+            "Market"
+          ],
+          "transform": "text"
+        },
+        "exchange": {
+          "aliases": [
+            "Exchange"
+          ],
+          "transform": "text"
+        },
+        "security_type": {
+          "aliases": [
+            "SecType"
+          ],
+          "transform": "text"
+        }
+      },
+      "inspector": {
+        "endpoint": "securities"
+      }
+    },
+    "index_list": {
+      "mapping_version": "1.0.0-preview",
+      "contract_version": "1.0.0",
+      "fields": {
+        "index_code": {
+          "aliases": [
+            "IndexCode",
+            "IndexId"
+          ],
+          "transform": "symbol"
+        },
+        "index_name": {
+          "aliases": [
+            "IndexName"
+          ],
+          "transform": "text"
+        },
+        "exchange": {
+          "aliases": [
+            "Exchange"
+          ],
+          "transform": "text"
+        }
+      },
+      "inspector": {
+        "endpoint": "index-list"
+      }
     }
   }
 }

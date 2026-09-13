@@ -13,6 +13,8 @@ CLI_DATASETS = {
     "stock-daily": "stock_daily",
     "stock-intraday": "stock_intraday",
     "index-daily": "index_daily",
+    "symbol-list": "symbol_list",
+    "index-list": "index_list",
 }
 MAX_DATA_REQUESTS = 100
 
@@ -60,6 +62,21 @@ def canonical_capabilities() -> tuple[tuple[str, Capability, str], ...]:
 
 
 def _validate_selector(request: DatasetRequest) -> None:
+    if request.dataset in {"symbol_list", "index_list"}:
+        unsupported = [name for name in ("symbol", "index_code") if getattr(request, name)]
+        if request.ascending is not None:
+            unsupported.append("ascending")
+        aliases = [(name, getattr(request, name)) for name in ("board", "market", "exchange")
+                   if getattr(request, name)]
+        if len({str(value).casefold() for _, value in aliases}) > 1:
+            detail = ", ".join(f"--{name}={value}" for name, value in aliases)
+            raise ParameterError(f"conflicting board aliases: {detail}")
+        if request.dataset == "symbol_list" and not aliases:
+            raise ParameterError("symbol-list requires --board (compatible --market/--exchange aliases are accepted)")
+        if unsupported:
+            flags = ", ".join(f"--{name.replace('_', '-')}" for name in unsupported)
+            raise ParameterError(f"canonical dataset {request.dataset.replace('_', '-')} does not support: {flags}")
+        return
     unsupported = [name for name in ("board", "market", "exchange") if getattr(request, name)]
     if request.ascending is not None:
         unsupported.append("ascending")
@@ -98,7 +115,15 @@ def build_dataset_plan(
 ) -> DatasetPlan:
     """Resolve source/mapping/endpoint and validate the complete plan before I/O."""
     _validate_selector(request)
-    start, end = _validate_dates(request)
+    is_catalog = request.dataset in {"symbol_list", "index_list"}
+    if is_catalog:
+        supplied_dates = [name for name in ("date", "from_date", "to_date") if getattr(request, name)]
+        if supplied_dates:
+            flags = ", ".join(f"--{name.replace('_', '-')}" for name in supplied_dates)
+            raise ParameterError(f"canonical catalog dataset does not support: {flags}")
+        start = end = None
+    else:
+        start, end = _validate_dates(request)
     capability = resolve_source(request.dataset, requested_source, production=False)
     mapping = get_mapping(capability.source, request.dataset)
     endpoint_name = mapping.get("inspector", {}).get("endpoint")
@@ -111,12 +136,19 @@ def build_dataset_plan(
     if endpoint.native_name != endpoint_name:
         raise ParameterError(f"mapping endpoint {endpoint_name!r} is not a native endpoint")
 
-    paging_supported = endpoint_name != "index-summary"
+    paging_supported = endpoint_name not in {"index-summary", "securities-by-board"} and not (
+        capability.source == "ssi_v3" and endpoint_name == "index-list"
+    )
     if not paging_supported and (page_index_explicit or page_size_explicit):
         raise ParameterError(f"{endpoint_name} does not support --page-index/--page-size")
 
     planned: list[PlannedRequest] = []
-    if capability.source == "ssi_v3" and request.dataset == "index_daily":
+    if is_catalog:
+        aliases = [getattr(request, name) for name in ("board", "market", "exchange")
+                   if getattr(request, name)]
+        normalized = replace(request, board=aliases[0] if aliases else None, market=None, exchange=None)
+        planned.append(PlannedRequest(request, endpoint.build_params(normalized), "current response"))
+    elif capability.source == "ssi_v3" and request.dataset == "index_daily":
         count = (end.date() - start.date()).days + 1
         if count > MAX_DATA_REQUESTS:
             raise ParameterError(

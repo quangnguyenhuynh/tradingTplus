@@ -665,12 +665,14 @@ The standalone, read-only inspector now has a provider-neutral dataset API:
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run index-list
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
 ```
 
-Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all three datasets. Preview is not production readiness: production independently remains on the newest `ready` source, currently ssi_v2. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`. There is no cross-source fallback.
+Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all five datasets. Preview is not production readiness: production independently remains on the newest `ready` source, currently ssi_v2. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: both use `index-list`. Catalog capabilities are preview-only. There is no cross-source fallback.
 
-Use one `--date` or an ordered `--from-date`/`--to-date` pair. Range-capable endpoints make one request; v3 index ranges make one request per calendar day. Plans above 100 data requests fail before network access. `--page-index`/`--page-size` request one supported page, while `--limit` only controls each displayed sample. `--full-json` prints the complete response fetched and corresponding CLEAN rows, not all pages.
+Price datasets use one `--date` or an ordered `--from-date`/`--to-date` pair. Range-capable endpoints make one request; v3 index ranges make one request per calendar day. Catalog datasets reject dates; `symbol-list` requires a board (with compatible market/exchange aliases), while `index-list` makes it optional. Plans above 100 data requests fail before network access. `--page-index`/`--page-size` request one supported page, while `--limit` only controls each displayed sample. `--full-json` prints the complete response fetched and corresponding CLEAN rows, not all pages.
 
 The inspector prints RAW and maps that same response once through the source+dataset dictionary into the existing CLEAN contract; `--show-mapping` prints rules. Missing/unverified values remain null with diagnostics. `PASS` is not completeness or production readiness; `EMPTY` does not prove a holiday; any request/API/mapping `FAILED` yields exit `1` after remaining range requests run.
 
@@ -692,4 +694,4 @@ python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
 python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
 ```
 
-`stock-daily` and legacy `stock-eod` share one handler. Backfill/refill ingest commands also accept and propagate `--data-source`. API preview belongs only in `scripts/ssi_api_inspector` and never writes DB; see its README for all three datasets.
+`stock-daily` and legacy `stock-eod` share one handler. Backfill/refill ingest commands also accept and propagate `--data-source`. API preview belongs only in `scripts/ssi_api_inspector` and never writes DB; see its README for all five datasets.

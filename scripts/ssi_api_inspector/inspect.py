@@ -139,6 +139,9 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
         print(f"Response body type: {response.json_state}")
     print(f"Data list location: {location or 'not found'}")
     print(f"Record count in current response: {len(rows) if rows is not None else 'n/a'}")
+    print(f"Record count displayed: {len(rows or []) if full_json else min(len(rows or []), max(0, limit))}")
+    if dataset in {"symbol_list", "index_list"}:
+        print("Catalog completeness: unverified (the response is a query-time snapshot, not dated history)")
     paging = {key: _lookup(response.body, key) for key in PAGING_KEYS if _lookup(response.body, key) is not None}
     if paging_supported is not None:
         print(f"Paging applied: {'yes (one requested page)' if paging_supported else 'no (endpoint does not page)'}")
@@ -228,10 +231,15 @@ def _add_source(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Read-only SSI REST API inspector (v3 by default).")
     sub = parser.add_subparsers(dest="command", required=True)
-    listing = sub.add_parser("list", help="List endpoints for one source; no credentials/network required")
+    listing = sub.add_parser("list", help="List canonical dataset capabilities and native endpoints; no credentials/network required")
     _add_source(listing)
-    run = sub.add_parser("run", help="Run one endpoint or all data endpoints")
-    run.add_argument("endpoint", help="Canonical dataset, endpoint name, compatibility alias, or 'all'")
+    run = sub.add_parser(
+        "run", help="Run one canonical dataset, native endpoint, or all native data endpoints",
+        epilog=("Canonical datasets: stock-daily, stock-intraday, index-daily (date required); "
+                "symbol-list (--board required), index-list (optional --board). "
+                "Catalog datasets reject date options."),
+    )
+    run.add_argument("endpoint", help="One of five canonical datasets, an endpoint/compatibility alias, or 'all'")
     _add_source(run)
     run.add_argument("--symbol")
     run.add_argument("--date", help="One date in DD/MM/YYYY or YYYY-MM-DD")
@@ -323,7 +331,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
     args = parser.parse_args(raw_argv)
-    args.data_source_explicit = "--data-source" in raw_argv
+    args.data_source_explicit = any(
+        item == "--data-source" or item.startswith("--data-source=") for item in raw_argv
+    )
     requested_source = args.data_source if args.data_source_explicit else None
     selected_source = args.data_source
     endpoints = registry(selected_source)

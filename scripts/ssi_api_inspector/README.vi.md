@@ -10,6 +10,8 @@ python scripts/ssi_api_inspector/inspect.py run <dataset> [options]
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
 ```
 
 Tên dataset không đổi khi đổi nhà cung cấp:
@@ -24,13 +26,15 @@ python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 
 
 ## Chọn nguồn và routing
 
-Khi không truyền `--data-source`, inspector dùng thứ tự capability registry để chọn nguồn mới nhất đã đăng ký cho dataset. Hiện cả ba dataset chọn **ssi_v3 (preview)**. Preview chỉ dành cho inspector, không có nghĩa dữ liệu đầy đủ, đúng ngữ nghĩa hoặc production-ready. Production chọn nguồn **ready** độc lập và vẫn dùng ssi_v2.
+Khi không truyền `--data-source`, inspector dùng thứ tự capability registry để chọn nguồn mới nhất đã đăng ký cho dataset. Hiện cả năm dataset chọn **ssi_v3 (preview)**. Preview chỉ dành cho inspector, không có nghĩa dữ liệu đầy đủ, đúng ngữ nghĩa hoặc production-ready. Production chọn nguồn **ready** độc lập và vẫn dùng ssi_v2.
 
 | Dataset CLI | CLEAN contract | ssi_v2 (ready) | ssi_v3 (preview) |
 |---|---|---|---|
 | `stock-daily` | `stock_daily` | `daily-stock-price` | `securities-summary` |
 | `stock-intraday` | `stock_intraday` (1m) | `intraday-ohlc` | `intraday-ohlc` |
 | `index-daily` | `index_daily` | `daily-index` | `index-summary` |
+| `symbol-list` | `symbol_list` | `securities` | `securities-by-board` |
+| `index-list` | `index_list` | `index-list` | `index-list` |
 
 Routing lấy từ `inspector.endpoint` trong mapping từng nguồn và được đối chiếu với native endpoint registry trước khi gọi mạng. Không fallback sau lựa chọn rõ ràng hoặc khi thiếu credential, HTTP/API lỗi, response rỗng hay mapping lỗi. Muốn thêm nguồn tương lai cần capability đăng ký, adapter auth/request và mapping/metadata; CLI chuẩn không cần biết tên endpoint nhà cung cấp.
 
@@ -49,7 +53,7 @@ python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 
 Builder giữ contract đã kiểm thử. V2 dùng `FromDate`/`ToDate` dạng `DD/MM/YYYY` và intraday có `resolution=1`. V3 securities summary dùng `from`/`to` chỉ có ngày; intraday OHLC dùng timestamp đầu/cuối ngày và `timeFrame=1m`. Không thêm giờ cho endpoint không yêu cầu.
 
-Ba dataset nhận một ngày hoặc khoảng ngày. Endpoint hỗ trợ range nhận một request range. Do v3 `index-summary` chỉ nhận một ngày, range index được chia thành từng ngày lịch, mỗi ngày có request/context riêng; ngày rỗng giữ `EMPTY`, không tạo row hay kết luận là ngày nghỉ. Kế hoạch trên 100 data request bị chặn trước network. Một request lỗi không chặn các request còn lại, nhưng exit cuối khác 0.
+Ba dataset giá nhận một ngày hoặc khoảng ngày. Endpoint hỗ trợ range nhận một request range. Do v3 `index-summary` chỉ nhận một ngày, range index được chia thành từng ngày lịch, mỗi ngày có request/context riêng; ngày rỗng giữ `EMPTY`, không tạo row hay kết luận là ngày nghỉ. Kế hoạch trên 100 data request bị chặn trước network. Một request lỗi không chặn các request còn lại, nhưng exit cuối khác 0.
 
 `--page-index`/`--page-size` chỉ lấy đúng một trang ở endpoint hỗ trợ; truyền rõ cho endpoint không paging sẽ bị từ chối. Không có fetch-all. `--limit` chỉ giới hạn sample RAW/CLEAN **mỗi response**. `--full-json` in toàn response đã lấy và CLEAN tương ứng, không tự lấy thêm trang. Report ghi rõ paging và request hiện tại/tổng số.
 
@@ -85,3 +89,19 @@ Alias không làm `run all` gọi trùng native endpoint; tập endpoint và hà
 ## Giới hạn kiểm chứng
 
 Test/fixture offline chỉ kiểm tra orchestration, request shape, giữ RAW và mapping; không chứng minh response live, entitlement, availability hay completeness của SSI. Trạng thái live là **NOT_RUN / UNVERIFIED** trừ khi báo cáo cụ thể ghi khác. Chỉ smoke live read-only khi credential đã có sẵn và dùng ngày/mã rõ ràng. Không có migration, DB impact hoặc backfill.
+
+## Dataset danh mục
+
+`symbol-list` yêu cầu một giá trị sàn. `--market` và `--exchange` tiếp tục là alias tương thích; nếu truyền nhiều alias thì mọi giá trị phải giống nhau. `index-list` nhận bộ lọc sàn tùy chọn. Request danh mục từ chối selector symbol/index/ngày/khoảng ngày trước khi gọi mạng và mô tả danh mục tại thời điểm truy vấn, không phải thành phần lịch sử ở một ngày giao dịch.
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run index-list
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --full-json --show-mapping
+```
+
+V2 `Securities` và `IndexList` lấy một trang và nhận option paging. V3 `securitiesByBoard` và `indexList` không nhận tham số paging; truyền paging rõ sẽ bị từ chối. `--limit` chỉ giới hạn phần hiển thị, còn `--full-json` in toàn response đã lấy. Report tách số record nhận/hiển thị và luôn ghi completeness danh mục chưa xác minh.
+
+Contract CLEAN danh mục dùng chung chỉ có định danh và field mô tả được hỗ trợ. Nó không tạo trading date, `status`/`intraday_status` vận hành hay audit timestamp, và không lọc loại chứng khoán. Thiếu identity làm record gắn với RAW bị loại; identity trùng được báo mà không deduplicate. Field v2 tái sử dụng ý nghĩa master-data hiện tại. Identity v3 (`symbol` của `securitiesByBoard`, `index` của `indexList`) là mapping preview; field optional name/market/exchange/type v3 giữ null và ghi chưa xác minh tới khi có bằng chứng live. Output chỉ để inspect, không sync vào `symbols`, `securities` hay `index_master`.

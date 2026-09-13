@@ -10,6 +10,8 @@ python scripts/ssi_api_inspector/inspect.py run <dataset> [options]
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run stock-intraday --symbol SSI --date 2026-09-08
 python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE
 ```
 
 The canonical names do not change when the provider changes:
@@ -24,13 +26,15 @@ python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 
 
 ## Source selection and routing
 
-Without `--data-source`, the inspector uses capability registry order to select the newest registered source supporting that dataset. This currently selects **ssi_v3 (preview)** for all three datasets. Preview means inspector-only and does not mean complete, semantically verified, or production-ready. Production independently selects the newest **ready** source and remains on ssi_v2.
+Without `--data-source`, the inspector uses capability registry order to select the newest registered source supporting that dataset. This currently selects **ssi_v3 (preview)** for all five datasets. Preview means inspector-only and does not mean complete, semantically verified, or production-ready. Production independently selects the newest **ready** source and remains on ssi_v2.
 
 | Canonical dataset | CLEAN contract | ssi_v2 (ready) | ssi_v3 (preview) |
 |---|---|---|---|
 | `stock-daily` | `stock_daily` | `daily-stock-price` | `securities-summary` |
 | `stock-intraday` | `stock_intraday` (1m) | `intraday-ohlc` | `intraday-ohlc` |
 | `index-daily` | `index_daily` | `daily-index` | `index-summary` |
+| `symbol-list` | `symbol_list` | `securities` | `securities-by-board` |
+| `index-list` | `index_list` | `index-list` | `index-list` |
 
 Routing comes from each source mapping's `inspector.endpoint` metadata and is checked against the native endpoint registry before network access. There is no fallback after an explicit choice or after credential, HTTP, empty-response, or mapping failures. A future source requires a registered capability, authentication/request adapter and mapping metadata/rules; the canonical CLI needs no provider-specific name.
 
@@ -49,7 +53,7 @@ python scripts/ssi_api_inspector/inspect.py list --data-source ssi_v2
 
 Provider builders retain their tested contracts. V2 uses `FromDate`/`ToDate` in `DD/MM/YYYY` and intraday `resolution=1`. V3 securities summary uses date-only `from`/`to`; v3 intraday OHLC uses day-boundary timestamps plus `timeFrame=1m`. The CLI does not append time to endpoints that do not require it.
 
-Canonical datasets accept a day or range. Range-capable endpoints receive one range request. Because v3 `index-summary` accepts one date, an index range becomes one request per calendar date, each with its own request/date context; an empty day remains `EMPTY`, not a fabricated holiday row. A canonical invocation is rejected before network access if its plan exceeds 100 data requests. If one request fails, remaining planned requests run, but final exit is nonzero.
+The three price datasets accept a day or range. Range-capable endpoints receive one range request. Because v3 `index-summary` accepts one date, an index range becomes one request per calendar date, each with its own request/date context; an empty day remains `EMPTY`, not a fabricated holiday row. A canonical invocation is rejected before network access if its plan exceeds 100 data requests. If one request fails, remaining planned requests run, but final exit is nonzero.
 
 `--page-index` and `--page-size` request one page only where supported. Explicit paging options are rejected for a non-paged endpoint. There is no fetch-all mode. `--limit` only limits RAW/CLEAN samples **per response**. `--full-json` prints the complete response actually fetched and all corresponding CLEAN candidates; it does not fetch more pages. Reports state whether paging applies and the current/total planned request.
 
@@ -89,3 +93,19 @@ Compatibility aliases do not duplicate native endpoints in `run all`; `run all` 
 ## Verification limits
 
 Offline tests/fixtures validate orchestration, parameter shapes, RAW preservation and mapping behavior; they do not prove live SSI response semantics, entitlement, availability or completeness. Live status is **NOT_RUN / UNVERIFIED** unless a specific implementation report says otherwise. A read-only live check requires already-configured credentials and explicit SSI/VNINDEX dates. No migration, DB data change or backfill is involved.
+
+## Catalog datasets
+
+`symbol-list` requires one board value. `--market` and `--exchange` remain compatible aliases; if more than one alias is supplied, all values must agree. `index-list` accepts an optional board filter. Catalog requests reject symbol/index/date/range selectors before network access and represent the catalog at query time, not historical membership on a trading date.
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run index-list
+python scripts/ssi_api_inspector/inspect.py run index-list --board HOSE --data-source ssi_v2
+python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --full-json --show-mapping
+```
+
+V2 `Securities` and `IndexList` request one page and accept paging options. V3 `securitiesByBoard` and `indexList` do not receive paging parameters; explicit paging is rejected. `--limit` affects display only, while `--full-json` prints the complete response already fetched. Reports separately state received/displayed records and always mark catalog completeness unverified.
+
+The shared CLEAN catalog contracts contain only provider identities and supported descriptive fields. They never invent trading dates, operational `status`/`intraday_status`, or audit timestamps, and they do not filter security types. Missing identities reject their RAW-linked record; duplicate identities are reported without deduplication. V2 field mappings reuse the current master-data meanings. V3 core identifiers (`symbol` for `securitiesByBoard`, `index` for `indexList`) are preview mappings; optional v3 name/market/exchange/type fields remain null and explicitly unverified until live evidence is captured. These outputs are inspection previews and are not synchronized to `symbols`, `securities`, or `index_master`.
