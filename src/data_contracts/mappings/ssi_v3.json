@@ -438,9 +438,10 @@
           "transform": "symbol"
         },
         "index_name": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 indexList name field has been verified from a live response"
+          "aliases": [
+            "indexList.indexName"
+          ],
+          "transform": "symbol"
         },
         "exchange": {
           "aliases": [
