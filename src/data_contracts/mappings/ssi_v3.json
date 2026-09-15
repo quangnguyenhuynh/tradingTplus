@@ -443,9 +443,10 @@
           "reason": "No v3 indexList name field has been verified from a live response"
         },
         "exchange": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 indexList exchange field has been verified from a live response"
+          "aliases": [
+            "indexList.board"
+          ],
+          "transform": "symbol"
         }
       },
       "inspector": {
