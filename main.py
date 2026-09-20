@@ -15,7 +15,6 @@ Production commands:
   python main.py features-daily (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features-intraday (--date DD/MM/YYYY | --from DD/MM/YYYY --to DD/MM/YYYY | --mode full)
   python main.py features [--date DD/MM/YYYY] [--symbols SSI HPG] [--timeframes 15m 60m 1d]
-  python main.py intraday [--symbols SSI HPG] [--timeframes 15m 60m]
   python main.py index-preview --date YYYY-MM-DD --indexes VNINDEX [--raw | --json]
   python main.py streaming-ingest --symbols SSI --indexes VNINDEX --channels quote --timeout 60 --max-messages-per-channel 1 [--write]
 
@@ -54,7 +53,6 @@ from src.pipeline import (
     run_stock_intraday_pipeline,
     run_intraday_backfill_pipeline,
     run_intraday_ingest,
-    run_intraday_pipeline,
     run_index_daily_ingest,
     run_index_backfill_pipeline,
     check_index_completeness,
@@ -410,28 +408,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Safe cutoff: HH:MM Vietnam time or timezone-aware timestamp",
     )
 
-    intraday = sub.add_parser(
-        "intraday",
-        help="Legacy alias for incremental 15m/60m feature calculation; does not ingest candles",
-    )
-    intraday.add_argument(
-        "--snapshot-time",
-        default=None,
-        help="Optional snapshot marker; defaults to current VN time",
-    )
-    intraday.add_argument(
-        "--symbols",
-        nargs="*",
-        default=None,
-        help="Symbols to process; omitted means all symbols",
-    )
-    intraday.add_argument(
-        "--timeframes",
-        nargs="*",
-        default=list(PERSISTED_INTRADAY_TIMEFRAMES),
-        help="Persisted intraday feature timeframes: 15m 60m",
-    )
-
     streaming = sub.add_parser(
         "streaming-ingest",
         help="Bounded SSI streaming ingest; dry-run/read-only unless --write is passed",
@@ -758,14 +734,6 @@ def main(argv: list[str] | None = None) -> int:
                     target_date=args.date,
                     as_of=args.as_of,
                 )
-            _print_summary(summary)
-            return _status_to_exit(summary)
-        if args.command == "intraday":
-            summary = run_intraday_pipeline(
-                snapshot_time=args.snapshot_time,
-                symbols=normalize_symbol_scope(args.symbols),
-                timeframes=tuple(args.timeframes),
-            )
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "streaming-ingest":

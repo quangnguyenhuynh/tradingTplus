@@ -449,20 +449,6 @@ mà không delete. Router tương thích này chỉ ghi `stock_features`; nên d
 source-specific cho range/replace rõ ràng. Nó không ingest/chạy
 signal/backtest/Analog.
 
-### Alias feature legacy `intraday`
-
-```text
-python main.py intraday [--snapshot-time VALUE] [--symbols [SYMBOL ...]]
-  [--timeframes [15m 60m]]
-```
-
-Ví dụ: `python main.py intraday --snapshot-time 14:30 --symbols SSI --timeframes 15m`.
-Bỏ symbol nghĩa là mọi symbol phù hợp; bỏ timeframe mặc định `15m 60m`.
-`--snapshot-time` mặc định giờ Việt Nam hiện tại cho summary metadata; cung cấp
-hiện chỉ đổi summary marker, **không** phải source/bucket cutoff an toàn. Dùng
-`features-intraday --date ... --as-of ...` cho cutoff. Alias tính incremental
-intraday feature; không ingest candle/chạy signal/backtest/Analog.
-
 <a id="index-data"></a>
 
 ## Dữ liệu nguồn Index Daily

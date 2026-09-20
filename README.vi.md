@@ -114,10 +114,10 @@ Range command vẫn là backfill explicit. Ingest không tự gọi bất kỳ f
 một mã, chạy source backfill và completeness trước rồi upsert feature `1d`, `15m`,
 `60m`. Command không sync master data hay chạy phân tích downstream.
 
-Alias legacy chỉ ghi feature 15m/60m:
+Dùng command source-specific cho feature dẫn xuất từ intraday:
 
 ```bash
-python main.py intraday --symbols SSI HPG --timeframes 15m 60m
+python main.py features-intraday --symbols SSI HPG --timeframes 15m 60m
 ```
 
 Các command sau bị từ chối có chủ đích:

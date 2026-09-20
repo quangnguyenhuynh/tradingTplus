@@ -29,7 +29,6 @@ The `scripts/` directory contains explicit operational tools. These are not the 
 | `phase0_reconcile_sample.py` | `READ-ONLY` | Check bounded payload lineage and one explicit raw/clean/feature sample with PASS/FAIL/UNKNOWN output. |
 | `eod_dry_run.py` | `READ-ONLY` | Inspect EOD readiness without database writes. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Inspect or write exactly one symbol/day. |
-| `backfill_sample.py` | `WRITES DB` | Deprecated delegate to combined production backfill; explicit inclusive dates required. |
 | `run_features.py` | `WRITES DB` | Run the feature pipeline explicitly. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Capture bounded streaming snapshots. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Capture quote/orderbook snapshots from supported streaming payloads. |

@@ -44,7 +44,7 @@ Không có backfill production tự chạy sau deploy, và chỉ deploy code kh�
 
 ## Compatibility
 
-`backfill(...)` vẫn deprecated, nhận ngày ISO legacy, từ chối `allow_future=True`, và delegate sang `run_backfill_pipeline()`. `scripts/backfill_sample.py` vẫn là delegate deprecated sang command kết hợp.
+`backfill(...)` vẫn deprecated, nhận ngày ISO legacy, từ chối `allow_future=True`, và delegate sang `run_backfill_pipeline()`. Dùng `python main.py backfill` cho command kết hợp được hỗ trợ.
 
 ## Test
 

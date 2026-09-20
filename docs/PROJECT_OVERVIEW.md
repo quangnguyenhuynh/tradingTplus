@@ -276,9 +276,9 @@ Ingest backfill phải có phạm vi symbol và date rõ ràng.
 Ví dụ:
 
 ```bash
-python scripts/backfill_sample.py \
-  --from-date 2026-07-01 \
-  --to-date 2026-07-10 \
+python main.py backfill \
+  --from 2026-07-01 \
+  --to 2026-07-10 \
   --symbols SSI HPG
 ```
 
@@ -306,10 +306,8 @@ Vai trò timeframe:
 Command hiện tại:
 
 ```bash
-python main.py intraday --symbols SSI HPG
+python main.py features-intraday --symbols SSI HPG
 ```
-
-Đây là legacy alias cho incremental intraday feature calculation.
 
 Command này hiện:
 
@@ -905,6 +903,6 @@ python main.py intraday-ingest [DD/MM/YYYY] [--symbols SSI HPG]
 
 `python main.py stock-eod [DD/MM/YYYY]` runs daily-only ingest and completeness. `python main.py stock-intraday [DD/MM/YYYY]` independently runs automatic-scope 1m ingest and intraday completeness. Neither runs index or downstream computation.
 
-`python main.py intraday` remains a legacy feature alias. It reads existing `stock_intraday` data and does not call SSI candle ingest.
+`python main.py features-intraday` reads existing `stock_intraday` data and does not call SSI candle ingest.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` remains a compatibility router. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.

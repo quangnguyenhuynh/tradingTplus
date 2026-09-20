@@ -25,10 +25,8 @@ src/pipeline/
 ├── index_daily*.py           # layered DailyIndex raw/clean ingest
 ├── index_backfill.py         # index-only range ingest
 ├── index_completeness.py     # index raw/clean completeness
-├── foreign_trading.py        # legacy explicit compatibility writer; not normal daily ingest
 ├── backfill.py               # independent daily/intraday ranges + combined completeness
 ├── refill.py                 # explicit single-symbol source + feature maintenance orchestration
-├── intraday.py               # legacy feature alias; not candle ingest
 ├── eod_dry_run.py            # read-only EOD/feature preview utility
 ├── streaming_snapshot.py     # bounded streaming capture
 └── orderbook_snapshot.py     # quote-stream orderbook mapping
@@ -49,7 +47,7 @@ Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed b
 7. Daily foreign buy, sell, net, and room fields remain part of the canonical `stock_daily` row; normal daily ingest does not write `stock_foreign_trading`.
 8. `daily.py` never calls `DailyIndex`, `IndexList`, or `IndexComponents`, and never writes `index_daily`, `index_master`, or `index_components`.
 
-`stock_foreign_trading` is retained as legacy historical storage and for the explicit compatibility helper only. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
+`stock_foreign_trading` is retained as legacy historical storage but has no Python writer in the current pipeline. Intraday foreign snapshots remain a separate streaming dataset and are unchanged by daily ingest.
 
 ## Intraday execution
 

@@ -452,21 +452,6 @@ recomputes/upserts selected history without deleting. This compatibility router
 writes `stock_features` only; prefer source-specific commands for explicit range or
 replace. It runs no ingest, signals, backtests, or Analogs.
 
-### `intraday` legacy feature alias
-
-```text
-python main.py intraday [--snapshot-time VALUE] [--symbols [SYMBOL ...]]
-  [--timeframes [15m 60m]]
-```
-
-Example: `python main.py intraday --snapshot-time 14:30 --symbols SSI --timeframes 15m`.
-Omitted symbols mean all eligible symbols and omitted timeframes default to
-`15m 60m`. `--snapshot-time` defaults to current Vietnam time for summary
-metadata; supplying it currently changes that summary marker but is **not** a
-safe source/bucket cutoff. Use `features-intraday --date ... --as-of ...` for a
-cutoff. This alias calculates incremental intraday features; it does not ingest
-candles or run signals/backtests/Analogs.
-
 <a id="index-data"></a>
 
 ## Index Daily source data
