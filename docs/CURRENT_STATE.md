@@ -232,10 +232,10 @@ Supported timeframes:
 
 Feature chạy độc lập với ingest và chỉ ghi bảng `stock_features`.
 
-## 6. Legacy intraday feature alias
+## 6. Intraday feature command
 
 ```bash
-python main.py intraday --symbols SSI HPG
+python main.py features-intraday --symbols SSI HPG
 ```
 
 Command này:
@@ -431,7 +431,7 @@ Conflict key daily:
 symbol,trading_date
 ```
 
-`stock_daily` là nguồn canonical cho foreign data cuối ngày. Production `daily` không gọi helper và không ghi row `stock_foreign_trading`; standalone helper `fetch_foreign_trading_day` chỉ còn là compatibility path explicit.
+`stock_daily` là nguồn canonical cho foreign data cuối ngày. Production `daily` không ghi row `stock_foreign_trading`; bảng legacy vẫn được giữ nguyên nhưng pipeline Python hiện tại không có writer cho bảng này.
 
 ## 8. Index data
 

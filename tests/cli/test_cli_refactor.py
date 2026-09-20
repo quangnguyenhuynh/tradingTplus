@@ -3,7 +3,7 @@ from pathlib import Path
 
 import main
 import pytest
-from src.pipeline import intraday, stock_eod
+from src.pipeline import stock_eod
 
 
 def test_main_without_command_returns_invalid_arguments(capsys):
@@ -57,12 +57,20 @@ def test_old_eod_command_is_not_registered():
     assert main.main(["eod"]) == 2
 
 
-def test_intraday_does_not_call_daily_ingest(monkeypatch):
-    monkeypatch.setattr(intraday, "run_intraday_features_with_summary", lambda **kwargs: {"status": "OK", "total_records": 3, "errors": []})
-    summary = intraday.run_intraday_pipeline(symbols=["SSI"])
-    assert summary["status"] == "OK"
-    assert summary["total_records"] == 3
-    assert "legacy feature alias" in summary["legacy_warning"]
+@pytest.mark.parametrize("dataset", ["stock-daily", "stock-intraday", "index-daily"])
+def test_data_preview_command_is_not_registered(dataset, capsys):
+    assert main.main(["data-preview", dataset]) == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_production_help_has_no_data_preview(capsys):
+    assert main.main(["--help"]) == 0
+    assert "data-preview" not in capsys.readouterr().out
+    assert not hasattr(main, "run_preview") and not hasattr(main, "render_preview")
+
+
+def test_legacy_intraday_feature_alias_is_not_registered():
+    assert main.main(["intraday"]) == 2
 
 
 def test_scripts_import_without_running():

@@ -29,7 +29,6 @@ Thư mục `scripts/` chứa các tool vận hành chạy tường minh. Đây k
 | `phase0_reconcile_sample.py` | `READ-ONLY` | Kiểm tra lineage payload có giới hạn và một sample raw/clean/feature explicit với kết quả PASS/FAIL/UNKNOWN. |
 | `eod_dry_run.py` | `READ-ONLY` | Kiểm tra trạng thái EOD không ghi database. |
 | `fetch_one_day.py` | `DRY-RUN DEFAULT` | Kiểm tra hoặc ghi đúng một mã/một ngày. |
-| `backfill_sample.py` | `WRITES DB` | Delegate deprecated sang backfill production kết hợp; bắt buộc khoảng ngày bao gồm hai đầu. |
 | `run_features.py` | `WRITES DB` | Chạy feature pipeline riêng. |
 | `snapshot_stream.py` | `DRY-RUN DEFAULT` | Thu snapshot streaming có giới hạn. |
 | `snapshot_orderbook.py` | `DRY-RUN DEFAULT` | Thu quote/orderbook snapshot từ streaming payload được hỗ trợ. |

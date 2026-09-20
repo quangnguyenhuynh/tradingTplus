@@ -44,7 +44,7 @@ No production backfill runs automatically after deployment, and no historical re
 
 ## Compatibility
 
-`backfill(...)` remains deprecated, accepts legacy ISO dates, rejects `allow_future=True`, and delegates to `run_backfill_pipeline()`. `scripts/backfill_sample.py` remains a deprecated delegate to the combined command.
+`backfill(...)` remains deprecated, accepts legacy ISO dates, rejects `allow_future=True`, and delegates to `run_backfill_pipeline()`. Use `python main.py backfill` for the supported combined command.
 
 ## Tests
 

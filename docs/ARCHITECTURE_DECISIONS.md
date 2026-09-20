@@ -183,7 +183,7 @@ Command hiện tại:
 daily   = ingest only
 stock-eod = daily stock ingest + daily completeness; stock-intraday = 1m ingest + intraday completeness
 features = explicit feature computation
-intraday = legacy feature alias, không ingest candle mới
+features-intraday = explicit intraday feature computation, không ingest candle mới
 ```
 
 ### Consequences
@@ -1187,7 +1187,7 @@ Tên command `intraday` có thể được hiểu là lấy candle mới từ SS
 
 ### Current behavior
 
-`intraday` là legacy alias cho incremental feature calculation.
+Alias `intraday` đã được xóa; `features-intraday` là command feature intraday được hỗ trợ.
 
 ### Reason
 
@@ -1830,12 +1830,12 @@ Consequences:
 - `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `stock_raw_intraday` or `stock_intraday`.
 - `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `stock_raw_intraday` and `stock_intraday` for candle ingest.
 - `python main.py stock-eod [DD/MM/YYYY]` is an orchestrator: daily-only ingest → daily-only completeness; stock-intraday separately runs 1m ingest → intraday-only completeness.
-- `python main.py intraday` remains a backward-compatible feature alias and must not be redefined as an ingest command.
+- `python main.py features-intraday` remains the explicit intraday feature command and must not be redefined as an ingest command.
 - Feature computation, signal generation, and backtesting remain explicit downstream stages.
 
 No schema change is required for this split.
 
-> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` and `intraday` are compatibility routes. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
+> Feature execution update (issue #99): implementation is owned by `src/features/`. Use source-isolated `features-daily` and `features-intraday`; `features` is a compatibility router. Intraday persistence uses closed buckets, official daily open, continuous indicators/high-low, same-bucket prior-20-observed-date volume/value baselines, and nullable flags. See `src/features/README.md`.
 
 ## ADR-020 — Scoped feature replacement is one atomic RPC
 

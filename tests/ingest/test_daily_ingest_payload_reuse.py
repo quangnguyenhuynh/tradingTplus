@@ -5,7 +5,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 daily_mod = importlib.import_module("src.pipeline.daily")
-foreign_mod = importlib.import_module("src.pipeline.foreign_trading")
 
 
 def _daily(**overrides):
@@ -150,19 +149,6 @@ def test_daily_ingest_keeps_corporate_action_price_limit_warning(monkeypatch):
     assert summary["status"] == "OK"
     assert summary["error_count"] == 0
     assert db.stock_daily_records
-
-
-def test_fetch_foreign_for_symbol_independent_call_still_fetches_daily_stock_price():
-    payload = _daily(ForeignBuyVolTotal="", ForeignSellVolTotal="5")
-    ssi = _SSI(payload)
-
-    record = foreign_mod.fetch_foreign_for_symbol(ssi, "SSI", "18/06/2026")
-
-    assert ssi.foreign_calls == 1
-    assert ssi.daily_price_calls == 1
-    assert record["foreign_buy_vol"] is None
-    assert record["foreign_sell_vol"] == 5
-    assert record["net_foreign_vol"] is None
 
 
 def test_daily_ingest_wrong_payload_symbol_or_date_writes_no_stock_or_foreign(monkeypatch):

@@ -120,10 +120,10 @@ Range commands remain explicit backfills. No feature mode is invoked by ingest.
 runs combined source backfill and completeness first, then upserts only `1d`,
 `15m`, and `60m` features. It never syncs master data or runs downstream analysis.
 
-The legacy alias persists only 15m/60m features:
+Use the source-specific command for intraday-derived features:
 
 ```bash
-python main.py intraday --symbols SSI HPG --timeframes 15m 60m
+python main.py features-intraday --symbols SSI HPG --timeframes 15m 60m
 ```
 
 The following are intentionally rejected by production feature runners:

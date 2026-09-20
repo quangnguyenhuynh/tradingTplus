@@ -148,7 +148,7 @@ import runpy
 import sys
 original = builtins.__import__
 def guarded(name, *args, **kwargs):
-    if name.startswith(("src.database", "src.pipeline", "src.features", "src.data_preview", "supabase")):
+    if name.startswith(("src.database", "src.pipeline", "src.features", "supabase")):
         raise AssertionError("unexpected dependency: " + name)
     return original(name, *args, **kwargs)
 builtins.__import__ = guarded
