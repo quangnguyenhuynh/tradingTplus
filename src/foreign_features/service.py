@@ -2,76 +2,142 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from datetime import date as Date
 from typing import Any
 
 from src.database.client import SupabaseClient
 from src.pipeline.date_utils import parse_ddmmyyyy, validate_not_future
 from src.pipeline.symbol_scope import resolve_active_symbol_scope, normalize_symbol_scope
 
-from .calendar import load_calendar
-from .calculator import FORMULA_VERSION, calculate_symbol
-from .loader import load_rows
+from .calculator import FORMULA_VERSION, FINGERPRINT_FIELDS, calculate_symbol
+from .loader import load_following_dates, load_rows
 from .persistence import load_existing, upsert
 
 
-def _json_safe(row: dict[str, Any]) -> dict[str, Any]:
-    return {key: (str(value) if isinstance(value, Decimal) else value) for key, value in row.items()}
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
 
 
-def _dates(from_date: str, to_date: str, calendar) -> list[str]:
-    return [day for day in calendar.sessions if from_date <= day <= to_date]
+def _deprecated_warning(calendar_file: str | None) -> list[str]:
+    return (["DEPRECATED_CALENDAR_FILE_IGNORED: rolling windows use same-symbol stock_daily rows"]
+            if calendar_file else [])
 
 
-def _run(from_value: str, to_value: str, symbols, calendar_file: str | None, *, db=None, write=False, mode="target") -> dict[str, Any]:
+def _source_trace(rows: list[dict], feature: dict[str, Any]) -> list[dict[str, Any]]:
+    dates = set(feature["quality_status"]["20"]["dates"])
+    if len(dates) < 20:
+        dates.update(feature["quality_status"]["change_5d"]["current"]["dates"])
+        dates.update(feature["quality_status"]["change_5d"]["previous"]["dates"])
+    return [
+        {field: row.get(field) for field in FINGERPRINT_FIELDS}
+        for row in rows if str(row.get("trading_date")) in dates
+    ]
+
+
+def _run(
+    from_value: str,
+    to_value: str,
+    symbols,
+    calendar_file: str | None,
+    *,
+    db=None,
+    write: bool = False,
+    dry_run: bool = False,
+    mode: str = "target",
+    show_source: bool = False,
+) -> dict[str, Any]:
     start, end = parse_ddmmyyyy(from_value), parse_ddmmyyyy(to_value)
     if start.date > end.date:
         raise ValueError("--from must be on or before --to")
     validate_not_future(end)
-    db = db or SupabaseClient()
-    resolved, requested, unknown = resolve_active_symbol_scope(db, symbols)
-    calendar = load_calendar(calendar_file)
-    summary: dict[str, Any] = {"requested": len(resolved), "processed": 0, "written": 0, "invalid": 0, "stale": 0, "insufficient_history": 0, "window_unverified": 0, "errors": [], "unknown_symbols": unknown, "from": start.iso, "to": end.iso, "formula_version": FORMULA_VERSION, "mode": mode}
+    database = db or SupabaseClient()
+    resolved, _requested, unknown = resolve_active_symbol_scope(database, symbols)
+    summary: dict[str, Any] = {
+        "requested": len(resolved), "processed": 0, "would_write": 0, "written": 0,
+        "invalid": 0, "stale": 0, "insufficient_history": 0, "errors": [],
+        "unknown_symbols": unknown, "from": start.iso, "to": end.iso,
+        "formula_version": FORMULA_VERSION, "window_basis": "symbol_rows",
+        "mode": mode, "dry_run": bool(dry_run), "warnings": _deprecated_warning(calendar_file),
+    }
     if unknown:
         summary["invalid"] += len(unknown)
         summary["errors"].append({"reason": "UNKNOWN_OR_INACTIVE_SYMBOLS", "symbols": unknown})
-    if not calendar:
-        summary.update(status="PARTIAL", window_unverified=len(resolved), reason="WINDOW_UNVERIFIED: provide --calendar-file")
+    if not resolved:
+        summary["status"] = "PARTIAL" if unknown else "OK"
+        summary["rows"] = []
         return summary
-    output_dates = _dates(start.iso, end.iso, calendar)
-    if not output_dates:
-        summary.update(status="PARTIAL", reason="No verified sessions in requested range")
-        return summary
-    context = calendar.through(start.iso, 20)
-    rows = load_rows(db, resolved, context[0] if context else start.iso, end.iso) if resolved else []
+
+    warmup = 39 if mode == "incremental" else 19
+    rows = load_rows(database, resolved, start.iso, end.iso, warmup_rows=warmup)
     grouped: dict[str, list[dict]] = {symbol: [] for symbol in resolved}
     for row in rows:
         grouped.setdefault(str(row["symbol"]).upper(), []).append(row)
-    calculated: list[dict] = []
+
+    calculated: list[dict[str, Any]] = []
     for symbol in resolved:
-        for target in output_dates:
-            try:
-                feature = calculate_symbol(grouped[symbol], calendar, target)
-            except ValueError as exc:
-                summary["invalid"] += 1; summary["errors"].append({"symbol": symbol, "date": target, "reason": str(exc)}); continue
+        symbol_rows = grouped[symbol]
+        range_dates = sorted({str(row["trading_date"]) for row in symbol_rows if start.iso <= str(row["trading_date"]) <= end.iso})
+        if mode == "target":
+            targets = [start.iso]
+        elif mode == "incremental":
+            targets = sorted({str(row["trading_date"]) for row in symbol_rows if str(row["trading_date"]) <= end.iso})[-20:]
+        else:
+            targets = range_dates
+        if mode == "target" and start.iso not in range_dates:
             summary["processed"] += 1
+            summary["invalid"] += 1
+            summary["errors"].append({"symbol": symbol, "date": start.iso, "reason": "NO_SOURCE_FOR_DATE"})
+            continue
+        for target in targets:
+            summary["processed"] += 1
+            try:
+                feature = calculate_symbol(symbol_rows, target)
+            except ValueError as exc:
+                summary["invalid"] += 1
+                summary["errors"].append({"symbol": symbol, "date": target, "reason": str(exc)})
+                continue
             if feature is None:
                 summary["invalid"] += 1
+                summary["errors"].append({"symbol": symbol, "date": target, "reason": "NO_SOURCE_FOR_DATE"})
                 continue
-            if feature["quality_status"].get("20", {}).get("status") == "INSUFFICIENT_HISTORY":
+            qualities = feature["quality_status"]
+            if qualities["20"]["status"] == "INSUFFICIENT_HISTORY":
                 summary["insufficient_history"] += 1
-            calculated.append(_json_safe(feature))
+            if any(qualities[key]["status"] in {"INVALID_SOURCE", "PARTIAL"} for key in ("5", "20")):
+                summary["invalid"] += 1
+                summary["errors"].append({"symbol": symbol, "date": target, "reason": "INVALID_OR_PARTIAL_SOURCE"})
+            safe = _json_safe(feature)
+            if show_source:
+                safe["source_rows"] = _json_safe(_source_trace(symbol_rows, feature))
+            calculated.append(safe)
+
+    if mode == "backfill" and calculated:
+        existing = {(row["symbol"], str(row["trading_date"])): row for row in load_existing(database, resolved, start.iso, end.iso)}
+        summary["stale"] = sum(
+            (old := existing.get((row["symbol"], row["trading_date"]))) is not None
+            and (old.get("formula_version") != FORMULA_VERSION or old.get("source_fingerprint") != row["source_fingerprint"])
+            for row in calculated
+        )
     if mode == "incremental" and calculated:
-        existing = {(r["symbol"], str(r["trading_date"])): r for r in load_existing(db, resolved, start.iso, end.iso)}
+        first_date = min(row["trading_date"] for row in calculated)
+        existing = {(row["symbol"], str(row["trading_date"])): row for row in load_existing(database, resolved, first_date, end.iso)}
         selected = []
         for row in calculated:
             old = existing.get((row["symbol"], row["trading_date"]))
             if not old or old.get("formula_version") != FORMULA_VERSION or old.get("source_fingerprint") != row["source_fingerprint"]:
-                if old: summary["stale"] += 1
+                if old:
+                    summary["stale"] += 1
                 selected.append(row)
         calculated = selected
-    if write:
-        upsert(db, calculated)
+
+    summary["would_write"] = len(calculated)
+    if write and not dry_run:
+        upsert(database, calculated)
         summary["written"] = len(calculated)
     else:
         summary["rows"] = calculated
@@ -79,40 +145,41 @@ def _run(from_value: str, to_value: str, symbols, calendar_file: str | None, *, 
     return summary
 
 
-def preview(date: str, symbol: str, calendar_file: str | None, *, db=None) -> dict[str, Any]:
-    return _run(date, date, [symbol], calendar_file, db=db, write=False)
+def preview(date: str, symbol: str, calendar_file: str | None = None, *, show_source=False, db=None) -> dict[str, Any]:
+    return _run(date, date, [symbol], calendar_file, db=db, mode="target", show_source=show_source)
 
 
-def run_daily(date: str, symbols=None, calendar_file=None, mode="target", *, db=None) -> dict[str, Any]:
-    if mode == "incremental":
-        calendar = load_calendar(calendar_file)
-        parsed = parse_ddmmyyyy(date)
-        affected = calendar.through(parsed.iso, 20) if calendar else []
-        start = parse_ddmmyyyy(date) if not affected else type(parsed)(affected[0], Date.fromisoformat(affected[0]))
-        return _run(start.ddmmyyyy, date, symbols, calendar_file, db=db, write=True, mode=mode)
-    return _run(date, date, symbols, calendar_file, db=db, write=True, mode=mode)
+def run_daily(date: str, symbols=None, calendar_file=None, mode="target", *, dry_run=False, db=None) -> dict[str, Any]:
+    return _run(date, date, symbols, calendar_file, db=db, write=True, dry_run=dry_run, mode=mode)
 
 
-def run_backfill(from_date: str, to_date: str, symbols=None, calendar_file=None, *, db=None) -> dict[str, Any]:
-    summary = _run(from_date, to_date, symbols, calendar_file, db=db, write=True, mode="backfill")
-    calendar = load_calendar(calendar_file)
-    end = parse_ddmmyyyy(to_date).iso
-    summary["affected_after_range"] = list(calendar.sessions[calendar.sessions.index(end)+1:calendar.sessions.index(end)+20]) if calendar and end in calendar.sessions else []
+def run_backfill(from_date: str, to_date: str, symbols=None, calendar_file=None, *, dry_run=False, db=None) -> dict[str, Any]:
+    database = db or SupabaseClient()
+    summary = _run(from_date, to_date, symbols, calendar_file, db=database, write=True, dry_run=dry_run, mode="backfill")
+    # A changed source row can affect up to the next 19 rows of its own symbol.
+    resolved, _, _ = resolve_active_symbol_scope(database, symbols)
+    following = load_following_dates(database, resolved, parse_ddmmyyyy(to_date).iso) if resolved else {}
+    summary["affected_after_range"] = {
+        "basis": "next_symbol_rows", "maximum_rows_per_symbol": 19, "dates_by_symbol": following,
+        "note": "Run a separately scoped backfill if source history before/inside this range changed.",
+    }
     return summary
 
 
 def check(from_date: str, to_date: str, symbols=None, calendar_file=None, *, db=None) -> dict[str, Any]:
     database = db or SupabaseClient()
-    summary = _run(from_date, to_date, symbols, calendar_file, db=database, write=False, mode="check")
-    calculated = {(r["symbol"], r["trading_date"]): r for r in summary.get("rows", [])}
-    if calculated:
-        start, end = parse_ddmmyyyy(from_date).iso, parse_ddmmyyyy(to_date).iso
-        resolved, _, _ = resolve_active_symbol_scope(database, symbols)
-        existing = {(r["symbol"], str(r["trading_date"])): r for r in load_existing(database, resolved, start, end)}
-        summary["missing_features"] = sum(key not in existing for key in calculated)
-        summary["stale"] = sum(key in existing and (existing[key].get("formula_version") != FORMULA_VERSION or existing[key].get("source_fingerprint") != value["source_fingerprint"]) for key, value in calculated.items())
-        if summary["missing_features"] or summary["stale"]:
-            summary["status"] = "PARTIAL"
+    summary = _run(from_date, to_date, symbols, calendar_file, db=database, mode="check")
+    calculated = {(row["symbol"], row["trading_date"]): row for row in summary.get("rows", [])}
+    start, end = parse_ddmmyyyy(from_date).iso, parse_ddmmyyyy(to_date).iso
+    resolved, _, _ = resolve_active_symbol_scope(database, symbols)
+    existing = {(row["symbol"], str(row["trading_date"])): row for row in load_existing(database, resolved, start, end)} if resolved else {}
+    summary["missing_features"] = sum(key not in existing for key in calculated)
+    summary["stale"] = sum(
+        key in existing and (existing[key].get("formula_version") != FORMULA_VERSION or existing[key].get("source_fingerprint") != value["source_fingerprint"])
+        for key, value in calculated.items()
+    )
+    if summary["missing_features"] or summary["stale"]:
+        summary["status"] = "PARTIAL"
     return summary
 
 

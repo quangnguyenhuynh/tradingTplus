@@ -6,88 +6,166 @@ import json
 from decimal import Decimal
 from typing import Any
 
-from .calendar import TradingCalendar
 from .validator import decimal_value, validate_source_row
 
-FORMULA_VERSION = 1
+FORMULA_VERSION = 2
+WINDOW_SIZES = (5, 20)
+MAX_SOURCE_ROWS = 20
+FINGERPRINT_FIELDS = (
+    "symbol",
+    "trading_date",
+    "foreign_buy_vol_total",
+    "foreign_sell_vol_total",
+    "net_foreign_vol",
+    "foreign_buy_val_total",
+    "foreign_sell_val_total",
+    "net_foreign_val",
+    "total_traded_value",
+)
 
 
-def _fingerprint(rows: list[dict], sessions: list[str], calendar: TradingCalendar) -> str:
-    fields = ("symbol", "trading_date", "foreign_buy_val_total", "foreign_sell_val_total", "net_foreign_val", "total_traded_value")
-    values = [[None if row.get(k) is None else str(row.get(k)) for k in fields] for row in rows]
-    body = {"formula_version": FORMULA_VERSION, "calendar": calendar.identity, "sessions": sessions, "rows": values}
-    return hashlib.sha256(json.dumps(body, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
+def _fingerprint(symbol: str, target: str, rows: list[dict]) -> str:
+    values = [
+        [None if row.get(field) is None else str(row.get(field)) for field in FINGERPRINT_FIELDS]
+        for row in rows
+    ]
+    body = {
+        "formula_version": FORMULA_VERSION,
+        "symbol": symbol,
+        "target": target,
+        "window_basis": "symbol_rows",
+        "rows": values,
+    }
+    return hashlib.sha256(
+        json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
 
 
-def _window(rows_by_date: dict[str, dict], sessions: list[str], size: int) -> tuple[dict[str, Any], dict[str, Any]]:
-    dates = sessions[-size:]
-    quality: dict[str, Any] = {"status": "VALID", "expected_sessions": size, "observed_sessions": 0, "reasons": []}
-    if len(dates) < size:
+def _window(rows: list[dict], size: int) -> tuple[dict[str, Any], dict[str, Any]]:
+    selected = rows[-size:]
+    quality: dict[str, Any] = {
+        "status": "VALID",
+        "required_rows": size,
+        "observed_rows": len(selected),
+        "start": str(selected[0]["trading_date"]) if selected else None,
+        "end": str(selected[-1]["trading_date"]) if selected else None,
+        "dates": [str(row["trading_date"]) for row in selected],
+        "reasons": [],
+    }
+    if len(selected) < size:
         quality.update(status="INSUFFICIENT_HISTORY", reasons=["INSUFFICIENT_HISTORY"])
         return {}, quality
-    rows = [rows_by_date.get(day) for day in dates]
-    quality["observed_sessions"] = sum(row is not None for row in rows)
-    if any(row is None for row in rows):
-        quality.update(status="MISSING_SOURCE", reasons=["MISSING_SOURCE"])
-        return {}, quality
-    invalid = sorted({reason for row in rows for reason in validate_source_row(row)})
+
+    invalid = sorted({reason for row in selected for reason in validate_source_row(row)})
     value_invalid = [reason for reason in invalid if "VOLUME" not in reason and "_VOL_" not in reason]
     if value_invalid:
         quality.update(status="INVALID_SOURCE", reasons=invalid)
     elif invalid:
-        # Volume quality is reported independently and does not invalidate
-        # otherwise valid value-based metrics.
         quality.update(status="PARTIAL", reasons=invalid)
-    def vals(field: str):
-        return [decimal_value(row.get(field)) for row in rows]
-    b, s, n, v = (vals(field) for field in ("foreign_buy_val_total", "foreign_sell_val_total", "net_foreign_val", "total_traded_value"))
+
+    def vals(field: str) -> list[Decimal | None]:
+        values: list[Decimal | None] = []
+        for row in selected:
+            try:
+                values.append(decimal_value(row.get(field)))
+            except ValueError:
+                values.append(None)
+        return values
+
+    buy, sell, net, turnover = (
+        vals(field)
+        for field in (
+            "foreign_buy_val_total",
+            "foreign_sell_val_total",
+            "net_foreign_val",
+            "total_traded_value",
+        )
+    )
     out: dict[str, Any] = {}
     suffix = f"_{size}d"
-    if all(x is not None for x in n) and not any(reason.startswith("NET_VALUE") or "NET_FOREIGN_VAL" in reason for reason in invalid):
-        out["net_value" + suffix] = sum(n, Decimal(0))
-        out["buy_days" + suffix] = sum(x > 0 for x in n)
-        out["sell_days" + suffix] = sum(x < 0 for x in n)
-    if all(x is not None for x in b + s):
-        out["activity_value" + suffix] = sum(b, Decimal(0)) + sum(s, Decimal(0))
-    denominator_ok = all(x is not None and x >= 0 for x in v) and "FOREIGN_ACTIVITY_WITH_ZERO_TURNOVER" not in invalid
-    denominator = sum(v, Decimal(0)) if denominator_ok else Decimal(0)
+    net_invalid = any(
+        reason.startswith("INVALID_NET_FOREIGN_VAL")
+        or reason == "NET_VALUE_MISMATCH"
+        for reason in invalid
+    )
+    if all(value is not None for value in net) and not net_invalid:
+        valid_net = [value for value in net if value is not None]
+        out["net_value" + suffix] = sum(valid_net, Decimal(0))
+        out["buy_days" + suffix] = sum(value > 0 for value in valid_net)
+        out["sell_days" + suffix] = sum(value < 0 for value in valid_net)
+    if all(value is not None for value in buy + sell) and not any(
+        reason.startswith("INVALID_FOREIGN_BUY_VAL_TOTAL")
+        or reason.startswith("INVALID_FOREIGN_SELL_VAL_TOTAL")
+        or reason.startswith("NEGATIVE_FOREIGN_BUY_VAL_TOTAL")
+        or reason.startswith("NEGATIVE_FOREIGN_SELL_VAL_TOTAL")
+        for reason in invalid
+    ):
+        out["activity_value" + suffix] = sum(
+            [value for value in buy + sell if value is not None], Decimal(0)
+        )
+
+    denominator_ok = all(value is not None and value >= 0 for value in turnover)
+    denominator = (
+        sum([value for value in turnover if value is not None], Decimal(0))
+        if denominator_ok
+        else Decimal(0)
+    )
     if denominator > 0 and "net_value" + suffix in out:
         out["net_value_ratio" + suffix] = out["net_value" + suffix] / denominator
     if denominator > 0 and "activity_value" + suffix in out:
         out["activity_ratio" + suffix] = out["activity_value" + suffix] / (Decimal(2) * denominator)
     if not denominator_ok or denominator == 0:
         quality["reasons"].append("DENOMINATOR_INVALID" if not denominator_ok else "DENOMINATOR_ZERO")
+    quality["reasons"] = sorted(set(quality["reasons"]))
     if quality["reasons"] and quality["status"] == "VALID":
         quality["status"] = "PARTIAL"
     return out, quality
 
 
-def calculate_symbol(rows: list[dict], calendar: TradingCalendar | None, target: str) -> dict[str, Any] | None:
-    if calendar is None:
+def calculate_symbol(rows: list[dict], target: str) -> dict[str, Any] | None:
+    """Calculate V2 from the last rows of one symbol ending exactly at target."""
+    eligible = [row for row in rows if str(row.get("trading_date")) <= target]
+    if not eligible:
         return None
-    duplicates = len({str(r.get("trading_date")) for r in rows}) != len(rows)
-    if duplicates:
+    symbols = {str(row.get("symbol", "")).upper() for row in eligible}
+    if len(symbols) != 1:
+        raise ValueError("MIXED_SYMBOL_SOURCE: calculator accepts one symbol")
+    keys = [(next(iter(symbols)), str(row.get("trading_date"))) for row in eligible]
+    if len(set(keys)) != len(keys):
         raise ValueError("DUPLICATE_SOURCE: duplicate symbol/trading_date rows")
-    by_date = {str(row["trading_date"]): row for row in rows}
-    current = by_date.get(target)
-    current_reasons = validate_source_row(current) if current is not None else []
-    current_value_errors = [reason for reason in current_reasons if "VOLUME" not in reason and "_VOL_" not in reason]
-    if current is None or current_value_errors:
+    ordered = sorted(eligible, key=lambda row: str(row["trading_date"]))
+    if str(ordered[-1]["trading_date"]) != target:
         return None
-    sessions = calendar.through(target, 20)
-    result: dict[str, Any] = {"symbol": str(current["symbol"]).upper(), "trading_date": target, "formula_version": FORMULA_VERSION}
-    q: dict[str, Any] = {"calendar": {"status": "VERIFIED", "source": calendar.source, "market": calendar.market, "sessions": sessions}}
-    for size in (5, 20):
-        metrics, quality = _window(by_date, sessions, size)
-        result.update(metrics); q[str(size)] = quality
-    current5, previous5 = sessions[-5:], sessions[-10:-5]
-    cur, cq = _window(by_date, current5, 5); prev, pq = _window(by_date, previous5, 5)
+
+    used = ordered[-MAX_SOURCE_ROWS:]
+    symbol = next(iter(symbols))
+    result: dict[str, Any] = {
+        "symbol": symbol,
+        "trading_date": target,
+        "formula_version": FORMULA_VERSION,
+    }
+    quality: dict[str, Any] = {"window_basis": "symbol_rows"}
+    for size in WINDOW_SIZES:
+        metrics, window_quality = _window(ordered, size)
+        result.update(metrics)
+        quality[str(size)] = window_quality
+
+    current_metrics, current_quality = _window(ordered, 5)
+    previous_metrics, previous_quality = _window(ordered[:-5], 5) if len(ordered) >= 5 else ({}, {
+        "status": "INSUFFICIENT_HISTORY", "required_rows": 5, "observed_rows": 0,
+        "start": None, "end": None, "dates": [], "reasons": ["INSUFFICIENT_HISTORY"],
+    })
     for metric in ("net_value_ratio_5d", "activity_ratio_5d"):
-        if metric in cur and metric in prev:
-            result[metric.replace("_5d", "_change_5d")] = cur[metric] - prev[metric]
-    q["change_5d"] = {"status": "VALID" if all(k in result for k in ("net_value_ratio_change_5d", "activity_ratio_change_5d")) else "PARTIAL", "current": cq, "previous": pq}
-    result["quality_status"] = q
-    used = [by_date[d] for d in sessions if d in by_date]
-    result["source_window_start"] = sessions[0] if sessions else target
-    result["source_fingerprint"] = _fingerprint(used, sessions, calendar)
+        if metric in current_metrics and metric in previous_metrics:
+            result[metric.replace("_5d", "_change_5d")] = current_metrics[metric] - previous_metrics[metric]
+    quality["change_5d"] = {
+        "status": "VALID" if all(
+            key in result for key in ("net_value_ratio_change_5d", "activity_ratio_change_5d")
+        ) else ("INSUFFICIENT_HISTORY" if len(ordered) < 10 else "PARTIAL"),
+        "current": current_quality,
+        "previous": previous_quality,
+    }
+    result["quality_status"] = quality
+    result["source_window_start"] = str(used[0]["trading_date"])
+    result["source_fingerprint"] = _fingerprint(symbol, target, used)
     return result
