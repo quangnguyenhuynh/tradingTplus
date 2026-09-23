@@ -162,19 +162,23 @@ def build_parser() -> argparse.ArgumentParser:
     foreign_preview = sub.add_parser("foreign-features-preview", help="Read-only foreign EOD feature preview")
     foreign_preview.add_argument("--symbol", required=True)
     foreign_preview.add_argument("--date", required=True, help="DD/MM/YYYY")
-    foreign_preview.add_argument("--calendar-file", help="Verified session calendar JSON")
+    foreign_preview.add_argument("--calendar-file", help="Deprecated compatibility option; ignored")
     foreign_preview.add_argument("--json", action="store_true", dest="as_json")
+    foreign_preview.add_argument("--show-source", action="store_true", help="Show the exact same-symbol rows used by the calculator")
     foreign_daily = sub.add_parser("foreign-features-daily", help="Calculate one explicit foreign EOD feature date")
     foreign_daily.add_argument("--date", required=True, help="DD/MM/YYYY")
     foreign_daily.add_argument("--symbols", nargs="+", default=None)
     foreign_daily.add_argument("--mode", choices=["target", "incremental"], default="target")
-    foreign_daily.add_argument("--calendar-file", help="Verified session calendar JSON")
+    foreign_daily.add_argument("--calendar-file", help="Deprecated compatibility option; ignored")
+    foreign_daily.add_argument("--dry-run", action="store_true", help="Calculate and validate without writing feature rows")
     for command, help_text in (("foreign-features-backfill", "Inclusive foreign EOD feature backfill"), ("foreign-features-check", "Read-only foreign feature validation")):
         fp = sub.add_parser(command, help=help_text)
         fp.add_argument("--from", dest="from_date", required=True, help="DD/MM/YYYY")
         fp.add_argument("--to", dest="to_date", required=True, help="DD/MM/YYYY")
         fp.add_argument("--symbols", nargs="+", default=None)
-        fp.add_argument("--calendar-file", help="Verified session calendar JSON")
+        fp.add_argument("--calendar-file", help="Deprecated compatibility option; ignored")
+        if command == "foreign-features-backfill":
+            fp.add_argument("--dry-run", action="store_true", help="Calculate and validate without writing feature rows")
     rank = sub.add_parser("foreign-rank", help="Read-only get_foreign_ranking RPC")
     rank.add_argument("--date", required=True, help="DD/MM/YYYY")
     rank.add_argument("--ranking", required=True, choices=["attention", "accumulation", "distribution", "emerging"])
@@ -625,13 +629,13 @@ def main(argv: list[str] | None = None) -> int:
             _print_summary(summary)
             return _status_to_exit(summary)
         if args.command == "foreign-features-preview":
-            summary = preview_foreign_features(args.date, args.symbol, args.calendar_file)
+            summary = preview_foreign_features(args.date, args.symbol, args.calendar_file, show_source=args.show_source)
             _print_summary(summary); return _status_to_exit(summary)
         if args.command == "foreign-features-daily":
-            summary = run_foreign_features_daily(args.date, normalize_symbol_scope(args.symbols), args.calendar_file, args.mode)
+            summary = run_foreign_features_daily(args.date, normalize_symbol_scope(args.symbols), args.calendar_file, args.mode, dry_run=args.dry_run)
             _print_summary(summary); return _status_to_exit(summary)
         if args.command == "foreign-features-backfill":
-            summary = run_foreign_features_backfill(args.from_date, args.to_date, normalize_symbol_scope(args.symbols), args.calendar_file)
+            summary = run_foreign_features_backfill(args.from_date, args.to_date, normalize_symbol_scope(args.symbols), args.calendar_file, dry_run=args.dry_run)
             _print_summary(summary); return _status_to_exit(summary)
         if args.command == "foreign-features-check":
             summary = check_foreign_features(args.from_date, args.to_date, normalize_symbol_scope(args.symbols), args.calendar_file)

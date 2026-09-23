@@ -34,6 +34,10 @@ def validate_source_row(row: dict[str, Any]) -> list[str]:
         reasons.append("INVALID_SYMBOL")
     values: dict[str, Decimal | None] = {}
     for field in (*VALUE_FIELDS, *VOLUME_FIELDS):
+        if row.get(field) is None or row.get(field) == "":
+            values[field] = None
+            reasons.append(f"MISSING_{field.upper()}")
+            continue
         try:
             values[field] = decimal_value(row.get(field))
         except ValueError:

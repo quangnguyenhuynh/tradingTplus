@@ -49,162 +49,24 @@ python main.py foreign-rank --help
 
 <a id="foreign-eod"></a>
 
-## Khối ngoại EOD: từ dữ liệu đến bảng xếp hạng
+## Runbook nhanh foreign EOD
 
-Phần này thống kê khối ngoại theo ngày, không chạy Analog/backtest T+.
-Dữ liệu gốc nằm ở `stock_daily`; chỉ số 5/20 phiên nằm ở
-`stock_foreign_features_daily`. CLI báo cáo gọi RPC chung với web/mobile.
-
-### Chọn lệnh foreign
-
-| Nhu cầu | Lệnh | Ghi DB? |
-| --- | --- | --- |
-| Tính thử một mã, một ngày | `foreign-features-preview` | Không |
-| Tính và lưu cho ngày chọn | `foreign-features-daily` | Có, bảng foreign feature |
-| Tính và lưu khoảng ngày | `foreign-features-backfill` | Có, bảng foreign feature |
-| Tính lại để đối chiếu feature đã lưu | `foreign-features-check` | Không |
-| Xem bảng xếp hạng | `foreign-rank` | Không, gọi RPC |
-| Xem lịch sử một mã | `foreign-symbol` | Không, gọi RPC |
-
-### Chuẩn bị lần đầu
-
-1. Cài môi trường theo README gốc, chạy từ thư mục chứa `main.py`.
-   Các lệnh foreign cần kết nối DB; chúng không gọi SSI.
-2. Kiểm tra và chạy thủ công migration
-   [20260907_create_stock_foreign_features_daily.sql](../migrations/20260907_create_stock_foreign_features_daily.sql)
-   nếu chưa triển khai. File tạo bảng feature và hai RPC; CLI không tự apply.
-3. Đảm bảo `stock_daily` có trường foreign và tổng giá trị giao dịch cho mã/ngày cần xem.
-   Nếu thiếu, chạy riêng `backfill-daily` đúng phạm vi, rồi kiểm tra kết quả.
-4. Chuẩn bị `calendar.json` đã xác minh cho sàn và khoảng ngày cần tính.
-   Bao gồm 19 phiên trước ngày output đầu tiên nếu cần đủ feature 20D.
-   Để so hai nhóm 5 phiên cần ít nhất 10 phiên nguồn.
-
-Calendar nhận JSON với `source`, `market`, `sessions`. Ví dụ cấu trúc sau
-chỉ minh họa, **không phải lịch hoàn chỉnh để backfill**:
-
-```json
-{"source":"Nguồn lịch đã được người vận hành xác minh","market":"HOSE","sessions":["2026-08-27","2026-08-28"]}
-```
-
-Ngày trong file lịch dùng `YYYY-MM-DD`; ngày trên CLI foreign dùng `DD/MM/YYYY`.
-File phải chứa đầy đủ phiên thực tế, không trùng. Bộ đọc hiện tại dựa vào xác minh
-của người cung cấp, chưa tự đối chiếu lịch với sàn/market của từng mã.
-Thiếu `--calendar-file` trả `PARTIAL / WINDOW_UNVERIFIED`, không tính rolling feature.
-`foreign-rank` và `foreign-symbol` không nhận cờ calendar.
-
-### Chạy thử trước, rồi lưu và kiểm tra
-
-Thay ngày/mã bằng phạm vi dữ liệu thực tế của bạn. `calendar.json` bên dưới
-là file lịch đã chuẩn bị, không phải file có sẵn trong repo.
+Foreign V2 dùng N dòng `stock_daily` gần nhất của từng mã, không dùng calendar. Xem [đặc tả đầy đủ](FOREIGN_EOD_FEATURES.vi.md).
 
 ```bash
-# 1. Chỉ tính thử SSI; chưa ghi
-python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --calendar-file calendar.json
-
-# 2. Ghi feature cho khoảng ngày, khi preview đã được kiểm tra
-python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
-
-# 3. Đối chiếu dữ liệu nguồn với feature đã lưu
-python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
-
-# 4. Xem mua ròng 5 phiên và lịch sử SSI
+python main.py foreign-features-preview --help
+python main.py foreign-features-backfill --help
+python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --show-source
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --dry-run
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI
+python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI
 python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 5 --symbols SSI --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking emerging --window 5 --sort value --symbols SSI --top 20
 python main.py foreign-symbol --symbol SSI --date 28/08/2026 --lookback 20
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --dry-run
 ```
 
-Preview luôn in JSON; `--json` được parser chấp nhận nhưng hiện không đổi cách hiển thị.
-Check trả `missing_features`, `stale` khi có kết quả tính để đối chiếu.
-Đọc cả `rows[].quality_status`: `status=OK` ở summary không chứng minh mọi metric
-5/20 phiên đều đủ dữ liệu. Các dòng warm-up có thể vẫn được ghi với metric NULL.
-
-### Cập nhật một ngày hoặc tính lại
-
-```bash
-# Mặc định mode=target: chỉ ghi ngày chọn
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --calendar-file calendar.json
-
-# Rà tối đa 20 phiên kết thúc tại ngày chọn, ghi feature mới/đổi fingerprint
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental --calendar-file calendar.json
-```
-
-Incremental hiện chỉ rà cửa sổ tối đa 20 phiên, không quét toàn bộ lịch sử.
-Sửa source cũ hơn cửa sổ này cần backfill phạm vi cụ thể.
-Source ngày D thay đổi có thể ảnh hưởng D và 19 phiên kế tiếp.
-Backfill chỉ ghi trong khoảng yêu cầu; xem `affected_after_range` để kiểm tra/tính lại
-phần sau khoảng đó. Danh sách này phụ thuộc các phiên có trong file lịch.
-
-Preview nhận một `--symbol`. Daily/backfill/check/rank nhận `--symbols SSI SHB`;
-bỏ cờ này dùng danh sách active hiện tại. Không truyền cờ rỗng.
-Mã unknown/inactive được service báo trong lỗi/tóm tắt; rank dùng giao với active.
-Daily bắt buộc `--date`; backfill/check bắt buộc cả `--from` và `--to`,
-không có alias `--from-date`/`--to-date` cho các lệnh foreign hiện tại.
-
-### Chọn cách xếp hạng
-
-| `--ranking` | Ý nghĩa | `--window` |
-| --- | --- | --- |
-| `attention` | Tổng giá trị mua + bán của khối ngoại lớn | 1, 5, 20 |
-| `accumulation` | Mua ròng mạnh, số dương lớn trước | 1, 5, 20 |
-| `distribution` | Bán ròng mạnh, số âm lớn về độ lớn trước | 1, 5, 20 |
-| `emerging` | Mức tham gia tăng so với 5 phiên trước | Chỉ 5 |
-
-```bash
-python main.py foreign-rank --date 28/08/2026 --ranking attention --window 1 --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 20 --sort value --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking distribution --window 5 --sort ratio --market HOSE --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking emerging --window 5 --sort ratio --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking attention --window 5 --top 20 --offset 20
-```
-
-- `--ranking` và `--date` bắt buộc.
-- `--window` mặc định 5; `--sort` mặc định `value`, có thể chọn `ratio`.
-- `--top` mặc định 20, RPC giới hạn 1..100; `--offset` mặc định 0, không âm.
-- `--market` so khớp giá trị trong master; `--symbols` giới hạn thêm scope.
-- `foreign-symbol --lookback` mặc định 20, RPC giới hạn 1..100.
-  Đây là số dòng daily gần nhất đến ngày chọn, không phải số ngày dương lịch.
-- Xếp hạng 1D không cần backfill foreign feature 20D, nhưng vẫn cần RPC đã triển khai
-  và dữ liệu nguồn hợp lệ. Hạng 5/20 dùng feature đã lưu.
-- `emerging --sort value` hiện cần cả feature 5D ở mốc trước trong DB;
-  chỉ tính target ngày cuối có thể chưa đủ dữ liệu để trả hạng này.
-
-### Đọc kết quả và giới hạn hiện tại
-
-Báo cáo trả `{meta, rows}`. Xem ngày, scope, `data_status`, số mã và metric chọn
-trước khi đọc hạng. Không mặc định danh sách active là toàn thị trường.
-
-Tiền là VND. Ratio là fraction: 0.05 = 5%; change 0.02 = 2 điểm phần trăm.
-Activity = mua + bán, gồm hai phía; không phải giá trị giao dịch duy nhất.
-NULL là thiếu/không đủ điều kiện, không phải 0.
-Các mã bằng metric có cùng hạng; phân trang sắp thêm symbol.
-
-**Giới hạn của code hiện tại cần biết:**
-- RPC chưa tính lại fingerprint từ toàn bộ source window khi truy vấn.
-  `freshness=CURRENT` không chứng minh mọi source lịch sử đều chưa thay đổi.
-  Check cũng chưa bao phủ đầy đủ orphan khi source target mất/không tính được.
-- `eligible_count/coverage_ratio` hiện được đếm trước khi loại metric chọn bị NULL;
-  có thể đánh giá độ phủ cao hơn thực tế. Không dùng coverage một mình để kết luận đủ dữ liệu.
-- RPC hiện yêu cầu turnover của ngày T hợp lệ ngay cả khi sort value.
-- Sửa/xóa source cần kiểm tra và tính lại đúng phạm vi trước khi sử dụng báo cáo;
-  không coi những hạn chế trên đã được xử lý chỉ vì summary là OK.
-
-### Khi lệnh chưa cho kết quả mong muốn
-
-| Hiện tượng | Kiểm tra/làm tiếp |
-| --- | --- |
-| `WINDOW_UNVERIFIED` | Truyền file calendar đã xác minh và đủ khoảng phiên |
-| `INSUFFICIENT_HISTORY`, metric NULL | Xem lịch và source warm-up; không thay NULL bằng 0 |
-| `MISSING_SOURCE` trong quality | Kiểm tra source theo từng phiên; ingest bù riêng nếu cần |
-| `missing_features > 0` | Backfill foreign feature đúng phạm vi rồi check lại |
-| `stale > 0` | Tính lại phạm vi bị ảnh hưởng; chú ý 19 phiên sau ngày sửa |
-| `rows=[]` | Kiểm tra active scope, cùng ngày, window, metric và chiều mua/bán |
-| Báo thiếu table/function | Kiểm tra migration đã được triển khai đúng DB |
-| RPC permission denied | Kiểm tra EXECUTE và quyền SELECT/RLS nguồn theo migration; không đưa service key vào app |
-
-CLI dùng backend credential; chạy CLI thành công không chứng minh quyền của
-web/mobile đã đúng. Migration không tự cấp toàn bộ quyền đọc nguồn cho client.
-Xem [đặc tả foreign](FOREIGN_EOD_FEATURES.vi.md) để tra công thức và
-[migration](../migrations/20260907_create_stock_foreign_features_daily.sql) để kiểm tra quyền.
-Các giới hạn executable code nêu ở đây cần được ưu tiên khi tài liệu thiết kế mô tả mạnh hơn.
+Preview, check, rank, history và `--dry-run` không ghi. Phải deploy migration RPC V2 riêng; pull code không cập nhật DB. `--calendar-file` đã deprecated, bị bỏ qua và không được đọc.
 
 <a id="conventions"></a>
 

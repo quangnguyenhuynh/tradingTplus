@@ -49,160 +49,24 @@ python main.py foreign-rank --help
 
 <a id="foreign-eod"></a>
 
-## Foreign EOD: from source data to rankings
+## Foreign EOD quick runbook
 
-These commands describe foreign trading activity; they do not run Analog/T+ backtests.
-Source values stay in `stock_daily`; derived 5/20-session metrics are stored in
-`stock_foreign_features_daily`. Report commands call the RPCs shared with web/mobile.
-
-### Choose a foreign command
-
-| Goal | Command | Database write? |
-| --- | --- | --- |
-| Calculate one symbol/date for inspection | `foreign-features-preview` | No |
-| Calculate and save a target date | `foreign-features-daily` | Foreign features only |
-| Calculate and save a date range | `foreign-features-backfill` | Foreign features only |
-| Recalculate and compare stored features | `foreign-features-check` | No |
-| Read rankings | `foreign-rank` | No; RPC |
-| Read one symbol's history | `foreign-symbol` | No; RPC |
-
-### First-time prerequisites
-
-1. Follow the root README for environment setup; run from the directory containing
-   `main.py`. Foreign commands require DB access, not SSI access.
-2. Review and manually deploy
-   [20260907_create_stock_foreign_features_daily.sql](../migrations/20260907_create_stock_foreign_features_daily.sql)
-   if needed. It creates the feature table and two RPCs; CLI does not apply migrations.
-3. Verify foreign fields and turnover in `stock_daily` for the desired scope.
-   If source is missing, run a separate scoped `backfill-daily` and inspect its result.
-4. Prepare a verified `calendar.json` for the correct market and range. Include
-   19 sessions before the first output date for full 20D metrics.
-   Comparing consecutive five-session windows requires ten source sessions.
-
-Calendar JSON requires `source`, `market`, and `sessions`. This is only a shape
-example, **not a complete backfill calendar**:
-
-```json
-{"source":"Operator-verified calendar source","market":"HOSE","sessions":["2026-08-27","2026-08-28"]}
-```
-
-Calendar entries use `YYYY-MM-DD`; foreign CLI dates use `DD/MM/YYYY`.
-Supply complete, unique real sessions. The current reader trusts the operator's
-verification; it does not independently check exchange sessions or each symbol's market.
-Without `--calendar-file`, calculations return `PARTIAL / WINDOW_UNVERIFIED`.
-Rank/history commands do not accept a calendar option.
-
-### Preview, save, check, then read
-
-Replace the illustrative dates/symbols with your actual source scope.
-`calendar.json` below is your prepared file, not a bundled repository file.
+Foreign V2 uses the latest N `stock_daily` rows of each symbol, not a calendar. See [the full specification](FOREIGN_EOD_FEATURES.md).
 
 ```bash
-# 1. Calculate without writes
-python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --calendar-file calendar.json
-
-# 2. Save the range after inspecting preview
-python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
-
-# 3. Compare source-derived and stored features
-python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI --calendar-file calendar.json
-
-# 4. Read net buying and symbol history
+python main.py foreign-features-preview --help
+python main.py foreign-features-backfill --help
+python main.py foreign-features-preview --symbol SSI --date 28/08/2026 --show-source
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI --dry-run
+python main.py foreign-features-backfill --from 03/08/2026 --to 28/08/2026 --symbols SSI
+python main.py foreign-features-check --from 03/08/2026 --to 28/08/2026 --symbols SSI
 python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 5 --symbols SSI --top 20
+python main.py foreign-rank --date 28/08/2026 --ranking emerging --window 5 --sort value --symbols SSI --top 20
 python main.py foreign-symbol --symbol SSI --date 28/08/2026 --lookback 20
+python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --dry-run
 ```
 
-Preview always prints JSON; the accepted `--json` flag currently does not change rendering.
-Check reports `missing_features` and `stale` when recalculated rows are available.
-Read `rows[].quality_status` as well: summary `status=OK` does not prove every
-5/20-session metric is complete. Warm-up rows can be stored with NULL metrics.
-
-### Daily updates and repairs
-
-```bash
-# Default mode=target: save only this date
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --calendar-file calendar.json
-
-# Inspect up to 20 sessions ending at the target; save new/changed fingerprints
-python main.py foreign-features-daily --date 28/08/2026 --symbols SSI SHB --mode incremental --calendar-file calendar.json
-```
-
-Incremental currently examines only the last 20 calendar sessions, not all history.
-Older corrections need an explicit range backfill. Changing source date D can
-affect D and the next 19 sessions. Backfill writes only its requested range;
-inspect `affected_after_range` and check/rebuild later affected dates.
-That list is limited to sessions supplied in the calendar.
-
-Preview takes one `--symbol`. Daily/backfill/check/rank accept `--symbols SSI SHB`;
-omitting it uses current active symbols. Do not supply an empty flag.
-The service reports unknown/inactive symbols; ranking intersects scope with active symbols.
-Daily requires `--date`; backfill/check require `--from` and `--to`.
-Foreign commands currently have no `--from-date`/`--to-date` aliases.
-
-### Select a ranking
-
-| `--ranking` | Meaning | `--window` |
-| --- | --- | --- |
-| `attention` | Largest foreign buy + sell activity | 1, 5, 20 |
-| `accumulation` | Strongest net buying, positive first descending | 1, 5, 20 |
-| `distribution` | Strongest net selling, most negative first | 1, 5, 20 |
-| `emerging` | Activity increase over the previous five sessions | Only 5 |
-
-```bash
-python main.py foreign-rank --date 28/08/2026 --ranking attention --window 1 --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking accumulation --window 20 --sort value --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking distribution --window 5 --sort ratio --market HOSE --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking emerging --window 5 --sort ratio --top 20
-python main.py foreign-rank --date 28/08/2026 --ranking attention --window 5 --top 20 --offset 20
-```
-
-- `--ranking` and `--date` are required.
-- `--window` defaults to 5; `--sort` defaults to `value`, alternatively `ratio`.
-- `--top` defaults to 20, RPC range 1..100; `--offset` defaults to 0 and must be nonnegative.
-- `--market` matches master values; `--symbols` further narrows scope.
-- History `--lookback` defaults to 20, RPC range 1..100. It limits available daily
-  rows ending at the selected date, not elapsed calendar days.
-- 1D rankings do not require a 20D feature backfill, but do require the deployed
-  RPC and valid source. 5/20D rankings read stored features.
-- `emerging --sort value` currently also needs the earlier 5D feature row in DB;
-  calculating only the final target date may not be sufficient.
-
-### Interpret output and current limitations
-
-Reports return `{meta, rows}`. Inspect date, scope, `data_status`, counts, and
-the selected metric. Current active symbols are not necessarily the whole market.
-Money is VND. Ratios are fractions: 0.05 = 5%; a change of 0.02 = 2 percentage points.
-Activity sums both foreign sides, not unique turnover. NULL is not zero.
-Equal metric values share rank; symbol provides stable pagination order.
-
-**Current executable limitations:**
-- RPC does not recompute fingerprints against the full source window at query time.
-  `freshness=CURRENT` does not prove historical inputs are unchanged.
-  Check also does not fully cover orphan rows when a target source is missing/uncalculable.
-- `eligible_count/coverage_ratio` are counted before excluding NULL selected metrics,
-  so coverage can be overstated. Do not use coverage alone as a completeness guarantee.
-- RPC requires valid target-day turnover even for value sorting.
-- After source corrections/deletions, inspect and rebuild the affected scope before
-  relying on reports. An OK summary does not resolve these implementation limitations.
-
-### Troubleshooting
-
-| Symptom | Next check/action |
-| --- | --- |
-| `WINDOW_UNVERIFIED` | Supply a verified calendar covering the required sessions |
-| `INSUFFICIENT_HISTORY` or NULL metrics | Inspect calendar/source warm-up; never substitute zero |
-| `MISSING_SOURCE` in quality | Inspect each expected source session; ingest missing source separately |
-| `missing_features > 0` | Backfill the feature scope, then check again |
-| `stale > 0` | Rebuild affected dates, including up to 19 sessions after a source repair |
-| `rows=[]` | Check active scope, date, window, metric, and buying/selling direction |
-| Missing table/function | Verify migration deployment in the intended DB |
-| RPC permission denied | Verify EXECUTE and source SELECT/RLS; never put the service key in an app |
-
-CLI uses backend credentials; successful CLI access does not verify web/mobile permissions.
-The migration does not automatically grant all source-table client privileges.
-See [foreign specification](FOREIGN_EOD_FEATURES.md) for formulas and the
-[migration](../migrations/20260907_create_stock_foreign_features_daily.sql) for permission checks.
-The executable limitations above take precedence over stronger design-document claims.
+Preview, check, rank, history, and `--dry-run` do not write. Deploy the V2 RPC migration separately; pulling code does not update the database. `--calendar-file` is deprecated, ignored, and never read.
 
 <a id="conventions"></a>
 
