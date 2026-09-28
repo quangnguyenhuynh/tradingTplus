@@ -2,6 +2,7 @@ import json
 
 import main
 from src.database.client import SupabaseClient
+from src.data_contracts import get_contract
 from src.pipeline import index_daily_preview
 
 
@@ -44,7 +45,7 @@ def test_preview_one_date_prints_normalized_table_without_db_writes(monkeypatch,
 
     output = capsys.readouterr().out
     assert "VNINDEX | 2026-08-24 | 1245.5" in output
-    assert "SSI_DailyIndex | OK" in output
+    assert "SSI_v2_DailyIndex | OK" in output
     assert fake.calls == [("VNINDEX", "24/08/2026")]
 
 
@@ -77,10 +78,10 @@ def test_preview_raw_prints_raw_payload_json(monkeypatch, capsys):
 
     output = json.loads(capsys.readouterr().out)
     assert output[0]["raw"] == [PAYLOAD]
-    assert output[0]["source"] == "SSI_DailyIndex"
+    assert output[0]["source"] == "SSI_v2_DailyIndex"
     assert output[0]["mapping_summary"] == [{
         "raw_field_count": len(PAYLOAD),
-        "normalized_field_count": 22,
+        "normalized_field_count": 26,
         "omitted_from_clean": [],
     }]
 
@@ -92,15 +93,9 @@ def test_preview_json_prints_valid_normalized_json(monkeypatch, capsys):
 
     output = json.loads(capsys.readouterr().out)
     assert output[0]["index_code"] == "VNINDEX"
-    assert output[0]["change"] is None
-    assert output[0]["total_val"] is None
-    assert set(output[0]) == {
-        "index_code", "trading_date", "index_value", "change", "ratio_change",
-        "total_trade", "total_match_vol", "total_match_val", "total_deal_vol",
-        "total_deal_val", "total_vol", "total_val", "advances", "no_changes",
-        "declines", "ceilings", "floors", "type_index", "index_name",
-        "trading_session", "market", "exchange",
-    }
+    assert output[0]["index_change"] is None
+    assert output[0]["total_trade_value"] is None
+    assert set(output[0]) == set(get_contract("index_daily")["fields"])
 
 
 def test_preview_reports_raw_only_time_without_removing_it(monkeypatch, capsys):

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from .ssi_v2 import SSIV2Adapter
+from .ssi_v3 import SSIV3Adapter
 
 PRODUCTION_DATASETS = ("stock_daily", "stock_intraday", "index_daily")
 INSPECTOR_ONLY_DATASETS = ("symbol_list", "index_list")
@@ -27,10 +28,14 @@ class Capability:
 
 
 _CAPABILITIES = tuple(
-    [Capability("ssi_v2", dataset, 2, "ready", SSIV2Adapter) for dataset in PRODUCTION_DATASETS]
+    [Capability("ssi_v2", dataset, 2, "ready", SSIV2Adapter) for dataset in ("stock_daily", "stock_intraday")]
+    + [Capability("ssi_v2", "index_daily", 2, "deprecated", None,
+                  "SSI v2 DailyIndex is retained for inspection only and cannot write the v2.0 clean contract")]
     + [Capability("ssi_v3", dataset, 3, "preview", None,
                   "Response semantics and clean mapping are not fully verified; inspector only")
-       for dataset in PRODUCTION_DATASETS]
+       for dataset in ("stock_daily", "stock_intraday")]
+    + [Capability("ssi_v3", "index_daily", 3, "ready", SSIV3Adapter,
+                  "Verified indexSummary production capability")]
     + [Capability(source, dataset, order, "preview", None,
                   "Catalog preview for API inspection only; not a production sync capability")
        for source, order in (("ssi_v2", 2), ("ssi_v3", 3))

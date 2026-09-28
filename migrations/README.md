@@ -92,3 +92,7 @@ Adds the operator-controlled `symbols.intraday_status` automatic-ingest scope. E
 ## Foreign EOD Feature V2
 
 See [`docs/FOREIGN_EOD_FEATURES.md`](../docs/FOREIGN_EOD_FEATURES.md) for the approved dedicated table, same-symbol row windows, freshness contract, RPC security, CLI, and manual rollout.
+
+## 20260928 SSI v3 `index_daily` rebuild
+
+`20260928_rebuild_index_daily_ssi_v3.sql` manually replaces the untrusted SSI v2 clean contract with nullable SSI v3 `indexSummary` columns while retaining `(index_code, trading_date)` as the primary key. It deletes old **clean** rows rather than copying v2 `change` semantics, and never changes or deletes `index_raw_daily`. Apply in a maintenance window, backfill clean data from v3, validate it, and separately rerun index features. Review the migration's verification and rollback guidance before applying.

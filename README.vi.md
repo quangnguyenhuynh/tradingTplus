@@ -241,7 +241,7 @@ Dùng inspector độc lập trong `scripts`. Lệnh mặc định nguồn mới
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 ```
 
-Dùng `--show-mapping` nếu muốn in quy tắc từ điển. Từ điển nằm ở `src/data_contracts/mappings/ssi_v2.json` và `ssi_v3.json`; giữ cấu trúc clean hiện có. Xem [hướng dẫn inspector](scripts/ssi_api_inspector/README.vi.md).
+Dùng `--show-mapping` nếu muốn in quy tắc từ điển. Từ điển nằm ở `src/data_contracts/mappings/ssi_v2.json` và `ssi_v3.json`; `index_daily` dùng clean contract 2.0.0, các clean contract khác không đổi. Xem [hướng dẫn inspector](scripts/ssi_api_inspector/README.vi.md).
 
 ## Xem trước API và ingest vào DB
 
@@ -255,12 +255,16 @@ python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-
 python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
-**Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (hiện là `ssi_v2`). Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.
+**Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (SSI v2 cho stock, SSI v3 cho `index_daily`). Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]
 python main.py stock-intraday 2026-09-08 --symbols SSI [--data-source ssi_v2]
-python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v2]
+python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v3]
 ```
 
 Checklist nguồn mới: response/tài liệu thật → adapter → mapping → fixture tests (phân trang/thời gian/đơn vị) → xác minh contract → đánh dấu `ready` riêng từng dataset. Endpoint raw-only chưa đủ điều kiện nối production.
+
+### Nguồn index daily SSI v3
+
+Contract 2.0.0 của `index_daily` dùng SSI v3 `indexSummary`. Item raw v3 được giữ nguyên, lịch sử raw SSI v2 vẫn được giữ, còn v2 `DailyIndex` chỉ dành cho inspection. `indexChange` giữ đơn vị điểm chỉ số và `indexChangePercentage` giữ đơn vị phần trăm của provider; ingest không chia 100 và không tự chạy index feature. Apply migration thủ công, backfill clean v3, validate, rồi chạy lại index feature bằng lệnh riêng.

@@ -20,7 +20,9 @@ def fetch_index_daily_with_clients(ssi: SSIApi, db: SupabaseClient, index_code: 
         summary["errors"].append(str(exc)); return summary
     if not payloads:
         summary["errors"].append(f"No DailyIndex data for {index_code} on {date}"); return summary
-    raw_records = [build_index_raw_daily_record(index_code, date, payload) for payload in payloads]
+    source_id = adapted.source if adapted is not None else "ssi_v2"
+    raw_source = "SSI_v3_indexSummary" if source_id == "ssi_v3" else "SSI_v2_DailyIndex"
+    raw_records = [build_index_raw_daily_record(index_code, date, payload, source=raw_source) for payload in payloads]
     persist_index_raw_daily(db, raw_records)
     summary["raw_rows"] = len(raw_records)
     mapping_reports = []

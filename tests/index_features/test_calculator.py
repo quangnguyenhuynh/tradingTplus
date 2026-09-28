@@ -10,11 +10,11 @@ def source_rows(count=80):
     sequence = np.arange(count, dtype=float)
     return pd.DataFrame({
         "index_code": "VNINDEX", "trading_date": dates,
-        "index_value": 100 + sequence, "total_vol": 1000 + sequence,
-        "total_val": 10000 + sequence, "total_match_vol": 800 + sequence,
-        "total_match_val": 8000 + sequence, "total_deal_vol": 200.0,
-        "total_deal_val": 2000.0, "advances": 60.0, "no_changes": 10.0,
-        "declines": 30.0, "ceilings": 5.0, "floors": 2.0,
+        "index_value": 100 + sequence, "total_trade_volume": 1000 + sequence,
+        "total_trade_value": 10000 + sequence, "total_match_volume": 800 + sequence,
+        "total_match_value": 8000 + sequence, "total_deal_volume": 200.0,
+        "total_deal_value": 2000.0, "total_advance_stock": 60.0, "total_no_change_stock": 10.0,
+        "total_decline_stock": 30.0, "total_ceiling_stock": 5.0, "total_floor_stock": 2.0,
     })
 
 
@@ -54,7 +54,7 @@ def test_breadth_and_liquidity_formulas():
 
 def test_null_zero_denominator_and_insufficient_history_are_null():
     rows = source_rows(10)
-    rows.loc[9, ["total_vol", "total_val", "advances"]] = [0, 0, np.nan]
+    rows.loc[9, ["total_trade_volume", "total_trade_value", "total_advance_stock"]] = [0, 0, np.nan]
     result = compute_index_daily_features(rows)
     row = result.iloc[-1]
     assert pd.isna(row["breadth_total"])

@@ -6,7 +6,18 @@ from typing import Any
 
 from src.validation.models import ValidationIssue, ValidationResult
 
-NON_NEGATIVE = ("total_trade", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_vol", "total_val", "advances", "no_changes", "declines", "ceilings", "floors")
+NON_NEGATIVE = (
+    "total_trade_volume", "total_trade_value", "total_match_volume", "total_match_value",
+    "total_deal_volume", "total_deal_value", "total_advance_stock", "total_ceiling_stock",
+    "total_decline_stock", "total_floor_stock", "total_no_change_stock",
+    "total_prop_buy_volume", "total_prop_buy_value", "total_prop_sell_volume",
+    "total_prop_sell_value", "total_foreign_buy_volume", "total_foreign_buy_value",
+    "total_foreign_sell_volume", "total_foreign_sell_value",
+)
+NUMERIC = (
+    "index_value", "index_change", "index_change_percentage", *NON_NEGATIVE,
+    "net_foreign_purchase_volume", "net_foreign_purchase_value",
+)
 
 
 def validate_index_daily_record(record: dict) -> ValidationResult:
@@ -17,7 +28,7 @@ def validate_index_daily_record(record: dict) -> ValidationResult:
     for field in ("index_code", "trading_date"):
         if record.get(field) in (None, ""):
             issue("INDEX_REQUIRED_FIELD_MISSING", f"Required field {field} is missing", "error", field, record.get(field), "non-empty")
-    for field in ("index_value", "change", "ratio_change", *NON_NEGATIVE):
+    for field in NUMERIC:
         value = record.get(field)
         if value is None: continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
@@ -26,10 +37,19 @@ def validate_index_daily_record(record: dict) -> ValidationResult:
             issue("INDEX_NON_POSITIVE_VALUE", "index_value must be positive", "error", field, value, "> 0")
         if field in NON_NEGATIVE and value < 0:
             issue("INDEX_NEGATIVE_COUNT_OR_TOTAL", f"{field} must be non-negative", "error", field, value, ">= 0")
-    for total, match, deal in (("total_vol", "total_match_vol", "total_deal_vol"), ("total_val", "total_match_val", "total_deal_val")):
+    for total, match, deal in (("total_trade_volume", "total_match_volume", "total_deal_volume"), ("total_trade_value", "total_match_value", "total_deal_value")):
         if all(record.get(key) is not None for key in (total, match, deal)):
             expected = record[match] + record[deal]
             tolerance = max(1e-6, abs(expected) * 1e-6)
             if abs(record[total] - expected) > tolerance:
                 issue("INDEX_TOTAL_COMPONENT_MISMATCH", f"{total} differs from {match} + {deal}", "warning", total, record[total], expected)
+    for net, buy, sell in (
+        ("net_foreign_purchase_volume", "total_foreign_buy_volume", "total_foreign_sell_volume"),
+        ("net_foreign_purchase_value", "total_foreign_buy_value", "total_foreign_sell_value"),
+    ):
+        if all(record.get(key) is not None for key in (net, buy, sell)):
+            expected = record[buy] - record[sell]
+            tolerance = max(1e-6, abs(expected) * 1e-6)
+            if abs(record[net] - expected) > tolerance:
+                issue("INDEX_FOREIGN_NET_MISMATCH", f"{net} differs from {buy} - {sell}", "warning", net, record[net], expected)
     return ValidationResult(not errors, errors, warnings)

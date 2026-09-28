@@ -1,4 +1,4 @@
-"""SSI v2 DailyIndex compatibility wrappers over the shared mapping engine."""
+"""SSI index raw evidence and clean mapping helpers."""
 from __future__ import annotations
 import hashlib
 import json
@@ -20,10 +20,10 @@ def payload_index_date(payload: dict) -> str | None:
         try:return datetime.strptime(str(value).strip()[:10],fmt).date().isoformat()
         except ValueError:pass
     return None
-def build_index_raw_daily_record(requested_code: str,date: str,payload: dict)->dict:
+def build_index_raw_daily_record(requested_code: str,date: str,payload: dict, *, source: str = "SSI_v2_DailyIndex")->dict:
     code=payload_index_code(payload) or requested_code; trading_date=payload_index_date(payload) or parse_ddmmyyyy(date).iso
     canonical=json.dumps(payload,sort_keys=True,separators=(',',':'),ensure_ascii=False,default=str)
-    return {'index_code':code,'trading_date':trading_date,'data_hash':hashlib.sha256(canonical.encode()).hexdigest(),'payload':payload,'source':'SSI_DailyIndex'}
+    return {'index_code':code,'trading_date':trading_date,'data_hash':hashlib.sha256(canonical.encode()).hexdigest(),'payload':payload,'source':source}
 def map_index_daily_record(requested_code: str,date: str,payload: dict):
     result=map_record('ssi_v2','index_daily',payload,{})
     clean=result.candidate

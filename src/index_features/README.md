@@ -43,3 +43,5 @@ python main.py index-features-check --from 05/01/2026 --to 25/08/2026 --indexes 
 Preview and check are read-only. Backfill clean `index_daily` first if a longer
 history is required, then backfill index features, and finally run the check.
 Raw-without-clean dates are reported and never become feature rows.
+
+`index_daily` contract 2.0 inputs use `total_trade_volume/value`, `total_match_volume/value`, `total_deal_volume/value`, and `total_{advance,no_change,decline,ceiling,floor}_stock`. Feature formulas and persisted feature names are unchanged. Existing feature history derived from SSI v2 is stale; rerun it separately only after the SSI v3 clean backfill is validated.

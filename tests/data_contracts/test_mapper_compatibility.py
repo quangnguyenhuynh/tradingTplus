@@ -19,7 +19,7 @@ def test_intraday_wrapper_keeps_1m_utc_value_and_raw_payload():
 def test_index_mapper_keeps_complete_clean_contract():
     payload={"IndexId":"VNINDEX","TradingDate":"25/08/2026","IndexValue":"1280.5","TotalMatchVol":10,"TotalDealVol":2,"TotalVol":12,"Nochanges":3,"Ceiling":4,"Floor":5}
     clean=build_index_daily_record("VNINDEX","25/08/2026",payload)
-    assert clean and len(clean)==22 and clean["index_value"]==1280.5 and clean["no_changes"]==3
+    assert clean and len(clean)==26 and clean["index_value"]==1280.5 and clean["total_no_change_stock"]==3
 
 def test_mapping_error_blocks_clean_database_write_but_preserves_raw():
     calls=[]

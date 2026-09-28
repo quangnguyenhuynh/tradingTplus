@@ -40,3 +40,5 @@ python main.py index-features-check --from 05/01/2026 --to 25/08/2026 --indexes 
 Preview và check chỉ đọc. Muốn có lịch sử dài hơn, hãy backfill clean
 `index_daily` trước, rồi backfill index feature và chạy check. Ngày raw-không-clean
 được báo riêng và không bao giờ tạo feature row.
+
+Input contract 2.0 của `index_daily` dùng `total_trade_volume/value`, `total_match_volume/value`, `total_deal_volume/value` và `total_{advance,no_change,decline,ceiling,floor}_stock`. Công thức và tên feature persist không đổi. Lịch sử feature đã tính từ SSI v2 là stale; chỉ chạy lại bằng pipeline riêng sau khi backfill clean SSI v3 đã được validate.
