@@ -328,17 +328,17 @@
       }
     },
     "index_daily": {
-      "contract_version": "1.0.0",
+      "contract_version": "2.0.0",
       "fields": {
         "index_code": {
-          "description": "Canonical index identifier",
+          "description": "Canonical index identifier supplied by request context",
           "type": "string",
           "unit": "none",
           "required": true,
           "nullable": false
         },
         "trading_date": {
-          "description": "Vietnam trading date",
+          "description": "Vietnam trading date reported by SSI v3 indexSummary",
           "type": "date",
           "unit": "YYYY-MM-DD",
           "required": true,
@@ -352,148 +352,183 @@
           "required": false,
           "nullable": true
         },
-        "change": {
-          "description": "Index point change",
+        "index_change": {
+          "description": "Provider index point change; no unit conversion",
           "type": "number",
           "unit": "index points",
           "required": false,
           "nullable": true
         },
-        "ratio_change": {
-          "description": "Index percentage change",
+        "index_change_percentage": {
+          "description": "Provider percentage change; stored in provider percent units",
           "type": "number",
           "unit": "percent",
           "required": false,
           "nullable": true
         },
-        "total_trade": {
-          "description": "Number of trades",
+        "total_trade_volume": {
+          "description": "Provider total traded volume",
           "type": "number",
-          "unit": "trades",
+          "unit": "provider volume",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_match_vol": {
-          "description": "Matched-order constituent volume",
+        "total_trade_value": {
+          "description": "Provider total traded value",
           "type": "number",
-          "unit": "shares",
+          "unit": "provider value",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_match_val": {
-          "description": "Provider matched-order constituent value",
+        "total_match_volume": {
+          "description": "Provider matched volume",
           "type": "number",
-          "unit": "VND",
+          "unit": "provider volume",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_deal_vol": {
-          "description": "Put-through constituent volume",
+        "total_match_value": {
+          "description": "Provider matched value",
           "type": "number",
-          "unit": "shares",
+          "unit": "provider value",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_deal_val": {
-          "description": "Provider put-through constituent value",
+        "total_deal_volume": {
+          "description": "Provider deal volume",
           "type": "number",
-          "unit": "VND",
+          "unit": "provider volume",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_vol": {
-          "description": "Provider total constituent volume",
+        "total_deal_value": {
+          "description": "Provider deal value",
           "type": "number",
-          "unit": "shares",
+          "unit": "provider value",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "total_val": {
-          "description": "Provider total constituent value",
+        "total_advance_stock": {
+          "description": "Advancing-stock count",
           "type": "number",
-          "unit": "VND",
+          "unit": "stocks",
           "required": false,
           "nullable": true,
           "minimum": 0
         },
-        "type_index": {
-          "description": "Provider index type",
-          "type": "string",
-          "unit": "none",
+        "total_ceiling_stock": {
+          "description": "Ceiling-stock count",
+          "type": "number",
+          "unit": "stocks",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_decline_stock": {
+          "description": "Declining-stock count",
+          "type": "number",
+          "unit": "stocks",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_floor_stock": {
+          "description": "Floor-stock count",
+          "type": "number",
+          "unit": "stocks",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_no_change_stock": {
+          "description": "Unchanged-stock count",
+          "type": "number",
+          "unit": "stocks",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_prop_buy_volume": {
+          "description": "Proprietary buy volume",
+          "type": "number",
+          "unit": "provider volume",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_prop_buy_value": {
+          "description": "Proprietary buy value",
+          "type": "number",
+          "unit": "provider value",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_prop_sell_volume": {
+          "description": "Proprietary sell volume",
+          "type": "number",
+          "unit": "provider volume",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_prop_sell_value": {
+          "description": "Proprietary sell value",
+          "type": "number",
+          "unit": "provider value",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_foreign_buy_volume": {
+          "description": "Foreign buy volume",
+          "type": "number",
+          "unit": "provider volume",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_foreign_buy_value": {
+          "description": "Foreign buy value",
+          "type": "number",
+          "unit": "provider value",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_foreign_sell_volume": {
+          "description": "Foreign sell volume",
+          "type": "number",
+          "unit": "provider volume",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "total_foreign_sell_value": {
+          "description": "Foreign sell value",
+          "type": "number",
+          "unit": "provider value",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "net_foreign_purchase_volume": {
+          "description": "Provider net foreign purchase volume",
+          "type": "number",
+          "unit": "provider volume",
           "required": false,
           "nullable": true
         },
-        "index_name": {
-          "description": "Provider index name",
-          "type": "string",
-          "unit": "none",
-          "required": false,
-          "nullable": true
-        },
-        "advances": {
-          "description": "Advancing constituents",
+        "net_foreign_purchase_value": {
+          "description": "Provider net foreign purchase value",
           "type": "number",
-          "unit": "constituents",
-          "required": false,
-          "nullable": true,
-          "minimum": 0
-        },
-        "no_changes": {
-          "description": "Unchanged constituents",
-          "type": "number",
-          "unit": "constituents",
-          "required": false,
-          "nullable": true,
-          "minimum": 0
-        },
-        "declines": {
-          "description": "Declining constituents",
-          "type": "number",
-          "unit": "constituents",
-          "required": false,
-          "nullable": true,
-          "minimum": 0
-        },
-        "ceilings": {
-          "description": "Ceiling-price constituents",
-          "type": "number",
-          "unit": "constituents",
-          "required": false,
-          "nullable": true,
-          "minimum": 0
-        },
-        "floors": {
-          "description": "Floor-price constituents",
-          "type": "number",
-          "unit": "constituents",
-          "required": false,
-          "nullable": true,
-          "minimum": 0
-        },
-        "trading_session": {
-          "description": "Provider trading-session label",
-          "type": "string",
-          "unit": "none",
-          "required": false,
-          "nullable": true
-        },
-        "market": {
-          "description": "Provider market label",
-          "type": "string",
-          "unit": "none",
-          "required": false,
-          "nullable": true
-        },
-        "exchange": {
-          "description": "Provider exchange label",
-          "type": "string",
-          "unit": "none",
+          "unit": "provider value",
           "required": false,
           "nullable": true
         }

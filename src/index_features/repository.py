@@ -30,9 +30,10 @@ def _page(query_factory, db: Any, action: str) -> list[dict]:
 
 def fetch_index_daily_context(db: SupabaseClient, index_code: str, start: str, end: str) -> list[dict]:
     columns = ",".join((
-        "index_code", "trading_date", "index_value", "total_vol", "total_val",
-        "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val",
-        "advances", "no_changes", "declines", "ceilings", "floors",
+        "index_code", "trading_date", "index_value", "total_trade_volume", "total_trade_value",
+        "total_match_volume", "total_match_value", "total_deal_volume", "total_deal_value",
+        "total_advance_stock", "total_no_change_stock", "total_decline_stock",
+        "total_ceiling_stock", "total_floor_stock",
     ))
     prior_query = (db.client.table("index_daily").select(columns)
                    .eq("index_code", index_code).lt("trading_date", start)

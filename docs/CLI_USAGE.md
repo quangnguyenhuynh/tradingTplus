@@ -519,7 +519,7 @@ python scripts/ssi_api_inspector/inspect.py run index-list
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
 ```
 
-Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all five datasets. Preview is not production readiness: production independently remains on the newest `ready` source, currently ssi_v2. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: both use `index-list`. Catalog capabilities are preview-only. There is no cross-source fallback.
+Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all five datasets. Preview is not production readiness: production selects readiness per dataset: SSI v2 for stock datasets and SSI v3 for `index_daily`. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: both use `index-list`. Catalog capabilities are preview-only. There is no cross-source fallback.
 
 Price datasets use one `--date` or an ordered `--from-date`/`--to-date` pair. Range-capable endpoints make one request; v3 index ranges make one request per calendar day. Catalog datasets reject dates; `symbol-list` requires a board (with compatible market/exchange aliases), while `index-list` makes it optional. Plans above 100 data requests fail before network access. `--page-index`/`--page-size` request one supported page, while `--limit` only controls each displayed sample. `--full-json` prints the complete response fetched and corresponding CLEAN rows, not all pages.
 
@@ -535,12 +535,30 @@ Help/list need no credential or network. Existing endpoint commands and `run all
 
 ## Source adapters: preview vs ingest
 
-Use `YYYY-MM-DD` consistently (legacy `DD/MM/YYYY` is also accepted). Production commands write through the existing raw/clean persistence layer and accept `--data-source`; omitted means newest ready source for that dataset, currently `ssi_v2`:
+Use `YYYY-MM-DD` consistently (legacy `DD/MM/YYYY` is also accepted). Production commands write through the existing raw/clean persistence layer and accept `--data-source`; omitted means the newest ready source for that dataset (SSI v2 for stock datasets; SSI v3 for `index_daily`):
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2
 python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
-python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
+python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v3
 ```
 
 `stock-daily` and legacy `stock-eod` share one handler. Backfill/refill ingest commands also accept and propagate `--data-source`. API preview belongs only in `scripts/ssi_api_inspector` and never writes DB; see its README for all five datasets.
+
+### SSI v3 index production and backfill
+
+`index-daily` and `index-backfill` now default to production-ready `ssi_v3` and call `indexSummary`; explicitly selecting `ssi_v2` is rejected for production. SSI v2 remains available in the read-only inspector. Inspect raw and clean values without DB writes with:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08 --data-source ssi_v3 --full-json
+```
+
+The clean contract stores `indexChange` as index points and `indexChangePercentage` in provider percent units without dividing either value by 100. After manually applying the migration:
+
+```bash
+python main.py index-backfill --from 2026-01-01 --to 2026-09-28 --indexes VNINDEX
+python main.py index-check 2026-09-28 --indexes VNINDEX
+python main.py index-features-backfill --from 2026-01-01 --to 2026-09-28 --indexes VNINDEX
+```
+
+Choose the actual authorized range. Empty/weekend/holiday/unavailable responses create no synthetic rows. The final feature command is deliberately separate.

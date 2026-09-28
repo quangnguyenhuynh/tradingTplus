@@ -7,9 +7,10 @@ import pandas as pd
 from src.features.common import calculate_macd, calculate_rsi, safe_div
 
 SOURCE_COLUMNS = (
-    "index_code", "trading_date", "index_value", "total_vol", "total_val",
-    "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val",
-    "advances", "no_changes", "declines", "ceilings", "floors",
+    "index_code", "trading_date", "index_value", "total_trade_volume", "total_trade_value",
+    "total_match_volume", "total_match_value", "total_deal_volume", "total_deal_value",
+    "total_advance_stock", "total_no_change_stock", "total_decline_stock",
+    "total_ceiling_stock", "total_floor_stock",
 )
 
 FEATURE_COLUMNS = (
@@ -59,29 +60,32 @@ def compute_index_daily_features(source: pd.DataFrame) -> pd.DataFrame:
     out["index_drawdown_20d"] = safe_div(value, value.rolling(20, min_periods=20).max(), out.index) - 1
     out["index_drawdown_60d"] = safe_div(value, value.rolling(60, min_periods=60).max(), out.index) - 1
 
-    out["breadth_total"] = out[["advances", "no_changes", "declines"]].sum(axis=1, min_count=3)
-    out["index_breadth_net"] = out["advances"] - out["declines"]
+    out["breadth_total"] = out[["total_advance_stock", "total_no_change_stock", "total_decline_stock"]].sum(axis=1, min_count=3)
+    out["index_breadth_net"] = out["total_advance_stock"] - out["total_decline_stock"]
     denominator = out["breadth_total"]
     for target, numerator in (
         ("index_breadth_ratio", out["index_breadth_net"]),
-        ("index_advance_pct", out["advances"]),
-        ("index_decline_pct", out["declines"]),
-        ("index_unchanged_pct", out["no_changes"]),
-        ("index_ceiling_pct", out["ceilings"]),
-        ("index_floor_pct", out["floors"]),
-        ("index_limit_balance", out["ceilings"] - out["floors"]),
+        ("index_advance_pct", out["total_advance_stock"]),
+        ("index_decline_pct", out["total_decline_stock"]),
+        ("index_unchanged_pct", out["total_no_change_stock"]),
+        ("index_ceiling_pct", out["total_ceiling_stock"]),
+        ("index_floor_pct", out["total_floor_stock"]),
+        ("index_limit_balance", out["total_ceiling_stock"] - out["total_floor_stock"]),
     ):
         out[target] = safe_div(numerator, denominator, out.index)
     out["index_breadth_ma5"] = out["index_breadth_ratio"].rolling(5, min_periods=5).mean()
     out["index_breadth_ma10"] = out["index_breadth_ratio"].rolling(10, min_periods=10).mean()
 
     for kind in ("vol", "val"):
-        total = out[f"total_{kind}"]
+        total = out[f"total_trade_{'volume' if kind == 'vol' else 'value'}"]
         average = total.rolling(20, min_periods=20).mean()
         out[f"index_total_{kind}_ma20"] = average
         out[f"index_total_{kind}_ratio20"] = safe_div(total, average, out.index)
-        out[f"index_match_{kind}_ratio"] = safe_div(out[f"total_match_{kind}"], total, out.index)
-        out[f"index_deal_{kind}_ratio"] = safe_div(out[f"total_deal_{kind}"], total, out.index)
+        suffix = "volume" if kind == "vol" else "value"
+        out[f"index_match_{kind}_ratio"] = safe_div(out[f"total_match_{suffix}"], total, out.index)
+        out[f"index_deal_{kind}_ratio"] = safe_div(out[f"total_deal_{suffix}"], total, out.index)
 
     out = out.replace([np.inf, -np.inf], np.nan)
-    return out[["index_code", "trading_date", "index_value", "total_vol", "total_val", "breadth_total", *FEATURE_COLUMNS]]
+    return out[["index_code", "trading_date", "index_value", "total_trade_volume", "total_trade_value", "breadth_total", *FEATURE_COLUMNS]].rename(
+        columns={"total_trade_volume": "total_vol", "total_trade_value": "total_val"}
+    )

@@ -89,3 +89,7 @@ Thêm scope tự động do operator kiểm soát qua `symbols.intraday_status`.
 ## Foreign EOD Feature V2
 
 Xem [`docs/FOREIGN_EOD_FEATURES.vi.md`](../docs/FOREIGN_EOD_FEATURES.vi.md) về bảng riêng đã duyệt, cửa sổ theo dòng cùng mã, freshness, quyền RPC, CLI và runbook thủ công.
+
+## 20260928 dựng lại `index_daily` bằng SSI v3
+
+`20260928_rebuild_index_daily_ssi_v3.sql` được apply thủ công để thay contract clean SSI v2 không còn tin cậy bằng các cột nullable của SSI v3 `indexSummary`, đồng thời giữ primary key `(index_code, trading_date)`. Migration xóa hàng **clean** cũ thay vì copy ngữ nghĩa `change` của v2, tuyệt đối không sửa/xóa `index_raw_daily`. Cần chạy trong maintenance window, backfill clean từ v3, validate, rồi chạy lại index feature bằng lệnh riêng. Đọc phần verification và rollback trong migration trước khi apply.

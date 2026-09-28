@@ -255,13 +255,11 @@
       }
     },
     "index_daily": {
-      "mapping_version": "1.0.0-preview",
-      "contract_version": "1.0.0",
+      "mapping_version": "2.0.0",
+      "contract_version": "2.0.0",
       "fields": {
         "index_code": {
-          "aliases": [
-            "indexSummary.index"
-          ],
+          "context": "index",
           "transform": "symbol"
         },
         "trading_date": {
@@ -276,114 +274,143 @@
           ],
           "transform": "float"
         },
-        "change": {
+        "index_change": {
           "aliases": [
-            "indexSummary.change"
+            "indexSummary.indexChange"
           ],
           "transform": "float"
         },
-        "ratio_change": {
+        "index_change_percentage": {
           "aliases": [
-            "indexSummary.ratioChange"
+            "indexSummary.indexChangePercentage"
           ],
           "transform": "float"
         },
-        "total_vol": {
+        "total_trade_volume": {
           "aliases": [
             "indexSummary.totalTrade"
           ],
           "transform": "float"
         },
-        "total_val": {
+        "total_trade_value": {
           "aliases": [
-            "indexSummary.totalValue"
+            "indexSummary.totalTradeValue"
           ],
           "transform": "float"
         },
-        "advances": {
+        "total_match_volume": {
           "aliases": [
-            "indexSummary.advances"
+            "indexSummary.totalMatch"
           ],
           "transform": "float"
         },
-        "no_changes": {
+        "total_match_value": {
           "aliases": [
-            "indexSummary.noChanges"
+            "indexSummary.totalMatchValue"
           ],
           "transform": "float"
         },
-        "declines": {
+        "total_deal_volume": {
           "aliases": [
-            "indexSummary.declines"
+            "indexSummary.totalDeal"
           ],
           "transform": "float"
         },
-        "ceilings": {
+        "total_deal_value": {
           "aliases": [
-            "indexSummary.ceilings"
+            "indexSummary.totalDealValue"
           ],
           "transform": "float"
         },
-        "floors": {
+        "total_advance_stock": {
           "aliases": [
-            "indexSummary.floors"
+            "indexSummary.totalAdvanceStock"
           ],
           "transform": "float"
         },
-        "trading_session": {
+        "total_ceiling_stock": {
           "aliases": [
-            "indexSummary.tradingSession"
+            "indexSummary.totalCeilingStock"
           ],
-          "transform": "text"
+          "transform": "float"
         },
-        "market": {
+        "total_decline_stock": {
           "aliases": [
-            "indexSummary.market"
+            "indexSummary.totalDeclineStock"
           ],
-          "transform": "text"
+          "transform": "float"
         },
-        "exchange": {
+        "total_floor_stock": {
           "aliases": [
-            "indexSummary.exchange"
+            "indexSummary.totalFloorStock"
           ],
-          "transform": "text"
+          "transform": "float"
         },
-        "index_name": {
+        "total_no_change_stock": {
           "aliases": [
-            "indexSummary.indexName"
+            "indexSummary.totalNoChangeStock"
           ],
-          "transform": "text"
+          "transform": "float"
         },
-        "type_index": {
+        "total_prop_buy_volume": {
           "aliases": [
-            "indexSummary.typeIndex"
+            "indexSummary.totalPropBuy"
           ],
-          "transform": "text"
+          "transform": "float"
         },
-        "total_trade": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        "total_prop_buy_value": {
+          "aliases": [
+            "indexSummary.totalPropBuyValue"
+          ],
+          "transform": "float"
         },
-        "total_match_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        "total_prop_sell_volume": {
+          "aliases": [
+            "indexSummary.totalPropSell"
+          ],
+          "transform": "float"
         },
-        "total_match_val": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        "total_prop_sell_value": {
+          "aliases": [
+            "indexSummary.totalPropSellValue"
+          ],
+          "transform": "float"
         },
-        "total_deal_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        "total_foreign_buy_volume": {
+          "aliases": [
+            "indexSummary.totalBuyForeign"
+          ],
+          "transform": "float"
         },
-        "total_deal_val": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+        "total_foreign_buy_value": {
+          "aliases": [
+            "indexSummary.totalBuyForeignValue"
+          ],
+          "transform": "float"
+        },
+        "total_foreign_sell_volume": {
+          "aliases": [
+            "indexSummary.totalSellForeign"
+          ],
+          "transform": "float"
+        },
+        "total_foreign_sell_value": {
+          "aliases": [
+            "indexSummary.totalSellForeignValue"
+          ],
+          "transform": "float"
+        },
+        "net_foreign_purchase_volume": {
+          "aliases": [
+            "indexSummary.netPurchasesForeignVolume"
+          ],
+          "transform": "float"
+        },
+        "net_foreign_purchase_value": {
+          "aliases": [
+            "indexSummary.netPurchasesForeignValue"
+          ],
+          "transform": "float"
         }
       },
       "inspector": {

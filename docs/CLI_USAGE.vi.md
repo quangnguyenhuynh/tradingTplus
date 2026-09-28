@@ -526,12 +526,30 @@ Help/list không cần credential/network. Lệnh endpoint cũ và `run all` v�
 
 ## Source adapter: xem trước và ingest
 
-Dùng thống nhất `YYYY-MM-DD` (vẫn tương thích `DD/MM/YYYY`). Lệnh production ghi qua persistence raw/clean hiện có và nhận `--data-source`; nếu bỏ qua thì chọn nguồn ready mới nhất riêng từng dataset, hiện là `ssi_v2`:
+Dùng thống nhất `YYYY-MM-DD` (vẫn tương thích `DD/MM/YYYY`). Lệnh production ghi qua persistence raw/clean hiện có và nhận `--data-source`; nếu bỏ qua thì chọn nguồn ready mới nhất riêng từng dataset (SSI v2 cho stock, SSI v3 cho `index_daily`):
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2
 python main.py stock-intraday 2026-09-08 --symbols SSI --data-source ssi_v2
-python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v2
+python main.py index-daily 2026-09-08 --indexes VNINDEX --data-source ssi_v3
 ```
 
 `stock-daily` và lệnh cũ `stock-eod` dùng chung handler. Các lệnh backfill/refill ingest cũng nhận và truyền xuyên suốt `--data-source`. Chỉ xem trước API trong `scripts/ssi_api_inspector`, tuyệt đối không ghi DB; xem README inspector cho đủ năm dataset.
+
+### Production và backfill index bằng SSI v3
+
+`index-daily` và `index-backfill` mặc định dùng nguồn production-ready `ssi_v3` và gọi `indexSummary`; chọn rõ `ssi_v2` cho production sẽ bị từ chối. SSI v2 vẫn dùng được trong inspector chỉ đọc. Xem raw và clean không ghi DB bằng:
+
+```bash
+python scripts/ssi_api_inspector/inspect.py run index-daily --index-code VNINDEX --date 2026-09-08 --data-source ssi_v3 --full-json
+```
+
+Contract clean lưu `indexChange` theo điểm chỉ số và `indexChangePercentage` theo đơn vị phần trăm của provider, không chia 100. Sau khi apply migration thủ công:
+
+```bash
+python main.py index-backfill --from 2026-01-01 --to 2026-09-28 --indexes VNINDEX
+python main.py index-check 2026-09-28 --indexes VNINDEX
+python main.py index-features-backfill --from 2026-01-01 --to 2026-09-28 --indexes VNINDEX
+```
+
+Phải chọn range thực tế đã được cho phép. Response rỗng/cuối tuần/ngày lễ/lịch sử không có không tạo hàng giả. Lệnh feature cuối cùng luôn chạy riêng.

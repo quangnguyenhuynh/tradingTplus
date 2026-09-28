@@ -250,7 +250,7 @@ clock defaults are removed for these fields, so writers must send them explicitl
 
 ## Canonical DailyIndex pipeline
 
-`SSI DailyIndex -> index_raw_daily -> validation -> index_daily -> index completeness` is a separate source-data flow. Index definitions live in `index_master`; constituents remain in `index_components`. Raw payloads use `(index_code, trading_date, data_hash)` and clean rows use `(index_code, trading_date)`. A payload outside requested code/date scope is retained raw and rejected from clean storage. Historical repair uses the explicit `index-backfill` command.
+`SSI v3 indexSummary -> index_raw_daily -> validation -> index_daily -> index completeness` is a separate source-data flow. Index definitions live in `index_master`; constituents remain in `index_components`. Raw payloads use `(index_code, trading_date, data_hash)` and clean rows use `(index_code, trading_date)`. A payload outside requested code/date scope is retained raw and rejected from clean storage. Historical repair uses the explicit `index-backfill` command.
 
 ## Stock EOD versus Index EOD
 
@@ -259,3 +259,9 @@ clock defaults are removed for these fields, so writers must send them explicitl
 ## Foreign EOD Feature V1
 
 See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.
+
+### SSI v3 index daily contract (2.0.0)
+
+The canonical index source flow is `SSI v3 /api/v3/data/indexSummary → unchanged index_raw_daily payload → type-only mapping → validation → index_daily → stop`. SSI v2 `DailyIndex` is deprecated for production clean writes; historical v2 raw evidence remains immutable. `indexChange` is stored as index points and `indexChangePercentage` in provider percent units, with no division by 100. Missing optional fields remain `NULL`.
+
+After manually applying `20260928_rebuild_index_daily_ssi_v3.sql`, run `python main.py index-backfill --from YYYY-MM-DD --to YYYY-MM-DD --indexes VNINDEX` for an explicitly selected range. Only returned SSI sessions are written. Validate with `python main.py index-check YYYY-MM-DD --indexes VNINDEX`, then separately rerun `python main.py index-features-backfill --from YYYY-MM-DD --to YYYY-MM-DD --indexes VNINDEX`. No ingest or migration triggers feature calculation.

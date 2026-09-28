@@ -145,4 +145,4 @@ class SSIV3Client:
     def masterdata(self,date):return self.paged('/data/masterdata',{'from':date,'to':date})
     def ohlc_1m(self,symbol,date):return self.paged('/data/ohlc',{'symbol':symbol,'from':date+' 00:00:00','to':date+' 23:59:59','timeFrame':'1m'})
     def index_summary(self,index,date):
-        body=self._request('GET','/data/indexSummary',params={'index':index,'tradingDate':date}); return PageResult(self._items(body),1,[body])
+        body=self._request('GET','/data/indexSummary',params={'index':index,'tradingDate':provider_date(date)}); return PageResult(self._items(body),1,[body])

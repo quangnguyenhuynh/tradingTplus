@@ -1,6 +1,6 @@
 # Contract dữ liệu chuẩn và mapping theo nguồn
 
-Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. Cả năm dataset hiện dùng `contract_version: 1.0.0`.
+Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. `index_daily` dùng contract breaking `2.0.0`; các dataset còn lại vẫn dùng `1.0.0`.
 
 `mappings/ssi_v2.json` là adapter SSI v2 có phiên bản riêng (`mapping_version: 1.0.0`). File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
 
@@ -36,3 +36,5 @@ print(result.report)
 Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. V3 dùng để mapping/in ở inspector; nguồn ingest production vẫn như hiện tại. Mỗi mapping dataset có `inspector.endpoint` và tùy chọn `inspector.prefix`; inspector dùng metadata này để map response đã lấy mà không sửa raw. Rule `unsupported` cho null kèm lý do `unsupported_fields`, không tạo giá trị giả. Alias như `summary.close` đọc từ bản view có prefix của raw, không tìm field đệ quy.
 
 Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md). Mapping giữ cấu trúc clean hiện tại, không thay phần auth/request của nguồn mới. Không cần migration hoặc backfill.
+
+`index_daily` là ngoại lệ đối với trạng thái v3 preview cũ: contract/mapping 2.0.0 là mapping production đã xác minh cho SSI v3 `indexSummary`. Identity lấy từ request context, mọi numeric optional giữ nullable, mapping không scale phần trăm. Mapping SSI v2 2.0 deprecated chỉ để tương thích inspection và không production-ready.

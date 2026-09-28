@@ -4,12 +4,12 @@ from src.data_sources.registry import (SourceNotReadyError, create_production_ad
                                        resolve_source)
 
 
-@pytest.mark.parametrize("dataset", ["stock_daily", "stock_intraday", "index_daily"])
+@pytest.mark.parametrize("dataset", ["stock_daily", "stock_intraday"])
 def test_production_selects_latest_ready_per_dataset(dataset):
     assert resolve_source(dataset).source == "ssi_v2"
 
 
-@pytest.mark.parametrize("dataset", ["stock_daily", "stock_intraday", "index_daily"])
+@pytest.mark.parametrize("dataset", ["stock_daily", "stock_intraday"])
 def test_inspector_selects_latest_registered_preview(dataset):
     selected = resolve_source(dataset, production=False)
     assert (selected.source, selected.status) == ("ssi_v3", "preview")
@@ -17,6 +17,12 @@ def test_inspector_selects_latest_registered_preview(dataset):
 
 def test_explicit_ready_source_is_honoured():
     assert resolve_source("stock_daily", "ssi_v2").source == "ssi_v2"
+
+
+def test_index_daily_defaults_to_v3_and_rejects_v2_for_production():
+    assert (resolve_source("index_daily").source, resolve_source("index_daily").status) == ("ssi_v3", "ready")
+    with pytest.raises(SourceNotReadyError, match="ssi_v2.*deprecated"):
+        resolve_source("index_daily", "ssi_v2")
 
 
 def test_preview_source_is_rejected_for_production_before_api_use():

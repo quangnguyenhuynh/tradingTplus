@@ -151,14 +151,20 @@ CREATE TABLE IF NOT EXISTS "public"."index_raw_daily" (
 CREATE UNIQUE INDEX IF NOT EXISTS index_raw_daily_identity_uidx ON public.index_raw_daily(index_code,trading_date,data_hash);
 CREATE TABLE IF NOT EXISTS "public"."index_daily" (
     "index_code" text NOT NULL, "trading_date" date NOT NULL, "index_value" numeric,
-    "change" numeric, "ratio_change" numeric, "total_trade" numeric,
-    "total_match_vol" numeric, "total_match_val" numeric, "total_deal_vol" numeric,
-    "total_deal_val" numeric, "total_vol" numeric, "total_val" numeric,
-    "type_index" text, "index_name" text, "advances" numeric, "no_changes" numeric,
-    "declines" numeric, "ceilings" numeric, "floors" numeric,
-    "trading_session" text, "market" text, "exchange" text
+    "index_change" numeric, "index_change_percentage" numeric,
+    "total_trade_volume" numeric, "total_trade_value" numeric,
+    "total_match_volume" numeric, "total_match_value" numeric,
+    "total_deal_volume" numeric, "total_deal_value" numeric,
+    "total_advance_stock" numeric, "total_ceiling_stock" numeric,
+    "total_decline_stock" numeric, "total_floor_stock" numeric,
+    "total_no_change_stock" numeric,
+    "total_prop_buy_volume" numeric, "total_prop_buy_value" numeric,
+    "total_prop_sell_volume" numeric, "total_prop_sell_value" numeric,
+    "total_foreign_buy_volume" numeric, "total_foreign_buy_value" numeric,
+    "total_foreign_sell_volume" numeric, "total_foreign_sell_value" numeric,
+    "net_foreign_purchase_volume" numeric, "net_foreign_purchase_value" numeric,
+    CONSTRAINT "index_daily_pkey" PRIMARY KEY ("index_code", "trading_date")
 );
-CREATE UNIQUE INDEX IF NOT EXISTS index_daily_index_code_trading_date_uidx ON public.index_daily(index_code,trading_date);
 
 
 CREATE TABLE IF NOT EXISTS "public"."stock_features" (

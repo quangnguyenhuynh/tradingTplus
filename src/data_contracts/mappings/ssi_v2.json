@@ -272,8 +272,8 @@
       }
     },
     "index_daily": {
-      "mapping_version": "1.0.0",
-      "contract_version": "1.0.0",
+      "mapping_version": "2.0.0-deprecated",
+      "contract_version": "2.0.0",
       "fields": {
         "index_code": {
           "aliases": [
@@ -294,121 +294,135 @@
           ],
           "transform": "float"
         },
-        "change": {
+        "index_change": {
           "aliases": [
             "Change"
           ],
           "transform": "float"
         },
-        "ratio_change": {
+        "index_change_percentage": {
           "aliases": [
             "RatioChange"
           ],
           "transform": "float"
         },
-        "total_trade": {
-          "aliases": [
-            "TotalTrade"
-          ],
-          "transform": "float"
-        },
-        "total_match_vol": {
+        "total_match_volume": {
           "aliases": [
             "TotalMatchVol"
           ],
           "transform": "float"
         },
-        "total_match_val": {
+        "total_match_value": {
           "aliases": [
             "TotalMatchVal"
           ],
           "transform": "float"
         },
-        "type_index": {
-          "aliases": [
-            "TypeIndex"
-          ],
-          "transform": "text"
-        },
-        "index_name": {
-          "aliases": [
-            "IndexName"
-          ],
-          "transform": "text"
-        },
-        "advances": {
+        "total_advance_stock": {
           "aliases": [
             "Advances"
           ],
           "transform": "float"
         },
-        "no_changes": {
+        "total_no_change_stock": {
           "aliases": [
             "NoChanges"
           ],
           "transform": "float"
         },
-        "declines": {
+        "total_decline_stock": {
           "aliases": [
             "Declines"
           ],
           "transform": "float"
         },
-        "ceilings": {
+        "total_ceiling_stock": {
           "aliases": [
             "Ceilings",
             "Ceiling"
           ],
           "transform": "float"
         },
-        "floors": {
+        "total_floor_stock": {
           "aliases": [
             "Floors",
             "Floor"
           ],
           "transform": "float"
         },
-        "total_deal_vol": {
+        "total_deal_volume": {
           "aliases": [
             "TotalDealVol"
           ],
           "transform": "float"
         },
-        "total_deal_val": {
+        "total_deal_value": {
           "aliases": [
             "TotalDealVal"
           ],
           "transform": "float"
         },
-        "total_vol": {
+        "total_trade_volume": {
           "aliases": [
             "TotalVol"
           ],
           "transform": "float"
         },
-        "total_val": {
+        "total_trade_value": {
           "aliases": [
             "TotalVal"
           ],
           "transform": "float"
         },
-        "trading_session": {
-          "aliases": [
-            "TradingSession"
-          ],
-          "transform": "text"
+        "total_prop_buy_volume": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
         },
-        "market": {
-          "aliases": [
-            "Market"
-          ],
-          "transform": "text"
+        "total_prop_buy_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
         },
-        "exchange": {
-          "aliases": [
-            "Exchange"
-          ],
-          "transform": "text"
+        "total_prop_sell_volume": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "total_prop_sell_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "total_foreign_buy_volume": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "total_foreign_buy_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "total_foreign_sell_volume": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "total_foreign_sell_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "net_foreign_purchase_volume": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
+        },
+        "net_foreign_purchase_value": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyIndex has no trusted equivalent for the SSI v3 clean contract"
         }
       },
       "inspector": {

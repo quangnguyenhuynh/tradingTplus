@@ -256,7 +256,7 @@ Use the standalone inspector. It defaults to the newest supported source (`ssi_v
 python scripts/ssi_api_inspector/inspect.py run daily-stock-price --symbol SSI --date 08/09/2026 --full-json
 ```
 
-Use `--show-mapping` to print dictionary rules. The dictionaries remain in `src/data_contracts/mappings/ssi_v2.json` and `ssi_v3.json`; existing clean fields and database schema are unchanged. See [inspector usage](scripts/ssi_api_inspector/README.md).
+Use `--show-mapping` to print dictionary rules. The dictionaries remain in `src/data_contracts/mappings/ssi_v2.json` and `ssi_v3.json`; the `index_daily` clean contract is 2.0.0 while other clean contracts are unchanged. See [inspector usage](scripts/ssi_api_inspector/README.md).
 
 ## API preview versus database ingest
 
@@ -270,12 +270,16 @@ python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-
 python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
-**Ingest into DB:** production chooses the newest `ready` capability independently for each dataset (currently `ssi_v2`). Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.
+**Ingest into DB:** production chooses the newest `ready` capability per dataset (SSI v2 for stock datasets and SSI v3 for `index_daily`). Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]
 python main.py stock-intraday 2026-09-08 --symbols SSI [--data-source ssi_v2]
-python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v2]
+python main.py index-daily 2026-09-08 --indexes VNINDEX [--data-source ssi_v3]
 ```
 
 To add a source: obtain a real response/specification, add its adapter and mapping dictionary, add fixture tests (including paging/time/unit conversion), verify every dataset contract, then mark each dataset `ready` separately. A raw-only endpoint is not production-capable.
+
+### SSI v3 index daily source
+
+`index_daily` contract 2.0.0 now uses SSI v3 `indexSummary`. Raw v3 items are preserved unchanged, SSI v2 raw history is retained, and v2 `DailyIndex` is inspection-only. Provider `indexChange` stays in index points and `indexChangePercentage` stays in provider percent units; ingest performs no `/100` conversion and never runs index features. Apply the migration manually, backfill v3 clean rows, validate them, then rerun index features separately.

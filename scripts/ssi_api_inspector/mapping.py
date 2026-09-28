@@ -41,7 +41,7 @@ def _context(dataset: str, row: dict[str, Any], params: dict[str, Any]) -> dict[
         raise ValueError("response trading date is outside the requested range")
     # A multi-day response must supply its own date; never assign the range start.
     day = day or (start if start == end else None)
-    context = {"symbol": actual if actual is not None else expected}
+    context = {"index" if is_index else "symbol": actual if actual is not None else expected}
     if day:
         context["date"] = f"{day[8:10]}/{day[5:7]}/{day[:4]}"
     return context

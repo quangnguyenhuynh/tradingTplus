@@ -12,8 +12,7 @@ from src.pipeline.date_utils import (
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
 from src.pipeline.index_scope import index_scope_summary, resolve_index_scope
 from src.ssi.api import SSIApi
-from src.data_sources.registry import resolve_source
-from src.data_sources.ssi_v2 import SSIV2Adapter
+from src.data_sources.registry import create_production_adapter
 
 
 def _resolve_index_daily_date(date: str | None) -> str:
@@ -28,11 +27,10 @@ def _resolve_index_daily_date(date: str | None) -> str:
 
 def run_index_daily_ingest(date: str | None = None, indexes: list[str] | tuple[str, ...] | None = None, data_source: str | None = None) -> dict[str, Any]:
     resolved_date = _resolve_index_daily_date(date)
-    capability = resolve_source("index_daily", data_source)
+    capability, ssi = create_production_adapter("index_daily", data_source)
     print(f"ℹ️ Dataset: index_daily; data source: {capability.source}")
     db = SupabaseClient()
     resolved, requested = resolve_index_scope(db, indexes)
-    ssi = SSIV2Adapter(SSIApi())
     rows = [fetch_index_daily_with_clients(ssi, db, code, resolved_date) for code in resolved]
     clean_count = sum(item["clean_rows"] for item in rows)
     raw_count = sum(item["raw_rows"] for item in rows)

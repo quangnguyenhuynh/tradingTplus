@@ -11,10 +11,10 @@ def rows(count=70):
     result = []
     for i, date in enumerate(pd.bdate_range("2026-01-01", periods=count)):
         result.append({"index_code": "VNINDEX", "trading_date": date.date().isoformat(),
-            "index_value": 100+i, "total_vol": 1000+i, "total_val": 10000+i,
-            "total_match_vol": 800+i, "total_match_val": 8000+i,
-            "total_deal_vol": 200, "total_deal_val": 2000, "advances": 60,
-            "no_changes": 10, "declines": 30, "ceilings": 5, "floors": 2})
+            "index_value": 100+i, "total_trade_volume": 1000+i, "total_trade_value": 10000+i,
+            "total_match_volume": 800+i, "total_match_value": 8000+i,
+            "total_deal_volume": 200, "total_deal_value": 2000, "total_advance_stock": 60,
+            "total_no_change_stock": 10, "total_decline_stock": 30, "total_ceiling_stock": 5, "total_floor_stock": 2})
     return result
 
 

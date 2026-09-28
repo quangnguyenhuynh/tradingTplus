@@ -4,12 +4,14 @@ from types import SimpleNamespace
 import pytest
 
 from src.database.client import SupabaseClient
+from src.data_sources.ssi_v3 import SSIV3Adapter
 from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
 from src.pipeline.index_daily_persistence import _validate_index_raw_daily_row
 from src.pipeline.index_daily_service import fetch_index_daily_with_clients
 from src.pipeline.index_scope import normalize_index_scope, resolve_index_scope
 from src.pipeline.date_utils import parse_index_date
 from src.validation.index_daily_validator import validate_index_daily_record
+from src.ssi.v3 import SSIV3Client
 
 
 PAYLOAD = {"IndexId": "VNINDEX", "TradingDate": "25/08/2026", "IndexValue": 1280.5, "TotalMatchVol": 10, "TotalDealVol": 2, "TotalVol": 12}
@@ -23,6 +25,59 @@ FULL_PAYLOAD = {
     "Totalvol": "1002001", "Totalval": 25003000001.5, "TradingSession": "CLOSE",
     "Market": "HOSE", "Exchange": "HOSE",
 }
+
+V3_PAYLOAD = {
+    "tradingDate": "2026/08/25", "totalTrade": "100", "totalTradeValue": "1000",
+    "totalMatch": "90", "totalMatchValue": "900", "totalDeal": "10",
+    "totalDealValue": "100", "indexChange": "10.02",
+    "indexChangePercentage": "0.75", "indexValue": "1280.50",
+    "totalAdvanceStock": "180", "totalCeilingStock": "4",
+    "totalDeclineStock": "100", "totalFloorStock": "3", "totalNoChangeStock": "20",
+    "totalPropBuy": "11", "totalPropBuyValue": "12", "totalPropSell": "13",
+    "totalPropSellValue": "14", "totalBuyForeign": "15",
+    "totalBuyForeignValue": "16", "totalSellForeign": "17",
+    "totalSellForeignValue": "18", "netPurchasesForeignVolume": "-2",
+    "netPurchasesForeignValue": "-2", "futureField": {"untouched": True},
+}
+
+
+def test_v3_adapter_maps_all_verified_fields_without_scaling_and_preserves_raw():
+    before = dict(V3_PAYLOAD)
+    client = SimpleNamespace(index_summary=lambda *_: SimpleNamespace(items=[V3_PAYLOAD]))
+    result = SSIV3Adapter(client).fetch("index_daily", "VNINDEX", "25/08/2026")
+    clean = result.clean[0]
+    assert result.raw[0] == before == V3_PAYLOAD
+    assert clean["index_code"] == "VNINDEX"
+    assert clean["index_change"] == 10.02
+    assert clean["index_change"] != 0.1002
+    assert clean["index_change_percentage"] == 0.75
+    assert clean["net_foreign_purchase_volume"] == -2
+    assert set(clean) == {
+        "index_code", "trading_date", "index_value", "index_change", "index_change_percentage",
+        "total_trade_volume", "total_trade_value", "total_match_volume", "total_match_value",
+        "total_deal_volume", "total_deal_value", "total_advance_stock", "total_ceiling_stock",
+        "total_decline_stock", "total_floor_stock", "total_no_change_stock",
+        "total_prop_buy_volume", "total_prop_buy_value", "total_prop_sell_volume",
+        "total_prop_sell_value", "total_foreign_buy_volume", "total_foreign_buy_value",
+        "total_foreign_sell_volume", "total_foreign_sell_value",
+        "net_foreign_purchase_volume", "net_foreign_purchase_value",
+    }
+
+
+def test_v3_adapter_keeps_missing_optional_values_null():
+    client = SimpleNamespace(index_summary=lambda *_: SimpleNamespace(items=[{"tradingDate": "2026/08/25"}]))
+    clean = SSIV3Adapter(client).fetch("index_daily", "VNINDEX", "2026-08-25").clean[0]
+    assert clean["index_value"] is None
+    assert clean["total_foreign_buy_value"] is None
+
+
+def test_v3_client_uses_verified_index_summary_request(monkeypatch):
+    client = SSIV3Client.__new__(SSIV3Client)
+    calls = []
+    monkeypatch.setattr(client, "_request", lambda method, path, **kwargs: calls.append((method, path, kwargs)) or {"data": []})
+    result = client.index_summary("VNINDEX", "25/08/2026")
+    assert result.items == []
+    assert calls == [("GET", "/data/indexSummary", {"params": {"index": "VNINDEX", "tradingDate": "2026/08/25"}})]
 
 
 def test_index_daily_writer_uses_composite_primary_key_conflict_target(monkeypatch):
@@ -58,7 +113,7 @@ def test_shared_index_date_parser_rejects_other_separators():
 def test_mapper_uses_payload_identity_and_keeps_missing_nullable():
     record = build_index_daily_record("VNINDEX", "25/08/2026", PAYLOAD)
     assert record["trading_date"] == "2026-08-25"
-    assert record["total_val"] is None
+    assert record["total_trade_value"] is None
     assert "raw" not in record
     assert build_index_daily_record("VN30", "25/08/2026", PAYLOAD) is None
 
@@ -78,16 +133,15 @@ def test_all_documented_fields_are_preserved_raw_and_promoted_when_selected(time
 
     assert len(payload) == 23
     assert raw["payload"] == payload
-    assert clean == {
-        "index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1280.5,
-        "change": -1.25, "ratio_change": -0.0975, "total_trade": 1234.0,
-        "total_match_vol": 1000001.0, "total_match_val": 25000000001.5,
-        "total_deal_vol": 2000.0, "total_deal_val": 3000000.0,
-        "total_vol": 1002001.0, "total_val": 25003000001.5, "advances": 180.0,
-        "no_changes": 20.0, "declines": 100.0, "ceilings": 4.0, "floors": 3.0,
-        "type_index": "Market", "index_name": "VN Index", "trading_session": "CLOSE",
-        "market": "HOSE", "exchange": "HOSE",
-    }
+    assert clean["index_code"] == "VNINDEX"
+    assert clean["trading_date"] == "2026-08-25"
+    assert clean["index_change"] == -1.25
+    assert clean["index_change_percentage"] == -0.0975
+    assert clean["total_trade_volume"] == 1002001.0
+    assert clean["total_match_value"] == 25000000001.5
+    assert clean["total_no_change_stock"] == 20.0
+    assert clean["total_prop_buy_volume"] is None
+    assert "index_name" not in clean
 
 
 @pytest.mark.parametrize(
@@ -100,9 +154,9 @@ def test_market_breadth_aliases(ceiling_key, floor_key, no_changes_key):
         ceiling_key: "5", floor_key: 6, no_changes_key: "7",
     }
     clean = build_index_daily_record("VNINDEX", "25/08/2026", payload)
-    assert clean["ceilings"] == 5.0
-    assert clean["floors"] == 6.0
-    assert clean["no_changes"] == 7.0
+    assert clean["total_ceiling_stock"] == 5.0
+    assert clean["total_floor_stock"] == 6.0
+    assert clean["total_no_change_stock"] == 7.0
 
 
 def test_missing_numeric_fields_remain_null_not_zero():
@@ -110,15 +164,35 @@ def test_missing_numeric_fields_remain_null_not_zero():
         "VNINDEX", "25/08/2026", {"Indexcode": "VNINDEX", "TradingDate": "25/08/2026"}
     )
     assert clean["index_value"] is None
-    assert clean["total_trade"] is None
-    assert clean["ceilings"] is None
+    assert clean["total_trade_volume"] is None
+    assert clean["total_ceiling_stock"] is None
 
 
 def test_validator_rejects_impossible_and_warns_on_component_difference():
     bad = validate_index_daily_record({"index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": -1})
     assert not bad.is_valid
-    warning = validate_index_daily_record({"index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1, "total_vol": 99, "total_match_vol": 1, "total_deal_vol": 1})
+    warning = validate_index_daily_record({"index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1, "total_trade_volume": 99, "total_match_volume": 1, "total_deal_volume": 1})
     assert warning.is_valid and warning.warnings
+    foreign = validate_index_daily_record({
+        "index_code": "VNINDEX", "trading_date": "2026-08-25", "index_value": 1,
+        "total_foreign_buy_volume": 10, "total_foreign_sell_volume": 12,
+        "net_foreign_purchase_volume": -1,
+    })
+    assert foreign.is_valid
+    assert [item.code for item in foreign.warnings] == ["INDEX_FOREIGN_NET_MISMATCH"]
+
+
+def test_v3_service_labels_raw_evidence_and_writes_no_features():
+    calls = []
+    client = SimpleNamespace(index_summary=lambda *_: SimpleNamespace(items=[V3_PAYLOAD]))
+    class DB:
+        def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
+        def upsert_index_daily(self, rows): calls.append(("clean", rows))
+    summary = fetch_index_daily_with_clients(SSIV3Adapter(client), DB(), "VNINDEX", "25/08/2026")
+    assert summary["status"] == "OK"
+    assert [name for name, _ in calls] == ["raw", "clean"]
+    assert calls[0][1][0]["source"] == "SSI_v3_indexSummary"
+    assert calls[0][1][0]["payload"] == V3_PAYLOAD
 
 
 def test_service_persists_raw_before_rejecting_clean():
@@ -149,8 +223,8 @@ def test_valid_response_persists_raw_then_clean_without_downstream_work():
     created_at = calls[0][1][0]["created_at"]
     assert datetime.fromisoformat(created_at).utcoffset() == timedelta(0)
     assert calls[0][1][0]["payload"] == FULL_PAYLOAD
-    assert calls[1][1][0]["total_match_val"] == 25000000001.5
-    assert calls[1][1][0]["ceilings"] == 4.0
+    assert calls[1][1][0]["total_match_value"] == 25000000001.5
+    assert calls[1][1][0]["total_ceiling_stock"] == 4.0
     assert "created_at" not in calls[0][1][0]["payload"]
 
 

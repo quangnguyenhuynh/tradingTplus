@@ -58,7 +58,7 @@ def run_index_daily_preview(
                 {
                     "index_code": code,
                     "trading_date": trading_day.isoformat(),
-                    "source": "SSI_DailyIndex",
+                    "source": "SSI_v2_DailyIndex",
                     "status": status,
                     "raw": payloads,
                     "records": normalized,
@@ -66,7 +66,7 @@ def run_index_daily_preview(
                     "rejected_rows": len(payloads) - len(normalized),
                 }
             )
-    return {"source": "SSI_DailyIndex", "results": results}
+    return {"source": "SSI_v2_DailyIndex", "results": results}
 
 
 def _display(value: Any) -> str:
@@ -102,7 +102,7 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
         )
 
     lines = [
-        "index_code | trading_date | index_value | change | ratio_change | total_vol | total_val | source | status",
+        "index_code | trading_date | index_value | index_change | index_change_percentage | total_trade_volume | total_trade_value | source | status",
         "-" * 112,
     ]
     for item in results:
@@ -114,8 +114,9 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
         for record in item["records"]:
             values = (
                 record.get("index_code"), record.get("trading_date"), record.get("index_value"),
-                record.get("change"), record.get("ratio_change"), record.get("total_vol"),
-                record.get("total_val"), item["source"], item["status"],
+                record.get("index_change"), record.get("index_change_percentage"),
+                record.get("total_trade_volume"), record.get("total_trade_value"),
+                item["source"], item["status"],
             )
             lines.append(" | ".join(_display(value) for value in values))
         for summary in item["mapping_summary"]:
