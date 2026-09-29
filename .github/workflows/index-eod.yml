@@ -28,6 +28,8 @@ jobs:
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       SSI_CONSUMER_ID: ${{ secrets.SSI_CONSUMER_ID }}
       SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
+      SSI_API_KEY: ${{ secrets.SSI_API_KEY }}
+      SSI_API_SECRET: ${{ secrets.SSI_API_SECRET }}
       DATE_INPUT: ${{ inputs.date }}
       INDEXES_INPUT: ${{ inputs.indexes }}
     steps:
