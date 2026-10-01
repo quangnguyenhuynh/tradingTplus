@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.data_contracts import get_mapping, map_record
-from src.data_contracts.transforms import to_date
+from src.data_contracts.transforms import TRANSFORMS, TransformError, to_date
 from src.intraday_value import calculate_trade_value
 
 
@@ -65,6 +65,30 @@ def map_rows(source: str, dataset: str, mapping: dict[str, Any],
         # Prefixes qualify exact dictionary aliases; they never alter the raw row.
         record = {f"{prefix}.{key}": value for key, value in row.items()} if prefix else row
         result = map_record(source, dataset, record, context)
+        if result.candidate is not None:
+            # Preview fields are intentionally outside the persisted canonical contract.
+            # They are declared under inspector metadata so production mapping remains unchanged.
+            for target, rule in mapping["inspector"].get("preview_fields", {}).items():
+                for alias in rule.get("aliases", []):
+                    if alias in record:
+                        result.report["unused_source_fields"] = [
+                            field for field in result.report["unused_source_fields"] if field != alias
+                        ]
+                values = [record[alias] for alias in rule.get("aliases", [])
+                          if alias in record and record[alias] not in (None, "")]
+                if not values:
+                    result.candidate[target] = None
+                    continue
+                try:
+                    result.candidate[target] = TRANSFORMS[rule["transform"]](values[0], context)
+                except (KeyError, TransformError) as exc:
+                    result.report["errors"].append({
+                        "field": target, "code": "PREVIEW_TRANSFORM_ERROR", "message": str(exc),
+                    })
+                    result.report["records_valid"] = 0
+                    result.report["records_rejected"] = 1
+                    result.candidate.pop(target, None)
+                    break
         if dataset == "stock_intraday" and result.candidate is not None:
             context["value"] = calculate_trade_value(result.candidate["close"], result.candidate["volume"])
             result = map_record(source, dataset, record, context)

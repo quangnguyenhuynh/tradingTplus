@@ -194,6 +194,10 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
                 if show_mapping:
                     print("Mapping rules (raw aliases/context -> existing clean fields):")
                     _print_json(mapping["fields"])
+                    preview_fields = mapping["inspector"].get("preview_fields", {})
+                    if preview_fields:
+                        print("Inspector-only preview mappings (not persisted):")
+                        _print_json(preview_fields)
                 if failed:
                     status = "FAILED"
     return status

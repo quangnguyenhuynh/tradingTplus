@@ -35,6 +35,14 @@ print(result.report)
 
 Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. V3 dùng để mapping/in ở inspector; nguồn ingest production vẫn như hiện tại. Mỗi mapping dataset có `inspector.endpoint` và tùy chọn `inspector.prefix`; inspector dùng metadata này để map response đã lấy mà không sửa raw. Rule `unsupported` cho null kèm lý do `unsupported_fields`, không tạo giá trị giả. Alias như `summary.close` đọc từ bản view có prefix của raw, không tìm field đệ quy.
 
+Việc kiểm chứng SSI v3 `stock_daily` chỉ map các field khớp lệnh, thỏa thuận,
+mua/bán và nước ngoài đã được xác nhận từ `securities-summary` trong Inspector;
+ingest production không thay đổi. SSI v3 cũng trả `totalForeignRoom`; Inspector
+hiển thị field này dưới dạng preview-only `foreign_total_room`, nhưng cột database
+tương ứng chưa được tạo. Các field tổng giao dịch và mua/bán ròng nước ngoài dẫn
+xuất vẫn chưa được xác minh/để null cho đến khi có contract dẫn xuất riêng cho
+Inspector.
+
 Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md). Mapping giữ cấu trúc clean hiện tại, không thay phần auth/request của nguồn mới. Không cần migration hoặc backfill.
 
 `index_daily` là ngoại lệ đối với trạng thái v3 preview cũ: contract/mapping 2.0.0 là mapping production đã xác minh cho SSI v3 `indexSummary`. Identity lấy từ request context, mọi numeric optional giữ nullable, mapping không scale phần trăm. Mapping SSI v2 2.0 deprecated chỉ để tương thích inspection và không production-ready.
