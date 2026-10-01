@@ -23,6 +23,10 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
     used: set[str] = set(); candidate: dict[str, Any] = {}; errors: list[dict[str, Any]] = []
     missing_required: list[str] = []; missing_optional: list[str] = []; conflicts: list[dict[str, Any]] = []
     for target, rule in mapping["fields"].items():
+        if rule.get("derived"):
+            # Derived values are populated by an explicit post-mapping layer.
+            candidate[target] = None
+            continue
         if rule.get("unsupported"):
             candidate[target] = None
             if contract["fields"][target]["required"]:
@@ -62,4 +66,7 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
     unsupported = {field: rule["reason"] for field, rule in mapping["fields"].items() if rule.get("unsupported")}
     if unsupported:
         report["unsupported_fields"] = unsupported
+    derived = [field for field, rule in mapping["fields"].items() if rule.get("derived")]
+    if derived:
+        report["derived_fields"] = derived
     return MappingResult(None if errors else candidate, report)
