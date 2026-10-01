@@ -35,6 +35,13 @@ print(result.report)
 
 Both `ssi_v2.json` and `ssi_v3.json` are registered. V3 is for inspector mapping/printing only; production ingestion remains on its existing source. Each dataset mapping includes `inspector.endpoint` and an optional `inspector.prefix`; the inspector uses these to map the already-fetched response without changing raw. An `unsupported` rule emits null and an explicit `unsupported_fields` reason; it never invents a value. Qualified aliases such as `summary.close` refer to a separate prefixed view of the raw row, not recursive field lookup.
 
+SSI v3 `stock_daily` validation maps the confirmed `securities-summary` match,
+deal, buy/sell, and foreign fields in the Inspector only. Production ingestion is
+unchanged. SSI v3 also supplies `totalForeignRoom`; the Inspector exposes it as
+the preview-only `foreign_total_room`, but the corresponding database column has
+not been created. Derived totals and foreign-net fields remain unverified/null
+until an Inspector-only derivation contract is defined.
+
 See [inspector usage](../../scripts/ssi_api_inspector/README.md). Mapping preserves the existing clean contract and does not implement a new provider's authentication or requests. No schema change or backfill is required.
 
 `index_daily` is the exception to the older preview-only v3 status: contract/mapping 2.0.0 is the verified production SSI v3 `indexSummary` mapping. Identity comes from request context, all optional source numerics remain nullable, and mapping performs no percentage scaling. SSI v2's 2.0 deprecated mapping exists only for inspection compatibility and is not production-ready.

@@ -2,7 +2,7 @@
   "source_id": "ssi_v3",
   "datasets": {
     "stock_daily": {
-      "mapping_version": "1.0.0-preview",
+      "mapping_version": "1.1.0-preview",
       "contract_version": "1.0.0",
       "fields": {
         "symbol": {
@@ -116,24 +116,28 @@
           "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
         },
         "total_match_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalMatch"
+          ],
+          "transform": "float"
         },
         "total_match_val": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalMatchValue"
+          ],
+          "transform": "float"
         },
         "total_deal_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalDeal"
+          ],
+          "transform": "float"
         },
         "total_deal_val": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalDealValue"
+          ],
+          "transform": "float"
         },
         "total_traded_vol": {
           "unsupported": true,
@@ -156,29 +160,42 @@
           "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
         },
         "total_buy_trade": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalBuy"
+          ],
+          "transform": "float"
         },
         "total_buy_trade_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalTradeBuy"
+          ],
+          "transform": "float"
         },
         "total_sell_trade": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalSell"
+          ],
+          "transform": "float"
         },
         "total_sell_trade_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "aliases": [
+            "summary.totalTradeSell"
+          ],
+          "transform": "float"
         }
       },
       "inspector": {
         "endpoint": "securities-summary",
-        "prefix": "summary"
+        "prefix": "summary",
+        "preview_fields": {
+          "foreign_total_room": {
+            "aliases": [
+              "summary.totalForeignRoom"
+            ],
+            "transform": "int",
+            "persistence": "DB COLUMN NOT YET CREATED"
+          }
+        }
       }
     },
     "stock_intraday": {

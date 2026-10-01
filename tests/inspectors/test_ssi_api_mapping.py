@@ -26,17 +26,59 @@ def mapped(source, endpoint, rows, params):
     return map_rows(source, dataset, mapping, rows, params)
 
 
-def test_v3_dictionary_preserves_raw_and_existing_clean_contract():
+def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_fields():
     before = copy.deepcopy(FIXTURE)
     clean, reports = mapped("ssi_v3", "securities-summary", FIXTURE["data"], PARAMS)
-    assert set(clean[0]) == set(get_contract("stock_daily")["fields"])
-    assert clean[0]["average_price"] == 21106
-    assert clean[0]["foreign_current_room"] == 1750293719
-    assert clean[0]["foreign_buy_vol_total"] == 0
-    assert clean[0]["total_match_vol"] is None
-    assert "total_match_vol" in reports[0]["unsupported_fields"]
-    assert "summary.totalMatch" in reports[0]["unused_source_fields"]
+    assert set(clean[0]) == set(get_contract("stock_daily")["fields"]) | {"foreign_total_room"}
+    assert clean[0] == {
+        "symbol": "SSI", "trading_date": "2026-09-08", "price_change": 150.0,
+        "per_price_change": .72, "ceiling_price": None, "floor_price": None,
+        "ref_price": None, "open_price": 20850.0, "highest_price": 21300.0,
+        "lowest_price": 20850.0, "close_price": 21000.0,
+        "average_price": 21106.0, "foreign_buy_vol_total": 0,
+        "foreign_sell_vol_total": 0, "foreign_buy_val_total": 0,
+        "foreign_sell_val_total": 0, "foreign_current_room": 1750293719,
+        "close_price_adjusted": None, "total_match_vol": 13825100.0,
+        "total_match_val": 291796245000.0, "total_deal_vol": None,
+        "total_deal_val": None, "total_traded_vol": None,
+        "total_traded_value": None, "net_foreign_vol": None,
+        "net_foreign_val": None, "total_buy_trade": 10133.0,
+        "total_buy_trade_vol": 25665273.0, "total_sell_trade": 8430.0,
+        "total_sell_trade_vol": 26176737.0, "foreign_total_room": None,
+    }
+    assert not reports[0]["errors"]
+    assert "total_match_vol" not in reports[0]["unsupported_fields"]
+    assert "summary.totalMatch" not in reports[0]["unused_source_fields"]
     assert FIXTURE == before
+
+
+def test_v3_stock_daily_null_average_zero_foreign_and_missing_optional_are_preserved():
+    row = {**FIXTURE["data"][0], "average": None, "totalForeignBuy": "0"}
+    row.pop("totalDealValue")
+    clean, reports = mapped("ssi_v3", "securities-summary", [row], PARAMS)
+    assert clean[0]["average_price"] is None
+    assert clean[0]["foreign_buy_vol_total"] == 0
+    assert clean[0]["total_deal_val"] is None
+    assert not reports[0]["errors"]
+
+
+def test_v3_stock_daily_buy_sell_deal_and_distinct_room_mappings():
+    row = {
+        **FIXTURE["data"][0], "totalBuy": "11", "totalTradeBuy": "1200",
+        "totalSell": "9", "totalTradeSell": "800", "totalDeal": "50",
+        "totalDealValue": "750000", "remainForeignRoom": "1234",
+        "totalForeignRoom": "5678",
+    }
+    clean, reports = mapped("ssi_v3", "securities-summary", [row], PARAMS)
+    assert clean[0]["total_buy_trade"] == 11
+    assert clean[0]["total_buy_trade_vol"] == 1200
+    assert clean[0]["total_sell_trade"] == 9
+    assert clean[0]["total_sell_trade_vol"] == 800
+    assert clean[0]["total_deal_vol"] == 50
+    assert clean[0]["total_deal_val"] == 750000
+    assert clean[0]["foreign_current_room"] == 1234
+    assert clean[0]["foreign_total_room"] == 5678
+    assert not reports[0]["errors"]
 
 
 def test_v2_range_uses_each_payload_date_and_does_not_overwrite_raw():
@@ -118,6 +160,9 @@ def test_cli_fetches_once_and_prints_raw_clean_and_optional_rules(source, endpoi
     assert len(calls) == 1
     assert "Full raw JSON" in out and "Full clean JSON" in out and "Mapping rules" in out
     assert '"close_price": 21000.0' in out and "NO DATABASE WRITES" in out
+    if source == "ssi_v3":
+        assert "Inspector-only preview mappings (not persisted)" in out
+        assert '"foreign_total_room"' in out and "DB COLUMN NOT YET CREATED" in out
     assert "securities-summary" in out if source == "ssi_v3" else "daily-stock-price" in out
 
 
