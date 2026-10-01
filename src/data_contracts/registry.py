@@ -52,6 +52,10 @@ def validate_mapping(source_id: str, dataset: str, mapping: dict[str, Any]) -> N
         if rule.get("unsupported"):
             if not rule.get("reason"): raise MappingConfigurationError(f"unsupported field needs a reason: {target}")
             continue
+        if rule.get("derived"):
+            if set(rule) != {"derived", "transform"}: raise MappingConfigurationError(f"invalid derived rule for {target}")
+            if rule.get("transform") not in TRANSFORMS: raise MappingConfigurationError(f"unknown transform for {target}: {rule.get('transform')}")
+            continue
         aliases = rule.get("aliases", [])
         if not isinstance(aliases, list) or len(aliases) != len(set(a.casefold() for a in aliases)):
             raise MappingConfigurationError(f"duplicate or invalid aliases for {target}")

@@ -2,7 +2,7 @@
   "source_id": "ssi_v3",
   "datasets": {
     "stock_daily": {
-      "mapping_version": "1.1.0-preview",
+      "mapping_version": "1.2.0-preview",
       "contract_version": "1.0.0",
       "fields": {
         "symbol": {
@@ -119,69 +119,65 @@
           "aliases": [
             "summary.totalMatch"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_match_val": {
           "aliases": [
             "summary.totalMatchValue"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_deal_vol": {
           "aliases": [
             "summary.totalDeal"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_deal_val": {
           "aliases": [
             "summary.totalDealValue"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_traded_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "derived": true,
+          "transform": "int"
         },
         "total_traded_value": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "derived": true,
+          "transform": "int"
         },
         "net_foreign_vol": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "derived": true,
+          "transform": "int"
         },
         "net_foreign_val": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No semantically equivalent SSI v3 REST field has been confirmed"
+          "derived": true,
+          "transform": "int"
         },
         "total_buy_trade": {
           "aliases": [
             "summary.totalBuy"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_buy_trade_vol": {
           "aliases": [
             "summary.totalTradeBuy"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_sell_trade": {
           "aliases": [
             "summary.totalSell"
           ],
-          "transform": "float"
+          "transform": "int"
         },
         "total_sell_trade_vol": {
           "aliases": [
             "summary.totalTradeSell"
           ],
-          "transform": "float"
+          "transform": "int"
         }
       },
       "inspector": {

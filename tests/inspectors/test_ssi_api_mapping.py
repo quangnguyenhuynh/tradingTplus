@@ -38,18 +38,69 @@ def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_field
         "average_price": 21106.0, "foreign_buy_vol_total": 0,
         "foreign_sell_vol_total": 0, "foreign_buy_val_total": 0,
         "foreign_sell_val_total": 0, "foreign_current_room": 1750293719,
-        "close_price_adjusted": None, "total_match_vol": 13825100.0,
-        "total_match_val": 291796245000.0, "total_deal_vol": None,
+        "close_price_adjusted": None, "total_match_vol": 13825100,
+        "total_match_val": 291796245000, "total_deal_vol": None,
         "total_deal_val": None, "total_traded_vol": None,
-        "total_traded_value": None, "net_foreign_vol": None,
-        "net_foreign_val": None, "total_buy_trade": 10133.0,
-        "total_buy_trade_vol": 25665273.0, "total_sell_trade": 8430.0,
-        "total_sell_trade_vol": 26176737.0, "foreign_total_room": None,
+        "total_traded_value": None, "net_foreign_vol": 0,
+        "net_foreign_val": 0, "total_buy_trade": 10133,
+        "total_buy_trade_vol": 25665273, "total_sell_trade": 8430,
+        "total_sell_trade_vol": 26176737, "foreign_total_room": None,
     }
     assert not reports[0]["errors"]
     assert "total_match_vol" not in reports[0]["unsupported_fields"]
     assert "summary.totalMatch" not in reports[0]["unused_source_fields"]
     assert FIXTURE == before
+
+
+def test_v3_stock_daily_derives_totals_and_net_foreign_as_integers():
+    row = {
+        **FIXTURE["data"][0],
+        "tradingDate": "2026/09/30",
+        "totalMatch": "15011100", "totalMatchValue": "303934510000",
+        "totalDeal": "150000", "totalDealValue": "3150000000",
+        "totalForeignBuy": "740290", "totalForeignBuyValue": "15072128000",
+        "totalForeignSell": "1301422", "totalForeignSellValue": "26341949300",
+        "remainForeignRoom": "2101791363", "totalForeignRoom": "3003293801",
+        "totalBuy": "9498", "totalTradeBuy": "26583877",
+        "totalSell": "9355", "totalTradeSell": "32651889",
+    }
+    params = {"symbol": "SSI", "from": "2026/09/30", "to": "2026/09/30"}
+    clean, reports = mapped("ssi_v3", "securities-summary", [row], params)
+
+    assert clean[0]["total_traded_vol"] == 15161100
+    assert clean[0]["total_traded_value"] == 307084510000
+    assert clean[0]["net_foreign_vol"] == -561132
+    assert clean[0]["net_foreign_val"] == -11269821300
+    integer_fields = {
+        "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val",
+        "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol",
+        "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total",
+        "foreign_sell_val_total", "foreign_current_room", "foreign_total_room",
+        "total_traded_vol", "total_traded_value", "net_foreign_vol", "net_foreign_val",
+    }
+    assert all(type(clean[0][field]) is int for field in integer_fields)
+    assert set(reports[0]["derived_fields"]) == {
+        "total_traded_vol", "total_traded_value", "net_foreign_vol", "net_foreign_val",
+    }
+    assert not reports[0].get("unsupported_fields", {}).keys() & integer_fields
+    assert not reports[0]["errors"]
+
+
+def test_v3_stock_daily_derived_fields_propagate_null_and_preserve_zero():
+    row = {
+        **FIXTURE["data"][0], "totalMatch": None, "totalDeal": "150000",
+        "totalForeignBuy": None, "totalForeignSell": "100000",
+    }
+    clean, reports = mapped("ssi_v3", "securities-summary", [row], PARAMS)
+    assert clean[0]["total_traded_vol"] is None
+    assert clean[0]["net_foreign_vol"] is None
+    assert not reports[0]["errors"]
+
+    row["totalForeignBuy"] = "0"
+    clean, reports = mapped("ssi_v3", "securities-summary", [row], PARAMS)
+    assert clean[0]["foreign_buy_vol_total"] == 0
+    assert clean[0]["net_foreign_vol"] == -100000
+    assert not reports[0]["errors"]
 
 
 def test_v3_stock_daily_null_average_zero_foreign_and_missing_optional_are_preserved():
