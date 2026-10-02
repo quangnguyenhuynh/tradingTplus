@@ -1,8 +1,8 @@
 # Canonical data contracts and source mappings
 
-This package separates the application's clean-data meaning from a provider's payload shape. `definitions.json` is the canonical dictionary for `stock_daily`, 1-minute `stock_intraday`, `index_daily`, and inspector-only `symbol_list`/`index_list`. Each field states its business meaning, type, unit, required/null policy, field constraints, and relevant date/time/timeframe convention. `index_daily` uses breaking contract `2.0.0`; the other datasets remain at `1.0.0`.
+This package separates the application's clean-data meaning from a provider's payload shape. `definitions.json` is the canonical dictionary for `stock_daily`, 1-minute `stock_intraday`, `index_daily`, and inspector-only `symbol_list`/`index_list`. Each field states its business meaning, type, unit, required/null policy, field constraints, and relevant date/time/timeframe convention. `stock_daily` uses contract `1.1.0`, `index_daily` uses breaking contract `2.0.0`, and the other datasets remain at `1.0.0`.
 
-`mappings/ssi_v2.json` is the independently versioned (`mapping_version: 1.0.0`) SSI v2 adapter. It declares only confirmed aliases, allow-listed transforms, source-specific missing/placeholder handling, and any evidenced unit multiplier. In particular, SSI v2 zero placeholders for daily reference/ceiling/floor prices use `ssi_v2_zero_price_to_null`; this is not a global contract rule.
+`mappings/ssi_v2.json` contains independently versioned mappings; `stock_daily` mapping `1.1.0` targets contract `1.1.0`. It declares only confirmed aliases, allow-listed transforms, source-specific missing/placeholder handling, and any evidenced unit multiplier. In particular, SSI v2 zero placeholders for daily reference/ceiling/floor prices use `ssi_v2_zero_price_to_null`; this is not a global contract rule.
 
 ## Processing and reports
 
@@ -33,15 +33,10 @@ print(result.report)
 5. Add a pure transform to `TRANSFORMS` when simple conversion is insufficient; arbitrary expressions and `eval`/`exec` are forbidden.
 6. Validate with `get_mapping(...)` and an offline fixture, including missing, malformed, duplicate-alias, and unused-field cases.
 
-Both `ssi_v2.json` and `ssi_v3.json` are registered. V3 is for inspector mapping/printing only; production ingestion remains on its existing source. Each dataset mapping includes `inspector.endpoint` and an optional `inspector.prefix`; the inspector uses these to map the already-fetched response without changing raw. An `unsupported` rule emits null and an explicit `unsupported_fields` reason; it never invents a value. Qualified aliases such as `summary.close` refer to a separate prefixed view of the raw row, not recursive field lookup.
+Both `ssi_v2.json` and `ssi_v3.json` are registered. SSI v3 `stock_daily` mapping `1.3.0` is production-ready and maps verified `securities-summary` fields, including canonical `foreign_total_room`. SSI v2 remains mapping `1.1.0` and is an explicit deprecated fallback; its unverified total-room equivalent is declared unsupported. SSI v3 `stock_intraday` and catalog mappings remain preview-only. Qualified aliases such as `summary.close` exist only in the mapping view; raw payloads remain unchanged.
 
-SSI v3 `stock_daily` validation maps the confirmed `securities-summary` match,
-deal, buy/sell, and foreign fields in the Inspector only. Production ingestion is
-unchanged. SSI v3 also supplies `totalForeignRoom`; the Inspector exposes it as
-the preview-only `foreign_total_room`, but the corresponding database column has
-not been created. Derived totals and foreign-net fields remain unverified/null
-until an Inspector-only derivation contract is defined.
+The shared `derived.py` implementation calculates traded totals and foreign net values for production and Inspector with strict NULL propagation. Contract `1.1.0` and the database schema include nullable `foreign_total_room`; historical clean rows require no automatic backfill.
 
-See [inspector usage](../../scripts/ssi_api_inspector/README.md). Mapping preserves the existing clean contract and does not implement a new provider's authentication or requests. No schema change or backfill is required.
+See [inspector usage](../../scripts/ssi_api_inspector/README.md).
 
 `index_daily` is the exception to the older preview-only v3 status: contract/mapping 2.0.0 is the verified production SSI v3 `indexSummary` mapping. Identity comes from request context, all optional source numerics remain nullable, and mapping performs no percentage scaling. SSI v2's 2.0 deprecated mapping exists only for inspection compatibility and is not production-ready.

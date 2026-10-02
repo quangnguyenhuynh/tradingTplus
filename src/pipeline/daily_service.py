@@ -15,7 +15,7 @@ from src.data_sources.base import DataSourceAdapter
 logger = logging.getLogger(__name__)
 
 
-def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol: str, date: str) -> dict[str, Any]:
+def fetch_daily_for_symbol_with_clients(ssi: DataSourceAdapter | SSIApi, db: SupabaseClient, symbol: str, date: str) -> dict[str, Any]:
     summary: dict[str, Any] = {"symbol": symbol, "date": date, "daily_valid": False, "daily_rows": 0, "daily_errors": 0, "daily_warnings": 0, "status": "FAILED", "error_type": None, "errors": []}
     try:
         adapted = ssi.fetch("stock_daily", symbol, date) if hasattr(ssi, "fetch") else None
@@ -39,7 +39,8 @@ def fetch_daily_for_symbol_with_clients(ssi: SSIApi, db: SupabaseClient, symbol:
         summary["errors"].append(message)
         return summary
     summary["daily_payload"] = daily
-    persist_raw_daily(db, build_raw_daily_record(symbol, date, daily))
+    source_id = adapted.source if adapted is not None else "ssi_v2"
+    persist_raw_daily(db, build_raw_daily_record(symbol, date, daily, source=source_id))
     if adapted is not None:
         clean = adapted.clean[0] if adapted.clean else None
         mapping_report = adapted.mapping_report

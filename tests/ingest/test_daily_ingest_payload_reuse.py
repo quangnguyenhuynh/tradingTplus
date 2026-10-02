@@ -1,10 +1,12 @@
 import importlib
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 daily_mod = importlib.import_module("src.pipeline.daily")
+from src.data_sources.ssi_v2 import SSIV2Adapter
 
 
 def _daily(**overrides):
@@ -68,7 +70,13 @@ class _DB:
 
 
 def _patch_daily_dependencies(monkeypatch, ssi, db):
-    monkeypatch.setattr(daily_mod, "SSIApi", lambda: ssi)
+    monkeypatch.setattr(
+        daily_mod,
+        "create_production_adapter",
+        lambda dataset, requested=None: (
+            SimpleNamespace(source="ssi_v2", status="deprecated"), SSIV2Adapter(ssi)
+        ),
+    )
     monkeypatch.setattr(daily_mod, "SupabaseClient", lambda: db)
 
 
@@ -84,6 +92,7 @@ def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
     assert ssi.daily_price_calls == 1
     assert ssi.foreign_calls == 0
     assert db.raw_daily_records[0]["payload"] is payload
+    assert db.raw_daily_records[0]["source"] == "ssi_v2"
     assert db.stock_daily_records[0]["raw"] is payload
     assert db.stock_daily_records[0]["foreign_buy_vol_total"] == 10
     assert db.stock_daily_records[0]["foreign_sell_vol_total"] == 3

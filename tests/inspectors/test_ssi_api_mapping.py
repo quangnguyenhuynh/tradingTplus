@@ -29,7 +29,7 @@ def mapped(source, endpoint, rows, params):
 def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_fields():
     before = copy.deepcopy(FIXTURE)
     clean, reports = mapped("ssi_v3", "securities-summary", FIXTURE["data"], PARAMS)
-    assert set(clean[0]) == set(get_contract("stock_daily")["fields"]) | {"foreign_total_room"}
+    assert set(clean[0]) == set(get_contract("stock_daily")["fields"])
     assert clean[0] == {
         "symbol": "SSI", "trading_date": "2026-09-08", "price_change": 150.0,
         "per_price_change": .72, "ceiling_price": None, "floor_price": None,
@@ -212,8 +212,8 @@ def test_cli_fetches_once_and_prints_raw_clean_and_optional_rules(source, endpoi
     assert "Full raw JSON" in out and "Full clean JSON" in out and "Mapping rules" in out
     assert '"close_price": 21000.0' in out and "NO DATABASE WRITES" in out
     if source == "ssi_v3":
-        assert "Inspector-only preview mappings (not persisted)" in out
-        assert '"foreign_total_room"' in out and "DB COLUMN NOT YET CREATED" in out
+        assert '"foreign_total_room"' in out
+        assert "DB COLUMN NOT YET CREATED" not in out
     assert "securities-summary" in out if source == "ssi_v3" else "daily-stock-price" in out
 
 

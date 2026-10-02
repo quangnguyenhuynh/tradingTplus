@@ -255,7 +255,7 @@ python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-
 python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
-**Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (SSI v2 cho stock, SSI v3 cho `index_daily`). Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.
+**Ingest vào DB:** production chọn capability `ready` mới nhất riêng cho từng dataset (SSI v3 cho `stock_daily` và `index_daily`; SSI v2 cho `stock_intraday`). SSI v2 vẫn là fallback deprecated explicit của `stock_daily`. Khuyến nghị `YYYY-MM-DD`, đồng thời hỗ trợ `DD/MM/YYYY`.
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]

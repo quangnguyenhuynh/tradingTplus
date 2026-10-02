@@ -519,7 +519,7 @@ python scripts/ssi_api_inspector/inspect.py run index-list
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
 ```
 
-Omitting `--data-source` selects the newest registered inspector capability by registry order, currently `ssi_v3 (preview)` for all five datasets. Preview is not production readiness: production selects readiness per dataset: SSI v2 for stock datasets and SSI v3 for `index_daily`. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: both use `index-list`. Catalog capabilities are preview-only. There is no cross-source fallback.
+Omitting `--data-source` selects the newest registered inspector capability by registry order, `ssi_v3`; its status is dataset-specific (`ready` for `stock_daily`/`index_daily`, `preview` for intraday/catalog). Inspector selection is not production readiness: production selects readiness per dataset: SSI v3 for `stock_daily` and `index_daily`, and SSI v2 for `stock_intraday`. Routing is `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` (fixed 1m): both `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: both use `index-list`. Catalog capabilities are preview-only. There is no cross-source fallback.
 
 Price datasets use one `--date` or an ordered `--from-date`/`--to-date` pair. Range-capable endpoints make one request; v3 index ranges make one request per calendar day. Catalog datasets reject dates; `symbol-list` requires a board (with compatible market/exchange aliases), while `index-list` makes it optional. Plans above 100 data requests fail before network access. `--page-index`/`--page-size` request one supported page, while `--limit` only controls each displayed sample. `--full-json` prints the complete response fetched and corresponding CLEAN rows, not all pages.
 
@@ -535,7 +535,7 @@ Help/list need no credential or network. Existing endpoint commands and `run all
 
 ## Source adapters: preview vs ingest
 
-Use `YYYY-MM-DD` consistently (legacy `DD/MM/YYYY` is also accepted). Production commands write through the existing raw/clean persistence layer and accept `--data-source`; omitted means the newest ready source for that dataset (SSI v2 for stock datasets; SSI v3 for `index_daily`):
+Use `YYYY-MM-DD` consistently (legacy `DD/MM/YYYY` is also accepted). Production commands write through the existing raw/clean persistence layer and accept `--data-source`; omitted means the newest ready source for that dataset (SSI v3 for `stock_daily` and `index_daily`; SSI v2 for `stock_intraday`). Explicit `ssi_v2` is a deprecated `stock_daily` fallback; explicit preview sources are rejected:
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2

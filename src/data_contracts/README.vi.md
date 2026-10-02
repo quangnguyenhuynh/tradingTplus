@@ -1,8 +1,8 @@
 # Contract dữ liệu chuẩn và mapping theo nguồn
 
-Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. `index_daily` dùng contract breaking `2.0.0`; các dataset còn lại vẫn dùng `1.0.0`.
+Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. `stock_daily` dùng contract `1.1.0`, `index_daily` dùng contract breaking `2.0.0`; các dataset còn lại dùng `1.0.0`.
 
-`mappings/ssi_v2.json` là adapter SSI v2 có phiên bản riêng (`mapping_version: 1.0.0`). File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
+`mappings/ssi_v2.json` chứa mapping có phiên bản riêng; mapping `stock_daily` 1.1.0 dùng contract 1.1.0. File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
 
 ## Xử lý và report
 
@@ -33,16 +33,10 @@ print(result.report)
 5. Nếu phép đổi phức tạp, thêm pure function vào `TRANSFORMS`; cấm biểu thức tùy ý và `eval`/`exec`.
 6. Chạy `get_mapping(...)` và fixture offline, gồm missing, malformed, alias trùng/xung đột và field thừa.
 
-Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. V3 dùng để mapping/in ở inspector; nguồn ingest production vẫn như hiện tại. Mỗi mapping dataset có `inspector.endpoint` và tùy chọn `inspector.prefix`; inspector dùng metadata này để map response đã lấy mà không sửa raw. Rule `unsupported` cho null kèm lý do `unsupported_fields`, không tạo giá trị giả. Alias như `summary.close` đọc từ bản view có prefix của raw, không tìm field đệ quy.
+Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. Mapping SSI v3 `stock_daily` 1.3.0 đã production-ready cho các field `securities-summary` được xác minh, gồm `foreign_total_room` canonical. SSI v2 mapping 1.1.0 vẫn là fallback deprecated explicit; total room chưa xác minh được khai báo unsupported. SSI v3 `stock_intraday` và catalog vẫn preview-only. Alias qualified như `summary.close` chỉ tồn tại trong view mapping; raw payload không đổi.
 
-Việc kiểm chứng SSI v3 `stock_daily` chỉ map các field khớp lệnh, thỏa thuận,
-mua/bán và nước ngoài đã được xác nhận từ `securities-summary` trong Inspector;
-ingest production không thay đổi. SSI v3 cũng trả `totalForeignRoom`; Inspector
-hiển thị field này dưới dạng preview-only `foreign_total_room`, nhưng cột database
-tương ứng chưa được tạo. Các field tổng giao dịch và mua/bán ròng nước ngoài dẫn
-xuất vẫn chưa được xác minh/để null cho đến khi có contract dẫn xuất riêng cho
-Inspector.
+`derived.py` dùng chung tính tổng giao dịch và net nước ngoài cho production lẫn Inspector với NULL propagation nghiêm ngặt. Contract 1.1.0 và database có `foreign_total_room` nullable; không tự động backfill lịch sử.
 
-Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md). Mapping giữ cấu trúc clean hiện tại, không thay phần auth/request của nguồn mới. Không cần migration hoặc backfill.
+Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md).
 
 `index_daily` là ngoại lệ đối với trạng thái v3 preview cũ: contract/mapping 2.0.0 là mapping production đã xác minh cho SSI v3 `indexSummary`. Identity lấy từ request context, mọi numeric optional giữ nullable, mapping không scale phần trăm. Mapping SSI v2 2.0 deprecated chỉ để tương thích inspection và không production-ready.

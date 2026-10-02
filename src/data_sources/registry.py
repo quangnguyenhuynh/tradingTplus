@@ -28,12 +28,15 @@ class Capability:
 
 
 _CAPABILITIES = tuple(
-    [Capability("ssi_v2", dataset, 2, "ready", SSIV2Adapter) for dataset in ("stock_daily", "stock_intraday")]
+    [Capability("ssi_v2", "stock_daily", 2, "deprecated", SSIV2Adapter,
+                "Deprecated explicit fallback for DailyStockPrice")]
+    + [Capability("ssi_v2", "stock_intraday", 2, "ready", SSIV2Adapter)]
     + [Capability("ssi_v2", "index_daily", 2, "deprecated", None,
                   "SSI v2 DailyIndex is retained for inspection only and cannot write the v2.0 clean contract")]
-    + [Capability("ssi_v3", dataset, 3, "preview", None,
-                  "Response semantics and clean mapping are not fully verified; inspector only")
-       for dataset in ("stock_daily", "stock_intraday")]
+    + [Capability("ssi_v3", "stock_daily", 3, "ready", SSIV3Adapter,
+                  "Verified securitiesSummary production capability")]
+    + [Capability("ssi_v3", "stock_intraday", 3, "preview", None,
+                  "Response semantics and clean mapping are not fully verified; inspector only")]
     + [Capability("ssi_v3", "index_daily", 3, "ready", SSIV3Adapter,
                   "Verified indexSummary production capability")]
     + [Capability(source, dataset, order, "preview", None,
@@ -64,9 +67,13 @@ def resolve_source(dataset: str, requested: str | None = None, *, production: bo
         if not eligible:
             raise SourceNotReadyError(f"no production-ready data source supports dataset {dataset}")
         selected = max(eligible, key=lambda item: item.order)
-    if production and selected.status != "ready":
+    if production and selected.status not in ({"ready", "deprecated"} if requested is not None else {"ready"}):
         raise SourceNotReadyError(
             f"data source {selected.source} is {selected.status}, not ready for dataset {dataset}"
+        )
+    if production and selected.factory is None:
+        raise SourceNotReadyError(
+            f"data source {selected.source} is {selected.status} but has no production adapter for {dataset}"
         )
     return selected
 

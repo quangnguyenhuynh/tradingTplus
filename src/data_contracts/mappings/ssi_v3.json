@@ -2,8 +2,8 @@
   "source_id": "ssi_v3",
   "datasets": {
     "stock_daily": {
-      "mapping_version": "1.2.0-preview",
-      "contract_version": "1.0.0",
+      "mapping_version": "1.3.0",
+      "contract_version": "1.1.0",
       "fields": {
         "symbol": {
           "aliases": [
@@ -178,20 +178,17 @@
             "summary.totalTradeSell"
           ],
           "transform": "int"
+        },
+        "foreign_total_room": {
+          "aliases": [
+            "summary.totalForeignRoom"
+          ],
+          "transform": "int"
         }
       },
       "inspector": {
         "endpoint": "securities-summary",
-        "prefix": "summary",
-        "preview_fields": {
-          "foreign_total_room": {
-            "aliases": [
-              "summary.totalForeignRoom"
-            ],
-            "transform": "int",
-            "persistence": "DB COLUMN NOT YET CREATED"
-          }
-        }
+        "prefix": "summary"
       }
     },
     "stock_intraday": {

@@ -13,7 +13,9 @@ class DB:
 
 def _setup(monkeypatch, db):
     monkeypatch.setattr(daily, "SupabaseClient", lambda: db)
-    monkeypatch.setattr(daily, "SSIApi", lambda: object())
+    monkeypatch.setattr(daily, "create_production_adapter", lambda *args: (
+        type("Capability", (), {"source": "ssi_v3", "status": "ready"})(), object()
+    ))
     stock_calls = []
     monkeypatch.setattr(daily, "fetch_daily_for_symbol_with_clients", lambda ssi, db_arg, symbol, date: stock_calls.append(symbol) or {"status": "OK", "daily_rows": 1})
     return stock_calls
@@ -74,7 +76,9 @@ def test_daily_uses_only_daily_ssi_endpoints_and_preserves_summary(monkeypatch):
     db = DB()
     ssi = FailFastSSI()
     monkeypatch.setattr(daily, "SupabaseClient", lambda: db)
-    monkeypatch.setattr(daily, "SSIApi", lambda: ssi)
+    monkeypatch.setattr(daily, "create_production_adapter", lambda *args: (
+        type("Capability", (), {"source": "ssi_v3", "status": "ready"})(), ssi
+    ))
     monkeypatch.setattr(
         daily,
         "fetch_daily_for_symbol_with_clients",
@@ -109,3 +113,21 @@ def test_daily_never_exposes_index_persistence_dependencies(monkeypatch):
     summary = daily.run_daily_ingest("10/07/2026", symbols=["SSI"])
     assert stock_calls == ["SSI"]
     assert summary["status"] == "OK"
+
+
+@pytest.mark.parametrize("requested,expected", [(None, "ssi_v3"), ("ssi_v2", "ssi_v2")])
+def test_daily_instantiates_the_resolved_production_adapter(monkeypatch, requested, expected):
+    db = DB()
+    calls = []
+    adapter = object()
+    monkeypatch.setattr(daily, "SupabaseClient", lambda: db)
+    monkeypatch.setattr(daily, "create_production_adapter", lambda dataset, source: (
+        calls.append((dataset, source)) or
+        (type("Capability", (), {"source": expected, "status": "deprecated" if expected == "ssi_v2" else "ready"})(), adapter)
+    ))
+    seen = []
+    monkeypatch.setattr(daily, "fetch_daily_for_symbol_with_clients", lambda client, *_args: seen.append(client) or {"status": "OK", "daily_rows": 1})
+    result = daily.run_daily_ingest("01/10/2026", symbols=["SSI"], data_source=requested)
+    assert calls == [("stock_daily", requested)]
+    assert seen == [adapter]
+    assert result["data_source"] == expected
