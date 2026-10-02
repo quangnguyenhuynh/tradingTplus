@@ -58,6 +58,14 @@ def test_negative_volume():
     assert "DAILY_NEGATIVE_VOLUME_OR_VALUE" in codes(result)
 
 
+def test_negative_remaining_foreign_room_is_rejected_but_negative_net_is_valid():
+    assert validate_daily_record(rec()).is_valid
+
+    result = validate_daily_record(rec(foreign_remaining_room=-1))
+    assert not result.is_valid
+    assert "DAILY_NEGATIVE_VOLUME_OR_VALUE" in codes(result)
+
+
 def test_ref_outside_floor_ceiling():
     result = validate_daily_record(rec(ref_price=13))
     assert result.is_valid

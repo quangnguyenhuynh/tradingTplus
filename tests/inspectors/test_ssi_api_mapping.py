@@ -37,7 +37,7 @@ def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_field
         "lowest_price": 20850.0, "close_price": 21000.0,
         "average_price": 21106.0, "foreign_buy_vol_total": 0,
         "foreign_sell_vol_total": 0, "foreign_buy_val_total": 0,
-        "foreign_sell_val_total": 0, "foreign_current_room": 1750293719,
+        "foreign_sell_val_total": 0, "foreign_remaining_room": 1750293719,
         "close_price_adjusted": None, "total_match_vol": 13825100,
         "total_match_val": 291796245000, "total_deal_vol": None,
         "total_deal_val": None, "total_traded_vol": None,
@@ -75,7 +75,7 @@ def test_v3_stock_daily_derives_totals_and_net_foreign_as_integers():
         "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val",
         "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol",
         "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total",
-        "foreign_sell_val_total", "foreign_current_room", "foreign_total_room",
+        "foreign_sell_val_total", "foreign_remaining_room", "foreign_total_room",
         "total_traded_vol", "total_traded_value", "net_foreign_vol", "net_foreign_val",
     }
     assert all(type(clean[0][field]) is int for field in integer_fields)
@@ -127,7 +127,7 @@ def test_v3_stock_daily_buy_sell_deal_and_distinct_room_mappings():
     assert clean[0]["total_sell_trade_vol"] == 800
     assert clean[0]["total_deal_vol"] == 50
     assert clean[0]["total_deal_val"] == 750000
-    assert clean[0]["foreign_current_room"] == 1234
+    assert clean[0]["foreign_remaining_room"] == 1234
     assert clean[0]["foreign_total_room"] == 5678
     assert not reports[0]["errors"]
 

@@ -1,8 +1,8 @@
 # Contract dữ liệu chuẩn và mapping theo nguồn
 
-Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. `stock_daily` dùng contract `1.1.0`, `index_daily` dùng contract breaking `2.0.0`; các dataset còn lại dùng `1.0.0`.
+Package này tách ý nghĩa clean data của ứng dụng khỏi hình dạng payload nhà cung cấp. `definitions.json` là từ điển chuẩn cho `stock_daily`, `stock_intraday` 1 phút, `index_daily` và hai danh mục chỉ dành cho inspector là `symbol_list`, `index_list`. Mỗi field khai báo ý nghĩa nghiệp vụ, kiểu, đơn vị, required/NULL, ràng buộc mức field và quy ước ngày/giờ/timeframe liên quan. `stock_daily` dùng contract breaking `2.0.0`, `index_daily` dùng contract breaking `2.0.0`; các dataset còn lại dùng `1.0.0`.
 
-`mappings/ssi_v2.json` chứa mapping có phiên bản riêng; mapping `stock_daily` 1.1.0 dùng contract 1.1.0. File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
+`mappings/ssi_v2.json` chứa mapping có phiên bản riêng; mapping `stock_daily` 2.0.0 dùng contract 2.0.0. File chỉ khai báo alias đã xác nhận, transform trong whitelist, xử lý missing/placeholder đặc thù nguồn và hệ số đổi đơn vị có bằng chứng. Riêng placeholder `0` của giá tham chiếu/trần/sàn daily SSI v2 dùng `ssi_v2_zero_price_to_null`; đây không phải quy tắc chung của contract.
 
 ## Xử lý và report
 
@@ -33,9 +33,9 @@ print(result.report)
 5. Nếu phép đổi phức tạp, thêm pure function vào `TRANSFORMS`; cấm biểu thức tùy ý và `eval`/`exec`.
 6. Chạy `get_mapping(...)` và fixture offline, gồm missing, malformed, alias trùng/xung đột và field thừa.
 
-Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. Mapping SSI v3 `stock_daily` 1.3.0 đã production-ready cho các field `securities-summary` được xác minh, gồm `foreign_total_room` canonical. SSI v2 mapping 1.1.0 vẫn là fallback deprecated explicit; total room chưa xác minh được khai báo unsupported. SSI v3 `stock_intraday` và catalog vẫn preview-only. Alias qualified như `summary.close` chỉ tồn tại trong view mapping; raw payload không đổi.
+Đã đăng ký cả `ssi_v2.json` và `ssi_v3.json`. Mapping SSI v3 `stock_daily` 2.0.0 đã production-ready: `remainForeignRoom` ánh xạ sang `foreign_remaining_room` canonical (room sở hữu nước ngoài còn lại), còn `totalForeignRoom` ánh xạ riêng sang `foreign_total_room` (tổng room sở hữu nước ngoài). SSI v2 mapping 2.0.0 vẫn là fallback deprecated explicit; alias nguyên bản `ForeignCurrentRoom` ánh xạ sang `foreign_remaining_room`, còn total room chưa xác minh được khai báo unsupported. SSI v3 `stock_intraday` và catalog vẫn preview-only. Alias qualified như `summary.close` chỉ tồn tại trong view mapping; raw payload không đổi.
 
-`derived.py` dùng chung tính tổng giao dịch và net nước ngoài cho production lẫn Inspector với NULL propagation nghiêm ngặt. Contract 1.1.0 và database có `foreign_total_room` nullable; không tự động backfill lịch sử.
+`derived.py` dùng chung tính tổng giao dịch và net nước ngoài cho production lẫn Inspector với NULL propagation nghiêm ngặt. Contract 2.0.0 và database có `foreign_remaining_room`, `foreign_total_room` nullable; phép đổi tên giữ nguyên giá trị clean lịch sử và không cần backfill dữ liệu.
 
 Xem [hướng dẫn inspector](../../scripts/ssi_api_inspector/README.vi.md).
 
