@@ -2,10 +2,10 @@ name: TradingTPlus Index EOD Pipeline
 
 on:
   schedule:
-    # 08:00 Vietnam time (UTC+7) Tuesday-Saturday = 01:00 UTC Tuesday-Saturday.
+    # 08:07 Vietnam time (UTC+7) Tuesday-Saturday = 01:07 UTC Tuesday-Saturday.
     # Scheduled runs ingest the previous calendar day because SSI proprietary
     # trading totals are available the following morning.
-    - cron: "0 1 * * 2-6"
+    - cron: "7 1 * * 2-6"
   workflow_dispatch:
     inputs:
       date:
