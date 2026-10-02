@@ -47,7 +47,7 @@ def _vn_utc_range(validated) -> tuple[str, str]:
     return start_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ'), end_vn.astimezone(UTC_TZ).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None, page_size: int = 1000) -> set[str]:
+def _fetch_daily_rows(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None, page_size: int = 1000) -> list[dict]:
     if page_size <= 0:
         raise ValueError('page_size must be greater than zero')
     rows: list[dict] = []
@@ -55,7 +55,7 @@ def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] |
     previous_page: tuple | None = None
     page_number = 0
     while True:
-        query = db.client.table('stock_daily').select('symbol').eq('trading_date', date_iso)
+        query = db.client.table('stock_daily').select('symbol,updated_at,source').eq('trading_date', date_iso)
         if symbols is not None:
             query = query.in_('symbol', symbols)
         query = query.order('symbol').range(offset, offset + page_size - 1)
@@ -70,7 +70,12 @@ def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] |
         previous_page = identity
         rows.extend(page)
         offset += len(page)
-    return {row['symbol'] for row in rows}
+    return rows
+
+
+def _fetch_daily_symbols(db: SupabaseClient, date_iso: str, symbols: list[str] | None = None, page_size: int = 1000) -> set[str]:
+    """Compatibility reader retaining the historical symbol-set return type."""
+    return {row['symbol'] for row in _fetch_daily_rows(db, date_iso, symbols, page_size)}
 
 
 def _fetch_intraday_rows(db: SupabaseClient, start: str, end: str, symbols: list[str] | None = None, page_size: int = 1000) -> list[dict]:
@@ -175,13 +180,35 @@ def _resolve_check_scope(db: SupabaseClient, symbols):
     return resolved, requested, symbol_scope_summary(resolved, requested)
 
 
-def check_daily_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = None) -> dict:
-    """Check only canonical stock_daily presence for one exact scope and date."""
+def _is_current_run_daily_row(row: dict, cutoff: datetime, expected_source: str | None) -> bool:
+    value = row.get('updated_at')
+    if not value:
+        return False
+    try:
+        updated_at = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return False
+    return (
+        updated_at.tzinfo is not None
+        and updated_at >= cutoff
+        and (expected_source is None or row.get('source') == expected_source)
+    )
+
+
+def check_daily_ingest(
+    date: str,
+    symbols: list[str] | tuple[str, ...] | None = None,
+    *,
+    updated_since: str | None = None,
+    expected_source: str | None = None,
+) -> dict:
+    """Check canonical presence and, optionally, current-run persistence."""
     db = SupabaseClient()
     validated = parse_ddmmyyyy(date)
     resolved, requested, scope_summary = _resolve_check_scope(db, symbols)
     query_scope = resolved if requested is not None else None
-    daily_present = _fetch_daily_symbols(db, validated.iso, query_scope)
+    daily_rows = _fetch_daily_rows(db, validated.iso, query_scope)
+    daily_present = {row['symbol'] for row in daily_rows}
     missing = [symbol for symbol in resolved if symbol not in daily_present]
     count = len(daily_present)
     status = 'FAILED' if not resolved or count == 0 else ('PARTIAL' if missing else 'OK')
@@ -194,6 +221,31 @@ def check_daily_ingest(date: str, symbols: list[str] | tuple[str, ...] | None = 
         "missing_stock_daily_symbols_sample": missing[:100],
         "status": status,
     }
+    if updated_since is not None:
+        cutoff = datetime.fromisoformat(updated_since.replace('Z', '+00:00'))
+        if cutoff.tzinfo is None:
+            raise ValueError('updated_since must include a timezone offset')
+        updated_symbols = sorted({
+            row['symbol'] for row in daily_rows
+            if _is_current_run_daily_row(row, cutoff, expected_source)
+        })
+        updated_set = set(updated_symbols)
+        current_run_missing = [symbol for symbol in resolved if symbol not in updated_set]
+        stale_existing = [symbol for symbol in resolved if symbol in daily_present and symbol not in updated_set]
+        status = 'FAILED' if not resolved or not updated_symbols else ('PARTIAL' if current_run_missing else 'OK')
+        summary.update({
+            "current_run_updated_count": len(updated_symbols),
+            "current_run_updated_symbols": updated_symbols,
+            "current_run_missing_count": len(current_run_missing),
+            "current_run_missing_symbols": current_run_missing,
+            "current_run_missing_symbols_sample": current_run_missing[:100],
+            "stale_existing_count": len(stale_existing),
+            "stale_existing_symbols": stale_existing,
+            "stale_existing_symbols_sample": stale_existing[:100],
+            "updated_since": updated_since,
+            "expected_source": expected_source,
+            "status": status,
+        })
     print(f"🔎 Daily ingest completeness for {date} ({validated.iso}) status={status}")
     return summary
 

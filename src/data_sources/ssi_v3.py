@@ -70,6 +70,26 @@ class SSIV3Adapter:
 
     def _fetch_stock_daily(self, symbol: str, date: str) -> AdapterResult:
         payloads = self.client.securities_summary(symbol, date).items
+        if len(payloads) > 1:
+            error = {
+                "code": "MULTIPLE_RECORDS",
+                "expected": 1,
+                "actual": len(payloads),
+                "symbol": symbol.upper(),
+                "requested_date": _iso_date(date),
+            }
+            report = {
+                "source": self.source_id,
+                "dataset": "stock_daily",
+                "contract_version": "2.0.0",
+                "mapping_version": "2.0.0",
+                "records_received": len(payloads),
+                "records_valid": 0,
+                "records_rejected": len(payloads),
+                "record_reports": [],
+                "errors": [error],
+            }
+            return AdapterResult(self.source_id, "stock_daily", payloads, [], [error], report)
         clean: list[dict[str, Any] | None] = []
         reports: list[dict[str, Any]] = []
         requested_symbol, requested_date = symbol.upper(), _iso_date(date)

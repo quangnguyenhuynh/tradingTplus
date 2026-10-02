@@ -75,4 +75,31 @@ def test_v3_daily_service_persists_source_and_unchanged_payload():
     assert summary["status"] == "OK"
     assert db.raw[0]["source"] == "ssi_v3"
     assert db.raw[0]["payload"] is raw
+    assert db.clean[0]["source"] == "ssi_v3"
     assert db.clean[0]["raw"] is raw
+
+
+def test_v3_stock_daily_rejects_multiple_records_and_service_retains_each_raw():
+    class DB:
+        def __init__(self): self.raw, self.clean = [], []
+        def upsert_raw_daily(self, records): self.raw.extend(records)
+        def upsert_stock_daily(self, records): self.clean.extend(records)
+
+    rows = [deepcopy(SAMPLE), {**deepcopy(SAMPLE), "close": "20200"}]
+    adapter = SSIV3Adapter(Client(rows))
+    result = adapter.fetch("stock_daily", "SSI", "01/10/2026")
+    assert result.clean == []
+    assert result.mapping_report["records_received"] == 2
+    assert result.mapping_report["records_valid"] == 0
+    assert result.mapping_report["records_rejected"] == 2
+    assert result.validation_errors == [{
+        "code": "MULTIPLE_RECORDS", "expected": 1, "actual": 2,
+        "symbol": "SSI", "requested_date": "2026-10-01",
+    }]
+
+    db = DB()
+    summary = fetch_daily_for_symbol_with_clients(adapter, db, "SSI", "01/10/2026")
+    assert summary["status"] == "FAILED"
+    assert summary["error_type"] == "MISMATCH"
+    assert len(db.raw) == 2
+    assert db.clean == []

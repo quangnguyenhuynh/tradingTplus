@@ -17,15 +17,27 @@ def _install(monkeypatch, *, active=("SSI", "HPG"), completeness=None):
         def get_symbols(self): return list(active)
     monkeypatch.setattr(stock_eod, "SupabaseClient", DB)
     calls = []
-    monkeypatch.setattr(stock_eod, "daily_run", lambda d, symbols=None: calls.append(("daily", symbols)) or {"symbol_count": len(symbols), "error_count": 0})
-    monkeypatch.setattr(stock_eod, "check_daily_ingest", lambda d, symbols=None: calls.append(("completeness", symbols)) or (completeness or _complete(symbols=symbols, symbol_count=len(symbols))))
+    monkeypatch.setattr(stock_eod, "app_now_iso", lambda: "2026-10-02T16:30:00+07:00")
+    monkeypatch.setattr(stock_eod, "daily_run", lambda d, symbols=None: calls.append(("daily", symbols)) or {"symbol_count": len(symbols), "error_count": 0, "data_source": "ssi_v3"})
+    monkeypatch.setattr(
+        stock_eod,
+        "check_daily_ingest",
+        lambda d, symbols=None, **kwargs: calls.append(("completeness", symbols, kwargs))
+        or (completeness or _complete(symbols=symbols, symbol_count=len(symbols))),
+    )
     return calls
 
 
 def test_stock_eod_runs_only_stock_stages_in_order(monkeypatch):
     calls = _install(monkeypatch)
     result = stock_eod.run_stock_eod_pipeline("05/07/2024")
-    assert calls == [("daily", ["SSI", "HPG"]), ("completeness", ["SSI", "HPG"])]
+    assert calls == [
+        ("daily", ["SSI", "HPG"]),
+        ("completeness", ["SSI", "HPG"], {
+            "updated_since": "2026-10-02T16:30:00+07:00",
+            "expected_source": "ssi_v3",
+        }),
+    ]
     assert result["flow"] == "stock-eod"
     assert not any("index" in key for key in result)
     assert not hasattr(stock_eod, "run_index_daily_ingest")
@@ -44,7 +56,8 @@ def test_stock_eod_normalizes_filters_and_reuses_one_scope(monkeypatch, capsys):
     result = stock_eod.run_stock_eod_pipeline("10/07/2026", symbols=["ssi", " VNM ", "HPG", "SSI"])
     scope = calls[0][1]
     assert scope == ["SSI", "HPG"]
-    assert calls == [("daily", scope), ("completeness", scope)]
+    assert calls[0] == ("daily", scope)
+    assert calls[1][:2] == ("completeness", scope)
     assert calls[0][1] is calls[1][1]
     assert result["requested_symbols"] == ["SSI", "VNM", "HPG"]
     assert result["ignored_symbols"] == ["VNM"]
