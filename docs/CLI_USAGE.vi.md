@@ -510,7 +510,7 @@ python scripts/ssi_api_inspector/inspect.py run index-list
 python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 2026-09-08 --data-source ssi_v2
 ```
 
-Không truyền `--data-source` sẽ chọn capability inspector mới nhất theo thứ tự registry, hiện là `ssi_v3 (preview)` cho cả năm dataset. Preview không phải production-ready: production chọn nguồn `ready` độc lập và hiện vẫn là ssi_v2. Routing: `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` 1m cố định: cả hai dùng `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: cả hai dùng `index-list`. Capability danh mục chỉ là preview. Không fallback khác nguồn.
+Không truyền `--data-source` sẽ chọn capability inspector mới nhất theo thứ tự registry, `ssi_v3`; status phụ thuộc dataset (`ready` cho `stock_daily`/`index_daily`, `preview` cho intraday/catalog). Lựa chọn Inspector không phải production-ready: production chọn nguồn `ready` riêng: SSI v3 cho `stock_daily`/`index_daily`, SSI v2 cho `stock_intraday`. Routing: `stock_daily`: v2 `daily-stock-price`, v3 `securities-summary`; `stock_intraday` 1m cố định: cả hai dùng `intraday-ohlc`; `index_daily`: v2 `daily-index`, v3 `index-summary`; `symbol_list`: v2 `securities`, v3 `securities-by-board`; `index_list`: cả hai dùng `index-list`. Capability danh mục chỉ là preview. Không fallback khác nguồn.
 
 Dataset giá dùng một `--date` hoặc đủ cặp from/to có thứ tự. Endpoint hỗ trợ range nhận một request; range index v3 tách một request cho từng ngày lịch. Dataset danh mục từ chối ngày; `symbol-list` yêu cầu sàn (có alias market/exchange), còn `index-list` cho phép bỏ sàn. Kế hoạch quá 100 data request bị chặn trước network. `--page-index`/`--page-size` chỉ lấy một trang được hỗ trợ; `--limit` chỉ giới hạn sample mỗi response. `--full-json` in response đã lấy và CLEAN tương ứng, không tự lấy mọi trang.
 
@@ -526,7 +526,7 @@ Help/list không cần credential/network. Lệnh endpoint cũ và `run all` v�
 
 ## Source adapter: xem trước và ingest
 
-Dùng thống nhất `YYYY-MM-DD` (vẫn tương thích `DD/MM/YYYY`). Lệnh production ghi qua persistence raw/clean hiện có và nhận `--data-source`; nếu bỏ qua thì chọn nguồn ready mới nhất riêng từng dataset (SSI v2 cho stock, SSI v3 cho `index_daily`):
+Dùng thống nhất `YYYY-MM-DD` (vẫn tương thích `DD/MM/YYYY`). Lệnh production ghi qua persistence raw/clean hiện có và nhận `--data-source`; nếu bỏ qua thì chọn nguồn ready mới nhất riêng từng dataset (SSI v3 cho `stock_daily`/`index_daily`, SSI v2 cho `stock_intraday`). `ssi_v2` explicit là fallback deprecated cho `stock_daily`; nguồn preview explicit bị từ chối:
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI --data-source ssi_v2

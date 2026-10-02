@@ -2,7 +2,7 @@
   "schema_version": "1",
   "datasets": {
     "stock_daily": {
-      "contract_version": "1.0.0",
+      "contract_version": "1.1.0",
       "fields": {
         "symbol": {
           "description": "Canonical stock ticker",
@@ -178,6 +178,14 @@
         },
         "foreign_current_room": {
           "description": "Remaining foreign room",
+          "type": "number",
+          "unit": "shares",
+          "required": false,
+          "nullable": true,
+          "minimum": 0
+        },
+        "foreign_total_room": {
+          "description": "Total foreign ownership room",
           "type": "number",
           "unit": "shares",
           "required": false,

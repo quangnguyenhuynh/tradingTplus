@@ -26,9 +26,9 @@ python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 
 
 ## Source selection and routing
 
-Without `--data-source`, the inspector uses capability registry order to select the newest registered source supporting that dataset. This currently selects **ssi_v3 (preview)** for all five datasets. Preview means inspector-only and does not mean complete, semantically verified, or production-ready. Production independently selects the newest **ready** source and remains on ssi_v2.
+Without `--data-source`, the inspector uses capability registry order to select the newest registered source supporting that dataset. This selects the newest registered SSI v3 capability. `stock_daily` and `index_daily` are production-ready; `stock_intraday` and catalog datasets remain preview-only. Production resolves each dataset independently.
 
-| Canonical dataset | CLEAN contract | ssi_v2 (ready) | ssi_v3 (preview) |
+| Canonical dataset | CLEAN contract | ssi_v2 | ssi_v3 |
 |---|---|---|---|
 | `stock-daily` | `stock_daily` | `daily-stock-price` | `securities-summary` |
 | `stock-intraday` | `stock_intraday` (1m) | `intraday-ohlc` | `intraday-ohlc` |

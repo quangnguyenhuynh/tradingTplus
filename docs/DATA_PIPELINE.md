@@ -265,3 +265,7 @@ See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved d
 The canonical index source flow is `SSI v3 /api/v3/data/indexSummary → unchanged index_raw_daily payload → type-only mapping → validation → index_daily → stop`. SSI v2 `DailyIndex` is deprecated for production clean writes; historical v2 raw evidence remains immutable. `indexChange` is stored as index points and `indexChangePercentage` in provider percent units, with no division by 100. Missing optional fields remain `NULL`.
 
 After manually applying `20260928_rebuild_index_daily_ssi_v3.sql`, run `python main.py index-backfill --from YYYY-MM-DD --to YYYY-MM-DD --indexes VNINDEX` for an explicitly selected range. Only returned SSI sessions are written. Validate with `python main.py index-check YYYY-MM-DD --indexes VNINDEX`, then separately rerun `python main.py index-features-backfill --from YYYY-MM-DD --to YYYY-MM-DD --indexes VNINDEX`. No ingest or migration triggers feature calculation.
+
+### Stock daily source cutover (2026-10-02)
+
+The production flow is `SSI v3 securities-summary -> provider-qualified mapping -> shared strict-NULL derived fields -> validation -> stock_raw_daily/stock_daily`. Raw rows retain the original unqualified provider payload and source ID. SSI v2 `DailyStockPrice` remains an explicit deprecated fallback. Intraday remains on SSI v2; SSI v3 intraday is preview-only.

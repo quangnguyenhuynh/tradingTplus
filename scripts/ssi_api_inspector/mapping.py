@@ -4,31 +4,9 @@ from __future__ import annotations
 from typing import Any
 
 from src.data_contracts import get_mapping, map_record
+from src.data_contracts.derived import apply_derived_fields
 from src.data_contracts.transforms import TRANSFORMS, TransformError, to_date
 from src.intraday_value import calculate_trade_value
-
-_DERIVED_FIELDS = {
-    "total_traded_vol": ("total_match_vol", "total_deal_vol", "add"),
-    "total_traded_value": ("total_match_val", "total_deal_val", "add"),
-    "net_foreign_vol": ("foreign_buy_vol_total", "foreign_sell_vol_total", "subtract"),
-    "net_foreign_val": ("foreign_buy_val_total", "foreign_sell_val_total", "subtract"),
-}
-
-
-def _apply_derived_fields(candidate: dict[str, Any], mapping: dict[str, Any]) -> None:
-    """Populate declared canonical derivations, preserving NULL operands."""
-    for target, rule in mapping["fields"].items():
-        if not rule.get("derived"):
-            continue
-        left_field, right_field, operation = _DERIVED_FIELDS[target]
-        left, right = candidate.get(left_field), candidate.get(right_field)
-        if left is None or right is None:
-            candidate[target] = None
-        elif operation == "add":
-            candidate[target] = left + right
-        else:
-            candidate[target] = left - right
-
 
 def endpoint_mapping(source: str, native_name: str) -> tuple[str, dict[str, Any]] | None:
     for dataset in ("stock_daily", "stock_intraday", "index_daily", "symbol_list", "index_list"):
@@ -88,7 +66,7 @@ def map_rows(source: str, dataset: str, mapping: dict[str, Any],
         record = {f"{prefix}.{key}": value for key, value in row.items()} if prefix else row
         result = map_record(source, dataset, record, context)
         if result.candidate is not None:
-            _apply_derived_fields(result.candidate, mapping)
+            apply_derived_fields(dataset, result.candidate)
             # Preview fields are intentionally outside the persisted canonical contract.
             # They are declared under inspector metadata so production mapping remains unchanged.
             for target, rule in mapping["inspector"].get("preview_fields", {}).items():

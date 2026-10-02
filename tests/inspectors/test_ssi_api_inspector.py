@@ -317,7 +317,7 @@ def test_canonical_auto_source_uses_registry_preview_order(monkeypatch, capsys):
     monkeypatch.setattr(inspect, "InspectorClient", Client)
     assert inspect.main(["run", "stock-daily", "--symbol", "SSI", "--date", "2026-09-08"]) == 0
     output = capsys.readouterr().out
-    assert "Data source requested: auto" in output and "ssi_v3 (preview)" in output
+    assert "Data source requested: auto" in output and "ssi_v3 (ready)" in output
 
 
 def test_canonical_builders_keep_source_specific_dates_timeframe_and_paging():

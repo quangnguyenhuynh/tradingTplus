@@ -14,6 +14,15 @@ on:
         description: "Optional space-separated daily-active stock symbols"
         required: false
         type: string
+      data_source:
+        description: "Stock daily source (auto uses the newest ready source)"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - ssi_v3
+          - ssi_v2
 
 concurrency:
   group: tradingtplus-stock-eod-${{ github.ref }}
@@ -27,6 +36,8 @@ jobs:
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       SSI_CONSUMER_ID: ${{ secrets.SSI_CONSUMER_ID }}
       SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
+      SSI_API_KEY: ${{ secrets.SSI_API_KEY }}
+      SSI_API_SECRET: ${{ secrets.SSI_API_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,5 +59,8 @@ jobs:
           if [ -n "${{ inputs.symbols }}" ]; then
             read -r -a symbols <<< "${{ inputs.symbols }}"
             cmd+=(--symbols "${symbols[@]}")
+          fi
+          if [ -n "${{ inputs.data_source }}" ] && [ "${{ inputs.data_source }}" != "auto" ]; then
+            cmd+=(--data-source "${{ inputs.data_source }}")
           fi
           "${cmd[@]}"

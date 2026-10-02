@@ -92,6 +92,19 @@ def test_index_raw_upsert_replaces_explicit_null_created_at_and_preserves_it_on_
     assert source["created_at"] is None
 
 
+def test_stock_raw_upsert_is_immutable_and_uses_provider_aware_identity():
+    db = _db()
+    source = {
+        "symbol": "SSI", "trading_date": "2026-10-01", "source": "ssi_v3",
+        "data_hash": "hash", "payload": {"symbol": "SSI"},
+    }
+    db.upsert_raw_daily([source])
+    (insert_call,) = db.client.calls
+    assert insert_call[2]["on_conflict"] == "symbol,trading_date,source,data_hash"
+    assert insert_call[2]["ignore_duplicates"] is True
+    assert insert_call[1][0]["created_at"] == insert_call[1][0]["fetched_at"]
+
+
 def test_postgres_not_null_violation_is_not_retried_even_with_transient_wording():
     db = _db()
     attempts = 0

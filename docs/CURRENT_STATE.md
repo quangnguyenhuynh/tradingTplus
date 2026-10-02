@@ -1055,3 +1055,10 @@ CLI preserves same-symbol EOD analysis; its production gates remain enforced.
 ## Foreign EOD Feature V1
 
 See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved dedicated table, formulas, calendar/freshness contract, RPC security, CLI, and manual rollout.
+
+### Production data-source state (2026-10-02)
+
+- `stock_daily`: SSI v3 `securities-summary` is the default production source; SSI v2 `DailyStockPrice` is an explicit deprecated fallback.
+- `stock_intraday`: SSI v2 remains the default production source; SSI v3 remains preview-only.
+- `index_daily`: SSI v3 remains the default production source.
+- Stock raw daily evidence records `source` and uses `(symbol, trading_date, source, data_hash)` identity. No historical clean-row backfill is automatic.

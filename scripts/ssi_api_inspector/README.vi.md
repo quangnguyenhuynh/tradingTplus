@@ -26,9 +26,9 @@ python scripts/ssi_api_inspector/inspect.py run stock-daily --symbol SSI --date 
 
 ## Chọn nguồn và routing
 
-Khi không truyền `--data-source`, inspector dùng thứ tự capability registry để chọn nguồn mới nhất đã đăng ký cho dataset. Hiện cả năm dataset chọn **ssi_v3 (preview)**. Preview chỉ dành cho inspector, không có nghĩa dữ liệu đầy đủ, đúng ngữ nghĩa hoặc production-ready. Production chọn nguồn **ready** độc lập và vẫn dùng ssi_v2.
+Khi không truyền `--data-source`, inspector dùng thứ tự capability registry để chọn nguồn mới nhất đã đăng ký cho dataset. Inspector chọn capability SSI v3 mới nhất. `stock_daily` và `index_daily` đã production-ready; `stock_intraday` và catalog vẫn preview-only. Production resolve độc lập theo dataset.
 
-| Dataset CLI | CLEAN contract | ssi_v2 (ready) | ssi_v3 (preview) |
+| Dataset CLI | CLEAN contract | ssi_v2 | ssi_v3 |
 |---|---|---|---|
 | `stock-daily` | `stock_daily` | `daily-stock-price` | `securities-summary` |
 | `stock-intraday` | `stock_intraday` (1m) | `intraday-ohlc` | `intraday-ohlc` |

@@ -270,7 +270,7 @@ python scripts/ssi_api_inspector/inspect.py run symbol-list --board HOSE --show-
 python scripts/ssi_api_inspector/inspect.py run index-list --show-mapping
 ```
 
-**Ingest into DB:** production chooses the newest `ready` capability per dataset (SSI v2 for stock datasets and SSI v3 for `index_daily`). Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.
+**Ingest into DB:** production chooses the newest `ready` capability per dataset (SSI v3 for `stock_daily` and `index_daily`; SSI v2 for `stock_intraday`). SSI v2 remains an explicit deprecated `stock_daily` fallback. Dates accept `YYYY-MM-DD` (recommended) and `DD/MM/YYYY`.
 
 ```bash
 python main.py stock-daily 2026-09-08 --symbols SSI [--data-source ssi_v2]

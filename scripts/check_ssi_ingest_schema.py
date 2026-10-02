@@ -19,8 +19,8 @@ from src.database.client import SupabaseClient
 
 REQUIRED_COLUMNS = {
     "securities": ["symbol", "market", "stock_name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
-    "stock_daily": ["symbol", "trading_date", "price_change", "per_price_change", "ceiling_price", "floor_price", "ref_price", "open_price", "highest_price", "lowest_price", "close_price", "average_price", "close_price_adjusted", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_traded_vol", "total_traded_value", "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total", "foreign_current_room", "net_foreign_vol", "net_foreign_val", "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol", "raw", "created_at", "updated_at"],
-    "stock_raw_daily": ["symbol", "trading_date", "data_hash", "payload", "created_at"],
+    "stock_daily": ["symbol", "trading_date", "price_change", "per_price_change", "ceiling_price", "floor_price", "ref_price", "open_price", "highest_price", "lowest_price", "close_price", "average_price", "close_price_adjusted", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_traded_vol", "total_traded_value", "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total", "foreign_current_room", "foreign_total_room", "net_foreign_vol", "net_foreign_val", "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol", "raw", "created_at", "updated_at"],
+    "stock_raw_daily": ["symbol", "trading_date", "source", "data_hash", "payload", "fetched_at", "created_at"],
     "index_master": ["index_code", "index_name", "exchange", "raw", "updated_at"],
     "index_raw_daily": ["index_code", "trading_date", "data_hash", "payload", "source", "fetched_at", "created_at"],
     "index_components": ["index_code", "symbol", "exchange", "raw", "updated_at"],
@@ -39,7 +39,7 @@ REQUIRED_COLUMNS = {
 REQUIRED_UNIQUE_INDEXES = {
     "securities": "primary key (symbol)",
     "stock_daily": "unique index on (symbol, trading_date)",
-    "stock_raw_daily": "unique index on (symbol, trading_date, data_hash)",
+    "stock_raw_daily": "unique index on (symbol, trading_date, source, data_hash)",
     "index_master": "primary key (index_code)",
     "index_raw_daily": "unique index on (index_code, trading_date, data_hash)",
     "index_components": "unique index on (index_code, symbol)",

@@ -117,6 +117,17 @@ SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
 
+-- SSI v3 stock_daily production promotion (2026-10-02).
+ALTER TABLE IF EXISTS public.stock_daily ADD COLUMN IF NOT EXISTS foreign_total_room numeric;
+ALTER TABLE IF EXISTS public.stock_raw_daily ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE IF EXISTS public.stock_raw_daily ADD COLUMN IF NOT EXISTS fetched_at timestamp with time zone;
+UPDATE public.stock_raw_daily SET source = 'ssi_v2' WHERE source IS NULL;
+UPDATE public.stock_raw_daily SET fetched_at = created_at WHERE fetched_at IS NULL;
+ALTER TABLE IF EXISTS public.stock_raw_daily ALTER COLUMN source SET NOT NULL;
+DROP INDEX IF EXISTS public.stock_raw_daily_symbol_trading_date_data_hash_uidx;
+CREATE UNIQUE INDEX IF NOT EXISTS stock_raw_daily_symbol_trading_date_source_data_hash_uidx
+    ON public.stock_raw_daily(symbol, trading_date, source, data_hash);
+
 -- Post-20260826 stock-domain relation inventory. Definitions introduced by the
 -- later focused migrations retain their columns, constraints, RLS, grants, and
 -- policies under these metadata-renamed relations:

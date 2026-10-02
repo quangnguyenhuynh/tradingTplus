@@ -2,8 +2,8 @@
   "source_id": "ssi_v2",
   "datasets": {
     "stock_daily": {
-      "mapping_version": "1.0.0",
-      "contract_version": "1.0.0",
+      "mapping_version": "1.1.0",
+      "contract_version": "1.1.0",
       "fields": {
         "symbol": {
           "transform": "symbol",
@@ -196,6 +196,11 @@
             "TotalSellTradeVol"
           ],
           "transform": "float"
+        },
+        "foreign_total_room": {
+          "unsupported": true,
+          "transform": "text",
+          "reason": "SSI v2 DailyStockPrice has no confirmed total foreign room equivalent"
         }
       },
       "inspector": {

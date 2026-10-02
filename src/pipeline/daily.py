@@ -2,12 +2,10 @@ from datetime import timedelta, timezone
 from typing import Any
 
 from src.database.client import SupabaseClient
-from src.ssi.api import SSIApi
 from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
 from src.pipeline.date_utils import latest_previous_weekday, parse_ddmmyyyy, validate_safe_write_date
 from src.pipeline.symbol_scope import resolve_symbol_scope, symbol_scope_summary
-from src.data_sources.registry import resolve_source
-from src.data_sources.ssi_v2 import SSIV2Adapter
+from src.data_sources.registry import create_production_adapter
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -28,10 +26,12 @@ def run_daily_ingest(
     symbols: list[str] | tuple[str, ...] | None = None,
     data_source: str | None = None,
 ) -> dict[str, Any]:
-    """Ingest SSI DailyStockPrice for stocks only; never ingest market indexes."""
+    """Ingest the resolved SSI stock-daily source; never ingest market indexes."""
     date = _resolve_daily_date(date)
-    capability = resolve_source("stock_daily", data_source)
+    capability, ssi = create_production_adapter("stock_daily", data_source)
     print(f"ℹ️ Dataset: stock_daily; data source: {capability.source}")
+    if capability.status == "deprecated":
+        print(f"⚠️ Data source {capability.source} is a deprecated stock_daily fallback")
     db = SupabaseClient()
     active_symbols, requested_symbols = resolve_symbol_scope(db, symbols)
     scope_summary = symbol_scope_summary(active_symbols, requested_symbols)
@@ -52,7 +52,6 @@ def run_daily_ingest(
             'status': 'FAILED',
         }
 
-    ssi = SSIV2Adapter(SSIApi())
     total_daily_rows = 0
     errors: list[dict[str, Any]] = []
     error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}

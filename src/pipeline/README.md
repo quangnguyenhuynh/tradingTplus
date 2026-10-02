@@ -6,7 +6,7 @@ Production ingest is split into explicit fetch, mapping, validation-integration,
 
 ```text
 src/pipeline/
-├── daily_fetcher.py          # call SSI DailyStockPrice only
+├── daily_fetcher.py          # legacy SSI v2 DailyStockPrice fetch helper
 ├── daily_mapper.py           # payload -> stock_raw_daily / stock_daily records
 ├── daily_persistence.py      # stock_raw_daily / stock_daily DB writes only
 ├── daily_service.py          # fetch -> map -> validate -> persist for one symbol/date
@@ -39,8 +39,8 @@ Existing streaming, index, master-data, feature-compatibility, and dry-run modul
 Public entrypoint: `daily_run()` / `run_daily_ingest()` in `daily.py`, exposed by `python main.py daily [DD/MM/YYYY] [--symbols SSI HPG]`.
 
 1. Resolve and validate the requested Vietnam-market date.
-2. `daily_fetcher.py` calls SSI `DailyStockPrice` once per symbol.
-3. The shared `src/data_contracts` SSI v2 mapping engine filters and normalizes clean candidates; `daily_mapper.py` preserves its public compatibility API and creates the source-preserving `stock_raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`; SSI `0` placeholders for reference, ceiling, and floor prices become clean `NULL` without changing the raw payload.
+2. The resolved production adapter calls SSI v3 `securities-summary` by default (or SSI v2 `DailyStockPrice` when explicitly selected).
+3. The shared `src/data_contracts` provider mapping engine filters and normalizes clean candidates; `daily_mapper.py` preserves its public compatibility API and creates the source-preserving `stock_raw_daily` record and normalized `stock_daily` candidate. Missing source fields remain `None`; SSI `0` placeholders for reference, ceiling, and floor prices become clean `NULL` without changing the raw payload.
 4. `daily_service.py` persists raw evidence through `daily_persistence.py`.
 5. `daily_service.py` invokes the existing `validate_daily_record` validator.
 6. Valid clean candidates are persisted to `stock_daily` through `daily_persistence.py`. Missing price context does not block an otherwise valid OHLCV row; a coherent OHLC range wholly on one side of source limits is retained as a corporate-action warning, while isolated limit violations remain blocking.
@@ -56,7 +56,7 @@ Public entrypoint: `run_intraday_ingest()` in `intraday_ingest.py`, exposed by `
 1. Resolve date and explicit/all-active symbol scope.
 2. Read optional daily context from `stock_daily`; this does not fetch or write daily data.
 3. `intraday_fetcher.py` calls SSI `IntradayOhlc` with resolution 1.
-4. The shared `src/data_contracts` SSI v2 mapping engine validates declared candle fields; `intraday_mapper.py` treats source candle times as `Asia/Ho_Chi_Minh`, converts them to UTC, rejects invalid timestamps, and creates raw and clean candidates.
+4. The shared `src/data_contracts` provider mapping engine validates declared candle fields; `intraday_mapper.py` treats source candle times as `Asia/Ho_Chi_Minh`, converts them to UTC, rejects invalid timestamps, and creates raw and clean candidates.
 5. The mapper persists only `timeframe='1m'`; `value` is the estimated `round(close * volume)` and remains `None` when either input is missing/invalid.
 6. `intraday_service.py` persists raw evidence through `intraday_persistence.py`, invokes existing record/batch validators, deduplicates by `(symbol, timeframe, time)` when reported, then persists valid clean records.
 

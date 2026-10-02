@@ -212,7 +212,7 @@ class SupabaseClient:
                     record["created_at"] = stamp
             if table_name in cls._UPDATED_AT_TABLES:
                 record["updated_at"] = stamp
-            if table_name == "stock_raw_intraday":
+            if table_name in {"stock_raw_daily", "stock_raw_intraday"}:
                 record["fetched_at"] = stamp
             if table_name == "stream_raw_snapshot":
                 record.setdefault("received_at", stamp)
@@ -256,8 +256,8 @@ class SupabaseClient:
                         on_conflict=on_conflict,
                         ignore_duplicates=True,
                     ).execute()
-                    if table_name == "index_raw_daily":
-                        # Raw index evidence is immutable and the identity includes its
+                    if table_name in {"stock_raw_daily", "index_raw_daily"}:
+                        # Raw daily evidence is immutable and the identity includes its
                         # payload hash. There are no mutable columns to update. A second
                         # bulk upsert that omits created_at is unsafe because PostgREST can
                         # materialize the missing field as NULL (default_to_null behavior).
@@ -374,7 +374,7 @@ class SupabaseClient:
         self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
 
     def upsert_raw_daily(self, records):
-        self._upsert_in_batches('stock_raw_daily', records, on_conflict='symbol,trading_date,data_hash')
+        self._upsert_in_batches('stock_raw_daily', records, on_conflict='symbol,trading_date,source,data_hash')
 
     def upsert_index_master(self, records):
         prepared = self._preserve_master_status('index_master', 'index_code', records)

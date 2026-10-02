@@ -8,13 +8,15 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
     assert "tradingtplus-stock-eod-" in text
     assert "python main.py stock-eod" in text
     assert "python main.py eod" not in text
+    assert "data_source:" in text
+    assert '!= "auto"' in text
     assert not Path(".github/workflows/eod.yml").exists()
 
 
 def test_index_eod_remains_independent():
     text = Path(".github/workflows/index-eod.yml").read_text()
     assert "python main.py index-daily" in text
-    assert 'cron: "0 1 * * 2-6"' in text
+    assert 'cron: "7 1 * * 2-6"' in text
     assert "TZ=Asia/Ho_Chi_Minh date -d 'yesterday' '+%d/%m/%Y'" in text
     assert 'cmd=(python main.py index-daily "$target_date")' in text
     for forbidden_command in (
