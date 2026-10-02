@@ -98,7 +98,7 @@ def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
     assert db.stock_daily_records[0]["foreign_sell_vol_total"] == 3
     assert db.stock_daily_records[0]["foreign_buy_val_total"] == 100
     assert db.stock_daily_records[0]["foreign_sell_val_total"] == 30
-    assert db.stock_daily_records[0]["foreign_current_room"] == 1000
+    assert db.stock_daily_records[0]["foreign_remaining_room"] == 1000
     assert db.foreign_records == []
     assert summary["total_foreign"] == 0
 
@@ -125,7 +125,7 @@ def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(
     assert db.stock_daily_records[0]["foreign_sell_vol_total"] is None
     assert db.stock_daily_records[0]["foreign_buy_val_total"] is None
     assert db.stock_daily_records[0]["foreign_sell_val_total"] is None
-    assert db.stock_daily_records[0]["foreign_current_room"] is None
+    assert db.stock_daily_records[0]["foreign_remaining_room"] is None
     assert db.foreign_records == []
     assert summary["total_foreign"] == 0
 

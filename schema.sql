@@ -119,6 +119,7 @@ SET default_table_access_method = "heap";
 
 -- SSI v3 stock_daily production promotion (2026-10-02).
 ALTER TABLE IF EXISTS public.stock_daily ADD COLUMN IF NOT EXISTS foreign_total_room numeric;
+ALTER TABLE IF EXISTS public.stock_daily ADD COLUMN IF NOT EXISTS foreign_remaining_room numeric;
 ALTER TABLE IF EXISTS public.stock_raw_daily ADD COLUMN IF NOT EXISTS source text;
 ALTER TABLE IF EXISTS public.stock_raw_daily ADD COLUMN IF NOT EXISTS fetched_at timestamp with time zone;
 UPDATE public.stock_raw_daily SET source = 'ssi_v2' WHERE source IS NULL;

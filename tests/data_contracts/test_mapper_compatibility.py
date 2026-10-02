@@ -9,6 +9,7 @@ def test_stock_daily_all_supported_fields_and_foreign_totals():
     fields={"PriceChange":-1,"PerPriceChange":-2,"CeilingPrice":12,"FloorPrice":8,"RefPrice":10,"OpenPrice":10,"HighestPrice":11,"LowestPrice":9,"ClosePrice":9.8,"AveragePrice":10.1,"ClosePriceAdjusted":9.7,"TotalMatchVol":1,"TotalMatchVal":2,"TotalDealVol":3,"TotalDealVal":4,"TotalTradedVol":5,"TotalTradedValue":6,"ForeignBuyVolTotal":7,"ForeignSellVolTotal":8,"ForeignBuyValTotal":9,"ForeignSellValTotal":10,"ForeignCurrentRoom":11,"Netforeivol":-1,"Netforeignval":-2,"TotalBuyTrade":12,"TotalBuyTradeVol":13,"TotalSellTrade":14,"TotalSellTradeVol":15}
     payload={"Symbol":"SSI","TradingDate":"18/06/2026",**fields}; clean=build_stock_daily_record("SSI","18/06/2026",payload)
     assert clean and clean["foreign_buy_vol_total"] == 7 and clean["total_traded_value"] == 6 and clean["raw"] is payload
+    assert clean["foreign_remaining_room"] == 11 and "foreign_current_room" not in clean
     assert len(clean) == 32 and clean["foreign_total_room"] is None
 
 def test_intraday_wrapper_keeps_1m_utc_value_and_raw_payload():

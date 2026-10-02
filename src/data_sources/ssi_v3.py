@@ -102,8 +102,8 @@ class SSIV3Adapter:
             {
                 "source": self.source_id,
                 "dataset": "stock_daily",
-                "contract_version": "1.1.0",
-                "mapping_version": "1.3.0",
+                "contract_version": "2.0.0",
+                "mapping_version": "2.0.0",
                 "records_received": len(payloads),
                 "records_valid": sum(item is not None for item in clean),
                 "records_rejected": sum(item is None for item in clean),

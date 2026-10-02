@@ -38,7 +38,9 @@ def test_v3_stock_daily_maps_verified_sample_and_preserves_original_raw():
     assert clean["total_traded_value"] == 639832450000
     assert clean["net_foreign_vol"] == 50543
     assert clean["net_foreign_val"] == 954845750
+    assert clean["foreign_remaining_room"] == 2100488217
     assert clean["foreign_total_room"] == 3003293801
+    assert "foreign_current_room" not in clean
     assert [clean[key] for key in ("ceiling_price", "floor_price", "ref_price", "close_price_adjusted")] == [None] * 4
     assert clean["raw"] is raw and clean["raw"] == SAMPLE
     assert "summary.symbol" not in clean["raw"]

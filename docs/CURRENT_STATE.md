@@ -420,7 +420,7 @@ Các field được derive gồm:
 - foreign buy/sell volume;
 - foreign buy/sell value;
 - net volume/value;
-- foreign room;
+- remaining foreign ownership room and total foreign ownership room;
 - raw source row.
 
 Không có standalone public SSI REST `ForeignTrading` endpoint trong contract hiện tại.

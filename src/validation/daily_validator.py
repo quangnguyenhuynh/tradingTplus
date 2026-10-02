@@ -18,7 +18,7 @@ NON_NEGATIVE_FIELDS = [
     "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val",
     "total_traded_vol", "total_traded_value", "foreign_buy_vol_total",
     "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total",
-    "foreign_current_room", "foreign_total_room",
+    "foreign_remaining_room", "foreign_total_room",
     "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol",
 ]
 
