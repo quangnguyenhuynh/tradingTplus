@@ -8,6 +8,7 @@ from src.pipeline.date_utils import latest_weekday_on_or_before, parse_ddmmyyyy
 from src.pipeline.ingest_check import check_daily_ingest
 from src.pipeline.pipeline_status import status_from_daily_ingest, validate_pipeline_summary
 from src.pipeline.symbol_scope import resolve_active_symbol_scope, symbol_scope_summary
+from src.utils.time_utils import app_now_iso
 
 
 def _resolve_stock_eod_date(date: str | None) -> str:
@@ -33,9 +34,15 @@ def run_stock_eod_pipeline(date: str | None = None, *, symbols=None, data_source
                 "status": "FAILED", "failures": [failure], "warnings": []}
     print("1️⃣ Run stock daily ingest...")
     kwargs = {"data_source": data_source} if data_source is not None else {}
+    run_started_at = app_now_iso()
     daily_summary = daily_run(stock_eod_date, symbols=resolved, **kwargs)
     print("2️⃣ Check daily ingest completeness...")
-    completeness = check_daily_ingest(stock_eod_date, symbols=resolved)
+    completeness = check_daily_ingest(
+        stock_eod_date,
+        symbols=resolved,
+        updated_since=run_started_at,
+        expected_source=daily_summary.get("data_source"),
+    )
     print(pformat(completeness, sort_dicts=True))
     failures = validate_pipeline_summary(daily_summary, "daily ingest")
     warnings: list[str] = []

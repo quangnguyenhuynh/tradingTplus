@@ -197,6 +197,7 @@ def test_fetch_one_day_with_clients_returns_zero_without_intraday():
     assert db.clean_records is None
     assert db.raw_daily_records is not None
     assert db.stock_daily_records is not None
+    assert db.stock_daily_records[0]["source"] == "ssi_v2"
 
 
 def test_fetch_one_day_with_clients_saves_and_returns_int():

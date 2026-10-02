@@ -308,6 +308,45 @@ def test_daily_and_intraday_completeness_are_source_isolated(monkeypatch):
     assert {entry[0] for entry in intraday_db.executed} == {"stock_intraday"}
 
 
+def test_daily_current_run_completeness_distinguishes_stale_and_wrong_source(monkeypatch):
+    db = _DB(daily_rows=[
+        {"symbol": "SSI", "updated_at": "2026-10-02T09:00:00Z", "source": "ssi_v3"},
+        {"symbol": "HPG", "updated_at": "2026-10-02T10:30:00Z", "source": "ssi_v2"},
+        {"symbol": "VNM", "updated_at": "2026-10-02T10:30:00Z", "source": "ssi_v3"},
+    ], symbols=["SSI", "HPG", "VNM", "FPT"])
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)
+
+    summary = ingest_check.check_daily_ingest(
+        "02/10/2026",
+        updated_since="2026-10-02T17:00:00+07:00",
+        expected_source="ssi_v3",
+    )
+
+    assert summary["stock_daily_count"] == 3
+    assert summary["missing_stock_daily_symbols"] == ["FPT"]
+    assert summary["current_run_updated_symbols"] == ["VNM"]
+    assert summary["current_run_missing_symbols"] == ["SSI", "HPG", "FPT"]
+    assert summary["stale_existing_symbols"] == ["SSI", "HPG"]
+    assert summary["status"] == "PARTIAL"
+
+
+def test_daily_current_run_completeness_fails_when_only_stale_row_exists(monkeypatch):
+    db = _DB(daily_rows=[{
+        "symbol": "SSI", "updated_at": "2026-10-02T09:00:00Z", "source": "ssi_v3",
+    }])
+    monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)
+    summary = ingest_check.check_daily_ingest(
+        "02/10/2026", symbols=["SSI"],
+        updated_since="2026-10-02T17:00:00+07:00", expected_source="ssi_v3",
+    )
+    assert summary["stock_daily_count"] == 1
+    assert summary["missing_stock_daily_count"] == 0
+    assert summary["current_run_updated_count"] == 0
+    assert summary["current_run_missing_count"] == 1
+    assert summary["stale_existing_count"] == 1
+    assert summary["status"] == "FAILED"
+
+
 def test_combined_completeness_wrapper_retains_legacy_keys(monkeypatch):
     db = _DB(_intraday_rows(_ssi_style_day_times()))
     monkeypatch.setattr(ingest_check, "SupabaseClient", lambda: db)

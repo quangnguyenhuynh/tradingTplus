@@ -38,15 +38,19 @@ def fetch_daily_for_symbol_with_clients(ssi: DataSourceAdapter | SSIApi, db: Sup
         summary["error_type"] = "NO_DATA"
         summary["errors"].append(message)
         return summary
-    summary["daily_payload"] = daily
     source_id = adapted.source if adapted is not None else "ssi_v2"
-    persist_raw_daily(db, build_raw_daily_record(symbol, date, daily, source=source_id))
+    raw_payloads = adapted.raw if adapted is not None else [daily]
+    for payload in raw_payloads:
+        persist_raw_daily(db, build_raw_daily_record(symbol, date, payload, source=source_id))
+    summary["daily_payload"] = daily
     if adapted is not None:
         clean = adapted.clean[0] if adapted.clean else None
         mapping_report = adapted.mapping_report
     else:
         clean, mapping_report = map_stock_daily_record(symbol, date, daily)
     summary["mapping_report"] = mapping_report
+    if clean is not None:
+        clean = {**clean, "source": source_id}
     validation = validate_daily_record(clean) if clean else None
     if validation:
         summary.update(daily_valid=validation.is_valid, daily_errors=len(validation.errors), daily_warnings=len(validation.warnings))
@@ -56,5 +60,7 @@ def fetch_daily_for_symbol_with_clients(ssi: DataSourceAdapter | SSIApi, db: Sup
         summary.update(daily_rows=1, status="OK")
     else:
         summary["error_type"] = "MISMATCH"
+        if adapted is not None:
+            summary["errors"].extend(str(error) for error in adapted.validation_errors)
         summary["errors"].append(f"{symbol} {date}: daily validation failed")
     return summary

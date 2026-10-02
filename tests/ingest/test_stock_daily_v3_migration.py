@@ -15,3 +15,12 @@ def test_stock_daily_v3_migration_and_schema_contract_are_present():
     assert "foreign_total_room" in REQUIRED_COLUMNS["stock_daily"]
     assert {"source", "fetched_at"} <= set(REQUIRED_COLUMNS["stock_raw_daily"])
     assert "symbol, trading_date, source, data_hash" in REQUIRED_UNIQUE_INDEXES["stock_raw_daily"]
+
+
+def test_stock_daily_clean_source_migration_is_nullable_and_not_backfilled():
+    sql = Path("migrations/20261002_add_stock_daily_source_provenance.sql").read_text().lower()
+    assert "alter table public.stock_daily" in sql
+    assert "add column if not exists source text" in sql
+    assert "update public.stock_daily" not in sql
+    assert "set not null" not in sql
+    assert "source" in REQUIRED_COLUMNS["stock_daily"]
