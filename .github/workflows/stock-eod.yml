@@ -38,6 +38,9 @@ jobs:
       SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
       SSI_API_KEY: ${{ secrets.SSI_API_KEY }}
       SSI_API_SECRET: ${{ secrets.SSI_API_SECRET }}
+      DATE_INPUT: ${{ inputs.date }}
+      SYMBOLS_INPUT: ${{ inputs.symbols }}
+      DATA_SOURCE_INPUT: ${{ inputs.data_source }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,17 +53,28 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Stock Daily EOD pipeline
+      - name: Resolve Stock EOD target date
+        id: resolve-date
+        shell: bash
         run: |
-          cmd=(python main.py stock-eod)
-          if [ -n "${{ inputs.date }}" ]; then
-            cmd+=("${{ inputs.date }}")
-          fi
-          if [ -n "${{ inputs.symbols }}" ]; then
-            read -r -a symbols <<< "${{ inputs.symbols }}"
+          python -m src.pipeline.workflow_dates stock \
+            --event "${{ github.event_name }}" \
+            --manual-date "$DATE_INPUT" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Run Stock Daily EOD pipeline
+        env:
+          TARGET_DATE: ${{ steps.resolve-date.outputs.target_date }}
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"
+          echo "target_date=$TARGET_DATE"
+          echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
+          cmd=(python main.py stock-eod "$TARGET_DATE")
+          if [ -n "$SYMBOLS_INPUT" ]; then
+            read -r -a symbols <<< "$SYMBOLS_INPUT"
             cmd+=(--symbols "${symbols[@]}")
           fi
-          if [ -n "${{ inputs.data_source }}" ] && [ "${{ inputs.data_source }}" != "auto" ]; then
-            cmd+=(--data-source "${{ inputs.data_source }}")
+          if [ -n "$DATA_SOURCE_INPUT" ] && [ "$DATA_SOURCE_INPUT" != "auto" ]; then
+            cmd+=(--data-source "$DATA_SOURCE_INPUT")
           fi
           "${cmd[@]}"
