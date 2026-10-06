@@ -395,11 +395,12 @@ All date arguments for the four index commands accept exactly `YYYY-MM-DD` or `D
   it neither reads nor writes the database.
 - **Daily ingest:** `index-daily` fetches one resolved trading date and writes
   payload evidence to `index_raw_daily` before validated normalized rows in
-  `index_daily`. When its date is omitted, it uses the latest weekday on or
-  before the current Vietnam date, so the scheduled post-market `index-eod`
-  run targets the current date Monday through Friday and the prior Friday on a
-  weekend. This is only a calendar rule, not proof of a Vietnam exchange
-  trading session; holidays and empty SSI responses never produce fake rows.
+  `index_daily`. When its date is omitted, the CLI uses the latest weekday on
+  or before the current Vietnam date. The separate `index-eod` workflow runs
+  Tuesday-Saturday at 01:07 UTC / 08:07 Vietnam, resolves its latest intended
+  Vietnam schedule slot, and explicitly passes the calendar day before that
+  slot. This is only a calendar rule, not proof of a Vietnam exchange trading
+  session; holidays and empty SSI responses never produce fake rows.
 - **Backfill:** `index-backfill` runs that source-data ingest for an inclusive
   historical range.
 - **Completeness:** `index-check` reads the database and compares expected index

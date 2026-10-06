@@ -46,16 +46,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run index EOD ingest
+      - name: Resolve Index EOD target date
+        id: resolve-date
         shell: bash
         run: |
-          target_date="$DATE_INPUT"
-          if [ -z "$target_date" ]; then
-            target_date="$(TZ=Asia/Ho_Chi_Minh date -d 'yesterday' '+%d/%m/%Y')"
-          fi
+          python -m src.pipeline.workflow_dates index \
+            --event "${{ github.event_name }}" \
+            --manual-date "$DATE_INPUT" | tee -a "$GITHUB_OUTPUT"
 
-          echo "Index EOD target date: $target_date"
-          cmd=(python main.py index-daily "$target_date")
+      - name: Run index EOD ingest
+        shell: bash
+        env:
+          TARGET_DATE: ${{ steps.resolve-date.outputs.target_date }}
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"
+          echo "target_date=$TARGET_DATE"
+          echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
+          cmd=(python main.py index-daily "$TARGET_DATE")
           if [ -n "$INDEXES_INPUT" ]; then
             read -r -a indexes <<< "$INDEXES_INPUT"
             cmd+=(--indexes "${indexes[@]}")
