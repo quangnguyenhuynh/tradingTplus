@@ -1,6 +1,6 @@
 # Pipeline Stock Intraday
 
-`stock-intraday` là pipeline dữ liệu nguồn 1 phút tự động và độc lập. `.github/workflows/stock-intraday.yml` chạy lúc 10:00 UTC (17:00 Asia/Ho_Chi_Minh), thứ Hai-thứ Sáu, và có manual input `date`, `symbols` phân tách bằng dấu cách.
+`stock-intraday` là pipeline dữ liệu nguồn 1 phút tự động và độc lập. `.github/workflows/stock-intraday.yml` chạy lúc 17:00 Asia/Ho_Chi_Minh, thứ Hai-thứ Sáu, và có manual input `date`, `symbols` phân tách bằng dấu cách.
 
 ```bash
 python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]
@@ -10,7 +10,9 @@ python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]
 
 Scope tự động yêu cầu đồng thời `symbols.status='active'` và `symbols.intraday_status='active'`. Symbols explicit được strip, uppercase, loại trùng giữ thứ tự rồi giao với effective scope. Mã inactive/unknown nằm trong `ignored_symbols` và không được gửi tới SSI. Không resolve được mã nào sẽ trả `FAILED` rõ ràng.
 
-Khi bỏ ngày, pipeline chọn ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam để action sau đóng cửa lấy ngày hiện tại. Đây không phải lịch nghỉ lễ; SSI rỗng vẫn được giữ rỗng và báo cáo.
+Khi bỏ ngày, pipeline chọn ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam cho CLI trực tiếp và manual dispatch không truyền ngày. Đây không phải lịch nghỉ lễ; SSI rỗng vẫn được giữ rỗng và báo cáo.
+
+Run theo lịch resolve slot cron 17:00 `Asia/Ho_Chi_Minh` gần nhất từ thứ Hai đến thứ Sáu rồi gọi `python main.py stock-intraday DD/MM/YYYY` với ngày của slot. Slot 07/10/2026 vẫn nhắm 07/10/2026 khi runner khởi động lúc 01:30 ngày 08/10/2026. Ngày manual explicit luôn được ưu tiên. Log gồm `event`, `runtime_vn`, `scheduled_slot_vn`, `target_date` và `target_source`.
 
 ## Stage và bảng
 

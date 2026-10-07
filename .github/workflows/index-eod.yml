@@ -2,10 +2,11 @@ name: TradingTPlus Index EOD Pipeline
 
 on:
   schedule:
-    # 08:07 Vietnam time (UTC+7) Tuesday-Saturday = 01:07 UTC Tuesday-Saturday.
+    # 08:30 Asia/Ho_Chi_Minh Tuesday-Saturday.
     # Scheduled runs ingest the previous calendar day because SSI proprietary
     # trading totals are available the following morning.
-    - cron: "7 1 * * 2-6"
+    - cron: "30 8 * * 2-6"
+      timezone: "Asia/Ho_Chi_Minh"
   workflow_dispatch:
     inputs:
       date:
@@ -61,6 +62,7 @@ jobs:
         run: |
           echo "event=${{ github.event_name }}"
           echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"
+          echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"
           echo "target_date=$TARGET_DATE"
           echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
           cmd=(python main.py index-daily "$TARGET_DATE")

@@ -2,8 +2,9 @@ name: TradingTPlus Stock EOD Pipeline
 
 on:
   schedule:
-    # 16:30 Vietnam time (UTC+7) on weekdays = 09:30 UTC Monday-Friday.
-    - cron: "30 9 * * 1-5"
+    # 16:30 Asia/Ho_Chi_Minh Monday-Friday.
+    - cron: "30 16 * * 1-5"
+      timezone: "Asia/Ho_Chi_Minh"
   workflow_dispatch:
     inputs:
       date:
@@ -57,7 +58,7 @@ jobs:
         id: resolve-date
         shell: bash
         run: |
-          python -m src.pipeline.workflow_dates stock \
+          python -m src.pipeline.workflow_dates stock-eod \
             --event "${{ github.event_name }}" \
             --manual-date "$DATE_INPUT" | tee -a "$GITHUB_OUTPUT"
 
@@ -67,6 +68,7 @@ jobs:
         run: |
           echo "event=${{ github.event_name }}"
           echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"
+          echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"
           echo "target_date=$TARGET_DATE"
           echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
           cmd=(python main.py stock-eod "$TARGET_DATE")

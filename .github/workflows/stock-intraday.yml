@@ -2,8 +2,9 @@ name: TradingTPlus Stock Intraday Pipeline
 
 on:
   schedule:
-    # 17:00 Vietnam time (UTC+7) on weekdays = 10:00 UTC Monday-Friday.
-    - cron: "0 10 * * 1-5"
+    # 17:00 Asia/Ho_Chi_Minh Monday-Friday.
+    - cron: "0 17 * * 1-5"
+      timezone: "Asia/Ho_Chi_Minh"
   workflow_dispatch:
     inputs:
       date:
@@ -27,6 +28,8 @@ jobs:
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       SSI_CONSUMER_ID: ${{ secrets.SSI_CONSUMER_ID }}
       SSI_CONSUMER_SECRET: ${{ secrets.SSI_CONSUMER_SECRET }}
+      DATE_INPUT: ${{ inputs.date }}
+      SYMBOLS_INPUT: ${{ inputs.symbols }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,12 +39,26 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run Stock Intraday 1m pipeline
+      - name: Resolve Stock Intraday target date
+        id: resolve-date
+        shell: bash
         run: |
-          cmd=(python main.py stock-intraday)
-          if [ -n "${{ inputs.date }}" ]; then cmd+=("${{ inputs.date }}"); fi
-          if [ -n "${{ inputs.symbols }}" ]; then
-            read -r -a symbols <<< "${{ inputs.symbols }}"
+          python -m src.pipeline.workflow_dates stock-intraday \
+            --event "${{ github.event_name }}" \
+            --manual-date "$DATE_INPUT" | tee -a "$GITHUB_OUTPUT"
+      - name: Run Stock Intraday 1m pipeline
+        shell: bash
+        env:
+          TARGET_DATE: ${{ steps.resolve-date.outputs.target_date }}
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"
+          echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"
+          echo "target_date=$TARGET_DATE"
+          echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
+          cmd=(python main.py stock-intraday "$TARGET_DATE")
+          if [ -n "$SYMBOLS_INPUT" ]; then
+            read -r -a symbols <<< "$SYMBOLS_INPUT"
             cmd+=(--symbols "${symbols[@]}")
           fi
           "${cmd[@]}"

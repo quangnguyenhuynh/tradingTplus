@@ -133,11 +133,16 @@ Ingest commands never automatically calculate features, generate signals, or run
 
 `daily`, `intraday-ingest`, `stock-eod`, completeness, `backfill-daily`, `backfill-intraday`, and `backfill` share one normalization contract: omitted scope uses the existing master-symbol source; explicit values are stripped, uppercased, deduplicated in first-seen order, and an empty explicit scope raises `ValueError`. For Stock EOD, explicit symbols are intersected with the active master set and inactive or unknown values are reported and excluded. Stock EOD passes the same scope to daily ingest and daily completeness, scoped completeness filters stock rows at the database query, and backfill reuses the normalized scope for every date. Index scope and completeness belong to the independent index-eod flow; index master synchronization remains exclusive to `sync-master-data` / `init`.
 
-Scheduled Index EOD runs after market close and invokes `index-daily` without a
-date. The Index-specific resolver uses the latest weekday on or before the
-current Vietnam date: the same weekday Monday-Friday and the prior Friday on a
-weekend. This is a calendar fallback only, not an exchange holiday calendar;
-SSI empty-response validation remains authoritative and no rows are fabricated.
+Scheduled Stock EOD runs at 16:30 Vietnam Monday-Friday; Stock Intraday runs
+at 17:00 Vietnam Monday-Friday. Each explicitly passes the date of its latest
+elapsed Vietnam-local cron slot, preserving the session date across midnight.
+Index EOD runs at 08:30 Vietnam Tuesday-Saturday and explicitly passes the
+calendar day before its latest elapsed slot, capturing next-morning SSI totals.
+Manual explicit dates always win. Direct CLI and no-input manual defaults
+remain compatible. All three workflows log event, runtime_vn, scheduled_slot_vn,
+target_date, and target_source. These are calendar rules, not holiday detection;
+empty SSI responses remain authoritative and no rows are fabricated.
+
 # Persistence timestamps
 
 Pipeline persistence timestamps are application-controlled ISO 8601 values in `Asia/Ho_Chi_Minh` with an explicit `+07:00` offset.
