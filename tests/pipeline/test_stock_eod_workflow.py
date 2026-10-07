@@ -8,10 +8,12 @@ from src.pipeline.workflow_dates import resolve_workflow_date
 def test_stock_eod_workflow_uses_renamed_stock_only_command():
     text = Path(".github/workflows/stock-eod.yml").read_text()
     assert "name: TradingTPlus Stock EOD Pipeline" in text
+    assert 'cron: "30 16 * * 1-5"' in text
+    assert '      timezone: "Asia/Ho_Chi_Minh"' in text
     assert "  stock-eod:" in text
     assert "tradingtplus-stock-eod-" in text
     assert 'cmd=(python main.py stock-eod "$TARGET_DATE")' in text
-    assert "src.pipeline.workflow_dates stock" in text
+    assert "src.pipeline.workflow_dates stock-eod" in text
     assert "python main.py eod" not in text
     assert "data_source:" in text
     assert '!= "auto"' in text
@@ -21,7 +23,8 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
 def test_index_eod_remains_independent():
     text = Path(".github/workflows/index-eod.yml").read_text()
     assert "python main.py index-daily" in text
-    assert 'cron: "7 1 * * 2-6"' in text
+    assert 'cron: "30 8 * * 2-6"' in text
+    assert '      timezone: "Asia/Ho_Chi_Minh"' in text
     assert "src.pipeline.workflow_dates index" in text
     assert 'cmd=(python main.py index-daily "$TARGET_DATE")' in text
     for forbidden_command in (
@@ -56,7 +59,7 @@ def test_stock_manual_date_and_inputs_remain_supported():
 
 
 def test_index_tuesday_schedule_targets_monday_and_manual_date_wins():
-    tuesday_morning = datetime(2026, 10, 6, 8, 20, tzinfo=VN_TZ)
+    tuesday_morning = datetime(2026, 10, 6, 8, 40, tzinfo=VN_TZ)
     scheduled = resolve_workflow_date("index", "schedule", now=tuesday_morning)
     manual = resolve_workflow_date(
         "index", "workflow_dispatch", "02/10/2026", now=tuesday_morning
@@ -73,9 +76,10 @@ def test_index_tuesday_schedule_targets_monday_and_manual_date_wins():
 
 
 def test_workflows_log_timing_resolution_context():
-    for workflow in ("stock-eod.yml", "index-eod.yml"):
+    for workflow in ("stock-eod.yml", "stock-intraday.yml", "index-eod.yml"):
         text = Path(".github/workflows", workflow).read_text()
         assert 'echo "event=${{ github.event_name }}"' in text
         assert 'echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"' in text
+        assert 'echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"' in text
         assert 'echo "target_date=$TARGET_DATE"' in text
         assert 'echo "target_source=${{ steps.resolve-date.outputs.target_source }}"' in text

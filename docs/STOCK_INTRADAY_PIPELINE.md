@@ -1,6 +1,6 @@
 # Stock Intraday pipeline
 
-`stock-intraday` is the independent automatic 1-minute stock source pipeline. `.github/workflows/stock-intraday.yml` runs at 10:00 UTC (17:00 Asia/Ho_Chi_Minh), Monday-Friday, and supports manual `date` and space-separated `symbols` inputs.
+`stock-intraday` is the independent automatic 1-minute stock source pipeline. `.github/workflows/stock-intraday.yml` runs at 17:00 Asia/Ho_Chi_Minh, Monday-Friday, and supports manual `date` and space-separated `symbols` inputs.
 
 ```bash
 python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]
@@ -10,7 +10,9 @@ python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]
 
 Automatic scope requires both `symbols.status='active'` and `symbols.intraday_status='active'`. Explicit workflow/CLI symbols are stripped, uppercased, deduplicated in first-seen order, and intersected with that effective scope. Inactive or unknown values appear in `ignored_symbols` and are never sent to SSI. No resolved symbol is a clear `FAILED` result.
 
-An omitted date uses the latest weekday on or before today in Vietnam, so the after-close action targets the current weekday. This is not a holiday calendar; empty SSI responses remain empty and observable.
+An omitted date uses the latest weekday on or before today in Vietnam, for direct CLI calls and manual dispatch without a date. This is not a holiday calendar; empty SSI responses remain empty and observable.
+
+Scheduled runs instead resolve the latest Monday-Friday 17:00 `Asia/Ho_Chi_Minh` cron slot and explicitly call `python main.py stock-intraday DD/MM/YYYY` with that slot's date. The 07/10/2026 slot still targets 07/10/2026 if the runner starts at 01:30 on 08/10/2026. An explicit manual date always wins. Logs include `event`, `runtime_vn`, `scheduled_slot_vn`, `target_date`, and `target_source`.
 
 ## Stages and tables
 
