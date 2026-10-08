@@ -17,7 +17,7 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 | `index-eod.yml` | Thứ Ba–Thứ Bảy 01:30 UTC (08:30 Vietnam) + manual | Lịch tự động gọi `python main.py index-daily <ngày trước slot dự kiến theo giờ Việt Nam> [--indexes ...]`; manual dùng ngày truyền vào nếu có. |
 | `features.yml` | Chỉ manual | `python main.py features ...` với input rõ ràng. |
 
-Cả ba workflow ingest khai báo UTC cron không khai báo `timezone`. Cron giờ Việt Nam là `30 9 * * 1-5` (Stock EOD), `0 10 * * 1-5` (Stock Intraday) và `30 1 * * 2-6` (Index EOD). Timezone tường minh không đảm bảo runner chạy đúng giờ; vẫn giữ resolver ngày theo slot lịch tập trung.
+Cả ba workflow ingest khai báo UTC cron không khai báo `timezone`. Biểu thức cron UTC là `30 9 * * 1-5` (Stock EOD), `0 10 * * 1-5` (Stock Intraday) và `30 1 * * 2-6` (Index EOD). Timezone tường minh không đảm bảo runner chạy đúng giờ; vẫn giữ resolver ngày theo slot lịch tập trung.
 
 ## Lưu ý vận hành
 
