@@ -391,7 +391,7 @@ Mọi đối số ngày của bốn command index nhận chính xác `YYYY-MM-DD
   chứng payload vào `index_raw_daily`, sau đó ghi row chuẩn hóa đã validate vào
   `index_daily`. Khi bỏ ngày, CLI dùng ngày trong tuần gần nhất bằng hoặc trước
   ngày hiện tại tại Việt Nam. Workflow `index-eod` riêng chạy thứ Ba-thứ Bảy lúc
-  08:30 Asia/Ho_Chi_Minh, resolve slot lịch Việt Nam dự kiến gần nhất rồi
+  01:30 UTC (08:30 Asia/Ho_Chi_Minh), resolve slot lịch Việt Nam dự kiến gần nhất rồi
   truyền tường minh ngày lịch trước slot đó. Đây chỉ là quy tắc ngày dương lịch,
   không chứng minh sàn Việt Nam có giao dịch; ngày nghỉ và response SSI rỗng
   không tạo row giả.

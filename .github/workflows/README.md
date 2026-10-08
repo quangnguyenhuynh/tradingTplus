@@ -12,12 +12,12 @@ Automation for tests and explicit Trading T+ pipelines.
 | File | Trigger | Current command |
 | --- | --- | --- |
 | `tests.yml` | Pull requests and pushes to `dev` | `python -m pytest -q` on Python 3.11, with a PostgreSQL 16 service and `TEST_DATABASE_URL`. |
-| `stock-eod.yml` | Weekdays 16:30 Asia/Ho_Chi_Minh + manual | Resolves a Vietnam-local schedule date, then runs daily-only `python main.py stock-eod <date>`. |
-| `stock-intraday.yml` | Weekdays 17:00 Asia/Ho_Chi_Minh + manual | 1m-only `python main.py stock-intraday <date>`. |
-| `index-eod.yml` | Tuesday-Saturday 08:30 Asia/Ho_Chi_Minh + manual | Scheduled runs call `python main.py index-daily <previous-intended-Vietnam-calendar-day> [--indexes ...]`; manual runs use the supplied date when present. |
+| `stock-eod.yml` | Weekdays 09:30 UTC (16:30 Vietnam) + manual | Resolves a Vietnam-local schedule date, then runs daily-only `python main.py stock-eod <date>`. |
+| `stock-intraday.yml` | Weekdays 10:00 UTC (17:00 Vietnam) + manual | 1m-only `python main.py stock-intraday <date>`. |
+| `index-eod.yml` | Tuesday-Saturday 01:30 UTC (08:30 Vietnam) + manual | Scheduled runs call `python main.py index-daily <previous-intended-Vietnam-calendar-day> [--indexes ...]`; manual runs use the supplied date when present. |
 | `features.yml` | Manual dispatch only | Explicit `python main.py features ...`. |
 
-All three ingest workflows declare `timezone: "Asia/Ho_Chi_Minh"`. Their local cron expressions are `30 16 * * 1-5` (Stock EOD), `0 17 * * 1-5` (Stock Intraday), and `30 8 * * 2-6` (Index EOD). Explicit timezone does not guarantee punctual execution; keep centralized scheduled-slot date resolution.
+All three ingest workflows declare UTC cron without `timezone`. Their UTC cron expressions are `30 9 * * 1-5` (Stock EOD), `0 10 * * 1-5` (Stock Intraday), and `30 1 * * 2-6` (Index EOD). Explicit timezone does not guarantee punctual execution; keep centralized scheduled-slot date resolution.
 
 ## Operational notes
 

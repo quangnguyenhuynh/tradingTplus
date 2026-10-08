@@ -1,6 +1,6 @@
 # Pipeline Stock Intraday
 
-`stock-intraday` là pipeline dữ liệu nguồn 1 phút tự động và độc lập. `.github/workflows/stock-intraday.yml` chạy lúc 17:00 Asia/Ho_Chi_Minh, thứ Hai-thứ Sáu, và có manual input `date`, `symbols` phân tách bằng dấu cách.
+`stock-intraday` là pipeline dữ liệu nguồn 1 phút tự động và độc lập. `.github/workflows/stock-intraday.yml` chạy lúc 10:00 UTC (17:00 Asia/Ho_Chi_Minh), thứ Hai-thứ Sáu, và có manual input `date`, `symbols` phân tách bằng dấu cách.
 
 ```bash
 python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]

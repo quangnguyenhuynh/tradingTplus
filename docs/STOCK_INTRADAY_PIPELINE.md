@@ -1,6 +1,6 @@
 # Stock Intraday pipeline
 
-`stock-intraday` is the independent automatic 1-minute stock source pipeline. `.github/workflows/stock-intraday.yml` runs at 17:00 Asia/Ho_Chi_Minh, Monday-Friday, and supports manual `date` and space-separated `symbols` inputs.
+`stock-intraday` is the independent automatic 1-minute stock source pipeline. `.github/workflows/stock-intraday.yml` runs at 10:00 UTC (17:00 Asia/Ho_Chi_Minh), Monday-Friday, and supports manual `date` and space-separated `symbols` inputs.
 
 ```bash
 python main.py stock-intraday [DD/MM/YYYY] [--symbols SSI HPG]

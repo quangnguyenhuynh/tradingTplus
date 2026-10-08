@@ -1,6 +1,6 @@
 # Pipeline Stock Daily EOD
 
-`stock-eod` là pipeline dữ liệu nguồn daily-only. Workflow độc lập chạy lúc 16:30 Asia/Ho_Chi_Minh, thứ Hai-thứ Sáu, hoặc manual.
+`stock-eod` là pipeline dữ liệu nguồn daily-only. Workflow độc lập chạy lúc 09:30 UTC (16:30 Asia/Ho_Chi_Minh), thứ Hai-thứ Sáu, hoặc manual.
 
 ```bash
 python main.py stock-eod [DD/MM/YYYY] [--symbols SSI HPG]

@@ -2,9 +2,8 @@ name: TradingTPlus Stock EOD Pipeline
 
 on:
   schedule:
-    # 16:30 Asia/Ho_Chi_Minh Monday-Friday.
-    - cron: "30 16 * * 1-5"
-      timezone: "Asia/Ho_Chi_Minh"
+    # 16:30 Vietnam = 09:30 UTC Monday-Friday.
+    - cron: "30 9 * * 1-5"
   workflow_dispatch:
     inputs:
       date:
