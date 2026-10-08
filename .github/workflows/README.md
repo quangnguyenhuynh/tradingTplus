@@ -17,7 +17,7 @@ Automation for tests and explicit Trading T+ pipelines.
 | `index-eod.yml` | Tuesday-Saturday 01:30 UTC (08:30 Vietnam) + manual | Scheduled runs call `python main.py index-daily <previous-intended-Vietnam-calendar-day> [--indexes ...]`; manual runs use the supplied date when present. |
 | `features.yml` | Manual dispatch only | Explicit `python main.py features ...`. |
 
-All three ingest workflows declare UTC cron without `timezone`. Their local cron expressions are `30 9 * * 1-5` (Stock EOD), `0 10 * * 1-5` (Stock Intraday), and `30 1 * * 2-6` (Index EOD). Explicit timezone does not guarantee punctual execution; keep centralized scheduled-slot date resolution.
+All three ingest workflows declare UTC cron without `timezone`. Their UTC cron expressions are `30 9 * * 1-5` (Stock EOD), `0 10 * * 1-5` (Stock Intraday), and `30 1 * * 2-6` (Index EOD). Explicit timezone does not guarantee punctual execution; keep centralized scheduled-slot date resolution.
 
 ## Operational notes
 
