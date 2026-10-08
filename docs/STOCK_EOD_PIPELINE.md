@@ -1,6 +1,6 @@
 # Stock Daily EOD pipeline
 
-`stock-eod` is the daily-only stock source pipeline. The independent workflow runs at 16:30 Asia/Ho_Chi_Minh, Monday-Friday, or by manual dispatch.
+`stock-eod` is the daily-only stock source pipeline. The independent workflow runs at 09:30 UTC (16:30 Asia/Ho_Chi_Minh), Monday-Friday, or by manual dispatch.
 
 ```bash
 python main.py stock-eod [DD/MM/YYYY] [--symbols SSI HPG]
