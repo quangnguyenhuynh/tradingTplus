@@ -12,7 +12,7 @@ Automation cho test và các pipeline Trading T+ chạy tường minh.
 | File | Trigger | Command hiện tại |
 | --- | --- | --- |
 | `tests.yml` | Pull request và push vào `dev` | `python -m pytest -q` trên Python 3.11, có service PostgreSQL 16 và `TEST_DATABASE_URL`. |
-| `stock-eod.yml` | Thứ Hai–Thứ Sáu 09:30 UTC (16:30 Vietnam) + manual | Resolve ngày lịch theo giờ Việt Nam rồi chạy daily-only `python main.py stock-eod <date>`. |
+| `stock-eod.yml` | Thứ Hai–Thứ Sáu 09:30 UTC (16:30 Việt Nam) + manual | Resolve ngày lịch theo giờ Việt Nam rồi chạy daily-only `python main.py stock-eod <date>`. |
 | `stock-intraday.yml` | Thứ Hai–Thứ Sáu 10:00 UTC (17:00 Vietnam) + manual | 1m-only `python main.py stock-intraday <date>`. |
 | `index-eod.yml` | Thứ Ba–Thứ Bảy 01:30 UTC (08:30 Vietnam) + manual | Lịch tự động gọi `python main.py index-daily <ngày trước slot dự kiến theo giờ Việt Nam> [--indexes ...]`; manual dùng ngày truyền vào nếu có. |
 | `features.yml` | Chỉ manual | `python main.py features ...` với input rõ ràng. |
