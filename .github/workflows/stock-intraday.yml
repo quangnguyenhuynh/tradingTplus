@@ -2,9 +2,8 @@ name: TradingTPlus Stock Intraday Pipeline
 
 on:
   schedule:
-    # 17:00 Asia/Ho_Chi_Minh Monday-Friday.
-    - cron: "0 17 * * 1-5"
-      timezone: "Asia/Ho_Chi_Minh"
+    # 17:00 Vietnam = 10:00 UTC Monday-Friday.
+    - cron: "0 10 * * 1-5"
   workflow_dispatch:
     inputs:
       date:
