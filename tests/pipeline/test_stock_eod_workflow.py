@@ -8,8 +8,8 @@ from src.pipeline.workflow_dates import resolve_workflow_date
 def test_stock_eod_workflow_uses_renamed_stock_only_command():
     text = Path(".github/workflows/stock-eod.yml").read_text()
     assert "name: TradingTPlus Stock EOD Pipeline" in text
-    assert 'cron: "30 16 * * 1-5"' in text
-    assert '      timezone: "Asia/Ho_Chi_Minh"' in text
+    assert 'cron: "30 9 * * 1-5"' in text
+    assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
     assert "  stock-eod:" in text
     assert "tradingtplus-stock-eod-" in text
     assert 'cmd=(python main.py stock-eod "$TARGET_DATE")' in text
@@ -23,8 +23,8 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
 def test_index_eod_remains_independent():
     text = Path(".github/workflows/index-eod.yml").read_text()
     assert "python main.py index-daily" in text
-    assert 'cron: "30 8 * * 2-6"' in text
-    assert '      timezone: "Asia/Ho_Chi_Minh"' in text
+    assert 'cron: "30 1 * * 2-6"' in text
+    assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
     assert "src.pipeline.workflow_dates index" in text
     assert 'cmd=(python main.py index-daily "$TARGET_DATE")' in text
     for forbidden_command in (
