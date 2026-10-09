@@ -1,4 +1,4 @@
-name: TradingTPlus Index EOD Pipeline
+name: TradingTPlus Index EOD Pipeline V2
 
 on:
   schedule:
