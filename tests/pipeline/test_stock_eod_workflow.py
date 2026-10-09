@@ -21,7 +21,7 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
 
 
 def test_index_eod_remains_independent():
-    text = Path(".github/workflows/index-eod.yml").read_text()
+    text = Path(".github/workflows/index-eod-v2.yml").read_text()
     assert "python main.py index-daily" in text
     assert 'cron: "30 1 * * 2-6"' in text
     assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
@@ -76,7 +76,7 @@ def test_index_tuesday_schedule_targets_monday_and_manual_date_wins():
 
 
 def test_workflows_log_timing_resolution_context():
-    for workflow in ("stock-eod.yml", "stock-intraday.yml", "index-eod.yml"):
+    for workflow in ("stock-eod.yml", "stock-intraday.yml", "index-eod-v2.yml"):
         text = Path(".github/workflows", workflow).read_text()
         assert 'echo "event=${{ github.event_name }}"' in text
         assert 'echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"' in text
