@@ -13,7 +13,7 @@ create table if not exists public.stock_screener_results (
     primary key (symbol, trading_date, screener_version),
     constraint stock_screener_score_check check (
       (status = 'NOT_EVALUABLE' and score is null)
-      or (status in ('PASS', 'FAIL') and score between 0 and 100)
+      or (status in ('PASS', 'FAIL') and score is not null and score between 0 and 100)
     )
 );
 create index if not exists stock_screener_results_date_idx
