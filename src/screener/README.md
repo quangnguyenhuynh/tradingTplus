@@ -50,3 +50,31 @@ Feature dates and coverage must be validated/backfilled separately. Old snapshot
 are not proof of up-to-date signals. The screen is a cross-symbol candidate
 filter; it does not pool different symbols for historical analog/outcome evidence.
 Any rule threshold change needs a new version and independently documented testing.
+
+## V2: versioned configuration and methodology
+
+V1 remains unchanged and remains the default. V2 is an opt-in, research-only
+weighted binary screener defined by:
+- [JSON configuration](configs/v2.json), which the engine validates and executes.
+- [English methodology](methodologies/v2.md).
+- [Vietnamese methodology](methodologies/v2.vi.md).
+
+Weights: trend 40, RSI 15, MACD 20, volume 10, value 15;
+PASS at 70 of 100 points with complete valid inputs. Each rule earns its full
+weight or zero. This is not a probability or a backtested model.
+The JSON and both methodology documents are hashed together for version identity.
+
+After manually applying `migrations/20261019_screener_v2_methodology.sql`,
+review and register the immutable configuration once:
+
+```bash
+python main.py stock-screener-config --version v2 --language vi
+python main.py stock-screener-config --version v2 --apply
+python main.py stock-screener --date 13/08/2026 --symbols SSI --version v2
+python main.py stock-screener --date 13/08/2026 --symbols SSI --version v2 --apply
+```
+
+Do not modify V2 JSON or its methodology after registration. Changes require a
+new version and corresponding implementation. V2 results reference their
+immutable config hash; V1 results retain a NULL config hash. No backtest,
+signal, EOD ingest, or feature backfill is triggered by these commands.

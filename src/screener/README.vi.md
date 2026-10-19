@@ -42,3 +42,30 @@ python main.py stock-screener --date 13/08/2026 --symbols SSI --apply
 Upsert theo `symbol, trading_date, screener_version`. Bảng mới bật RLS và
 backend service role mới được truy cập; app không ghi trực tiếp.
 Chưa có lịch chạy tự động, backfill hoặc kích hoạt analysis/signal.
+
+## V2: cấu hình trọng số và Methodology có phiên bản
+
+Giữ nguyên V1 và mặc định CLI vẫn là V1. V2 là bộ lọc nghiên cứu độc lập,
+định nghĩa bởi:
+- [Cấu hình JSON](configs/v2.json) — code thực thi các quy tắc.
+- [Phương pháp tiếng Việt](methodologies/v2.vi.md).
+- [Phương pháp tiếng Anh](methodologies/v2.md).
+
+Trọng số: xu hướng 40, RSI 15, MACD 20, khối lượng 10, giá trị 15;
+PASS từ 70/100 nếu dữ liệu đầy đủ. Mỗi tiêu chí đạt được toàn bộ điểm,
+không đạt được 0. Điểm không phải xác suất hay kết quả backtest.
+
+Sau khi tự chạy migration `migrations/20261019_screener_v2_methodology.sql`,
+xem phương pháp và đăng ký V2 bất biến trên DB:
+
+```bash
+python main.py stock-screener-config --version v2 --language vi
+python main.py stock-screener-config --version v2 --apply
+python main.py stock-screener --date 13/08/2026 --symbols SSI --version v2
+python main.py stock-screener --date 13/08/2026 --symbols SSI --version v2 --apply
+```
+
+`config_hash` được tính từ JSON và hai bản Markdown để truy vết.
+Không được sửa V2 sau khi đăng ký; thay đổi trọng số, ngưỡng hay nội dung
+phương pháp đều phải tạo phiên bản mới. V1 không đổi; V2 không tự chạy
+backtest, signal hoặc pipeline khác.

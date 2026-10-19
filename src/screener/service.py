@@ -9,6 +9,8 @@ from src.pipeline.symbol_scope import resolve_active_symbol_scope
 from src.utils.time_utils import app_now_iso
 
 from .rules import VERSION, evaluate
+from .config import load_v2, assert_registered
+from .rules_v2 import evaluate_v2
 
 TABLE = "stock_screener_results"
 PAGE_SIZE = 500
@@ -65,15 +67,20 @@ def run_stock_screener(
     symbols: list[str] | None = None,
     apply: bool = False,
     db: SupabaseClient | None = None,
+    version: str = VERSION,
 ) -> dict[str, Any]:
     """Evaluate an exact Vietnam trading date. Never triggers downstream stages."""
+    if version not in ("v1", "v2"):
+        raise ValueError("Unsupported screener version; select v1 or v2")
+    profile = load_v2() if version == "v2" else None
     target = normalize_target_date(trading_date)
     client = db if db is not None else SupabaseClient()
     active, requested, ignored = resolve_active_symbol_scope(client, symbols)
     base = {
         "flow": "stock-screener",
         "date": target.isoformat(),
-        "screener_version": VERSION,
+        "screener_version": version,
+        "config_hash": profile["config_hash"] if profile else None,
         "mode": "apply" if apply else "preview",
         "requested_symbols": requested,
         "ignored_inactive_symbols": ignored,
@@ -102,11 +109,12 @@ def run_stock_screener(
     results: list[dict[str, Any]] = []
     for symbol in sorted(active):
         source = features.get(symbol)
-        decision = evaluate(source)
+        decision = evaluate_v2(source, profile["config"]) if profile else evaluate(source)
         results.append({
             "symbol": symbol,
             "trading_date": target.isoformat(),
-            "screener_version": VERSION,
+            "screener_version": version,
+            **({"config_hash": profile["config_hash"]} if profile else {}),
             "status": decision["status"],
             "score": decision["score"],
             "rule_results": decision["rule_results"],
@@ -117,6 +125,8 @@ def run_stock_screener(
         })
 
     if apply:
+        if profile:
+            assert_registered(client, profile)
         _write_results(client, results)
 
     counts = {
