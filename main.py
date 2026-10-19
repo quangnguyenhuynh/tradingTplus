@@ -64,6 +64,7 @@ from src.pipeline.index_scope import normalize_index_scope
 from src.pipeline.index_daily_preview import render_index_daily_preview, run_index_daily_preview
 from src.analogs.cli import run as run_analogs
 from src.screener import run_stock_screener
+from src.screener.config import describe_config
 from src.index_features import (
     check_index_features,
     run_index_features_backfill,
@@ -419,6 +420,13 @@ def build_parser() -> argparse.ArgumentParser:
     screener.add_argument("--date", required=True, help="Target trading date DD/MM/YYYY or YYYY-MM-DD")
     screener.add_argument("--symbols", nargs="+", default=None)
     screener.add_argument("--apply", action="store_true", help="Upsert exact-date results; default read-only")
+    screener.add_argument("--version", choices=("v1", "v2"), default="v1",
+                          help="Methodology version; V1 remains default for compatibility")
+    screener_config = sub.add_parser("stock-screener-config", help="Review or register immutable V2 screener methodology")
+    screener_config.add_argument("--version", choices=("v2",), default="v2")
+    screener_config.add_argument("--language", choices=("vi", "en"), default="vi")
+    screener_config.add_argument("--apply", action="store_true",
+                                 help="Register immutable V2 config; default read-only")
 
     streaming = sub.add_parser(
         "streaming-ingest",
@@ -636,9 +644,14 @@ def main(argv: list[str] | None = None) -> int:
             summary = check_index_features(args.from_date, args.to_date, normalize_index_scope(args.indexes))
             _print_summary(summary)
             return _status_to_exit(summary)
+        if args.command == "stock-screener-config":
+            summary = describe_config(args.version, args.language, apply=args.apply)
+            _print_summary(summary)
+            return _status_to_exit(summary)
         if args.command == "stock-screener":
             summary = run_stock_screener(
-                args.date, normalize_symbol_scope(args.symbols), apply=args.apply
+                args.date, normalize_symbol_scope(args.symbols), apply=args.apply,
+                **({"version": args.version} if args.version != "v1" else {}),
             )
             _print_summary(summary)
             return _status_to_exit(summary)
