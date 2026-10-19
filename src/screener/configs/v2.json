@@ -1,0 +1,62 @@
+{
+  "screener_version": "v2",
+  "title": "Stock Technical Screener V2 — research candidate filter",
+  "timeframe": "1d",
+  "scoring_method": "binary_weighted_sum",
+  "passing_score": 70,
+  "required_inputs": [
+    "close",
+    "ema20",
+    "ema50",
+    "rsi14",
+    "macd_histogram",
+    "volume_ratio",
+    "value_ratio"
+  ],
+  "rules": [
+    {
+      "id": "trend",
+      "kind": "ema_stack",
+      "weight": 40,
+      "description_vi": "Ưu tiên giá đóng cửa trên EMA20 và EMA20 trên EMA50.",
+      "description_en": "Prefer stocks with close above EMA20 and EMA20 above EMA50."
+    },
+    {
+      "id": "rsi",
+      "kind": "range_inclusive",
+      "field": "rsi14",
+      "min": 50,
+      "max": 70,
+      "weight": 15,
+      "description_vi": "Động lượng RSI14 ở vùng 50–70 theo giả thuyết lọc ban đầu.",
+      "description_en": "RSI14 in the provisional 50–70 momentum band."
+    },
+    {
+      "id": "macd",
+      "kind": "greater_than",
+      "field": "macd_histogram",
+      "threshold": 0,
+      "weight": 20,
+      "description_vi": "MACD Histogram dương thể hiện MACD cao hơn signal.",
+      "description_en": "A positive MACD histogram means the MACD line exceeds its signal."
+    },
+    {
+      "id": "volume",
+      "kind": "greater_or_equal",
+      "field": "volume_ratio",
+      "threshold": 1,
+      "weight": 10,
+      "description_vi": "Khối lượng giao dịch đạt ít nhất bình quân 20 phiên.",
+      "description_en": "Trading volume at least matches its 20-session mean."
+    },
+    {
+      "id": "value",
+      "kind": "greater_or_equal",
+      "field": "value_ratio",
+      "threshold": 1,
+      "weight": 15,
+      "description_vi": "Giá trị giao dịch đạt ít nhất bình quân 20 phiên.",
+      "description_en": "Trading value at least matches its 20-session mean."
+    }
+  ]
+}
