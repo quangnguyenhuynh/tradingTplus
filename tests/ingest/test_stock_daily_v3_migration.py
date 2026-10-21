@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.check_ssi_ingest_schema import REQUIRED_COLUMNS, REQUIRED_UNIQUE_INDEXES
+from scripts.checks.check_ssi_ingest_schema import REQUIRED_COLUMNS, REQUIRED_UNIQUE_INDEXES
 
 
 def test_stock_daily_v3_migration_and_schema_contract_are_present():

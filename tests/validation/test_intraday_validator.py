@@ -1,4 +1,4 @@
-from src.validation.intraday_validator import validate_intraday_batch, validate_intraday_record
+from src.quality.validators.intraday_validator import validate_intraday_batch, validate_intraday_record
 
 
 def candle(time="2026-07-10T02:00:00Z", **overrides):

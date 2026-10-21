@@ -9,7 +9,7 @@ blocked.
 
 - [English specification](HISTORICAL_ANALOG_SPEC.md)
 - [Vietnamese specification](HISTORICAL_ANALOG_SPEC.vi.md)
-- [Implemented package](../../src/analogs/README.md)
+- [Implemented package](../../src/research/analogs/README.md)
 - [Database migration](../../migrations/20260809_create_historical_analog_core_eod_v1.sql)
 
 The superseded fixed-rule specifications and executable artifacts were removed

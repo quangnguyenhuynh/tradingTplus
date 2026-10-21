@@ -17,9 +17,9 @@
 ## Validation chỉ đọc có thể chạy lại
 
 ```bash
-PHASE0_DATABASE_URL='postgresql://...' python scripts/phase0_validate_schema.py
-python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 1d
-python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 15m --timestamp 2026-08-03T02:00:00Z
+PHASE0_DATABASE_URL='postgresql://...' python scripts/checks/phase0_validate_schema.py
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 1d
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 15m --timestamp 2026-08-03T02:00:00Z
 ```
 
 Command schema bắt buộc PostgreSQL `default_transaction_read_only=on`. Command reconcile chỉ SELECT có giới hạn. Kết quả là `PASS`, `FAIL` hoặc `UNKNOWN`; thiếu evidence không thành false pass. Payload check đọc tối đa 100 row, chấp nhận NULL lịch sử và trả `UNKNOWN` nếu không tìm thấy sample khác NULL. Tolerance số mặc định là `1e-6` cho absolute/relative.

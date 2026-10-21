@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.features.common import FEATURE_COLUMNS, calculate_macd, calculate_rsi, nullable_comparison
-from src.features.intraday import compute_intraday_features, filter_closed_buckets
+from src.features.stock.common import FEATURE_COLUMNS, calculate_macd, calculate_rsi, nullable_comparison
+from src.features.stock.intraday import compute_intraday_features, filter_closed_buckets
 
 
 def _row(time, close=10.0, volume=100):
@@ -61,9 +61,9 @@ def test_feature_package_has_source_owners_without_legacy_engine_shims():
     assert not Path("src/engine/feature_calculator.py").exists()
     assert not Path("src/engine/feature_engine.py").exists()
 
-    daily_source = Path("src/features/daily.py").read_text()
-    intraday_source = Path("src/features/intraday.py").read_text()
-    runner_source = Path("src/features/runner.py").read_text()
+    daily_source = Path("src/features/stock/daily.py").read_text()
+    intraday_source = Path("src/features/stock/intraday.py").read_text()
+    runner_source = Path("src/features/stock/runner.py").read_text()
 
     assert "def compute_daily_features(" in daily_source
     assert "def calculate_daily_features_for_symbol(" in daily_source

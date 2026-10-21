@@ -2,9 +2,9 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from src.index_features import pipeline
-from src.index_features import completeness
-from src.index_features.repository import frame_to_records
+from src.features.index import pipeline
+from src.features.index import completeness
+from src.features.index.repository import frame_to_records
 
 
 def rows(count=70):

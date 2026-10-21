@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from src.pipeline import workflow_dates
+import src.ingest.workflows.workflow_dates as workflow_dates
 
 VN = ZoneInfo("Asia/Ho_Chi_Minh")
 

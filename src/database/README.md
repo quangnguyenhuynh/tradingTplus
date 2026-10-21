@@ -29,7 +29,7 @@ Supabase client and repository persistence helpers.
 
 ## Testing
 
-Use mocked Supabase clients for unit tests. Live smoke checks should be read-only by default and run through scripts such as `scripts/check_supabase.py` and `scripts/check_ssi_ingest_schema.py`.
+Use mocked Supabase clients for unit tests. Live smoke checks should be read-only by default and run through scripts such as `scripts/checks/check_supabase.py` and `scripts/checks/check_ssi_ingest_schema.py`.
 
 ## Phase 1 adapter
 The retired rule-based database adapter has been removed. Historical Analog uses

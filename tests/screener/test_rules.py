@@ -1,6 +1,6 @@
 import math
 
-from src.screener.rules import VERSION, evaluate
+from src.research.screener.rules import VERSION, evaluate
 
 
 GOOD = {

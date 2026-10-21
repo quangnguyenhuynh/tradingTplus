@@ -1,45 +1,17 @@
-# Mã nguồn ứng dụng
+# src — SSI v3
 
-Python package chứa tích hợp SSI, persistence, validation, pipeline và feature deterministic.
+The thin `main.py` entrypoint calls `src.cli`. CLI parsing and source/capability preflight precede service access. Domain handlers call `src.ingest` services, which use the provider registry, `src.contracts`, `src.quality`, and existing raw/clean persistence. `src.providers.ssi` has no ingest or database dependency. Contracts contain no endpoint-specific request logic.
 
-## Tài liệu
+`src.features.stock`, `.foreign`, and `.index` run independently on persisted clean data. `src.research.screener` and `.analogs` preserve their formulas, configurations, profiles and research storage contracts. Intraday ingestion being unavailable does not prevent features from reading historical clean 1m candles.
 
-- English: [README.md](README.md)
-- Tiếng Việt: [README.vi.md](README.vi.md)
-
-## Cấu trúc package
-
-| Đường dẫn | Trách nhiệm |
+| Capability | Status |
 | --- | --- |
-| `config.py` | Cấu hình ứng dụng từ biến môi trường. |
-| `intraday_value.py` | Hàm dùng chung tính intraday value ước tính. |
-| [`ssi/`](ssi/README.vi.md) | Truy cập SSI REST và streaming. |
-| [`database/`](database/README.vi.md) | Đọc/ghi Supabase. |
-| [`validation/`](validation/README.vi.md) | Validation record raw/clean. |
-| [`pipeline/`](pipeline/README.vi.md) | Orchestration production và các luồng ingest. |
-| [`features/`](features/README.vi.md) | Tính và chạy feature daily/intraday tách theo nguồn. |
-| [`engine/`](engine/README.vi.md) | Utility data-quality manual legacy. |
-| [`utils/`](utils/README.vi.md) | Helper dùng chung cho thời gian thị trường Việt Nam có timezone. |
+| SSI v3 Stock Daily / Index Daily | ACTIVE |
+| SSI v3 Stock Intraday ingestion | NOT_IMPLEMENTED |
+| SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
+| SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
+| Stock technical, foreign and index features | ACTIVE |
+| Historical Analog / Screener V1/V2 | RESEARCH_ACTIVE |
+| SSI v2 REST / legacy SignalR connection | RETIRED |
 
-## Chiều phụ thuộc
-
-```text
-SSI clients → pipelines → validation/database
-clean database data → feature pipeline chạy explicit
-```
-
-Ingest không được tự động gọi feature và feature không tự gọi research downstream.
-Các package rule cũ đã bị xóa; `analogs/` triển khai nền Historical Analog EOD
-cùng mã dưới dạng workflow explicit.
-
-## Hợp đồng dữ liệu
-
-- `stock_daily` cung cấp feature `1d`.
-- `stock_intraday` chỉ lưu nến clean `1m`.
-- Timeframe intraday cao hơn được aggregate trong feature engine.
-- Intraday `value` hiện ước tính bằng `round(close * volume)` và giữ `NULL` khi input thiếu/sai.
-- Không tạo dữ liệu SSI giả hoặc âm thầm đổi missing thành 0.
-
-## Phát triển
-
-Chỉ sửa đúng phạm vi, giữ public function và schema contract, xử lý lỗi API/database rõ ràng và tạo migration khi đổi schema. Chạy test nhỏ liên quan trước rồi `python -m pytest -q` khi phù hợp.
+Không thay đổi schema, dữ liệu lịch sử hoặc công thức. Chỉ bật lại ingest intraday/master/streaming sau khi có adapter được kiểm chứng.

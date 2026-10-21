@@ -1,3 +1,13 @@
+# Trạng thái hiện tại / Current capability status
+
+Stock Intraday ingest: NOT_IMPLEMENTED. Lệnh parse bình thường rồi trả FAILED/NOT_IMPLEMENTED, exit 1 trước SSI/Supabase; lịch tự động đã tắt. features-intraday vẫn dùng clean 1m lịch sử.
+
+[CLI hiện tại](CLI_USAGE.md) · [Current state](CURRENT_STATE.md)
+
+## Historical operational record
+
+Các hướng dẫn vận hành cũ bên dưới được giữ làm lịch sử; phần mâu thuẫn với trạng thái trên đã được thay thế. Không chạy lại hướng dẫn v2.
+
 # Pipeline Stock Intraday
 
 `stock-intraday` là pipeline dữ liệu nguồn 1 phút tự động và độc lập. `.github/workflows/stock-intraday.yml` chạy lúc 10:00 UTC (17:00 Asia/Ho_Chi_Minh), thứ Hai-thứ Sáu, và có manual input `date`, `symbols` phân tách bằng dấu cách.

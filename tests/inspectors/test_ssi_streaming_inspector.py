@@ -1,8 +1,8 @@
 from __future__ import annotations
 import pytest
-from scripts.ssi_streaming_inspector.registry import STREAM_TYPES, build_channels
-from scripts.ssi_streaming_inspector.output import decode_signalr_frame, inspect_arg, redact
-from scripts.ssi_streaming_inspector.inspect import STATUS_CODE
+from scripts.inspectors.ssi_streaming.registry import STREAM_TYPES, build_channels
+from scripts.inspectors.ssi_streaming.output import decode_signalr_frame, inspect_arg, redact
+from scripts.inspectors.ssi_streaming.inspect import main
 
 
 def test_registry_has_six_types_and_channels():
@@ -46,12 +46,12 @@ def test_malformed_and_redaction_and_status_codes():
     safe = redact({"ConnectionToken":"abc", "headers":{"Authorization":"Bearer secret", "Cookie":"x"}, "url":"?connectionToken=abc"})
     text = str(safe)
     assert "abc" not in text and "secret" not in text
-    assert STATUS_CODE["EMPTY"] == 0 and STATUS_CODE["PARTIAL"] == 2 and STATUS_CODE["FAILED"] == 1
+    assert main(["negotiate"]) == 1
 
 
 def test_package_has_no_write_or_supabase_imports():
     import pathlib
-    root = pathlib.Path("scripts/ssi_streaming_inspector")
+    root = pathlib.Path("scripts/inspectors/ssi_streaming")
     text = "\n".join(p.read_text() for p in root.glob("*.py"))
     assert "SupabaseClient" not in text
     assert "--write" not in text

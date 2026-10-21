@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.features.runtime import (
+from src.features.stock.runtime import (
     fetch_intraday_trading_session_window,
     fetch_stock_intraday_paginated,
 )

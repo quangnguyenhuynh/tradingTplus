@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from src.pipeline import ingest_check
+import src.quality.completeness.ingest_check as ingest_check
 
 
 class _Result:

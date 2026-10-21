@@ -1,6 +1,6 @@
 import pytest
 
-from src.pipeline import daily
+import src.ingest.stock_daily.daily as daily
 
 
 class DB:
@@ -115,7 +115,7 @@ def test_daily_never_exposes_index_persistence_dependencies(monkeypatch):
     assert summary["status"] == "OK"
 
 
-@pytest.mark.parametrize("requested,expected", [(None, "ssi_v3"), ("ssi_v2", "ssi_v2")])
+@pytest.mark.parametrize("requested,expected", [(None, "ssi_v3"), ("ssi_v3", "ssi_v3")])
 def test_daily_instantiates_the_resolved_production_adapter(monkeypatch, requested, expected):
     db = DB()
     calls = []
@@ -123,7 +123,7 @@ def test_daily_instantiates_the_resolved_production_adapter(monkeypatch, request
     monkeypatch.setattr(daily, "SupabaseClient", lambda: db)
     monkeypatch.setattr(daily, "create_production_adapter", lambda dataset, source: (
         calls.append((dataset, source)) or
-        (type("Capability", (), {"source": expected, "status": "deprecated" if expected == "ssi_v2" else "ready"})(), adapter)
+        (type("Capability", (), {"source": expected, "status": "ready"})(), adapter)
     ))
     seen = []
     monkeypatch.setattr(daily, "fetch_daily_for_symbol_with_clients", lambda client, *_args: seen.append(client) or {"status": "OK", "daily_rows": 1})

@@ -1,7 +1,7 @@
 import pytest
 
 from src.database.client import SupabaseClient
-from src.pipeline.symbol_scope import normalize_symbol_scope, resolve_symbol_scope
+from src.ingest.shared.symbol_scope import normalize_symbol_scope, resolve_symbol_scope
 
 
 def test_normalizes_strips_deduplicates_and_preserves_order():
@@ -43,7 +43,7 @@ def test_explicit_empty_scope_is_invalid(symbols):
 
 
 def test_intraday_scope_requires_both_operator_statuses_and_intersects_request():
-    from src.pipeline.symbol_scope import resolve_intraday_symbol_scope
+    from src.ingest.shared.symbol_scope import resolve_intraday_symbol_scope
 
     class DB:
         def get_intraday_symbols(self):

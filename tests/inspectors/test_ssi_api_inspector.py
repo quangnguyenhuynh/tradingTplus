@@ -5,10 +5,10 @@ from argparse import Namespace
 import pytest
 import requests
 
-from scripts.ssi_api_inspector import inspect
-from scripts.ssi_api_inspector.client import InspectorClient, InspectorError, InspectorResponse, redact, scrub_text
-from scripts.ssi_api_inspector.endpoints import RUN_ALL_ORDER, ParameterError, V2_ENDPOINTS, V3_ENDPOINTS
-from scripts.ssi_api_inspector.datasets import DatasetRequest, build_dataset_plan
+from scripts.inspectors.ssi_rest import inspect
+from scripts.inspectors.ssi_rest.client import InspectorClient, InspectorError, InspectorResponse, redact, scrub_text
+from scripts.inspectors.ssi_rest.endpoints import RUN_ALL_ORDER, ParameterError, V3_ENDPOINTS
+from scripts.inspectors.ssi_rest.datasets import DatasetRequest, build_dataset_plan
 
 
 class FakeResponse:
@@ -52,32 +52,10 @@ def response(body, status=200, state="json", text="json"):
                              "https://api.ssi.com.vn/test", {})
 
 
-def test_default_v3_explicit_v2_and_invalid_source():
-    assert inspect.build_parser().parse_args(["list"]).data_source == "ssi_v3"
-    assert inspect.build_parser().parse_args(["list", "--data-source", "ssi_v2"]).data_source == "ssi_v2"
-    with pytest.raises(SystemExit) as exc:
-        inspect.main(["list", "--data-source", "bad"])
-    assert exc.value.code == 2
 
 
-def test_list_and_help_need_no_credentials_or_network(monkeypatch, capsys):
-    monkeypatch.setattr(inspect, "InspectorClient", lambda *a, **k: pytest.fail("client constructed"))
-    assert inspect.main(["list"]) == 0
-    assert "ssi_v3" in capsys.readouterr().out
-    assert inspect.main(["list", "--data-source", "ssi_v2"]) == 0
-    with pytest.raises(SystemExit) as exc:
-        inspect.main(["--help"])
-    assert exc.value.code == 0
 
 
-def test_registry_urls_methods_aliases_and_unique_run_all():
-    assert V3_ENDPOINTS["access-token"].method == "POST"
-    assert V3_ENDPOINTS["access-token"].url == "https://api.ssi.com.vn/api/v3/auth/token"
-    assert V3_ENDPOINTS["master-data"].url.endswith("/api/v3/data/masterdata")
-    assert V3_ENDPOINTS["daily-stock-price"].alias_for == "securities-summary"
-    assert len(RUN_ALL_ORDER["ssi_v3"]) == len(set(RUN_ALL_ORDER["ssi_v3"])) == 7
-    assert all(not V3_ENDPOINTS[name].alias_for for name in RUN_ALL_ORDER["ssi_v3"])
-    assert len(V2_ENDPOINTS) == 9
 
 
 def test_v3_params_date_conversion_and_no_v2_names():
@@ -94,13 +72,6 @@ def test_v3_params_date_conversion_and_no_v2_names():
         "from": "2026/09/08", "to": "2026/09/08", "pageIndex": 1, "pageSize": 20}
 
 
-def test_v3_alias_matches_canonical_symbol_query_and_v2_stays_legacy():
-    value = args(symbol="SSI", date="08/09/2026")
-    assert V3_ENDPOINTS["daily-stock-price"].build_params(value) == V3_ENDPOINTS["securities-summary"].build_params(value)
-    v2 = V2_ENDPOINTS["daily-stock-price"].build_params(value)
-    assert v2["FromDate"] == "08/09/2026" and v2["ToDate"] == "08/09/2026"
-    index = V3_ENDPOINTS["index-summary"].build_params(args(index_code="VNINDEX", date="08/09/2026"))
-    assert index == {"index": "VNINDEX", "tradingDate": "2026/09/08"}
 
 
 def test_selector_and_date_exclusivity():
@@ -121,21 +92,6 @@ def test_aliases_build_only_their_selector():
     assert "symbol" not in V3_ENDPOINTS["master-data"].build_params(args(symbol="SSI", date="08/09/2026"))
 
 
-def test_credentials_and_auth_envelopes_are_independent(monkeypatch):
-    monkeypatch.setattr("src.config.config.SSI_API_KEY", "key")
-    monkeypatch.setattr("src.config.config.SSI_API_SECRET", "secret")
-    monkeypatch.setattr("src.config.config.SSI_CONSUMER_ID", None)
-    monkeypatch.setattr("src.config.config.SSI_CONSUMER_SECRET", None)
-    v3 = FakeSession([FakeResponse(body={"accessToken": "tok", "expiresAt": 1})])
-    InspectorClient("ssi_v3", session=v3).login()
-    assert v3.calls[0][2]["json"] == {"apiKey": "key", "apiSecret": "secret"}
-    monkeypatch.setattr("src.config.config.SSI_API_KEY", None)
-    monkeypatch.setattr("src.config.config.SSI_API_SECRET", None)
-    monkeypatch.setattr("src.config.config.SSI_CONSUMER_ID", "cid")
-    monkeypatch.setattr("src.config.config.SSI_CONSUMER_SECRET", "csec")
-    v2 = FakeSession([FakeResponse(body={"data": {"accessToken": "tok"}})])
-    InspectorClient("ssi_v2", session=v2).login()
-    assert v2.calls[0][2]["json"] == {"consumerID": "cid", "consumerSecret": "csec"}
 
 
 def test_bearer_method_params_and_no_redirect(monkeypatch):
@@ -270,14 +226,10 @@ def test_unsupported_v3_option_fails_before_network(monkeypatch):
     assert inspect.main(["run", "master-data", "--symbol", "SSI", "--date", "08/09/2026"]) == 1
 
 
-def test_unsupported_endpoint_has_no_cross_source_fallback():
-    with pytest.raises(SystemExit) as exc:
-        inspect.main(["run", "master-data", "--data-source", "ssi_v2", "--date", "08/09/2026"])
-    assert exc.value.code == 2
 
 
 def test_package_has_no_database_or_trading_write_imports():
-    for path in __import__("pathlib").Path("scripts/ssi_api_inspector").glob("*.py"):
+    for path in __import__("pathlib").Path("scripts/inspectors/ssi_rest").glob("*.py"):
         text = path.read_text()
         assert "SupabaseClient" not in text and ".table(" not in text
         assert ".upsert(" not in text and ".delete(" not in text
@@ -285,14 +237,11 @@ def test_package_has_no_database_or_trading_write_imports():
 
 
 @pytest.mark.parametrize(("cli_name", "source", "endpoint", "selector"), [
-    ("stock-daily", "ssi_v2", "daily-stock-price", ["--symbol", "SSI"]),
     ("stock-daily", "ssi_v3", "securities-summary", ["--symbol", "SSI"]),
-    ("stock-intraday", "ssi_v2", "intraday-ohlc", ["--symbol", "SSI"]),
     ("stock-intraday", "ssi_v3", "intraday-ohlc", ["--symbol", "SSI"]),
-    ("index-daily", "ssi_v2", "daily-index", ["--index-code", "VNINDEX"]),
     ("index-daily", "ssi_v3", "index-summary", ["--index-code", "VNINDEX"]),
 ])
-def test_canonical_dataset_routes_both_sources(cli_name, source, endpoint, selector, monkeypatch, capsys):
+def test_canonical_dataset_routes_v3(cli_name, source, endpoint, selector, monkeypatch, capsys):
     calls = []
     class Client:
         token = None
@@ -320,20 +269,6 @@ def test_canonical_auto_source_uses_registry_preview_order(monkeypatch, capsys):
     assert "Data source requested: auto" in output and "ssi_v3 (ready)" in output
 
 
-def test_canonical_builders_keep_source_specific_dates_timeframe_and_paging():
-    stock = DatasetRequest("stock_daily", "SSI", None, None, "2026-09-01", "08/09/2026", 2, 20)
-    assert build_dataset_plan(stock, "ssi_v2").requests[0].params == {
-        "Symbol": "SSI", "FromDate": "01/09/2026", "ToDate": "08/09/2026",
-        "PageIndex": 2, "PageSize": 20,
-    }
-    assert build_dataset_plan(stock, "ssi_v3").requests[0].params == {
-        "symbol": "SSI", "from": "2026/09/01", "to": "2026/09/08",
-        "pageIndex": 2, "pageSize": 20,
-    }
-    intraday = DatasetRequest("stock_intraday", "SSI", None, "2026-09-08", None, None, 1, 10)
-    assert build_dataset_plan(intraday, "ssi_v2").requests[0].params["resolution"] == 1
-    v3 = build_dataset_plan(intraday, "ssi_v3").requests[0].params
-    assert v3["timeFrame"] == "1m" and v3["from"].endswith("00:00:00") and v3["to"].endswith("23:59:59")
 
 
 def test_v3_index_range_fans_out_with_context_and_cap_before_network():
@@ -375,9 +310,7 @@ def test_bad_canonical_arguments_fail_before_client_or_network(argv, monkeypatch
 
 
 @pytest.mark.parametrize(("name", "source", "native", "selector", "expected"), [
-    ("symbol-list", "ssi_v2", "securities", ["--board", "HOSE"], {"Market": "HOSE", "PageIndex": 1, "PageSize": 10}),
     ("symbol-list", "ssi_v3", "securities-by-board", ["--market", "HOSE"], {"board": "HOSE"}),
-    ("index-list", "ssi_v2", "index-list", ["--exchange", "HOSE"], {"Exchange": "HOSE", "PageIndex": 1, "PageSize": 10}),
     ("index-list", "ssi_v3", "index-list", ["--board", "HOSE"], {"board": "HOSE"}),
     ("index-list", "ssi_v3", "index-list", [], {}),
 ])
@@ -407,15 +340,3 @@ def test_catalog_invalid_options_fail_before_network(argv, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         inspect.main(argv)
     assert exc.value.code == 2
-
-
-def test_catalog_auto_source_and_explicit_equals_form(monkeypatch):
-    sources = []
-    class Client:
-        token = None
-        def __init__(self, source, **_kwargs): sources.append(source)
-        def request_endpoint(self, endpoint, params, post_json=None): return response({"data": []})
-    monkeypatch.setattr(inspect, "InspectorClient", Client)
-    assert inspect.main(["run", "index-list"]) == 0
-    assert inspect.main(["run", "index-list", "--data-source=ssi_v2"]) == 0
-    assert sources == ["ssi_v3", "ssi_v2"]

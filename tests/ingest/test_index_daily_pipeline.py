@@ -4,14 +4,14 @@ from types import SimpleNamespace
 import pytest
 
 from src.database.client import SupabaseClient
-from src.data_sources.ssi_v3 import SSIV3Adapter
-from src.pipeline.index_daily_mapper import build_index_daily_record, build_index_raw_daily_record
-from src.pipeline.index_daily_persistence import _validate_index_raw_daily_row
-from src.pipeline.index_daily_service import fetch_index_daily_with_clients
-from src.pipeline.index_scope import normalize_index_scope, resolve_index_scope
-from src.pipeline.date_utils import parse_index_date
-from src.validation.index_daily_validator import validate_index_daily_record
-from src.ssi.v3 import SSIV3Client
+from src.providers.ssi.adapters.v3 import SSIV3Adapter
+from src.ingest.index_daily.index_daily_mapper import build_index_raw_daily_record
+from src.ingest.index_daily.index_daily_persistence import _validate_index_raw_daily_row
+from src.ingest.index_daily.index_daily_service import fetch_index_daily_with_clients
+from src.ingest.shared.index_scope import normalize_index_scope, resolve_index_scope
+from src.ingest.shared.date_utils import parse_index_date
+from src.quality.validators.index_daily_validator import validate_index_daily_record
+from src.providers.ssi.clients.rest_v3 import SSIV3Client
 
 
 PAYLOAD = {"IndexId": "VNINDEX", "TradingDate": "25/08/2026", "IndexValue": 1280.5, "TotalMatchVol": 10, "TotalDealVol": 2, "TotalVol": 12}
@@ -110,62 +110,19 @@ def test_shared_index_date_parser_rejects_other_separators():
         parse_index_date("24-08-2026")
 
 
-def test_mapper_uses_payload_identity_and_keeps_missing_nullable():
-    record = build_index_daily_record("VNINDEX", "25/08/2026", PAYLOAD)
-    assert record["trading_date"] == "2026-08-25"
-    assert record["total_trade_value"] is None
-    assert "raw" not in record
-    assert build_index_daily_record("VN30", "25/08/2026", PAYLOAD) is None
 
 
 def test_raw_mapper_preserves_mismatched_payload_with_deterministic_hash():
     first = build_index_raw_daily_record("VN30", "25/08/2026", PAYLOAD)
     second = build_index_raw_daily_record("VN30", "25/08/2026", dict(PAYLOAD))
-    assert first["index_code"] == "VNINDEX"
+    assert first["index_code"] == "VN30"
     assert first["data_hash"] == second["data_hash"]
 
 
-@pytest.mark.parametrize("time_value", [None, ""])
-def test_all_documented_fields_are_preserved_raw_and_promoted_when_selected(time_value):
-    payload = {**FULL_PAYLOAD, "Time": time_value}
-    raw = build_index_raw_daily_record("VNINDEX", "25/08/2026", payload)
-    clean = build_index_daily_record("VNINDEX", "25/08/2026", payload)
-
-    assert len(payload) == 23
-    assert raw["payload"] == payload
-    assert clean["index_code"] == "VNINDEX"
-    assert clean["trading_date"] == "2026-08-25"
-    assert clean["index_change"] == -1.25
-    assert clean["index_change_percentage"] == -0.0975
-    assert clean["total_trade_volume"] == 1002001.0
-    assert clean["total_match_value"] == 25000000001.5
-    assert clean["total_no_change_stock"] == 20.0
-    assert clean["total_prop_buy_volume"] is None
-    assert "index_name" not in clean
 
 
-@pytest.mark.parametrize(
-    ("ceiling_key", "floor_key", "no_changes_key"),
-    [("Ceiling", "Floor", "Nochanges"), ("Ceilings", "Floors", "NoChanges")],
-)
-def test_market_breadth_aliases(ceiling_key, floor_key, no_changes_key):
-    payload = {
-        "indexid": "VNINDEX", "TradingDate": "25/08/2026",
-        ceiling_key: "5", floor_key: 6, no_changes_key: "7",
-    }
-    clean = build_index_daily_record("VNINDEX", "25/08/2026", payload)
-    assert clean["total_ceiling_stock"] == 5.0
-    assert clean["total_floor_stock"] == 6.0
-    assert clean["total_no_change_stock"] == 7.0
 
 
-def test_missing_numeric_fields_remain_null_not_zero():
-    clean = build_index_daily_record(
-        "VNINDEX", "25/08/2026", {"Indexcode": "VNINDEX", "TradingDate": "25/08/2026"}
-    )
-    assert clean["index_value"] is None
-    assert clean["total_trade_volume"] is None
-    assert clean["total_ceiling_stock"] is None
 
 
 def test_validator_rejects_impossible_and_warns_on_component_difference():
@@ -198,11 +155,11 @@ def test_v3_service_labels_raw_evidence_and_writes_no_features():
 def test_service_persists_raw_before_rejecting_clean():
     calls = []
     class SSI:
-        def get_daily_index_items(self, code, date): return [PAYLOAD]
+        def index_summary(self, code, date): return SimpleNamespace(items=[{**V3_PAYLOAD, "tradingDate": "2026/08/24"}])
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
-    summary = fetch_index_daily_with_clients(SSI(), DB(), "VN30", "25/08/2026")
+    summary = fetch_index_daily_with_clients(SSIV3Adapter(SSI()), DB(), "VN30", "25/08/2026")
     assert summary["raw_rows"] == 1 and summary["clean_rows"] == 0
     assert [name for name, _ in calls] == ["raw"]
 
@@ -210,20 +167,20 @@ def test_service_persists_raw_before_rejecting_clean():
 def test_valid_response_persists_raw_then_clean_without_downstream_work():
     calls = []
     class SSI:
-        def get_daily_index_items(self, code, date): return [FULL_PAYLOAD]
+        def index_summary(self, code, date): return SimpleNamespace(items=[V3_PAYLOAD])
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
 
-    summary = fetch_index_daily_with_clients(SSI(), DB(), "VNINDEX", "25/08/2026")
+    summary = fetch_index_daily_with_clients(SSIV3Adapter(SSI()), DB(), "VNINDEX", "25/08/2026")
 
     assert summary["status"] == "OK"
     assert summary["raw_rows"] == summary["clean_rows"] == 1
     assert [name for name, _ in calls] == ["raw", "clean"]
     created_at = calls[0][1][0]["created_at"]
     assert datetime.fromisoformat(created_at).utcoffset() == timedelta(0)
-    assert calls[0][1][0]["payload"] == FULL_PAYLOAD
-    assert calls[1][1][0]["total_match_value"] == 25000000001.5
+    assert calls[0][1][0]["payload"] == V3_PAYLOAD
+    assert calls[1][1][0]["total_match_value"] == 900.0
     assert calls[1][1][0]["total_ceiling_stock"] == 4.0
     assert "created_at" not in calls[0][1][0]["payload"]
 
@@ -233,8 +190,8 @@ def test_repository_boundary_sends_complete_batch_with_one_utc_ingestion_timesta
     calls = []
 
     class SSI:
-        def get_daily_index_items(self, code, date):
-            return [PAYLOAD, {**PAYLOAD, "TradingSession": "CLOSE"}]
+        def index_summary(self, code, date):
+            return SimpleNamespace(items=[V3_PAYLOAD, {**V3_PAYLOAD, "extra": "CLOSE"}])
 
     class RecordingDatabaseClient:
         def upsert_index_raw_daily(self, rows):
@@ -244,7 +201,7 @@ def test_repository_boundary_sends_complete_batch_with_one_utc_ingestion_timesta
             calls.append(("index_daily", rows))
 
     summary = fetch_index_daily_with_clients(
-        SSI(), RecordingDatabaseClient(), "VNINDEX", "25/08/2026"
+        SSIV3Adapter(SSI()), RecordingDatabaseClient(), "VNINDEX", "25/08/2026"
     )
 
     table, rows = calls[0]

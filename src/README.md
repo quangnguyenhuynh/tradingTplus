@@ -1,46 +1,17 @@
-# Application source
+# src — SSI v3
 
-Python package containing SSI integration, persistence, validation, pipelines, and deterministic features.
+The thin `main.py` entrypoint calls `src.cli`. CLI parsing and source/capability preflight precede service access. Domain handlers call `src.ingest` services, which use the provider registry, `src.contracts`, `src.quality`, and existing raw/clean persistence. `src.providers.ssi` has no ingest or database dependency. Contracts contain no endpoint-specific request logic.
 
-## Documentation
+`src.features.stock`, `.foreign`, and `.index` run independently on persisted clean data. `src.research.screener` and `.analogs` preserve their formulas, configurations, profiles and research storage contracts. Intraday ingestion being unavailable does not prevent features from reading historical clean 1m candles.
 
-- English: [README.md](README.md)
-- Tiếng Việt: [README.vi.md](README.vi.md)
-
-## Package map
-
-| Path | Responsibility |
+| Capability | Status |
 | --- | --- |
-| `config.py` | Environment-based application configuration. |
-| `intraday_value.py` | Shared estimated intraday value calculation. |
-| [`ssi/`](ssi/README.md) | SSI REST and streaming access. |
-| [`database/`](database/README.md) | Supabase reads and writes. |
-| [`validation/`](validation/README.md) | Raw/clean record validation. |
-| [`pipeline/`](pipeline/README.md) | Production orchestration and ingest flows. |
-| [`features/`](features/README.md) | Daily/intraday feature calculation and explicit execution. |
-| [`engine/`](engine/README.md) | Legacy manual data-quality utility. |
-| [`utils/`](utils/README.md) | Shared timezone-aware Vietnam market-time helpers. |
+| SSI v3 Stock Daily / Index Daily | ACTIVE |
+| SSI v3 Stock Intraday ingestion | NOT_IMPLEMENTED |
+| SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
+| SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
+| Stock technical, foreign and index features | ACTIVE |
+| Historical Analog / Screener V1/V2 | RESEARCH_ACTIVE |
+| SSI v2 REST / legacy SignalR connection | RETIRED |
 
-## Dependency direction
-
-```text
-SSI clients → pipelines → validation/database
-clean database data → explicit feature pipelines
-```
-
-Ingest must not call feature computation automatically. Feature execution does
-not automatically invoke downstream research. The retired rule-based packages
-have been removed; [`analogs/`](analogs/README.md) implements the same-symbol EOD
-Historical Analog foundation as an explicit workflow.
-
-## Data contracts
-
-- `stock_daily` supplies `1d` features.
-- `stock_intraday` persists clean `1m` candles only.
-- Higher intraday timeframes are aggregated in the feature engine.
-- Intraday `value` is currently estimated as `round(close * volume)` and remains `NULL` when inputs are invalid or missing.
-- Missing SSI data is not fabricated or silently replaced with zero.
-
-## Development
-
-Keep changes scoped, preserve public functions and schema contracts, handle API/database errors explicitly, and add migrations for schema changes. Run targeted tests followed by `python -m pytest -q` when practical.
+No schema, RPC, conflict-key, migration or production-data changes are part of this restructuring. Historical raw/clean/master/streaming/features and source provenance remain untouched. No migration or backfill is required. Ingest never starts features or research automatically.

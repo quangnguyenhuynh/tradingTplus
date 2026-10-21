@@ -4,8 +4,8 @@ import random
 
 import pytest
 
-from src.foreign_features.calculator import FORMULA_VERSION, calculate_symbol
-from src.foreign_features.validator import decimal_value, validate_source_row
+from src.features.foreign.calculator import FORMULA_VERSION, calculate_symbol
+from src.features.foreign.validator import decimal_value, validate_source_row
 
 
 def days(count, start=date(2026, 7, 1), step=1):

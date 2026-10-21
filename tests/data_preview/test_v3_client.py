@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 import pytest, requests
-from src.ssi.v3 import SSIV3Client, SSIReadError
+from src.providers.ssi.clients.rest_v3 import SSIV3Client, SSIReadError
 class Session:
  def __init__(self,responses):self.responses=list(responses);self.calls=[]
  def request(self,*a,**kw):self.calls.append((a,kw));r=self.responses.pop(0);return r
