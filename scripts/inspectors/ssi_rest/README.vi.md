@@ -10,7 +10,7 @@ Inspection không bật ingest production. Stock Daily/Index Daily đã ready; s
 
 ## Lệnh và dataset
 
-Các ví dụ dưới gồm help/list, preview stock/index, xem mapping clean 1m, đối chiếu OHLC daily, catalog, master, pagination và khoảng ngày. Mọi ví dụ `run` đều READ-ONLY — SSI API request. `--full-json` in toàn bộ response nhận được, không lấy mọi trang.
+Các ví dụ dưới gồm help/list, preview stock/index, xem mapping clean 1m, đối chiếu OHLC daily, catalog, master, pagination và khoảng ngày. Mọi ví dụ `run` đều READ-ONLY — SSI API request. `--full-json` in mọi trang OHLC 1m đã tải; endpoint khác vẫn chỉ in response của lần gọi.
 
 ```bash
 python scripts/inspectors/ssi_rest/inspect.py --help
@@ -60,7 +60,7 @@ Các alias lookup không phải endpoint v3 độc lập:
 
 Ngày nhận DD/MM/YYYY hoặc YYYY-MM-DD. Chọn `--date` hoặc đủ `--from-date`, `--to-date`; không ghép cả hai. Canonical index-daily range tạo một request mỗi ngày lịch, tối đa 100 request; không tự chứng minh mỗi ngày là phiên. Catalog từ chối mọi ngày; symbol-list bắt buộc board. Canonical catalog nhận --market/--exchange như alias board, nhưng các giá trị phải thống nhất. Canonical stock/index từ chối board/market/exchange và ascending; chỉ native OHLC hỗ trợ `--ascending`.
 
-Mặc định page-index 1, page-size 10, limit 3, timeout 30 giây. Chỉ lấy một trang được yêu cầu; `--limit` chỉ giới hạn in, không thay page-size hay số request. Với canonical index-summary/securities-by-board/index-list không paging, truyền paging tường minh bị từ chối. Dùng trang cụ thể cho endpoint có paging, không coi một trang là toàn bộ lịch sử. Timeout hợp lệ 1–120, limit không âm; page-index/page-size phải dương. Caveat code: giá trị 0 bị `or` chuyển thành mặc định trước validation, nên tránh 0.
+Mặc định page-index 1, page-size 10, limit 3, timeout 30 giây. Ngoài OHLC 1m, chỉ lấy một trang được yêu cầu; `--limit` chỉ giới hạn in, không thay page-size hay số request. Với canonical index-summary/securities-by-board/index-list không paging, truyền paging tường minh bị từ chối. Dùng trang cụ thể cho endpoint có paging, không coi một trang là toàn bộ lịch sử. Timeout hợp lệ 1–120, limit không âm; page-index/page-size phải dương. Page-index/page-size bằng 0 hoặc âm bị từ chối trước truy cập service.
 
 ## Raw, clean, mapping và lỗi
 
@@ -93,3 +93,21 @@ Chỉ kiểm tra parser/plan và test mock offline cho các ví dụ; không g�
 | `--show-mapping` | không | `false` | flag |
 | `--timeout` | không | `30` | 1 |
 | `--ascending` | không | `—` | flag |
+
+## Preview intraday SSI v3 nhiều trang (chỉ đọc)
+
+Route `stock-intraday`/native `intraday-ohlc` của REST inspector nay dùng adapter preview chung và tải mọi trang từ trang bắt đầu đến kết thúc tường minh hoặc lỗi/giới hạn. `--limit` chỉ giới hạn in; `--full-json` bao gồm mọi trang raw đã nhận và clean candidate. `--max-pages` mặc định 100 (1–1000); chạm giới hạn, trang lặp, total không khớp hay lỗi request trả FAILED/exit 1 và giữ bằng chứng đã nhận. Không đổi các route daily/index/catalog một-trang của inspector.
+
+Không có credential SSI trong môi trường kiểm tra: live NOT_RUN. Ngữ nghĩa v3 vẫn PROVISIONAL, completeness luôn UNVERIFIED. Chỉ timestamp đầy đủ có timezone được chuyển UTC; timestamp naive/chỉ giờ/chỉ ngày bị từ chối, không ghép ngày request. Giá/volume chưa được chứng nhận đơn vị; value ước tính dùng round(close * volume), field source value giữ raw. Production CLI và schedule intraday vẫn tắt; preview không đọc/ghi Supabase.
+
+Xem [runbook và checklist](../../../docs/STOCK_INTRADAY_PIPELINE.vi.md) để biết mapping từng field, paging, validation/session/gap, giới hạn nguồn và cách promotion riêng.
+
+```bash
+python scripts/inspectors/ssi_rest/inspect.py list
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --show-mapping
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --full-json
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --from-date 2026-10-01 --to-date 2026-10-19 --page-size 100 --max-pages 100 --limit 5
+python scripts/inspectors/ssi_rest/inspect.py run intraday-ohlc --symbol SSI --date 2026-10-19 --ascending --limit 5
+```
+
+`--max-pages`: số trang dữ liệu OHLC 1m tối đa, mặc định 100, hợp lệ 1–1000; không thay page-size/limit.

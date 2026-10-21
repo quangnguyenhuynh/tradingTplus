@@ -11,7 +11,6 @@ from typing import Any
 from src.contracts import get_mapping, map_record
 from src.contracts.derived import apply_derived_fields
 from src.contracts.transforms import TRANSFORMS, TransformError, to_date
-from src.intraday_value import calculate_trade_value
 
 def endpoint_mapping(source: str, native_name: str) -> tuple[str, dict[str, Any]] | None:
     for dataset in ("stock_daily", "stock_intraday", "index_daily", "symbol_list", "index_list"):
@@ -54,6 +53,10 @@ def _context(dataset: str, row: dict[str, Any], params: dict[str, Any]) -> dict[
 
 def map_rows(source: str, dataset: str, mapping: dict[str, Any],
              rows: list[Any], params: dict[str, Any]) -> tuple[list[Any], list[dict[str, Any]]]:
+    if source == 'ssi_v3' and dataset == 'stock_intraday':
+        from src.contracts.intraday_preview import map_intraday_preview
+
+        return map_intraday_preview(rows, params['symbol'], params['from'], params['to'], source=source)
     clean, reports = [], []
     prefix = mapping["inspector"].get("prefix")
     for index, row in enumerate(rows):
@@ -95,9 +98,6 @@ def map_rows(source: str, dataset: str, mapping: dict[str, Any],
                     result.report["records_rejected"] = 1
                     result.candidate.pop(target, None)
                     break
-        if dataset == "stock_intraday" and result.candidate is not None:
-            context["value"] = calculate_trade_value(result.candidate["close"], result.candidate["volume"])
-            result = map_record(source, dataset, record, context)
         clean.append(result.candidate)
         reports.append({"record": index + 1, **result.report})
     identity = "symbol" if dataset == "symbol_list" else "index_code" if dataset == "index_list" else None

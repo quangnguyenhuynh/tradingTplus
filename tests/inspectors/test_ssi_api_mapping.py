@@ -134,14 +134,12 @@ def test_v3_stock_daily_buy_sell_deal_and_distinct_room_mappings():
 
 
 
-@pytest.mark.parametrize("source,row,params", [
-    ("ssi_v3", {"time": "2026/09/08 09:15:00", "close": "10.5", "volume": "100"}, PARAMS),
-])
-def test_intraday_uses_1m_source_time_and_existing_estimated_value(source, row, params):
-    clean, reports = mapped(source, "intraday-ohlc", [row], params)
-    assert clean[0]["time"] == "2026-09-08T02:15:00Z"
-    assert clean[0]["timeframe"] == "1m" and clean[0]["value"] == 1050
-    assert not reports[0]["errors"] and "value" not in reports[0]["missing_optional"]
+def test_intraday_naive_timestamp_is_not_assumed_verified_vietnam_time():
+    # Existing repository synthetic example: not a captured SSI v3 fixture.
+    row = {"time": "2026/09/08 09:15:00", "close": "10.5", "volume": "100"}
+    clean, reports = mapped("ssi_v3", "intraday-ohlc", [row], PARAMS)
+    assert clean == [None]
+    assert any("UNVERIFIED_TIMESTAMP" in error.get("message", "") for error in reports[0]["errors"])
 
 
 @pytest.mark.parametrize("source,endpoint,row,params", [

@@ -23,7 +23,7 @@ from scripts.inspectors.ssi_rest.endpoints import (DATA_SOURCES, DEFAULT_DATA_SO
 from scripts.inspectors.ssi_rest.mapping import endpoint_mapping, map_rows
 from scripts.inspectors.ssi_rest.datasets import (CLI_DATASETS, DatasetRequest,
                                                  build_dataset_plan, canonical_capabilities)
-from src.contracts.registry import MappingConfigurationError
+from src.contracts.registry import MappingConfigurationError, get_mapping
 
 LIST_KEYS = ("data", "dataList", "items")
 PAGING_KEYS = ("pageIndex", "pageSize", "pagesCount", "itemsCount", "totalRecord")
@@ -203,6 +203,61 @@ def print_report(source: str, endpoint: Any, params: dict[str, Any], response: A
     return status
 
 
+def _intraday_preview(client: InspectorClient, args: argparse.Namespace, params: dict[str, Any]) -> str:
+    """Reuse inspector transport/redaction with provider paging and canonical mapping."""
+    from src.providers.ssi.clients.rest_v3 import SSIV3Client, SSIReadError
+    from src.providers.ssi.adapters.v3 import SSIV3Adapter
+
+    endpoint = registry('ssi_v3')['intraday-ohlc']
+
+    class PreviewClient(SSIV3Client):
+        def _request(self, method, path, *, params=None, **_kwargs):
+            try:
+                response = client.request_endpoint(endpoint, params)
+            except InspectorError as exc:
+                raise SSIReadError(scrub_text(str(exc), [client.token or ''])) from None
+            if response.status_code >= 400 or response.json_state != 'json':
+                raise SSIReadError(f'OHLC request failed: HTTP {response.status_code}; {response.json_state}',
+                                   response_body=response.body if response.json_state == 'json' else response.text)
+            return response.body
+
+    # Builder dates include time bounds; only the calendar date is passed here.
+    result = SSIV3Adapter(PreviewClient(timeout=args.timeout)).preview_intraday(
+        params['symbol'], params['from'][:10], params['to'][:10],
+        page_index=params['pageIndex'], page_size=params['pageSize'],
+        max_pages=getattr(args, 'max_pages', 100), ascending=params.get('ascending'),
+    )
+    report = result.mapping_report
+    secrets = [client.token or '']
+
+    def output(value):
+        print(scrub_text(json.dumps(redact(value), ensure_ascii=False, indent=2, default=str), secrets))
+
+    print('Dataset requested: stock_intraday')
+    print('Data source resolved: ssi_v3 (preview)')
+    print('READ-ONLY — NO DATABASE READS OR WRITES')
+    print('Endpoint: GET https://api.ssi.com.vn/api/v3/data/ohlc; timeFrame=1m')
+    print('Live source semantics: PROVISIONAL; production_ready=false')
+    summary = {key: value for key, value in report.items()
+               if key not in {'raw_pages', 'record_reports', 'requests'}}
+    output(summary)
+    print('Requests (all pages):')
+    output(report['requests'])
+    selected = len(result.raw) if args.full_json else args.limit
+    print('Full raw pages (redacted):' if args.full_json else 'Raw candle sample (display limit only):')
+    output(report['raw_pages'] if args.full_json else result.raw[:selected])
+    print('Full clean candidates:' if args.full_json else 'Clean candidate sample:')
+    output(result.clean if args.full_json else result.clean[:selected])
+    print('Mapping diagnostics (errors remain visible outside display sample):')
+    output(report['record_reports'] if args.full_json else
+           [r for i, r in enumerate(report['record_reports']) if i < args.limit or r['errors']])
+    if args.show_mapping:
+        print('Mapping dictionary: src/contracts/mappings/ssi_v3.json (PROVISIONAL)')
+        output(get_mapping('ssi_v3', 'stock_intraday'))
+    print(f"Final preview status: {report['status']}; completeness: UNVERIFIED")
+    return report['status']
+
+
 def run_one(client: InspectorClient, source: str, name: str, args: argparse.Namespace) -> str:
     endpoint = registry(source)[name]
     if endpoint.response_kind == "auth":
@@ -220,6 +275,8 @@ def run_one(client: InspectorClient, source: str, name: str, args: argparse.Name
     else:
         _validate_endpoint_options(source, endpoint, endpoint_args)
     params = endpoint.build_params(endpoint_args)
+    if source == 'ssi_v3' and endpoint.native_name == 'intraday-ohlc':
+        return _intraday_preview(client, args, params)
     post_json = endpoint.post_json(endpoint_args) if endpoint.post_json else None
     response = client.request_endpoint(endpoint, params, post_json)
     return print_report(source, endpoint, params, response, limit=args.limit,
@@ -259,6 +316,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--full-json", action="store_true")
     run.add_argument("--show-mapping", action="store_true", help="Print the source dictionary rules used for clean output")
     run.add_argument("--timeout", type=int, default=30)
+    run.add_argument("--max-pages", type=int, default=100,
+                     help="OHLC 1m only: bounded pages to download (1..1000); limit controls display only")
     run.add_argument("--ascending", action="store_true", default=None)
     return parser
 
@@ -280,6 +339,8 @@ def run_dataset(args: argparse.Namespace) -> dict[str, str]:
                               page_index_explicit=args.page_index_explicit,
                               page_size_explicit=args.page_size_explicit)
     client = InspectorClient(plan.capability.source, timeout=args.timeout)
+    if dataset == 'stock_intraday':
+        return {'stock_intraday': _intraday_preview(client, args, plan.requests[0].params)}
     results: dict[str, str] = {}
     for number, item in enumerate(plan.requests, 1):
         key = item.label
@@ -360,8 +421,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     args.page_index_explicit = args.page_index is not None
     args.page_size_explicit = args.page_size is not None
-    args.page_index = args.page_index or 1
-    args.page_size = args.page_size or 10
+    if not 1 <= args.max_pages <= 1000:
+        parser.error('--max-pages must be between 1 and 1000')
+    args.page_index = args.page_index if args.page_index is not None else 1
+    args.page_size = args.page_size if args.page_size is not None else 10
     _validate_numeric(parser, args)
     print("READ-ONLY — NO DATABASE WRITES")
     if args.endpoint in CLI_DATASETS:
@@ -372,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\nSummary:")
         for name, status in results.items():
             print(f"{name}: {status}")
-        return 1 if "FAILED" in results.values() else 0
+        return 1 if any(status in {"FAILED", "PARTIAL"} for status in results.values()) else 0
     if args.endpoint != "all" and args.endpoint not in endpoints:
         parser.error(f"endpoint {args.endpoint!r} is not supported by {selected_source}; no cross-source fallback")
     client = InspectorClient(selected_source, timeout=args.timeout)
@@ -387,7 +450,7 @@ def main(argv: list[str] | None = None) -> int:
     print("\nSummary:")
     for name, status in results.items():
         print(f"{name}: {status}")
-    return 1 if "FAILED" in results.values() else 0
+    return 1 if any(status in {"FAILED", "PARTIAL"} for status in results.values()) else 0
 
 
 if __name__ == "__main__":
