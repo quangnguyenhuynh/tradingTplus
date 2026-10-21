@@ -1,20 +1,3 @@
-# src/features/index
-
-ACTIVE: giữ nguyên công thức feature chỉ số và bảng index_features_daily.
-
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
-
-Các module:
-
-- `calculator.py`
-- `completeness.py`
-- `pipeline.py`
-- `repository.py`
-
-Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
-
----
-
 # Index Daily Feature V1
 
 Package này là pipeline dữ liệu dẫn xuất riêng cho chỉ số thị trường. Pipeline
@@ -59,3 +42,16 @@ Preview và check chỉ đọc. Muốn có lịch sử dài hơn, hãy backfill 
 được báo riêng và không bao giờ tạo feature row.
 
 Input contract 2.0 của `index_daily` dùng `total_trade_volume/value`, `total_match_volume/value`, `total_deal_volume/value` và `total_{advance,no_change,decline,ceiling,floor}_stock`. Công thức và tên feature persist không đổi. Lịch sử feature đã tính từ SSI v2 là stale; chỉ chạy lại bằng pipeline riêng sau khi backfill clean SSI v3 đã được validate.
+
+## Vận hành CLI hiện tại (SSI v3)
+
+Domain feature index độc lập đọc `index_daily`, lưu `index_features_daily` theo `(index_code,trading_date)`. Chỉ cần DB, không gọi SSI. Preview/check: READ-ONLY — database read. Daily/backfill: WRITE — feature calculation. Preview/daily bắt buộc `--date`; backfill/check bắt buộc `--from`, `--to` (không có alias dài cho ngày tại đây). `--indexes` tùy chọn nhận mã master cách bằng khoảng trắng; bỏ chọn master active. Dùng tối đa 250 phiên clean trước đó để warm-up. Không tạo OHLC hay phiên thiếu; cửa sổ chưa đủ giữ null. Đọc các ngày raw thiếu clean/thiếu feature trước khi chạy lại phạm vi chính xác.
+
+```bash
+python main.py index-features-preview --date 19/10/2026 --indexes VNINDEX
+python main.py index-features-daily --date 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-features-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-features-check --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX
+```
+
+[English](README.md) · [CLI](../../../docs/CLI_USAGE.vi.md)

@@ -1,7 +1,14 @@
-# scripts/inspectors
+# Inspector hiện tại
 
-Inspector read-only: SSI REST v3 hoạt động; kết nối streaming cũ đã retire.
+[English](README.md)
 
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
+REST v3 chỉ đọc; streaming chưa triển khai, không kết nối SSI/DB.
 
-Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
+- [REST v3](ssi_rest/README.vi.md)
+- [Streaming NOT_IMPLEMENTED](ssi_streaming/README.vi.md)
+
+```bash
+python scripts/inspectors/ssi_rest/inspect.py list
+python scripts/inspectors/ssi_rest/inspect.py run stock-daily --symbol SSI --date 19/10/2026 --show-mapping
+python -m scripts.inspectors.ssi_streaming.inspect --help
+```

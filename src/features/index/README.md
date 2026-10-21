@@ -1,27 +1,10 @@
-# src/features/index
-
-ACTIVE: unchanged index formulas and existing index_features_daily persistence.
-
-Existing tables, formulas and historical provenance are unchanged. No schema migration or data backfill is required.
-
-Modules:
-
-- `calculator.py`
-- `completeness.py`
-- `pipeline.py`
-- `repository.py`
-
-See the root README and docs/CURRENT_STATE.md for capability status and future adapter requirements.
-
----
-
 # Index Daily Feature V1
 
 This package is a separate derived-data pipeline for market indexes. It reads
 only normalized `index_daily` rows and writes only `index_features_daily`.
 It does not ingest SSI data and never calls stock features, Analog, profiles,
 signals, validation, or backtests. `VNINDEX` is the initial primary index, while
-omitting `--indexes` follows the index CLI convention and resolves all rows in
+omitting `--indexes` follows the index CLI convention and resolves active rows in
 `index_master`.
 
 ## Schema and formulas
@@ -62,3 +45,16 @@ history is required, then backfill index features, and finally run the check.
 Raw-without-clean dates are reported and never become feature rows.
 
 `index_daily` contract 2.0 inputs use `total_trade_volume/value`, `total_match_volume/value`, `total_deal_volume/value`, and `total_{advance,no_change,decline,ceiling,floor}_stock`. Feature formulas and persisted feature names are unchanged. Existing feature history derived from SSI v2 is stale; rerun it separately only after the SSI v3 clean backfill is validated.
+
+## Current CLI operations (SSI v3)
+
+The separate index feature domain reads `index_daily` and persists `index_features_daily` keyed by `(index_code,trading_date)`. It requires database access only; no SSI requests. Preview and check are READ-ONLY — database read. Daily and backfill are WRITE — feature calculation. Preview/daily require `--date`; backfill/check require `--from` and `--to` (no long date aliases here). Optional `--indexes` accepts space-separated master codes; omitted selects active master rows. Up to 250 prior clean sessions supply warm-up. No source OHLC or missing session is synthesized; insufficient windows retain nulls. Inspect raw-without-clean and missing-feature dates before rerunning an exact scope.
+
+```bash
+python main.py index-features-preview --date 19/10/2026 --indexes VNINDEX
+python main.py index-features-daily --date 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-features-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-features-check --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX
+```
+
+[Tiếng Việt](README.vi.md) · [CLI](../../../docs/CLI_USAGE.md)

@@ -1,23 +1,3 @@
-# src/features/stock
-
-ACTIVE: unchanged stock technical formulas, full/incremental/target/range/replacement execution from clean data only.
-
-Existing tables, formulas and historical provenance are unchanged. No schema migration or data backfill is required.
-
-Modules:
-
-- `backfill.py`
-- `common.py`
-- `daily.py`
-- `intraday.py`
-- `policy.py`
-- `runner.py`
-- `runtime.py`
-
-See the root README and docs/CURRENT_STATE.md for capability status and future adapter requirements.
-
----
-
 # Feature Pipeline
 
 The feature pipeline turns **clean market data** into deterministic indicators
@@ -367,3 +347,33 @@ default. At a 1,000-row request size the intraday fixture read 16 full-history
 pages, 12 pages for 200 sessions, and 15 pages for 250 sessions. See
 `docs/phase0/PHASE0_VALIDATION_REPORT.md`; the owner-supplied live production
 evidence and remaining notes are recorded there separately from offline tests.
+
+# src/features/stock
+
+[Tiếng Việt](README.vi.md)
+
+## Stock technical features
+
+All three routes are WRITE — feature calculation into `stock_features`, keyed by `(symbol,timeframe,time)`. No SSI credentials are needed. `1d` reads `stock_daily`; `15m` and `60m` aggregate existing clean 1m `stock_intraday` in memory with daily price context. Only closed buckets are persisted. `stock_intraday` continues to store only 1m. Unsupported feature persistence: `1m`, `5m`. Disabled source ingestion does not disable calculation over previously persisted intraday history.
+
+`features` is the compatibility router: optional `--date`, `--mode incremental|full` (incremental default), optional symbols, default timeframes `15m 60m 1d`; it has no range or replace option. `features-daily` always selects 1d. `features-intraday` defaults to `15m 60m` and supports `--as-of` as Vietnam `HH:MM` or a timezone-aware timestamp. Do not combine as-of with a range. Explicit source-isolated routes require a target date, a complete range, or full mode.
+
+Incremental uses per-stream watermarks and bounded warm-up (daily five years; intraday 250 observed sessions, not calendar days). A valid no-output incremental run may be an OK no-op. A range runs inclusive backfill. Full recomputes and upserts selected history without deletion and can consume substantial memory; it cannot combine with a date/range. Source corrections do not automatically invalidate old feature history.
+
+**Potentially destructive WRITE — explicit rebuild:** replace and rebuild-clean are equivalent atomic scoped replacements. Require exactly one symbol, one persisted timeframe, and both range bounds; no wildcard/ALL, no `--date`. Compute and validate a non-empty replacement first, then call the existing service-role RPC to delete and rewrite exactly that scope. Confirm complete source/warm-up, inspect a source sample and retain before/after evidence before executing. These routes have no dry-run flag. Intraday replacement must explicitly choose one timeframe; the default two are rejected.
+
+```bash
+python main.py features --help
+python main.py features-daily --help
+python main.py features-intraday --help
+python main.py features --date 19/10/2026 --symbols SSI HPG --timeframes 1d
+python main.py features-daily --date 19/10/2026 --symbols SSI
+python main.py features-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI
+python main.py features-daily --mode full --symbols SSI
+python main.py features-intraday --date 19/10/2026 --symbols SSI --timeframes 15m 60m --as-of 14:30
+python main.py features-intraday --from 01/10/2026 --to 19/10/2026 --symbols SSI --timeframes 60m
+python main.py features-daily --mode replace --symbols SSI --from 01/10/2026 --to 19/10/2026
+python main.py features-intraday --mode rebuild-clean --symbols SSI --timeframes 15m --from 01/10/2026 --to 19/10/2026
+```
+
+[CLI](../../../docs/CLI_USAGE.md)

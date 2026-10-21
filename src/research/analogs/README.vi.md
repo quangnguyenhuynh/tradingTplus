@@ -1,24 +1,3 @@
-# src/research/analogs
-
-RESEARCH_ACTIVE: giữ nguyên profile, hash và công thức Historical Analog cùng mã/cùng checkpoint.
-
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
-
-Các module:
-
-- `cli.py`
-- `core.py`
-- `pipeline.py`
-- `profile.py`
-- `repository.py`
-- `runtime.py`
-- `service.py`
-- `validation.py`
-
-Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
-
----
-
 # Historical Analog Core EOD V1 và V2
 
 `TPLUS_ANALOG_CORE_EOD` mô tả trạng thái **1d EOD** đã kiểm chứng của một mã và
@@ -84,3 +63,40 @@ dụng evidence V1.
 `analogs query` đọc evidence đã persist. Không `--apply` thì chỉ đọc; có `--apply` chỉ audit nguyên tử khi profile exact đã approved. V1 vẫn draft nên query production block với `EXACT_PROFILE_NOT_APPROVED`.
 
 `analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` chỉ đọc source và tính trong memory, không ghi bảng Analog. Option threshold cũ bị bỏ qua và chỉ giữ để tương thích CLI.
+
+## Vận hành CLI hiện tại (SSI v3)
+
+Cây lệnh thực tế gồm `profiles list|register|sync`, `history build`, `validate`, `approve`, `reject`, `query`, `inspect`, `daily run`. Không có subcommand report riêng. Dùng JSON inspect/validate/query làm báo cáo. Ngày tại đây bắt buộc DD/MM/YYYY. Profile bất biến theo code/version/config hash; có nguồn V1 và V2. Xem hash nguồn bằng đăng ký dry-run trước khi đăng ký DB.
+
+Đăng ký profile không apply là dry-run local, không cần credential. Profile list đọc `analog_profiles`. History build đọc clean daily/feature và dựng snapshot/outcome; không apply chỉ đọc DB/tính toán, apply ghi `analog_snapshots`, `analog_outcomes`. Full/incremental theo cơ chế persist hiện có; replace còn cần `--confirm-replace`, có thể xóa đúng phạm vi profile/mã/ngày. Không dùng hash của profile/version khác.
+
+Inspect: READ-ONLY — database read kèm tính nghiên cứu, bắt buộc distance threshold tường minh. Query và daily run là luồng phân tích có gate, mặc định READ-ONLY; khi được phép và có apply là WRITE — explicit apply. Có thể lưu bằng chứng query/match (`analog_queries`, `analog_query_matches`), không tạo tín hiệu giao dịch. Approve/reject cần validation-run ID thật, reviewer và reason; mặc định dry-run, apply có thể ghi review/registry (`analog_profile_reviews`, `analog_profiles`). Ví dụ dưới cố ý dùng dry-run. UUID review minh họa phải thay bằng ID run hợp lệ đã có.
+
+**Điểm BLOCKED trong vòng đời:** parser nhận `validate --apply` nhưng handler không truyền apply, không persist kết quả calibration/walk-forward vào `analog_validation_runs`. Review cần hàng validation đã tồn tại. Vì vậy chỉ CLI chưa hoàn thành vòng đời validation/approval mới; exit 0 không chứng minh validation được lưu. Calibration cần `--final-test-start`; threshold tùy chọn chỉ là ứng viên thử, không phải khuyến nghị production. Query có thể trả `blocked` trước khi tạo DB client nếu source profile chưa được approve. Không có lệnh nào bỏ qua gate approval.
+
+Chỉ so một mã với lịch sử trước đó của chính mã ấy tại cùng checkpoint EOD. Outcome phải quan sát được tại ngày query; validation theo thời gian với baseline cùng mã/checkpoint, không chia ngẫu nhiên hay gộp mã. `insufficient_sample` là kết quả hợp lệ, không được tự mở rộng universe. Xem [đặc tả Historical Analog](../../../docs/phase1/HISTORICAL_ANALOG_SPEC.vi.md) để biết hợp đồng bằng chứng.
+
+```bash
+python main.py analogs profiles list
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 1
+python main.py analogs profiles sync --profile TPLUS_ANALOG_CORE_EOD --version 1
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash d19417afed8718337c12aae7a668dd68e0f323dbb9c2316c92a5122759e9751b --symbols SSI --from 05/01/2026 --to 19/10/2026 --mode incremental
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 05/01/2026 --to 30/09/2026 --run-type calibration --final-test-start 01/10/2026 --thresholds 0.5 1.0
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/10/2026 --to 19/10/2026 --run-type validation
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/10/2026 --to 19/10/2026 --run-type final
+python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 19/10/2026 --checkpoint EOD --distance-threshold 1.0
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 19/10/2026
+python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 19/10/2026
+python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Review existing final evidence"
+python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Evidence incomplete"
+```
+
+[English](README.md) · [CLI](../../../docs/CLI_USAGE.vi.md)
+
+### Đăng ký profile có ghi — chỉ sau khi duyệt dry-run
+
+Đây là WRITE — explicit apply vào analog_profiles, cần DB; không phải lệnh kiểm tra tài liệu.
+
+```bash
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 1 --apply
+```

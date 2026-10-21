@@ -1,23 +1,3 @@
-# src/features/stock
-
-ACTIVE: giữ nguyên công thức kỹ thuật. Hỗ trợ incremental/full/date/range/replace từ dữ liệu clean; 1d lấy stock_daily, 15m/60m aggregate clean 1m.
-
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
-
-Các module:
-
-- `backfill.py`
-- `common.py`
-- `daily.py`
-- `intraday.py`
-- `policy.py`
-- `runner.py`
-- `runtime.py`
-
-Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
-
----
-
 # Feature pipeline
 
 Feature pipeline chuyển **dữ liệu thị trường clean** thành các chỉ số xác định
@@ -356,3 +336,33 @@ float tuyệt đối và tương đối lớn nhất bằng 0. Fixture 200 và 2
 trang full, 12 trang cho 200 phiên và 15 trang cho 250 phiên. Xem
 `docs/phase0/PHASE0_VALIDATION_REPORT.vi.md`; evidence production live do owner
 cung cấp và các note còn lại được ghi riêng với test offline trong report đó.
+
+# src/features/stock
+
+[English](README.md)
+
+## Feature kỹ thuật cổ phiếu
+
+Cả ba route đều WRITE — feature calculation vào `stock_features`, khóa `(symbol,timeframe,time)`. Không cần credential SSI. `1d` đọc `stock_daily`; `15m`, `60m` aggregate clean 1m `stock_intraday` trong bộ nhớ cùng ngữ cảnh giá daily. Chỉ persist bucket đã đóng. `stock_intraday` vẫn chỉ lưu 1m. Không hỗ trợ persist feature `1m`, `5m`. Tắt ingest nguồn không ngăn tính feature trên lịch sử intraday đã có.
+
+`features` là router tương thích: tùy chọn `--date`, `--mode incremental|full` (mặc định incremental), mã tùy chọn, timeframe mặc định `15m 60m 1d`; không có range/replace. `features-daily` luôn chọn 1d. `features-intraday` mặc định `15m 60m`, hỗ trợ `--as-of` dạng `HH:MM` giờ Việt Nam hoặc timestamp có timezone. Không ghép as-of với khoảng ngày. Hai route tách nguồn bắt buộc ngày đích, cặp khoảng ngày hoặc full mode.
+
+Incremental dùng watermark riêng mỗi stream và warm-up giới hạn (daily năm năm; intraday 250 phiên quan sát, không phải ngày lịch). Không có đầu ra mới có thể là OK không làm gì. Khoảng ngày chạy backfill bao gồm hai đầu. Full tính lại/upsert lịch sử đã chọn, không xóa; có thể tốn nhiều RAM, không ghép ngày/range. Sửa dữ liệu nguồn không tự vô hiệu feature cũ.
+
+**WRITE — explicit rebuild có thể phá hủy dữ liệu:** replace và rebuild-clean cùng thay thế atomic một phạm vi. Bắt buộc đúng một mã, một timeframe được persist và hai đầu khoảng; không wildcard/ALL, không `--date`. Tính/validate bộ thay thế không rỗng trước, sau đó RPC service-role hiện có xóa và ghi lại đúng phạm vi. Xác nhận nguồn/warm-up đủ, đối soát mẫu, lưu bằng chứng trước/sau trước khi chạy. Không có cờ dry-run. Replace intraday phải chỉ định đúng một timeframe; mặc định hai timeframe bị từ chối.
+
+```bash
+python main.py features --help
+python main.py features-daily --help
+python main.py features-intraday --help
+python main.py features --date 19/10/2026 --symbols SSI HPG --timeframes 1d
+python main.py features-daily --date 19/10/2026 --symbols SSI
+python main.py features-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI
+python main.py features-daily --mode full --symbols SSI
+python main.py features-intraday --date 19/10/2026 --symbols SSI --timeframes 15m 60m --as-of 14:30
+python main.py features-intraday --from 01/10/2026 --to 19/10/2026 --symbols SSI --timeframes 60m
+python main.py features-daily --mode replace --symbols SSI --from 01/10/2026 --to 19/10/2026
+python main.py features-intraday --mode rebuild-clean --symbols SSI --timeframes 15m --from 01/10/2026 --to 19/10/2026
+```
+
+[CLI](../../../docs/CLI_USAGE.vi.md)
