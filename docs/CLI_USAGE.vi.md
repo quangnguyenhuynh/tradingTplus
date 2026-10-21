@@ -1113,3 +1113,19 @@ Nếu chưa có .env local, sao chép mẫu mà không ghi đè cấu hình hi�
 ```bash
 cp -n .env.example .env
 ```
+
+## Preview intraday SSI v3 nhiều trang (chỉ đọc)
+
+Route `stock-intraday`/native `intraday-ohlc` của REST inspector nay dùng adapter preview chung và tải mọi trang từ trang bắt đầu đến kết thúc tường minh hoặc lỗi/giới hạn. `--limit` chỉ giới hạn in; `--full-json` bao gồm mọi trang raw đã nhận và clean candidate. `--max-pages` mặc định 100 (1–1000); chạm giới hạn, trang lặp, total không khớp hay lỗi request trả FAILED/exit 1 và giữ bằng chứng đã nhận. Không đổi các route daily/index/catalog một-trang của inspector.
+
+Không có credential SSI trong môi trường kiểm tra: live NOT_RUN. Ngữ nghĩa v3 vẫn PROVISIONAL, completeness luôn UNVERIFIED. Chỉ timestamp đầy đủ có timezone được chuyển UTC; timestamp naive/chỉ giờ/chỉ ngày bị từ chối, không ghép ngày request. Giá/volume chưa được chứng nhận đơn vị; value ước tính dùng round(close * volume), field source value giữ raw. Production CLI và schedule intraday vẫn tắt; preview không đọc/ghi Supabase.
+
+Xem [runbook và checklist](STOCK_INTRADAY_PIPELINE.vi.md) để biết mapping từng field, paging, validation/session/gap, giới hạn nguồn và cách promotion riêng.
+
+```bash
+python scripts/inspectors/ssi_rest/inspect.py list
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --show-mapping
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --full-json
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --from-date 2026-10-01 --to-date 2026-10-19 --page-size 100 --max-pages 100 --limit 5
+python scripts/inspectors/ssi_rest/inspect.py run intraday-ohlc --symbol SSI --date 2026-10-19 --ascending --limit 5
+```

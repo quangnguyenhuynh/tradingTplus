@@ -192,7 +192,7 @@
       }
     },
     "stock_intraday": {
-      "mapping_version": "1.0.0-preview",
+      "mapping_version": "1.1.0-preview",
       "contract_version": "1.0.0",
       "fields": {
         "symbol": {
@@ -203,7 +203,7 @@
           "aliases": [
             "ohlc.time"
           ],
-          "transform": "market_timestamp"
+          "transform": "intraday_timestamp"
         },
         "open": {
           "aliases": [
@@ -233,14 +233,14 @@
           "aliases": [
             "ohlc.volume"
           ],
-          "transform": "float"
+          "transform": "intraday_volume"
         },
         "timeframe": {
           "constant": "1m",
           "transform": "text"
         },
         "value": {
-          "context": "value",
+          "derived": true,
           "transform": "int"
         },
         "reference_price": {
@@ -262,6 +262,14 @@
       "inspector": {
         "endpoint": "intraday-ohlc",
         "prefix": "ohlc"
+      },
+      "evidence": {
+        "status": "PROVISIONAL",
+        "live_verification": "NOT_RUN",
+        "timestamp": "Only full source datetime with explicit timezone; naive/time-only/date-only rejected pending evidence",
+        "bar_convention": "BLOCKED: bar start/end not verified",
+        "units": "BLOCKED: price scaling and per-candle volume semantics not live-verified",
+        "origin": "Existing preview aliases, not a captured intraday payload"
       }
     },
     "index_daily": {

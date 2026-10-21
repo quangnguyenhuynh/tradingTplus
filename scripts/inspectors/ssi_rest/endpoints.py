@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from src.config import config
-from src.providers.ssi.clients.rest_v3 import securities_summary_params
+from src.providers.ssi.clients.rest_v3 import securities_summary_params, ohlc_1m_params
 
 V3_BASE = "https://api.ssi.com.vn/api/v3"
 DATA_SOURCES = ("ssi_v3",)
@@ -111,6 +111,12 @@ def _v3_index_summary(args: Any) -> dict[str, Any]:
 def _v3_ohlc(args: Any, intraday: bool) -> dict[str, Any]:
     if not args.symbol:
         raise ParameterError("This endpoint requires --symbol")
+    if intraday:
+        # Share the request builder with the provider preview, not an inspector-only copy.
+        _dates(args, intraday=True)  # Retain endpoint option/date validation.
+        return ohlc_1m_params(args.symbol, args.date or args.from_date,
+                             args.date or args.to_date, page_index=args.page_index,
+                             page_size=args.page_size, ascending=args.ascending)
     start, end = _dates(args, intraday=intraday, daily_timestamp=not intraday)
     result = {"symbol": args.symbol, "from": start, "to": end,
               "timeFrame": "1m" if intraday else "1d", **_paging_v3(args)}

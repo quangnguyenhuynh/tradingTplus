@@ -69,6 +69,12 @@ class SSIV3Adapter:
             raw_source="SSI_v3_indexSummary",
         )
 
+    def preview_intraday(self, symbol: str, start: str, end: str | None = None, **options) -> AdapterResult:
+        """Explicit read-only route; fetch('stock_intraday') stays unsupported."""
+        from .intraday_preview import preview_intraday
+
+        return preview_intraday(self.client, symbol, start, end, **options)
+
     def _fetch_stock_daily(self, symbol: str, date: str) -> AdapterResult:
         payloads = self.client.securities_summary(symbol, date).items
         if len(payloads) > 1:
