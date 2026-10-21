@@ -1,7 +1,14 @@
-# scripts/inspectors
+# Current inspectors
 
-Read-only provider inspection; SSI REST v3 active, legacy streaming connection retired.
+[Tiếng Việt](README.vi.md)
 
-Existing tables, formulas and historical provenance are unchanged. No schema migration or data backfill is required.
+REST v3 is read-only; streaming is not implemented and never connects to SSI/DB.
 
-See the root README and docs/CURRENT_STATE.md for capability status and future adapter requirements.
+- [REST v3](ssi_rest/README.md)
+- [Streaming NOT_IMPLEMENTED](ssi_streaming/README.md)
+
+```bash
+python scripts/inspectors/ssi_rest/inspect.py list
+python scripts/inspectors/ssi_rest/inspect.py run stock-daily --symbol SSI --date 19/10/2026 --show-mapping
+python -m scripts.inspectors.ssi_streaming.inspect --help
+```

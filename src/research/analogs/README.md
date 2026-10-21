@@ -1,24 +1,3 @@
-# src/research/analogs
-
-RESEARCH_ACTIVE: unchanged same-symbol/same-checkpoint Historical Analog profiles and calculations.
-
-Existing tables, formulas and historical provenance are unchanged. No schema migration or data backfill is required.
-
-Modules:
-
-- `cli.py`
-- `core.py`
-- `pipeline.py`
-- `profile.py`
-- `repository.py`
-- `runtime.py`
-- `service.py`
-- `validation.py`
-
-See the root README and docs/CURRENT_STATE.md for capability status and future adapter requirements.
-
----
-
 # Historical Analog Core EOD V1 and V2
 
 `TPLUS_ANALOG_CORE_EOD` describes one symbol's verified **1d EOD** state and
@@ -99,13 +78,13 @@ Commands:
 
 ```bash
 python main.py analogs profiles list
-python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 2 [--apply]
-python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash HASH --symbols SSI --from 01/01/2021 --to 31/07/2026 --mode full [--apply]
-python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2021 --to 31/12/2024 --run-type calibration --final-test-start 01/01/2025 [--apply]
-python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run UUID --reviewer NAME --reason TEXT [--apply]
-python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run UUID --reviewer NAME --reason TEXT [--apply]
-python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026 [--apply]
-python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 07/08/2026 [--apply]
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 2
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash d19417afed8718337c12aae7a668dd68e0f323dbb9c2316c92a5122759e9751b --symbols SSI --from 01/01/2021 --to 31/07/2026 --mode full
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/01/2021 --to 31/12/2024 --run-type calibration --final-test-start 01/01/2025
+python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Review existing evidence"
+python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Review existing evidence"
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 07/08/2026
+python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 07/08/2026
 ```
 
 Operational order is: verified 1d features → snapshots → older outcomes →
@@ -146,3 +125,42 @@ its own history build and chronological validation, and cannot reuse V1 evidence
 `analogs query` reads persisted snapshot/outcome evidence. Without `--apply` it is read-only; with `--apply` it may atomically audit an exact approved profile for an exact approved profile. V1 remains draft, so production query is blocked by `EXACT_PROFILE_NOT_APPROVED`.
 
 `analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date DD/MM/YYYY --checkpoint EOD --distance-threshold 0.5` reads source data and calculates entirely in memory. It never writes an Analog table. The legacy threshold option is ignored and retained only for CLI compatibility.
+
+## Current CLI operations (SSI v3)
+
+The implemented tree is `profiles list|register|sync`, `history build`, `validate`, `approve`, `reject`, `query`, `inspect`, and `daily run`. There is no standalone report subcommand. Use the JSON from inspect/validate/query as reports. Dates here require DD/MM/YYYY. Profiles are immutable, identified by code/version/config hash; source V1 and V2 are available. Discover the source hash with registration dry-run before any DB registration.
+
+Profile registration without apply is local, credential-free dry-run. Profile list reads `analog_profiles`. History build reads clean daily/features and builds snapshots/outcomes; without apply it is database-read calculation, with apply it writes `analog_snapshots` and `analog_outcomes`. Full/incremental use their existing persistence semantics; replace additionally requires `--confirm-replace` and can delete the exact profile/symbol/date scope. Never use a hash copied from an unrelated profile/version.
+
+Inspect is READ-ONLY — database read plus research calculation, requiring an explicit distance threshold. Query and daily run are gated analysis workflows, READ-ONLY by default and WRITE — explicit apply when allowed. They can persist query/match evidence (`analog_queries`, `analog_query_matches`); they do not create trading signals. Approve/reject require a real validation-run ID, reviewer and reason; default dry-run, apply can write review/registry state (`analog_profile_reviews`, `analog_profiles`). The examples below intentionally use dry-runs. The illustrative review UUID must be replaced with an existing eligible run ID.
+
+`--distance-threshold` remains required by the inspect parser, but the runtime ignores this compatibility threshold under its top-k matching contract; the example value does not alter matching.
+
+**BLOCKED lifecycle point:** `validate --apply` is parsed but the current handler never forwards apply or persists its calibration/walk-forward result into `analog_validation_runs`. Review requires an existing validation row. Consequently the CLI alone does not establish a complete new validation/approval lifecycle; do not claim successful persisted validation from an exit 0. Calibration requires `--final-test-start`; optional threshold values are candidates, not production recommendations. Query can return `blocked` before constructing a DB client when the source profile is unapproved. No operation here bypasses approval gates.
+
+Compare a symbol only with its own earlier history at the same EOD checkpoint. Outcomes must be observable by the query date; validation is chronological with a same-symbol/checkpoint baseline, never random splits or pooled symbols. `insufficient_sample` is a valid result, not permission to widen the universe. For the detailed evidence contract see [Historical Analog specification](../../../docs/phase1/HISTORICAL_ANALOG_SPEC.md).
+
+```bash
+python main.py analogs profiles list
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 1
+python main.py analogs profiles sync --profile TPLUS_ANALOG_CORE_EOD --version 1
+python main.py analogs history build --profile TPLUS_ANALOG_CORE_EOD --version 1 --config-hash d19417afed8718337c12aae7a668dd68e0f323dbb9c2316c92a5122759e9751b --symbols SSI --from 05/01/2026 --to 19/10/2026 --mode incremental
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 05/01/2026 --to 30/09/2026 --run-type calibration --final-test-start 01/10/2026 --thresholds 0.5 1.0
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/10/2026 --to 19/10/2026 --run-type validation
+python main.py analogs validate --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --from 01/10/2026 --to 19/10/2026 --run-type final
+python main.py analogs inspect --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 19/10/2026 --checkpoint EOD --distance-threshold 1.0
+python main.py analogs query --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbol SSI --date 19/10/2026
+python main.py analogs daily run --profile TPLUS_ANALOG_CORE_EOD --version 1 --symbols SSI --date 19/10/2026
+python main.py analogs approve --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Review existing final evidence"
+python main.py analogs reject --profile TPLUS_ANALOG_CORE_EOD --version 1 --validation-run 00000000-0000-0000-0000-000000000001 --reviewer operator --reason "Evidence incomplete"
+```
+
+[Tiếng Việt](README.vi.md) · [CLI](../../../docs/CLI_USAGE.md)
+
+### WRITE profile registration — after reviewing the dry-run
+
+This is WRITE — explicit apply to analog_profiles and needs database access; it is not a documentation-validation command.
+
+```bash
+python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 1 --apply
+```

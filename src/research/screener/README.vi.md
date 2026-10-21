@@ -1,20 +1,3 @@
-# src/research/screener
-
-RESEARCH_ACTIVE: giữ nguyên score, cấu hình và methodology Screener V1/V2.
-
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
-
-Các module:
-
-- `config.py`
-- `rules.py`
-- `rules_v2.py`
-- `service.py`
-
-Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
-
----
-
 # Stock Screener V1
 
 Bộ lọc kỹ thuật EOD **phục vụ nghiên cứu**, không tạo signal, backtest, xác suất,
@@ -86,3 +69,21 @@ python main.py stock-screener --date 13/08/2026 --symbols SSI --version v2 --app
 Không được sửa V2 sau khi đăng ký; thay đổi trọng số, ngưỡng hay nội dung
 phương pháp đều phải tạo phiên bản mới. V1 không đổi; V2 không tự chạy
 backtest, signal hoặc pipeline khác.
+
+## Vận hành CLI hiện tại (SSI v3)
+
+`stock-screener` bắt buộc `--date`, tùy chọn mã và `--version v1|v2` (mặc định v1). Mặc định READ-ONLY — database read; đọc master active và `stock_features` 1d đúng ngày. Không tải/tính bù feature thiếu. Đầu vào thiếu không được biến thành kết quả đạt giả. `--apply`: WRITE — explicit apply vào `stock_screener_results`, khóa `(symbol,trading_date,screener_version)`.
+
+`stock-screener-config` preview methodology V2 bất biến tại local, không cần DB; mặc định version v2, language vi (cũng hỗ trợ en). Có `--apply` sẽ đọc/đăng ký `screener_configs`; hash xung đột bị từ chối. Đăng ký config V2 khớp trước khi ghi kết quả V2. Migration screener phải có sẵn; không apply chỉ vì đọc hướng dẫn này. Cả hai là bộ lọc nghiên cứu giải thích được, chưa phải tín hiệu giao dịch đã kiểm chứng. Xem [package Screener](README.vi.md) và [methodology V2](methodologies/v2.vi.md).
+
+```bash
+python main.py stock-screener --help
+python main.py stock-screener-config --version v2 --language vi
+python main.py stock-screener-config --version v2 --language en
+python main.py stock-screener --date 19/10/2026 --symbols SSI HPG --version v1
+python main.py stock-screener --date 19/10/2026 --symbols SSI --version v2
+python main.py stock-screener-config --version v2 --apply
+python main.py stock-screener --date 19/10/2026 --symbols SSI --version v2 --apply
+```
+
+[English](README.md) · [CLI](../../../docs/CLI_USAGE.vi.md)

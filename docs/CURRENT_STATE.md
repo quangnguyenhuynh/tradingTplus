@@ -1,6 +1,6 @@
 # Current state — SSI v3 only
 
-Reviewed 20 October 2026 against local commit `90a57b1` plus this restructuring. Shell fetch was unavailable because the proxy was unreachable; the connected GitHub API subsequently verified remote dev matches base 90a57b1b0a2eca80f04fbbe01f36b5d9856d3db5. Live SSI/Supabase checks were not run.
+Reviewed 21 October 2026 against `dev` commit `b5cb3276f367a0e50ded3c83967570f24b7480c6` (PR #178). Current and historical documentation were compared for the CLI restoration. Live SSI/Supabase checks were not run.
 
 | Capability | Status |
 | --- | --- |
@@ -25,3 +25,10 @@ Implement verified intraday mapping/fetching in `src/providers/ssi/adapters/` an
 Master integration belongs in `src/ingest/master/` with dedicated verified provider adapters/mappings. Preserve operator-controlled statuses; do not infer master lists from price history or auto-sync during ingest. Streaming belongs in `src/ingest/streaming/` with a separately verified protocol and authentication contract; historical offline payload decoders are not evidence of v3 protocol compatibility. Restore schedules only in a separately reviewed capability implementation.
 
 For a future SSI v4: add a client under `src/providers/ssi/clients/`, an adapter satisfying `DataSourceAdapter.fetch()` / `AdapterResult` under `adapters/`, a versioned `src/contracts/mappings/ssi_v4.json`, and per-dataset registry entries. Supply raw-source identity in adapter results, verify semantics and fixture parity, then mark only verified datasets ready. Business services must not select endpoint versions or silently fall back. V4 is not implemented here.
+
+## Operational documentation / Tài liệu vận hành
+
+- [English CLI runbook](CLI_USAGE.md)
+- [Hướng dẫn CLI tiếng Việt](CLI_USAGE.vi.md)
+- [Documentation audit](CLI_DOCUMENTATION_AUDIT.md)
+- [Báo cáo kiểm tra tài liệu](CLI_DOCUMENTATION_AUDIT.vi.md)
