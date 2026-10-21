@@ -1,3 +1,15 @@
+# Trạng thái hiện tại / Current capability status
+
+Stock Daily EOD vẫn ACTIVE qua SSI v3; chỉ daily ingest và daily completeness.
+
+[CLI hiện tại](CLI_USAGE.md) · [Current state](CURRENT_STATE.md)
+
+## Historical operational record
+
+Các hướng dẫn vận hành cũ bên dưới được giữ làm lịch sử; phần mâu thuẫn với trạng thái trên đã được thay thế. Không chạy lại hướng dẫn v2.
+
+> Historical operational note: SSI v2 REST and legacy SignalR are RETIRED. Intraday/master/streaming ingestion and combined backfill/refill are NOT_IMPLEMENTED. Any older operational instructions below are superseded by [current status](CURRENT_STATE.md). Historical data, formulas and evidence remain unchanged.
+
 # Stock Daily EOD pipeline
 
 `stock-eod` is the daily-only stock source pipeline. The independent workflow runs at 09:30 UTC (16:30 Asia/Ho_Chi_Minh), Monday-Friday, or by manual dispatch.

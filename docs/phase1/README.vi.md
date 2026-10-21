@@ -8,7 +8,7 @@ validation, approval và query production vẫn bị chặn.
 
 - [Spec tiếng Việt](HISTORICAL_ANALOG_SPEC.vi.md)
 - [Spec tiếng Anh](HISTORICAL_ANALOG_SPEC.md)
-- [Package đã triển khai](../../src/analogs/README.vi.md)
+- [Package đã triển khai](../../src/research/analogs/README.vi.md)
 - [Migration database](../../migrations/20260809_create_historical_analog_core_eod_v1.sql)
 
 Spec và artifact thực thi của hướng rule cũ đã bị xóa trong cleanup 10/08/2026.

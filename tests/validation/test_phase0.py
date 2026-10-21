@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.validation.phase0 import check_intraday_payload, numeric_equal, reconcile_sample, verify_schema
+from src.quality.validators.phase0 import check_intraday_payload, numeric_equal, reconcile_sample, verify_schema
 
 
 class Result:
@@ -62,10 +62,10 @@ def test_payload_missing_post_migration_sample_is_unknown_not_pass():
 
 
 def _daily_rows(feature_close=20.0):
-    payload = {"Symbol": "SSI", "TradingDate": "03/08/2026", "OpenPrice": 19, "HighestPrice": 21,
-               "LowestPrice": 18, "ClosePrice": 20, "TotalTradedVol": 1000, "TotalTradedValue": 20000}
+    payload = {"symbol": "SSI", "tradingDate": "03/08/2026", "open": 19, "high": 21,
+               "low": 18, "close": 20, "totalMatch": 1000, "totalMatchValue": 20000, "totalDeal": 0, "totalDealValue": 0}
     return {
-        "stock_raw_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "payload": payload}],
+        "stock_raw_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "payload": payload, "source": "ssi_v3"}],
         "stock_daily": [{"symbol": "SSI", "trading_date": "2026-08-03", "open_price": 19.0,
                          "highest_price": 21.0, "lowest_price": 18.0, "close_price": 20.0,
                          "total_traded_vol": 1000.0, "total_traded_value": 20000.0}],

@@ -17,9 +17,9 @@
 ## Repeatable read-only validation
 
 ```bash
-PHASE0_DATABASE_URL='postgresql://...' python scripts/phase0_validate_schema.py
-python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 1d
-python scripts/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 15m --timestamp 2026-08-03T02:00:00Z
+PHASE0_DATABASE_URL='postgresql://...' python scripts/checks/phase0_validate_schema.py
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 1d
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-08-03 --timeframe 15m --timestamp 2026-08-03T02:00:00Z
 ```
 
 The schema command forces PostgreSQL `default_transaction_read_only=on`. The reconciliation command issues bounded SELECTs only. Outcomes are `PASS`, `FAIL`, or `UNKNOWN`; missing evidence never becomes a false pass. Payload inspection checks at most 100 selected rows, accepts historical NULLs, and returns `UNKNOWN` if it cannot find a non-NULL sample. Numeric comparisons default to absolute/relative tolerance `1e-6`.

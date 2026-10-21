@@ -2,9 +2,9 @@ from copy import deepcopy
 
 import pytest
 
-from src.data_sources.ssi_v3 import SSIV3Adapter
-from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
-from src.ssi.v3 import PageResult
+from src.providers.ssi.adapters.v3 import SSIV3Adapter
+from src.ingest.stock_daily.daily_service import fetch_daily_for_symbol_with_clients
+from src.providers.ssi.clients.rest_v3 import PageResult
 
 
 SAMPLE = {

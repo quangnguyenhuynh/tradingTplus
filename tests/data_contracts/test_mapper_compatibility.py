@@ -1,34 +1,23 @@
-"""Confirmed SSI v2 fixture shapes plus synthetic rejection coverage."""
-from src.pipeline.daily_mapper import build_stock_daily_record, map_stock_daily_record
-from src.pipeline.index_daily_mapper import build_index_daily_record
-from src.pipeline.intraday_mapper import build_intraday_records
-from src.pipeline.daily_service import fetch_daily_for_symbol_with_clients
+"""Verified v3 mapping and service boundary parity."""
+from types import SimpleNamespace
+from src.providers.ssi.adapters.v3 import SSIV3Adapter
+from src.ingest.stock_daily.daily_mapper import build_stock_daily_record
+from src.ingest.stock_daily.daily_service import fetch_daily_for_symbol_with_clients
 
 
-def test_stock_daily_all_supported_fields_and_foreign_totals():
-    fields={"PriceChange":-1,"PerPriceChange":-2,"CeilingPrice":12,"FloorPrice":8,"RefPrice":10,"OpenPrice":10,"HighestPrice":11,"LowestPrice":9,"ClosePrice":9.8,"AveragePrice":10.1,"ClosePriceAdjusted":9.7,"TotalMatchVol":1,"TotalMatchVal":2,"TotalDealVol":3,"TotalDealVal":4,"TotalTradedVol":5,"TotalTradedValue":6,"ForeignBuyVolTotal":7,"ForeignSellVolTotal":8,"ForeignBuyValTotal":9,"ForeignSellValTotal":10,"ForeignCurrentRoom":11,"Netforeivol":-1,"Netforeignval":-2,"TotalBuyTrade":12,"TotalBuyTradeVol":13,"TotalSellTrade":14,"TotalSellTradeVol":15}
-    payload={"Symbol":"SSI","TradingDate":"18/06/2026",**fields}; clean=build_stock_daily_record("SSI","18/06/2026",payload)
-    assert clean and clean["foreign_buy_vol_total"] == 7 and clean["total_traded_value"] == 6 and clean["raw"] is payload
-    assert clean["foreign_remaining_room"] == 11 and "foreign_current_room" not in clean
-    assert len(clean) == 32 and clean["foreign_total_room"] is None
+def test_stock_daily_helper_matches_provider_mapping():
+    payload = {"symbol": "SSI", "tradingDate": "2026/06/18", "open": 10, "high": 11,
+               "low": 9, "close": 10.5, "totalTradedVolume": 100, "totalTradedValue": 1050}
+    provider = SSIV3Adapter(SimpleNamespace(securities_summary=lambda *_: SimpleNamespace(items=[payload])))
+    assert build_stock_daily_record("SSI", "18/06/2026", payload) == provider.fetch("stock_daily", "SSI", "18/06/2026").clean[0]
 
-def test_intraday_wrapper_keeps_1m_utc_value_and_raw_payload():
-    candle={"Time":"09:15:00","Open":"10","High":11,"Low":9,"Close":"10.5","Volume":"100","Ignored":"raw-only"}
-    raw,clean=build_intraday_records("SSI","18/06/2026",{"RefPrice":10},[candle])
-    assert raw[0]["payload"] is candle and clean == [{"symbol":"SSI","time":"2026-06-18T02:15:00Z","open":10.0,"high":11.0,"low":9.0,"close":10.5,"volume":100,"timeframe":"1m","value":1050,"reference_price":10.0,"ceiling_price":None,"floor_price":None}]
 
-def test_index_mapper_keeps_complete_clean_contract():
-    payload={"IndexId":"VNINDEX","TradingDate":"25/08/2026","IndexValue":"1280.5","TotalMatchVol":10,"TotalDealVol":2,"TotalVol":12,"Nochanges":3,"Ceiling":4,"Floor":5}
-    clean=build_index_daily_record("VNINDEX","25/08/2026",payload)
-    assert clean and len(clean)==26 and clean["index_value"]==1280.5 and clean["total_no_change_stock"]==3
-
-def test_mapping_error_blocks_clean_database_write_but_preserves_raw():
-    calls=[]
-    class SSI:
-        def get_daily_price(self,symbol,date): return {"Symbol":symbol,"TradingDate":date,"OpenPrice":True}
-    class DB:
-        def upsert_raw_daily(self,rows): calls.append("raw")
-        def upsert_stock_daily(self,rows): calls.append("clean")
-    summary=fetch_daily_for_symbol_with_clients(SSI(),DB(),"SSI","18/06/2026")
-    assert calls == ["raw"] and summary["daily_rows"] == 0
-    assert summary["mapping_report"]["transform_errors"]
+def test_mapping_error_preserves_raw_but_blocks_clean():
+    calls = []
+    provider = SSIV3Adapter(SimpleNamespace(securities_summary=lambda *_: SimpleNamespace(items=[
+        {"symbol": "SSI", "tradingDate": "2026/06/18", "open": True}])))
+    db = SimpleNamespace(upsert_raw_daily=lambda rows: calls.append("raw"),
+                         upsert_stock_daily=lambda rows: calls.append("clean"))
+    result = fetch_daily_for_symbol_with_clients(provider, db, "SSI", "18/06/2026")
+    assert calls == ["raw"] and result["daily_rows"] == 0
+    assert result["mapping_report"]["record_reports"][0]["transform_errors"]

@@ -1,5 +1,5 @@
-from src.pipeline.streaming_snapshot import build_bar_snapshot_record, build_foreign_snapshot_record, build_quote_snapshot_record, build_raw_stream_record
-from src.validation.streaming_validator import validate_stream_record
+from src.ingest.streaming.streaming_snapshot import build_bar_snapshot_record, build_foreign_snapshot_record, build_quote_snapshot_record, build_raw_stream_record
+from src.quality.validators.streaming_validator import validate_stream_record
 
 
 def test_missing_source_timestamp_not_replaced_with_now():

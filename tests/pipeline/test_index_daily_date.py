@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from src.pipeline import index_daily
-from src.pipeline.date_utils import latest_weekday_on_or_before
+import src.ingest.index_daily.index_daily as index_daily
+from src.ingest.shared.date_utils import latest_weekday_on_or_before
 
 
 @pytest.mark.parametrize(

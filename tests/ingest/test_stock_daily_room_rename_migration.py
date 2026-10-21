@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.check_ssi_ingest_schema import REQUIRED_COLUMNS
+from scripts.checks.check_ssi_ingest_schema import REQUIRED_COLUMNS
 
 
 MIGRATION = Path(

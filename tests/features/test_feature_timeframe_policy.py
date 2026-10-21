@@ -1,6 +1,6 @@
 import pytest
 
-import src.features.policy as policy
+import src.features.stock.policy as policy
 
 
 def _summary(**overrides):

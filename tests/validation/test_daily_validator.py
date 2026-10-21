@@ -1,4 +1,4 @@
-from src.validation.daily_validator import validate_daily_record
+from src.quality.validators.daily_validator import validate_daily_record
 
 
 def rec(**overrides):

@@ -1,4 +1,4 @@
-from src.screener import service
+from src.research.screener import service
 
 
 def _good():

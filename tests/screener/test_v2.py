@@ -1,9 +1,10 @@
+import src.cli.screener as cli_screener
 import pytest
 
-import main
-from src.screener.config import load_v2, describe_config, _validate
-from src.screener.rules_v2 import evaluate_v2
-from src.screener.rules import evaluate
+import src.cli as main
+from src.research.screener.config import load_v2, describe_config, _validate
+from src.research.screener.rules_v2 import evaluate_v2
+from src.research.screener.rules import evaluate
 
 
 def _base():
@@ -50,7 +51,7 @@ def test_config_preview_is_read_only():
 
 def test_v2_cli_routes_and_preserves_v1_signature(monkeypatch):
     args = []
-    monkeypatch.setattr(main, "run_stock_screener", lambda *a, **kw: args.append((a, kw)) or {"status": "OK"})
+    monkeypatch.setattr(cli_screener, "run_stock_screener", lambda *a, **kw: args.append((a, kw)) or {"status": "OK"})
     assert main.main(["stock-screener", "--date", "13/08/2026", "--symbols", "SSI"]) == 0
     assert "version" not in args[-1][1]
     assert main.main(["stock-screener", "--date", "13/08/2026", "--symbols", "SSI", "--version", "v2"]) == 0
@@ -58,5 +59,5 @@ def test_v2_cli_routes_and_preserves_v1_signature(monkeypatch):
 
 
 def test_config_cli_preview(monkeypatch):
-    monkeypatch.setattr(main, "describe_config", lambda *a, **kw: {"status": "OK"})
+    monkeypatch.setattr(cli_screener, "describe_config", lambda *a, **kw: {"status": "OK"})
     assert main.main(["stock-screener-config", "--version", "v2"]) == 0

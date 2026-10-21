@@ -1,0 +1,1438 @@
+{
+  "base_commit": "90a57b1b0a2eca80f04fbbe01f36b5d9856d3db5",
+  "old_to_new": {
+    ".env.example": [
+      ".env.example"
+    ],
+    ".github/workflows/README.md": [
+      ".github/workflows/README.md"
+    ],
+    ".github/workflows/README.vi.md": [
+      ".github/workflows/README.vi.md"
+    ],
+    ".github/workflows/index-eod-v2.yml": [
+      ".github/workflows/index-eod-v2.yml"
+    ],
+    ".github/workflows/stock-eod.yml": [
+      ".github/workflows/stock-eod.yml"
+    ],
+    ".github/workflows/stock-intraday.yml": [
+      ".github/workflows/stock-intraday.yml"
+    ],
+    "README.md": [
+      "README.md"
+    ],
+    "README.vi.md": [
+      "README.vi.md"
+    ],
+    "docs/ARCHITECTURE_DECISIONS.md": [
+      "docs/ARCHITECTURE_DECISIONS.md"
+    ],
+    "docs/CLI_USAGE.md": [
+      "docs/CLI_USAGE.md"
+    ],
+    "docs/CLI_USAGE.vi.md": [
+      "docs/CLI_USAGE.vi.md"
+    ],
+    "docs/CURRENT_STATE.md": [
+      "docs/CURRENT_STATE.md"
+    ],
+    "docs/DATA_PIPELINE.md": [
+      "docs/DATA_PIPELINE.md"
+    ],
+    "docs/PROJECT_OVERVIEW.md": [
+      "docs/PROJECT_OVERVIEW.md"
+    ],
+    "docs/README.md": [
+      "docs/README.md"
+    ],
+    "docs/README.vi.md": [
+      "docs/README.vi.md"
+    ],
+    "docs/STOCK_EOD_PIPELINE.md": [
+      "docs/STOCK_EOD_PIPELINE.md"
+    ],
+    "docs/STOCK_EOD_PIPELINE.vi.md": [
+      "docs/STOCK_EOD_PIPELINE.vi.md"
+    ],
+    "docs/STOCK_INTRADAY_PIPELINE.md": [
+      "docs/STOCK_INTRADAY_PIPELINE.md"
+    ],
+    "docs/STOCK_INTRADAY_PIPELINE.vi.md": [
+      "docs/STOCK_INTRADAY_PIPELINE.vi.md"
+    ],
+    "docs/phase0/PHASE0_VALIDATION_REPORT.md": [
+      "docs/phase0/PHASE0_VALIDATION_REPORT.md"
+    ],
+    "docs/phase0/PHASE0_VALIDATION_REPORT.vi.md": [
+      "docs/phase0/PHASE0_VALIDATION_REPORT.vi.md"
+    ],
+    "docs/phase1/README.md": [
+      "docs/phase1/README.md"
+    ],
+    "docs/phase1/README.vi.md": [
+      "docs/phase1/README.vi.md"
+    ],
+    "main.py": [
+      "main.py",
+      "src/cli/__init__.py",
+      "src/cli/analogs.py",
+      "src/cli/common.py",
+      "src/cli/features.py",
+      "src/cli/foreign.py",
+      "src/cli/index.py",
+      "src/cli/maintenance.py",
+      "src/cli/parser.py",
+      "src/cli/screener.py",
+      "src/cli/stock.py",
+      "src/cli/streaming.py"
+    ],
+    "requirements.txt": [
+      "requirements.txt"
+    ],
+    "scripts/README.md": [
+      "scripts/README.md"
+    ],
+    "scripts/README.vi.md": [
+      "scripts/README.vi.md"
+    ],
+    "scripts/backfill_stock_intraday_value.sql": [
+      "scripts/maintenance/backfill_stock_intraday_value.sql"
+    ],
+    "scripts/check_complete_ssi_ingest.py": [
+      "scripts/checks/check_complete_ssi_ingest.py"
+    ],
+    "scripts/check_ingest.py": [
+      "scripts/checks/check_ingest.py"
+    ],
+    "scripts/check_ssi_ingest_schema.py": [
+      "scripts/checks/check_ssi_ingest_schema.py"
+    ],
+    "scripts/check_supabase.py": [
+      "scripts/checks/check_supabase.py"
+    ],
+    "scripts/eod_dry_run.py": [
+      "scripts/previews/eod_dry_run.py"
+    ],
+    "scripts/fetch_one_day.py": [
+      "scripts/maintenance/fetch_one_day.py"
+    ],
+    "scripts/phase0_reconcile_sample.py": [
+      "scripts/checks/phase0_reconcile_sample.py"
+    ],
+    "scripts/phase0_validate_schema.py": [
+      "scripts/checks/phase0_validate_schema.py"
+    ],
+    "scripts/run_features.py": [
+      "scripts/previews/run_features.py"
+    ],
+    "scripts/snapshot_orderbook.py": [
+      "scripts/capture/snapshot_orderbook.py"
+    ],
+    "scripts/snapshot_stream.py": [
+      "scripts/capture/snapshot_stream.py"
+    ],
+    "scripts/ssi_api_inspector/README.md": [
+      "scripts/inspectors/ssi_rest/README.md"
+    ],
+    "scripts/ssi_api_inspector/README.vi.md": [
+      "scripts/inspectors/ssi_rest/README.vi.md"
+    ],
+    "scripts/ssi_api_inspector/__init__.py": [
+      "scripts/inspectors/ssi_rest/__init__.py"
+    ],
+    "scripts/ssi_api_inspector/client.py": [
+      "scripts/inspectors/ssi_rest/client.py"
+    ],
+    "scripts/ssi_api_inspector/datasets.py": [
+      "scripts/inspectors/ssi_rest/datasets.py"
+    ],
+    "scripts/ssi_api_inspector/endpoints.py": [
+      "scripts/inspectors/ssi_rest/endpoints.py"
+    ],
+    "scripts/ssi_api_inspector/inspect.py": [
+      "scripts/inspectors/ssi_rest/inspect.py"
+    ],
+    "scripts/ssi_api_inspector/mapping.py": [
+      "scripts/inspectors/ssi_rest/mapping.py"
+    ],
+    "scripts/ssi_streaming_inspector/README.md": [
+      "scripts/inspectors/ssi_streaming/README.md"
+    ],
+    "scripts/ssi_streaming_inspector/README.vi.md": [
+      "scripts/inspectors/ssi_streaming/README.vi.md"
+    ],
+    "scripts/ssi_streaming_inspector/__init__.py": [
+      "scripts/inspectors/ssi_streaming/__init__.py"
+    ],
+    "scripts/ssi_streaming_inspector/inspect.py": [
+      "scripts/inspectors/ssi_streaming/inspect.py"
+    ],
+    "scripts/ssi_streaming_inspector/output.py": [
+      "scripts/inspectors/ssi_streaming/output.py"
+    ],
+    "scripts/ssi_streaming_inspector/registry.py": [
+      "scripts/inspectors/ssi_streaming/registry.py"
+    ],
+    "src/README.md": [
+      "src/README.md"
+    ],
+    "src/README.vi.md": [
+      "src/README.vi.md"
+    ],
+    "src/analogs/README.md": [
+      "src/research/analogs/README.md"
+    ],
+    "src/analogs/README.vi.md": [
+      "src/research/analogs/README.vi.md"
+    ],
+    "src/analogs/__init__.py": [
+      "src/research/analogs/__init__.py"
+    ],
+    "src/analogs/cli.py": [
+      "src/research/analogs/cli.py"
+    ],
+    "src/analogs/core.py": [
+      "src/research/analogs/core.py"
+    ],
+    "src/analogs/pipeline.py": [
+      "src/research/analogs/pipeline.py"
+    ],
+    "src/analogs/profile.py": [
+      "src/research/analogs/profile.py"
+    ],
+    "src/analogs/profiles/tplus_analog_core_eod_v1.json": [
+      "src/research/analogs/profiles/tplus_analog_core_eod_v1.json"
+    ],
+    "src/analogs/profiles/tplus_analog_core_eod_v2.json": [
+      "src/research/analogs/profiles/tplus_analog_core_eod_v2.json"
+    ],
+    "src/analogs/repository.py": [
+      "src/research/analogs/repository.py"
+    ],
+    "src/analogs/runtime.py": [
+      "src/research/analogs/runtime.py"
+    ],
+    "src/analogs/service.py": [
+      "src/research/analogs/service.py"
+    ],
+    "src/analogs/validation.py": [
+      "src/research/analogs/validation.py"
+    ],
+    "src/config.py": [
+      "src/config.py"
+    ],
+    "src/data_contracts/README.md": [
+      "src/contracts/README.md"
+    ],
+    "src/data_contracts/README.vi.md": [
+      "src/contracts/README.vi.md"
+    ],
+    "src/data_contracts/__init__.py": [
+      "src/contracts/__init__.py"
+    ],
+    "src/data_contracts/definitions.json": [
+      "src/contracts/definitions.json"
+    ],
+    "src/data_contracts/derived.py": [
+      "src/contracts/derived.py"
+    ],
+    "src/data_contracts/engine.py": [
+      "src/contracts/engine.py"
+    ],
+    "src/data_contracts/mappings/ssi_v2.json": [],
+    "src/data_contracts/mappings/ssi_v3.json": [
+      "src/contracts/mappings/ssi_v3.json"
+    ],
+    "src/data_contracts/registry.py": [
+      "src/contracts/registry.py"
+    ],
+    "src/data_contracts/transforms.py": [
+      "src/contracts/transforms.py"
+    ],
+    "src/data_sources/__init__.py": [],
+    "src/data_sources/base.py": [
+      "src/providers/ssi/base.py"
+    ],
+    "src/data_sources/registry.py": [
+      "src/providers/ssi/registry.py"
+    ],
+    "src/data_sources/ssi_v2.py": [],
+    "src/data_sources/ssi_v3.py": [
+      "src/providers/ssi/adapters/v3.py"
+    ],
+    "src/database/README.md": [
+      "src/database/README.md"
+    ],
+    "src/database/README.vi.md": [
+      "src/database/README.vi.md"
+    ],
+    "src/engine/README.md": [],
+    "src/engine/README.vi.md": [],
+    "src/engine/__init__.py": [],
+    "src/engine/data_quality.py": [],
+    "src/features/README.md": [
+      "src/features/stock/README.md"
+    ],
+    "src/features/README.vi.md": [
+      "src/features/stock/README.vi.md"
+    ],
+    "src/features/__init__.py": [
+      "src/features/__init__.py",
+      "src/features/stock/__init__.py"
+    ],
+    "src/features/backfill.py": [
+      "src/features/stock/backfill.py"
+    ],
+    "src/features/common.py": [
+      "src/features/stock/common.py"
+    ],
+    "src/features/daily.py": [
+      "src/features/stock/daily.py"
+    ],
+    "src/features/intraday.py": [
+      "src/features/stock/intraday.py"
+    ],
+    "src/features/policy.py": [
+      "src/features/stock/policy.py"
+    ],
+    "src/features/runner.py": [
+      "src/features/stock/runner.py"
+    ],
+    "src/features/runtime.py": [
+      "src/features/stock/runtime.py"
+    ],
+    "src/foreign_features/README.md": [
+      "src/features/foreign/README.md"
+    ],
+    "src/foreign_features/README.vi.md": [
+      "src/features/foreign/README.vi.md"
+    ],
+    "src/foreign_features/__init__.py": [
+      "src/features/foreign/__init__.py"
+    ],
+    "src/foreign_features/calculator.py": [
+      "src/features/foreign/calculator.py"
+    ],
+    "src/foreign_features/calendar.py": [
+      "src/features/foreign/calendar.py"
+    ],
+    "src/foreign_features/loader.py": [
+      "src/features/foreign/loader.py"
+    ],
+    "src/foreign_features/persistence.py": [
+      "src/features/foreign/persistence.py"
+    ],
+    "src/foreign_features/service.py": [
+      "src/features/foreign/service.py"
+    ],
+    "src/foreign_features/validator.py": [
+      "src/features/foreign/validator.py"
+    ],
+    "src/index_features/README.md": [
+      "src/features/index/README.md"
+    ],
+    "src/index_features/README.vi.md": [
+      "src/features/index/README.vi.md"
+    ],
+    "src/index_features/__init__.py": [
+      "src/features/index/__init__.py"
+    ],
+    "src/index_features/calculator.py": [
+      "src/features/index/calculator.py"
+    ],
+    "src/index_features/completeness.py": [
+      "src/features/index/completeness.py"
+    ],
+    "src/index_features/pipeline.py": [
+      "src/features/index/pipeline.py"
+    ],
+    "src/index_features/repository.py": [
+      "src/features/index/repository.py"
+    ],
+    "src/pipeline/README.md": [
+      "src/ingest/README.md"
+    ],
+    "src/pipeline/README.vi.md": [
+      "src/ingest/README.vi.md"
+    ],
+    "src/pipeline/__init__.py": [
+      "src/ingest/__init__.py"
+    ],
+    "src/pipeline/backfill.py": [
+      "src/ingest/maintenance/backfill.py"
+    ],
+    "src/pipeline/daily.py": [
+      "src/ingest/stock_daily/daily.py"
+    ],
+    "src/pipeline/daily_fetcher.py": [
+      "src/ingest/stock_daily/daily_fetcher.py"
+    ],
+    "src/pipeline/daily_mapper.py": [
+      "src/ingest/stock_daily/daily_mapper.py"
+    ],
+    "src/pipeline/daily_persistence.py": [
+      "src/ingest/stock_daily/daily_persistence.py"
+    ],
+    "src/pipeline/daily_service.py": [
+      "src/ingest/stock_daily/daily_service.py"
+    ],
+    "src/pipeline/date_utils.py": [
+      "src/ingest/shared/date_utils.py"
+    ],
+    "src/pipeline/eod_dry_run.py": [
+      "src/diagnostics/eod_dry_run.py"
+    ],
+    "src/pipeline/fetch_one_day.py": [
+      "src/diagnostics/fetch_one_day.py"
+    ],
+    "src/pipeline/index_backfill.py": [
+      "src/ingest/index_daily/index_backfill.py"
+    ],
+    "src/pipeline/index_completeness.py": [
+      "src/quality/completeness/index_completeness.py"
+    ],
+    "src/pipeline/index_daily.py": [
+      "src/ingest/index_daily/index_daily.py"
+    ],
+    "src/pipeline/index_daily_fetcher.py": [
+      "src/ingest/index_daily/index_daily_fetcher.py"
+    ],
+    "src/pipeline/index_daily_mapper.py": [
+      "src/ingest/index_daily/index_daily_mapper.py"
+    ],
+    "src/pipeline/index_daily_persistence.py": [
+      "src/ingest/index_daily/index_daily_persistence.py"
+    ],
+    "src/pipeline/index_daily_preview.py": [
+      "src/ingest/index_daily/index_daily_preview.py"
+    ],
+    "src/pipeline/index_daily_service.py": [
+      "src/ingest/index_daily/index_daily_service.py"
+    ],
+    "src/pipeline/index_master.py": [
+      "src/ingest/master/index_master.py"
+    ],
+    "src/pipeline/index_scope.py": [
+      "src/ingest/shared/index_scope.py"
+    ],
+    "src/pipeline/ingest_check.py": [
+      "src/quality/completeness/ingest_check.py"
+    ],
+    "src/pipeline/init_symbols.py": [
+      "src/ingest/master/init_symbols.py"
+    ],
+    "src/pipeline/intraday_fetcher.py": [
+      "src/ingest/stock_intraday/intraday_fetcher.py"
+    ],
+    "src/pipeline/intraday_ingest.py": [
+      "src/ingest/stock_intraday/intraday_ingest.py"
+    ],
+    "src/pipeline/intraday_mapper.py": [
+      "src/ingest/stock_intraday/intraday_mapper.py"
+    ],
+    "src/pipeline/intraday_persistence.py": [
+      "src/ingest/stock_intraday/intraday_persistence.py"
+    ],
+    "src/pipeline/intraday_service.py": [
+      "src/ingest/stock_intraday/intraday_service.py"
+    ],
+    "src/pipeline/orderbook_snapshot.py": [
+      "src/ingest/streaming/orderbook_snapshot.py"
+    ],
+    "src/pipeline/pipeline_status.py": [
+      "src/ingest/shared/pipeline_status.py"
+    ],
+    "src/pipeline/refill.py": [
+      "src/ingest/maintenance/refill.py"
+    ],
+    "src/pipeline/stock_eod.py": [
+      "src/ingest/workflows/stock_eod.py"
+    ],
+    "src/pipeline/stock_intraday.py": [
+      "src/ingest/workflows/stock_intraday.py"
+    ],
+    "src/pipeline/streaming_snapshot.py": [
+      "src/ingest/streaming/streaming_snapshot.py"
+    ],
+    "src/pipeline/symbol_scope.py": [
+      "src/ingest/shared/symbol_scope.py"
+    ],
+    "src/pipeline/workflow_dates.py": [
+      "src/ingest/workflows/workflow_dates.py"
+    ],
+    "src/screener/README.md": [
+      "src/research/screener/README.md"
+    ],
+    "src/screener/README.vi.md": [
+      "src/research/screener/README.vi.md"
+    ],
+    "src/screener/__init__.py": [
+      "src/research/screener/__init__.py"
+    ],
+    "src/screener/config.py": [
+      "src/research/screener/config.py"
+    ],
+    "src/screener/configs/v2.json": [
+      "src/research/screener/configs/v2.json"
+    ],
+    "src/screener/methodologies/v2.md": [
+      "src/research/screener/methodologies/v2.md"
+    ],
+    "src/screener/methodologies/v2.vi.md": [
+      "src/research/screener/methodologies/v2.vi.md"
+    ],
+    "src/screener/rules.py": [
+      "src/research/screener/rules.py"
+    ],
+    "src/screener/rules_v2.py": [
+      "src/research/screener/rules_v2.py"
+    ],
+    "src/screener/service.py": [
+      "src/research/screener/service.py"
+    ],
+    "src/ssi/README.md": [],
+    "src/ssi/README.vi.md": [],
+    "src/ssi/__init__.py": [],
+    "src/ssi/api.py": [],
+    "src/ssi/streaming.py": [
+      "src/ingest/streaming/payloads.py"
+    ],
+    "src/ssi/v3.py": [
+      "src/providers/ssi/clients/rest_v3.py"
+    ],
+    "src/validation/README.md": [
+      "src/quality/validators/README.md"
+    ],
+    "src/validation/README.vi.md": [
+      "src/quality/validators/README.vi.md"
+    ],
+    "src/validation/__init__.py": [
+      "src/quality/validators/__init__.py"
+    ],
+    "src/validation/daily_validator.py": [
+      "src/quality/validators/daily_validator.py"
+    ],
+    "src/validation/index_daily_validator.py": [
+      "src/quality/validators/index_daily_validator.py"
+    ],
+    "src/validation/intraday_validator.py": [
+      "src/quality/validators/intraday_validator.py"
+    ],
+    "src/validation/logging_utils.py": [
+      "src/quality/validators/logging_utils.py"
+    ],
+    "src/validation/models.py": [
+      "src/quality/validators/models.py"
+    ],
+    "src/validation/phase0.py": [
+      "src/quality/validators/phase0.py"
+    ],
+    "src/validation/streaming_validator.py": [
+      "src/quality/validators/streaming_validator.py"
+    ],
+    "tests/analogs/test_core.py": [
+      "tests/analogs/test_core.py"
+    ],
+    "tests/analogs/test_eod_v2.py": [
+      "tests/analogs/test_eod_v2.py"
+    ],
+    "tests/analogs/test_pipeline_cli.py": [
+      "tests/analogs/test_pipeline_cli.py"
+    ],
+    "tests/analogs/test_runtime.py": [
+      "tests/analogs/test_runtime.py"
+    ],
+    "tests/cli/test_cli_refactor.py": [
+      "tests/cli/test_cli_refactor.py"
+    ],
+    "tests/cli/test_index_preview.py": [
+      "tests/cli/test_index_preview.py"
+    ],
+    "tests/data_contracts/test_engine.py": [
+      "tests/data_contracts/test_engine.py"
+    ],
+    "tests/data_contracts/test_mapper_compatibility.py": [
+      "tests/data_contracts/test_mapper_compatibility.py"
+    ],
+    "tests/data_preview/test_v3_client.py": [
+      "tests/data_preview/test_v3_client.py"
+    ],
+    "tests/data_sources/test_registry.py": [
+      "tests/data_sources/test_registry.py"
+    ],
+    "tests/data_sources/test_ssi_v3_stock_daily.py": [
+      "tests/data_sources/test_ssi_v3_stock_daily.py"
+    ],
+    "tests/features/test_daily_pagination.py": [
+      "tests/features/test_daily_pagination.py"
+    ],
+    "tests/features/test_feature_engine.py": [
+      "tests/features/test_feature_engine.py"
+    ],
+    "tests/features/test_feature_range_backfill.py": [
+      "tests/features/test_feature_range_backfill.py"
+    ],
+    "tests/features/test_feature_timeframe_policy.py": [
+      "tests/features/test_feature_timeframe_policy.py"
+    ],
+    "tests/features/test_intraday_pagination.py": [
+      "tests/features/test_intraday_pagination.py"
+    ],
+    "tests/features/test_issue99_contract.py": [
+      "tests/features/test_issue99_contract.py"
+    ],
+    "tests/features/test_long_history_parity.py": [
+      "tests/features/test_long_history_parity.py"
+    ],
+    "tests/foreign_features/test_foreign_calculator.py": [
+      "tests/foreign_features/test_foreign_calculator.py"
+    ],
+    "tests/foreign_features/test_foreign_service.py": [
+      "tests/foreign_features/test_foreign_service.py"
+    ],
+    "tests/index_features/test_calculator.py": [
+      "tests/index_features/test_calculator.py"
+    ],
+    "tests/index_features/test_pipeline.py": [
+      "tests/index_features/test_pipeline.py"
+    ],
+    "tests/ingest/test_daily_ingest_payload_reuse.py": [
+      "tests/ingest/test_daily_ingest_payload_reuse.py"
+    ],
+    "tests/ingest/test_daily_pipeline.py": [
+      "tests/ingest/test_daily_pipeline.py"
+    ],
+    "tests/ingest/test_fetch_one_day.py": [
+      "tests/ingest/test_fetch_one_day.py"
+    ],
+    "tests/ingest/test_index_daily_pipeline.py": [
+      "tests/ingest/test_index_daily_pipeline.py"
+    ],
+    "tests/ingest/test_ingest_check.py": [
+      "tests/ingest/test_ingest_check.py"
+    ],
+    "tests/ingest/test_intraday_ingest_pipeline.py": [
+      "tests/ingest/test_intraday_ingest_pipeline.py"
+    ],
+    "tests/ingest/test_master_data_pipeline.py": [
+      "tests/ingest/test_master_data_pipeline.py"
+    ],
+    "tests/ingest/test_ssi_api.py": [
+      "tests/ingest/test_ssi_api.py"
+    ],
+    "tests/ingest/test_stock_daily_room_rename_migration.py": [
+      "tests/ingest/test_stock_daily_room_rename_migration.py"
+    ],
+    "tests/ingest/test_stock_daily_v3_migration.py": [
+      "tests/ingest/test_stock_daily_v3_migration.py"
+    ],
+    "tests/ingest/test_symbol_scope.py": [
+      "tests/ingest/test_symbol_scope.py"
+    ],
+    "tests/inspectors/test_ssi_api_inspector.py": [
+      "tests/inspectors/test_ssi_api_inspector.py"
+    ],
+    "tests/inspectors/test_ssi_api_mapping.py": [
+      "tests/inspectors/test_ssi_api_mapping.py"
+    ],
+    "tests/inspectors/test_ssi_streaming_inspector.py": [
+      "tests/inspectors/test_ssi_streaming_inspector.py"
+    ],
+    "tests/pipeline/test_backfill_pipeline.py": [
+      "tests/pipeline/test_backfill_pipeline.py"
+    ],
+    "tests/pipeline/test_eod_dry_run.py": [
+      "tests/pipeline/test_eod_dry_run.py"
+    ],
+    "tests/pipeline/test_index_daily_date.py": [
+      "tests/pipeline/test_index_daily_date.py"
+    ],
+    "tests/pipeline/test_refill_pipeline.py": [
+      "tests/pipeline/test_refill_pipeline.py"
+    ],
+    "tests/pipeline/test_stock_eod_pipeline.py": [
+      "tests/pipeline/test_stock_eod_pipeline.py"
+    ],
+    "tests/pipeline/test_stock_eod_workflow.py": [
+      "tests/pipeline/test_stock_eod_workflow.py"
+    ],
+    "tests/pipeline/test_stock_intraday_pipeline.py": [
+      "tests/pipeline/test_stock_intraday_pipeline.py"
+    ],
+    "tests/pipeline/test_stock_intraday_workflow.py": [
+      "tests/pipeline/test_stock_intraday_workflow.py"
+    ],
+    "tests/pipeline/test_workflow_dates.py": [
+      "tests/pipeline/test_workflow_dates.py"
+    ],
+    "tests/screener/test_cli.py": [
+      "tests/screener/test_cli.py"
+    ],
+    "tests/screener/test_rules.py": [
+      "tests/screener/test_rules.py"
+    ],
+    "tests/screener/test_service.py": [
+      "tests/screener/test_service.py"
+    ],
+    "tests/screener/test_v2.py": [
+      "tests/screener/test_v2.py"
+    ],
+    "tests/streaming/test_streaming_ingest_pipeline.py": [
+      "tests/streaming/test_streaming_ingest_pipeline.py"
+    ],
+    "tests/validation/test_daily_validator.py": [
+      "tests/validation/test_daily_validator.py"
+    ],
+    "tests/validation/test_intraday_validator.py": [
+      "tests/validation/test_intraday_validator.py"
+    ],
+    "tests/validation/test_phase0.py": [
+      "tests/validation/test_phase0.py"
+    ],
+    "tests/validation/test_streaming_validator.py": [
+      "tests/validation/test_streaming_validator.py"
+    ]
+  },
+  "moved": [
+    {
+      "old": "scripts/backfill_stock_intraday_value.sql",
+      "new": "scripts/maintenance/backfill_stock_intraday_value.sql"
+    },
+    {
+      "old": "scripts/check_complete_ssi_ingest.py",
+      "new": "scripts/checks/check_complete_ssi_ingest.py"
+    },
+    {
+      "old": "scripts/check_ingest.py",
+      "new": "scripts/checks/check_ingest.py"
+    },
+    {
+      "old": "scripts/check_ssi_ingest_schema.py",
+      "new": "scripts/checks/check_ssi_ingest_schema.py"
+    },
+    {
+      "old": "scripts/check_supabase.py",
+      "new": "scripts/checks/check_supabase.py"
+    },
+    {
+      "old": "scripts/eod_dry_run.py",
+      "new": "scripts/previews/eod_dry_run.py"
+    },
+    {
+      "old": "scripts/fetch_one_day.py",
+      "new": "scripts/maintenance/fetch_one_day.py"
+    },
+    {
+      "old": "scripts/phase0_reconcile_sample.py",
+      "new": "scripts/checks/phase0_reconcile_sample.py"
+    },
+    {
+      "old": "scripts/phase0_validate_schema.py",
+      "new": "scripts/checks/phase0_validate_schema.py"
+    },
+    {
+      "old": "scripts/run_features.py",
+      "new": "scripts/previews/run_features.py"
+    },
+    {
+      "old": "scripts/snapshot_orderbook.py",
+      "new": "scripts/capture/snapshot_orderbook.py"
+    },
+    {
+      "old": "scripts/snapshot_stream.py",
+      "new": "scripts/capture/snapshot_stream.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/README.md",
+      "new": "scripts/inspectors/ssi_rest/README.md"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/README.vi.md",
+      "new": "scripts/inspectors/ssi_rest/README.vi.md"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/__init__.py",
+      "new": "scripts/inspectors/ssi_rest/__init__.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/client.py",
+      "new": "scripts/inspectors/ssi_rest/client.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/datasets.py",
+      "new": "scripts/inspectors/ssi_rest/datasets.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/endpoints.py",
+      "new": "scripts/inspectors/ssi_rest/endpoints.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/inspect.py",
+      "new": "scripts/inspectors/ssi_rest/inspect.py"
+    },
+    {
+      "old": "scripts/ssi_api_inspector/mapping.py",
+      "new": "scripts/inspectors/ssi_rest/mapping.py"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/README.md",
+      "new": "scripts/inspectors/ssi_streaming/README.md"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/README.vi.md",
+      "new": "scripts/inspectors/ssi_streaming/README.vi.md"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/__init__.py",
+      "new": "scripts/inspectors/ssi_streaming/__init__.py"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/inspect.py",
+      "new": "scripts/inspectors/ssi_streaming/inspect.py"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/output.py",
+      "new": "scripts/inspectors/ssi_streaming/output.py"
+    },
+    {
+      "old": "scripts/ssi_streaming_inspector/registry.py",
+      "new": "scripts/inspectors/ssi_streaming/registry.py"
+    },
+    {
+      "old": "src/analogs/README.md",
+      "new": "src/research/analogs/README.md"
+    },
+    {
+      "old": "src/analogs/README.vi.md",
+      "new": "src/research/analogs/README.vi.md"
+    },
+    {
+      "old": "src/analogs/__init__.py",
+      "new": "src/research/analogs/__init__.py"
+    },
+    {
+      "old": "src/analogs/cli.py",
+      "new": "src/research/analogs/cli.py"
+    },
+    {
+      "old": "src/analogs/core.py",
+      "new": "src/research/analogs/core.py"
+    },
+    {
+      "old": "src/analogs/pipeline.py",
+      "new": "src/research/analogs/pipeline.py"
+    },
+    {
+      "old": "src/analogs/profile.py",
+      "new": "src/research/analogs/profile.py"
+    },
+    {
+      "old": "src/analogs/profiles/tplus_analog_core_eod_v1.json",
+      "new": "src/research/analogs/profiles/tplus_analog_core_eod_v1.json"
+    },
+    {
+      "old": "src/analogs/profiles/tplus_analog_core_eod_v2.json",
+      "new": "src/research/analogs/profiles/tplus_analog_core_eod_v2.json"
+    },
+    {
+      "old": "src/analogs/repository.py",
+      "new": "src/research/analogs/repository.py"
+    },
+    {
+      "old": "src/analogs/runtime.py",
+      "new": "src/research/analogs/runtime.py"
+    },
+    {
+      "old": "src/analogs/service.py",
+      "new": "src/research/analogs/service.py"
+    },
+    {
+      "old": "src/analogs/validation.py",
+      "new": "src/research/analogs/validation.py"
+    },
+    {
+      "old": "src/data_contracts/README.md",
+      "new": "src/contracts/README.md"
+    },
+    {
+      "old": "src/data_contracts/README.vi.md",
+      "new": "src/contracts/README.vi.md"
+    },
+    {
+      "old": "src/data_contracts/__init__.py",
+      "new": "src/contracts/__init__.py"
+    },
+    {
+      "old": "src/data_contracts/definitions.json",
+      "new": "src/contracts/definitions.json"
+    },
+    {
+      "old": "src/data_contracts/derived.py",
+      "new": "src/contracts/derived.py"
+    },
+    {
+      "old": "src/data_contracts/engine.py",
+      "new": "src/contracts/engine.py"
+    },
+    {
+      "old": "src/data_contracts/mappings/ssi_v3.json",
+      "new": "src/contracts/mappings/ssi_v3.json"
+    },
+    {
+      "old": "src/data_contracts/registry.py",
+      "new": "src/contracts/registry.py"
+    },
+    {
+      "old": "src/data_contracts/transforms.py",
+      "new": "src/contracts/transforms.py"
+    },
+    {
+      "old": "src/data_sources/base.py",
+      "new": "src/providers/ssi/base.py"
+    },
+    {
+      "old": "src/data_sources/registry.py",
+      "new": "src/providers/ssi/registry.py"
+    },
+    {
+      "old": "src/data_sources/ssi_v3.py",
+      "new": "src/providers/ssi/adapters/v3.py"
+    },
+    {
+      "old": "src/features/README.md",
+      "new": "src/features/stock/README.md"
+    },
+    {
+      "old": "src/features/README.vi.md",
+      "new": "src/features/stock/README.vi.md"
+    },
+    {
+      "old": "src/features/__init__.py",
+      "new": "src/features/stock/__init__.py"
+    },
+    {
+      "old": "src/features/backfill.py",
+      "new": "src/features/stock/backfill.py"
+    },
+    {
+      "old": "src/features/common.py",
+      "new": "src/features/stock/common.py"
+    },
+    {
+      "old": "src/features/daily.py",
+      "new": "src/features/stock/daily.py"
+    },
+    {
+      "old": "src/features/intraday.py",
+      "new": "src/features/stock/intraday.py"
+    },
+    {
+      "old": "src/features/policy.py",
+      "new": "src/features/stock/policy.py"
+    },
+    {
+      "old": "src/features/runner.py",
+      "new": "src/features/stock/runner.py"
+    },
+    {
+      "old": "src/features/runtime.py",
+      "new": "src/features/stock/runtime.py"
+    },
+    {
+      "old": "src/foreign_features/README.md",
+      "new": "src/features/foreign/README.md"
+    },
+    {
+      "old": "src/foreign_features/README.vi.md",
+      "new": "src/features/foreign/README.vi.md"
+    },
+    {
+      "old": "src/foreign_features/__init__.py",
+      "new": "src/features/foreign/__init__.py"
+    },
+    {
+      "old": "src/foreign_features/calculator.py",
+      "new": "src/features/foreign/calculator.py"
+    },
+    {
+      "old": "src/foreign_features/calendar.py",
+      "new": "src/features/foreign/calendar.py"
+    },
+    {
+      "old": "src/foreign_features/loader.py",
+      "new": "src/features/foreign/loader.py"
+    },
+    {
+      "old": "src/foreign_features/persistence.py",
+      "new": "src/features/foreign/persistence.py"
+    },
+    {
+      "old": "src/foreign_features/service.py",
+      "new": "src/features/foreign/service.py"
+    },
+    {
+      "old": "src/foreign_features/validator.py",
+      "new": "src/features/foreign/validator.py"
+    },
+    {
+      "old": "src/index_features/README.md",
+      "new": "src/features/index/README.md"
+    },
+    {
+      "old": "src/index_features/README.vi.md",
+      "new": "src/features/index/README.vi.md"
+    },
+    {
+      "old": "src/index_features/__init__.py",
+      "new": "src/features/index/__init__.py"
+    },
+    {
+      "old": "src/index_features/calculator.py",
+      "new": "src/features/index/calculator.py"
+    },
+    {
+      "old": "src/index_features/completeness.py",
+      "new": "src/features/index/completeness.py"
+    },
+    {
+      "old": "src/index_features/pipeline.py",
+      "new": "src/features/index/pipeline.py"
+    },
+    {
+      "old": "src/index_features/repository.py",
+      "new": "src/features/index/repository.py"
+    },
+    {
+      "old": "src/pipeline/README.md",
+      "new": "src/ingest/README.md"
+    },
+    {
+      "old": "src/pipeline/README.vi.md",
+      "new": "src/ingest/README.vi.md"
+    },
+    {
+      "old": "src/pipeline/__init__.py",
+      "new": "src/ingest/__init__.py"
+    },
+    {
+      "old": "src/pipeline/backfill.py",
+      "new": "src/ingest/maintenance/backfill.py"
+    },
+    {
+      "old": "src/pipeline/daily.py",
+      "new": "src/ingest/stock_daily/daily.py"
+    },
+    {
+      "old": "src/pipeline/daily_fetcher.py",
+      "new": "src/ingest/stock_daily/daily_fetcher.py"
+    },
+    {
+      "old": "src/pipeline/daily_mapper.py",
+      "new": "src/ingest/stock_daily/daily_mapper.py"
+    },
+    {
+      "old": "src/pipeline/daily_persistence.py",
+      "new": "src/ingest/stock_daily/daily_persistence.py"
+    },
+    {
+      "old": "src/pipeline/daily_service.py",
+      "new": "src/ingest/stock_daily/daily_service.py"
+    },
+    {
+      "old": "src/pipeline/date_utils.py",
+      "new": "src/ingest/shared/date_utils.py"
+    },
+    {
+      "old": "src/pipeline/eod_dry_run.py",
+      "new": "src/diagnostics/eod_dry_run.py"
+    },
+    {
+      "old": "src/pipeline/fetch_one_day.py",
+      "new": "src/diagnostics/fetch_one_day.py"
+    },
+    {
+      "old": "src/pipeline/index_backfill.py",
+      "new": "src/ingest/index_daily/index_backfill.py"
+    },
+    {
+      "old": "src/pipeline/index_completeness.py",
+      "new": "src/quality/completeness/index_completeness.py"
+    },
+    {
+      "old": "src/pipeline/index_daily.py",
+      "new": "src/ingest/index_daily/index_daily.py"
+    },
+    {
+      "old": "src/pipeline/index_daily_fetcher.py",
+      "new": "src/ingest/index_daily/index_daily_fetcher.py"
+    },
+    {
+      "old": "src/pipeline/index_daily_mapper.py",
+      "new": "src/ingest/index_daily/index_daily_mapper.py"
+    },
+    {
+      "old": "src/pipeline/index_daily_persistence.py",
+      "new": "src/ingest/index_daily/index_daily_persistence.py"
+    },
+    {
+      "old": "src/pipeline/index_daily_preview.py",
+      "new": "src/ingest/index_daily/index_daily_preview.py"
+    },
+    {
+      "old": "src/pipeline/index_daily_service.py",
+      "new": "src/ingest/index_daily/index_daily_service.py"
+    },
+    {
+      "old": "src/pipeline/index_master.py",
+      "new": "src/ingest/master/index_master.py"
+    },
+    {
+      "old": "src/pipeline/index_scope.py",
+      "new": "src/ingest/shared/index_scope.py"
+    },
+    {
+      "old": "src/pipeline/ingest_check.py",
+      "new": "src/quality/completeness/ingest_check.py"
+    },
+    {
+      "old": "src/pipeline/init_symbols.py",
+      "new": "src/ingest/master/init_symbols.py"
+    },
+    {
+      "old": "src/pipeline/intraday_fetcher.py",
+      "new": "src/ingest/stock_intraday/intraday_fetcher.py"
+    },
+    {
+      "old": "src/pipeline/intraday_ingest.py",
+      "new": "src/ingest/stock_intraday/intraday_ingest.py"
+    },
+    {
+      "old": "src/pipeline/intraday_mapper.py",
+      "new": "src/ingest/stock_intraday/intraday_mapper.py"
+    },
+    {
+      "old": "src/pipeline/intraday_persistence.py",
+      "new": "src/ingest/stock_intraday/intraday_persistence.py"
+    },
+    {
+      "old": "src/pipeline/intraday_service.py",
+      "new": "src/ingest/stock_intraday/intraday_service.py"
+    },
+    {
+      "old": "src/pipeline/orderbook_snapshot.py",
+      "new": "src/ingest/streaming/orderbook_snapshot.py"
+    },
+    {
+      "old": "src/pipeline/pipeline_status.py",
+      "new": "src/ingest/shared/pipeline_status.py"
+    },
+    {
+      "old": "src/pipeline/refill.py",
+      "new": "src/ingest/maintenance/refill.py"
+    },
+    {
+      "old": "src/pipeline/stock_eod.py",
+      "new": "src/ingest/workflows/stock_eod.py"
+    },
+    {
+      "old": "src/pipeline/stock_intraday.py",
+      "new": "src/ingest/workflows/stock_intraday.py"
+    },
+    {
+      "old": "src/pipeline/streaming_snapshot.py",
+      "new": "src/ingest/streaming/streaming_snapshot.py"
+    },
+    {
+      "old": "src/pipeline/symbol_scope.py",
+      "new": "src/ingest/shared/symbol_scope.py"
+    },
+    {
+      "old": "src/pipeline/workflow_dates.py",
+      "new": "src/ingest/workflows/workflow_dates.py"
+    },
+    {
+      "old": "src/screener/README.md",
+      "new": "src/research/screener/README.md"
+    },
+    {
+      "old": "src/screener/README.vi.md",
+      "new": "src/research/screener/README.vi.md"
+    },
+    {
+      "old": "src/screener/__init__.py",
+      "new": "src/research/screener/__init__.py"
+    },
+    {
+      "old": "src/screener/config.py",
+      "new": "src/research/screener/config.py"
+    },
+    {
+      "old": "src/screener/configs/v2.json",
+      "new": "src/research/screener/configs/v2.json"
+    },
+    {
+      "old": "src/screener/methodologies/v2.md",
+      "new": "src/research/screener/methodologies/v2.md"
+    },
+    {
+      "old": "src/screener/methodologies/v2.vi.md",
+      "new": "src/research/screener/methodologies/v2.vi.md"
+    },
+    {
+      "old": "src/screener/rules.py",
+      "new": "src/research/screener/rules.py"
+    },
+    {
+      "old": "src/screener/rules_v2.py",
+      "new": "src/research/screener/rules_v2.py"
+    },
+    {
+      "old": "src/screener/service.py",
+      "new": "src/research/screener/service.py"
+    },
+    {
+      "old": "src/ssi/v3.py",
+      "new": "src/providers/ssi/clients/rest_v3.py"
+    },
+    {
+      "old": "src/validation/README.md",
+      "new": "src/quality/validators/README.md"
+    },
+    {
+      "old": "src/validation/README.vi.md",
+      "new": "src/quality/validators/README.vi.md"
+    },
+    {
+      "old": "src/validation/__init__.py",
+      "new": "src/quality/validators/__init__.py"
+    },
+    {
+      "old": "src/validation/daily_validator.py",
+      "new": "src/quality/validators/daily_validator.py"
+    },
+    {
+      "old": "src/validation/index_daily_validator.py",
+      "new": "src/quality/validators/index_daily_validator.py"
+    },
+    {
+      "old": "src/validation/intraday_validator.py",
+      "new": "src/quality/validators/intraday_validator.py"
+    },
+    {
+      "old": "src/validation/logging_utils.py",
+      "new": "src/quality/validators/logging_utils.py"
+    },
+    {
+      "old": "src/validation/models.py",
+      "new": "src/quality/validators/models.py"
+    },
+    {
+      "old": "src/validation/phase0.py",
+      "new": "src/quality/validators/phase0.py"
+    },
+    {
+      "old": "src/validation/streaming_validator.py",
+      "new": "src/quality/validators/streaming_validator.py"
+    }
+  ],
+  "modified": [
+    ".env.example",
+    ".github/workflows/README.md",
+    ".github/workflows/README.vi.md",
+    ".github/workflows/index-eod-v2.yml",
+    ".github/workflows/stock-eod.yml",
+    ".github/workflows/stock-intraday.yml",
+    "README.md",
+    "README.vi.md",
+    "docs/ARCHITECTURE_DECISIONS.md",
+    "docs/CLI_USAGE.md",
+    "docs/CLI_USAGE.vi.md",
+    "docs/CURRENT_STATE.md",
+    "docs/DATA_PIPELINE.md",
+    "docs/PROJECT_OVERVIEW.md",
+    "docs/README.md",
+    "docs/README.vi.md",
+    "docs/STOCK_EOD_PIPELINE.md",
+    "docs/STOCK_EOD_PIPELINE.vi.md",
+    "docs/STOCK_INTRADAY_PIPELINE.md",
+    "docs/STOCK_INTRADAY_PIPELINE.vi.md",
+    "docs/phase0/PHASE0_VALIDATION_REPORT.md",
+    "docs/phase0/PHASE0_VALIDATION_REPORT.vi.md",
+    "docs/phase1/README.md",
+    "docs/phase1/README.vi.md",
+    "main.py",
+    "requirements.txt",
+    "scripts/README.md",
+    "scripts/README.vi.md",
+    "src/README.md",
+    "src/README.vi.md",
+    "src/config.py",
+    "src/database/README.md",
+    "src/database/README.vi.md",
+    "src/features/README.md",
+    "src/features/README.vi.md",
+    "src/features/__init__.py",
+    "tests/analogs/test_core.py",
+    "tests/analogs/test_eod_v2.py",
+    "tests/analogs/test_pipeline_cli.py",
+    "tests/analogs/test_runtime.py",
+    "tests/cli/test_cli_refactor.py",
+    "tests/cli/test_index_preview.py",
+    "tests/data_contracts/test_engine.py",
+    "tests/data_contracts/test_mapper_compatibility.py",
+    "tests/data_preview/test_v3_client.py",
+    "tests/data_sources/test_registry.py",
+    "tests/data_sources/test_ssi_v3_stock_daily.py",
+    "tests/features/test_daily_pagination.py",
+    "tests/features/test_feature_engine.py",
+    "tests/features/test_feature_range_backfill.py",
+    "tests/features/test_feature_timeframe_policy.py",
+    "tests/features/test_intraday_pagination.py",
+    "tests/features/test_issue99_contract.py",
+    "tests/features/test_long_history_parity.py",
+    "tests/foreign_features/test_foreign_calculator.py",
+    "tests/foreign_features/test_foreign_service.py",
+    "tests/index_features/test_calculator.py",
+    "tests/index_features/test_pipeline.py",
+    "tests/ingest/test_daily_ingest_payload_reuse.py",
+    "tests/ingest/test_daily_pipeline.py",
+    "tests/ingest/test_fetch_one_day.py",
+    "tests/ingest/test_index_daily_pipeline.py",
+    "tests/ingest/test_ingest_check.py",
+    "tests/ingest/test_intraday_ingest_pipeline.py",
+    "tests/ingest/test_master_data_pipeline.py",
+    "tests/ingest/test_ssi_api.py",
+    "tests/ingest/test_stock_daily_room_rename_migration.py",
+    "tests/ingest/test_stock_daily_v3_migration.py",
+    "tests/ingest/test_symbol_scope.py",
+    "tests/inspectors/test_ssi_api_inspector.py",
+    "tests/inspectors/test_ssi_api_mapping.py",
+    "tests/inspectors/test_ssi_streaming_inspector.py",
+    "tests/pipeline/test_backfill_pipeline.py",
+    "tests/pipeline/test_eod_dry_run.py",
+    "tests/pipeline/test_index_daily_date.py",
+    "tests/pipeline/test_refill_pipeline.py",
+    "tests/pipeline/test_stock_eod_pipeline.py",
+    "tests/pipeline/test_stock_eod_workflow.py",
+    "tests/pipeline/test_stock_intraday_pipeline.py",
+    "tests/pipeline/test_stock_intraday_workflow.py",
+    "tests/pipeline/test_workflow_dates.py",
+    "tests/screener/test_cli.py",
+    "tests/screener/test_rules.py",
+    "tests/screener/test_service.py",
+    "tests/screener/test_v2.py",
+    "tests/streaming/test_streaming_ingest_pipeline.py",
+    "tests/validation/test_daily_validator.py",
+    "tests/validation/test_intraday_validator.py",
+    "tests/validation/test_phase0.py",
+    "tests/validation/test_streaming_validator.py"
+  ],
+  "created": [
+    "docs/RESTRUCTURE_AUDIT.md",
+    "docs/RESTRUCTURE_MAPPING.json",
+    "docs/RESTRUCTURE_REPORT.md",
+    "docs/RETIRED_TEST_INVENTORY.json",
+    "scripts/capture/README.md",
+    "scripts/capture/README.vi.md",
+    "scripts/capture/__init__.py",
+    "scripts/checks/README.md",
+    "scripts/checks/README.vi.md",
+    "scripts/checks/__init__.py",
+    "scripts/inspectors/README.md",
+    "scripts/inspectors/README.vi.md",
+    "scripts/inspectors/__init__.py",
+    "scripts/maintenance/README.md",
+    "scripts/maintenance/README.vi.md",
+    "scripts/maintenance/__init__.py",
+    "scripts/previews/README.md",
+    "scripts/previews/README.vi.md",
+    "scripts/previews/__init__.py",
+    "src/cli/README.md",
+    "src/cli/README.vi.md",
+    "src/cli/__init__.py",
+    "src/cli/analogs.py",
+    "src/cli/common.py",
+    "src/cli/features.py",
+    "src/cli/foreign.py",
+    "src/cli/index.py",
+    "src/cli/maintenance.py",
+    "src/cli/parser.py",
+    "src/cli/screener.py",
+    "src/cli/stock.py",
+    "src/cli/streaming.py",
+    "src/diagnostics/README.md",
+    "src/diagnostics/README.vi.md",
+    "src/diagnostics/__init__.py",
+    "src/ingest/index_daily/README.md",
+    "src/ingest/index_daily/README.vi.md",
+    "src/ingest/index_daily/__init__.py",
+    "src/ingest/maintenance/README.md",
+    "src/ingest/maintenance/README.vi.md",
+    "src/ingest/maintenance/__init__.py",
+    "src/ingest/master/README.md",
+    "src/ingest/master/README.vi.md",
+    "src/ingest/master/__init__.py",
+    "src/ingest/shared/README.md",
+    "src/ingest/shared/README.vi.md",
+    "src/ingest/shared/__init__.py",
+    "src/ingest/stock_daily/README.md",
+    "src/ingest/stock_daily/README.vi.md",
+    "src/ingest/stock_daily/__init__.py",
+    "src/ingest/stock_intraday/README.md",
+    "src/ingest/stock_intraday/README.vi.md",
+    "src/ingest/stock_intraday/__init__.py",
+    "src/ingest/streaming/README.md",
+    "src/ingest/streaming/README.vi.md",
+    "src/ingest/streaming/__init__.py",
+    "src/ingest/streaming/payloads.py",
+    "src/ingest/workflows/README.md",
+    "src/ingest/workflows/README.vi.md",
+    "src/ingest/workflows/__init__.py",
+    "src/providers/README.md",
+    "src/providers/README.vi.md",
+    "src/providers/__init__.py",
+    "src/providers/ssi/README.md",
+    "src/providers/ssi/README.vi.md",
+    "src/providers/ssi/__init__.py",
+    "src/providers/ssi/adapters/README.md",
+    "src/providers/ssi/adapters/README.vi.md",
+    "src/providers/ssi/adapters/__init__.py",
+    "src/providers/ssi/capabilities.py",
+    "src/providers/ssi/clients/README.md",
+    "src/providers/ssi/clients/README.vi.md",
+    "src/providers/ssi/clients/__init__.py",
+    "src/quality/README.md",
+    "src/quality/README.vi.md",
+    "src/quality/__init__.py",
+    "src/quality/completeness/README.md",
+    "src/quality/completeness/README.vi.md",
+    "src/quality/completeness/__init__.py",
+    "src/research/README.md",
+    "src/research/README.vi.md",
+    "src/research/__init__.py",
+    "tests/cli/test_capability_retirement.py",
+    "tests/ingest/test_provider_boundary.py"
+  ],
+  "deleted": [
+    "src/data_contracts/mappings/ssi_v2.json",
+    "src/data_sources/__init__.py",
+    "src/data_sources/ssi_v2.py",
+    "src/engine/README.md",
+    "src/engine/README.vi.md",
+    "src/engine/__init__.py",
+    "src/engine/data_quality.py",
+    "src/ssi/README.md",
+    "src/ssi/README.vi.md",
+    "src/ssi/__init__.py",
+    "src/ssi/api.py",
+    "src/ssi/streaming.py"
+  ],
+  "notes": [
+    "main.py was split into modular CLI handlers.",
+    "src/features/__init__.py remains a supported stock-feature export surface; implementation moved to stock/.",
+    "src/ssi/streaming.py connection code was deleted; only pure offline historical payload decoding was extracted into ingest/streaming/payloads.py.",
+    "Empty old_to_new arrays mean retirement without a runtime replacement.",
+    "Moved paths may also contain intentional implementation or documentation changes; categories distinguish original tracked paths and newly created paths."
+  ]
+}

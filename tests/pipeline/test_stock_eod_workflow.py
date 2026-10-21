@@ -1,8 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 
-from src.pipeline.date_utils import VN_TZ
-from src.pipeline.workflow_dates import resolve_workflow_date
+from src.ingest.shared.date_utils import VN_TZ
+from src.ingest.workflows.workflow_dates import resolve_workflow_date
 
 
 def test_stock_eod_workflow_uses_renamed_stock_only_command():
@@ -13,7 +13,7 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
     assert "  stock-eod:" in text
     assert "tradingtplus-stock-eod-" in text
     assert 'cmd=(python main.py stock-eod "$TARGET_DATE")' in text
-    assert "src.pipeline.workflow_dates stock-eod" in text
+    assert "src.ingest.workflows.workflow_dates stock-eod" in text
     assert "python main.py eod" not in text
     assert "data_source:" in text
     assert '!= "auto"' in text
@@ -25,7 +25,7 @@ def test_index_eod_remains_independent():
     assert "python main.py index-daily" in text
     assert 'cron: "30 1 * * 2-6"' in text
     assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
-    assert "src.pipeline.workflow_dates index" in text
+    assert "src.ingest.workflows.workflow_dates index" in text
     assert 'cmd=(python main.py index-daily "$TARGET_DATE")' in text
     for forbidden_command in (
         "python main.py stock-eod",
@@ -76,7 +76,7 @@ def test_index_tuesday_schedule_targets_monday_and_manual_date_wins():
 
 
 def test_workflows_log_timing_resolution_context():
-    for workflow in ("stock-eod.yml", "stock-intraday.yml", "index-eod-v2.yml"):
+    for workflow in ("stock-eod.yml", "index-eod-v2.yml"):
         text = Path(".github/workflows", workflow).read_text()
         assert 'echo "event=${{ github.event_name }}"' in text
         assert 'echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"' in text

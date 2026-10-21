@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import math
 import pytest
 
-from src.analogs.core import (
+from src.research.analogs.core import (
     analog_quality,
     build_dimensions,
     distance,
@@ -12,14 +12,14 @@ from src.analogs.core import (
     match_snapshot,
     resolve_outcomes,
 )
-from src.analogs.profile import (
+from src.research.analogs.profile import (
     AnalogProfile,
     config_hash,
     load_profile,
     validate_profile,
 )
-from src.analogs.service import review_profile
-from src.analogs.validation import calibrate
+from src.research.analogs.service import review_profile
+from src.research.analogs.validation import calibrate
 
 
 def feature(**updates):

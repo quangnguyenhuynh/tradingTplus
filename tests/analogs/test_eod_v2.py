@@ -4,21 +4,21 @@ from pathlib import Path
 
 import pytest
 
-from src.analogs.core import match_snapshot, resolve_outcomes
-from src.analogs.pipeline import build_history
-from src.analogs.profile import (
+from src.research.analogs.core import match_snapshot, resolve_outcomes
+from src.research.analogs.pipeline import build_history
+from src.research.analogs.profile import (
     AnalogProfile,
     config_hash,
     load_profile,
     load_source_profile,
     validate_profile,
 )
-from src.analogs.runtime import exact_profile
-from src.analogs.validation import walk_forward
+from src.research.analogs.runtime import exact_profile
+from src.research.analogs.validation import walk_forward
 
 
 def test_v1_and_v2_exact_deterministic_profiles():
-    v1_bytes = Path("src/analogs/profiles/tplus_analog_core_eod_v1.json").read_bytes()
+    v1_bytes = Path("src/research/analogs/profiles/tplus_analog_core_eod_v1.json").read_bytes()
     v1 = load_source_profile("TPLUS_ANALOG_CORE_EOD", 1)
     v2 = load_source_profile("TPLUS_ANALOG_CORE_EOD", 2)
     assert v1.config["horizons"] == [1, 3, 5]
@@ -27,7 +27,7 @@ def test_v1_and_v2_exact_deterministic_profiles():
     assert v2.config_hash == config_hash(deepcopy(v2.config)) != v1.config_hash
     assert (
         v1_bytes
-        == Path("src/analogs/profiles/tplus_analog_core_eod_v1.json").read_bytes()
+        == Path("src/research/analogs/profiles/tplus_analog_core_eod_v1.json").read_bytes()
     )
 
 

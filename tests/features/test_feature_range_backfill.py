@@ -1,8 +1,9 @@
-import main
+import src.cli.features as cli_features
+import src.cli as main
 import pytest
 
-from src.features.backfill import normalize_feature_range
-from src.features.runtime import atomic_replace_features, validate_replace_scope
+from src.features.stock.backfill import normalize_feature_range
+from src.features.stock.runtime import atomic_replace_features, validate_replace_scope
 
 
 def test_normalize_feature_range_is_inclusive_and_accepts_cli_dates():
@@ -19,7 +20,7 @@ def test_normalize_feature_range_rejects_reversed_range():
 def test_features_daily_routes_range_dates_and_symbols(monkeypatch):
     captured = {}
     monkeypatch.setattr(
-        main,
+        cli_features,
         "run_daily_feature_backfill",
         lambda start, end, symbols=None: captured.update(
             start=start, end=end, symbols=symbols
@@ -50,7 +51,7 @@ def test_features_daily_routes_range_dates_and_symbols(monkeypatch):
 def test_features_intraday_routes_range_timeframes(monkeypatch):
     captured = {}
     monkeypatch.setattr(
-        main,
+        cli_features,
         "run_intraday_feature_backfill",
         lambda start, end, symbols=None, timeframes=None: captured.update(
             start=start,
@@ -163,7 +164,7 @@ def test_replace_scope_normalizes_scope_and_rejects_reversed_timestamps():
 
 
 def test_atomic_replace_computes_before_one_rpc(monkeypatch):
-    from src.features import runtime
+    from src.features.stock import runtime
 
     class DB:
         calls = []
@@ -191,7 +192,7 @@ def test_atomic_replace_computes_before_one_rpc(monkeypatch):
 
 def test_replace_cli_rejects_missing_scope_and_routes_complete_scope(monkeypatch):
     assert main.main(["features-daily", "--mode", "replace"]) == 2
-    monkeypatch.setattr(main, "atomic_replace_features", lambda **_kwargs: {"status": "OK"})
+    monkeypatch.setattr(cli_features, "atomic_replace_features", lambda **_kwargs: {"status": "OK"})
     assert main.main([
         "features-daily", "--mode", "replace", "--from", "01/07/2026",
         "--to", "02/07/2026", "--symbols", "SSI",

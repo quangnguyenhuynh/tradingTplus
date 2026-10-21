@@ -5,10 +5,10 @@ import math
 import pandas as pd
 import pytest
 
-from src.features.common import FEATURE_COLUMNS
-from src.features.daily import compute_daily_features
-from src.features.intraday import aggregate_timeframe, compute_intraday_features
-from src.features.runtime import build_feature_records
+from src.features.stock.common import FEATURE_COLUMNS
+from src.features.stock.daily import compute_daily_features
+from src.features.stock.intraday import aggregate_timeframe, compute_intraday_features
+from src.features.stock.runtime import build_feature_records
 
 
 AUDIT_COLUMNS = {"last_updated_at"}
@@ -141,4 +141,3 @@ def test_intraday_200_and_250_session_parity_against_full(timeframe):
         absolute <= FLOAT_ABS_TOLERANCE
         for absolute, _relative in evidence[250].values()
     ), evidence[250]
-

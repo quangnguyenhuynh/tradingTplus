@@ -6,11 +6,11 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import src.features.runner as fe
-import src.features.common as fc
-import src.features.daily as daily_flow
-import src.features.intraday as intraday_flow
-import src.features.runtime as feature_runtime
+import src.features.stock.runner as fe
+import src.features.stock.common as fc
+import src.features.stock.daily as daily_flow
+import src.features.stock.intraday as intraday_flow
+import src.features.stock.runtime as feature_runtime
 
 
 class _Result:

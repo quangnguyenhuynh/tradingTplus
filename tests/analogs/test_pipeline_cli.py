@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 import pytest
-import main
-from src.analogs.pipeline import build_history, daily_run
-from src.analogs.profile import load_profile
+import src.cli as main
+from src.research.analogs.pipeline import build_history, daily_run
+from src.research.analogs.profile import load_profile
 
 
 class Repo:

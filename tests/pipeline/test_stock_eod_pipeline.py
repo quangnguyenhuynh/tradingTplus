@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from src.pipeline import stock_eod
+import src.ingest.workflows.stock_eod as stock_eod
 
 
 def _complete(**changes):

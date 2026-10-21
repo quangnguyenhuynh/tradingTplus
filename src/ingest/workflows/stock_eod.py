@@ -1,0 +1,56 @@
+from __future__ import annotations
+
+from pprint import pformat
+from src.providers.ssi.registry import resolve_source
+
+from src.database.client import SupabaseClient
+from src.ingest.stock_daily.daily import daily_run
+from src.ingest.shared.date_utils import latest_weekday_on_or_before, parse_ddmmyyyy
+from src.quality.completeness.ingest_check import check_daily_ingest
+from src.ingest.shared.pipeline_status import status_from_daily_ingest, validate_pipeline_summary
+from src.ingest.shared.symbol_scope import resolve_active_symbol_scope, symbol_scope_summary
+from src.utils.time_utils import app_now_iso
+
+
+def _resolve_stock_eod_date(date: str | None) -> str:
+    if date is None or not str(date).strip():
+        resolved = latest_weekday_on_or_before().strftime("%d/%m/%Y")
+        print(f"📆 Stock EOD date defaulted to latest weekday on/before today (VN): {resolved}")
+        return resolved
+    return parse_ddmmyyyy(date.strip()).ddmmyyyy
+
+
+def run_stock_eod_pipeline(date: str | None = None, *, symbols=None, data_source: str | None = None) -> dict:
+    """Run daily-only stock ingest and daily-only completeness."""
+    resolve_source("stock_daily", data_source)
+    stock_eod_date = _resolve_stock_eod_date(date)
+    resolved, requested, ignored = resolve_active_symbol_scope(SupabaseClient(), symbols)
+    if ignored:
+        print(f"⚠️ Ignored inactive or unknown symbols: {', '.join(ignored)}")
+    if not resolved:
+        failure = "no active symbols resolved"
+        return {"flow": "stock-eod", "date": stock_eod_date,
+                **symbol_scope_summary(resolved, requested), "ignored_symbols": ignored,
+                "daily_summary": None, "intraday_summary": None,
+                "intraday_summary_deprecated": True, "ingest_summary": None,
+                "status": "FAILED", "failures": [failure], "warnings": []}
+    print("1️⃣ Run stock daily ingest...")
+    kwargs = {"data_source": data_source} if data_source is not None else {}
+    run_started_at = app_now_iso()
+    daily_summary = daily_run(stock_eod_date, symbols=resolved, **kwargs)
+    print("2️⃣ Check daily ingest completeness...")
+    completeness = check_daily_ingest(
+        stock_eod_date,
+        symbols=resolved,
+        updated_since=run_started_at,
+        expected_source=daily_summary.get("data_source"),
+    )
+    print(pformat(completeness, sort_dicts=True))
+    failures = validate_pipeline_summary(daily_summary, "daily ingest")
+    warnings: list[str] = []
+    status = status_from_daily_ingest(completeness, failures, warnings)
+    return {"flow": "stock-eod", "date": stock_eod_date,
+            **symbol_scope_summary(resolved, requested), "ignored_symbols": ignored,
+            "daily_summary": daily_summary, "intraday_summary": None,
+            "intraday_summary_deprecated": True, "ingest_summary": completeness,
+            "status": status, "failures": failures, "warnings": warnings}

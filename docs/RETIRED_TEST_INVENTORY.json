@@ -1,0 +1,533 @@
+{
+  "baseline": "661 passed, 7 skipped",
+  "final": "577 passed, 7 skipped",
+  "removed_or_renamed_test_functions": [
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_backfill_cli_aliases_work",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_backfill_cli_invalid_range_returns_two",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_backfill_cli_passes_exact_dates",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_backfill_cli_passes_symbols",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_intraday_ingest_cli_calls_pipeline_with_symbols",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_refill_cli_aliases_normalize_symbol_and_route",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_refill_cli_rejects_invalid_range",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_refill_cli_rejects_invalid_symbol",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_refill_cli_requires_symbol_and_both_dates",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_stock_intraday_cli_routes_normalized_symbols",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_streaming_ingest_cli_is_dry_run_by_default",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/cli/test_cli_refactor.py::test_streaming_ingest_cli_write_flag",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_engine.py::test_bad_symbol_date_and_candle_timestamp_reject",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_engine.py::test_equivalent_aliases_are_accepted_but_conflicts_reject",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_mapper_compatibility.py::test_index_mapper_keeps_complete_clean_contract",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_mapper_compatibility.py::test_intraday_wrapper_keeps_1m_utc_value_and_raw_payload",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_mapper_compatibility.py::test_mapping_error_blocks_clean_database_write_but_preserves_raw",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_contracts/test_mapper_compatibility.py::test_stock_daily_all_supported_fields_and_foreign_totals",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_sources/test_registry.py::test_catalog_datasets_are_inspector_only_for_both_sources",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/data_sources/test_registry.py::test_explicit_ready_and_deprecated_stock_sources_are_honoured",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_converts_vietnam_time_to_utc_z",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_ignores_api_value_and_uses_close_times_volume",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_logs_normalized_debug_sample",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_missing_daily_context_keeps_limits_null",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_sets_value_null_when_close_or_volume_missing",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_intraday_records_skips_bad_time_and_uses_candle_volume_for_value",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_stock_daily_record_accepts_matching_payload_symbol_and_date",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_stock_daily_record_maps_zero_price_context_placeholders_to_null",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_stock_daily_record_rejects_wrong_payload_date",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_build_stock_daily_record_rejects_wrong_payload_symbol",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_compatibility_module_reexports_public_mapper_contracts",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_daily_only_function_does_not_call_intraday",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_fetch_one_day_with_clients_returns_zero_without_daily",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_fetch_one_day_with_clients_returns_zero_without_intraday",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_fetch_one_day_with_clients_saves_and_returns_int",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_intraday_only_empty_api_creates_no_fake_rows",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_intraday_only_function_does_not_call_daily_price_and_writes_no_daily_rows",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_parse_time_returns_datetime_or_none",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_raw_intraday_payload_preserves_unknown_nested_fields_and_hash_is_key_order_stable",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_fetch_one_day.py::test_save_intraday_records_returns_clean_record_count",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_index_daily_pipeline.py::test_all_documented_fields_are_preserved_raw_and_promoted_when_selected",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_index_daily_pipeline.py::test_mapper_uses_payload_identity_and_keeps_missing_nullable",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_index_daily_pipeline.py::test_market_breadth_aliases",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_index_daily_pipeline.py::test_missing_numeric_fields_remain_null_not_zero",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_intraday_ingest_pipeline.py::test_intraday_calls_only_intraday_endpoint_once_per_symbol",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_intraday_ingest_pipeline.py::test_intraday_explicit_empty_scope_is_invalid",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_intraday_ingest_pipeline.py::test_intraday_ingest_missing_daily_context_reports_partial",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_intraday_ingest_pipeline.py::test_intraday_ingest_symbol_scope_normalizes_uppercase",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_intraday_ingest_pipeline.py::test_intraday_scope_deduplicates_and_does_not_use_master_fallback",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_master_data_pipeline.py::test_master_data_sync_keeps_all_master_endpoints",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_daily_stock_price_rejects_non_matching_rows",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_daily_stock_price_uses_documented_maximum_page_size",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_http_retry_is_bounded_and_does_not_log_authorization",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_intraday_page_size_is_not_changed_with_daily_stock_price",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_missing_data_list_is_an_empty_response_not_no_data",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_services_distinguish_empty_response_from_api_error",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_accepts_documented_lowercase_totalrecord",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_does_not_treat_server_capped_short_page_as_eof",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_final_short_page_requires_empty_page",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_honors_exact_total",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_maximum_bound_stops_endless_changing_pages",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_rejects_cycles_of_any_length_and_shuffled_rows",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_rejects_invalid_page_size",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_rejects_invalid_total_record",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_rejects_total_changes_excess_and_early_empty",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_retains_filters_and_honors_exact_caller_limit",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/ingest/test_ssi_api.py::test_ssi_pagination_zero_total_terminates_on_empty_page",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_canonical_builders_keep_source_specific_dates_timeframe_and_paging",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_canonical_dataset_routes_both_sources",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_catalog_auto_source_and_explicit_equals_form",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_credentials_and_auth_envelopes_are_independent",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_default_v3_explicit_v2_and_invalid_source",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_list_and_help_need_no_credentials_or_network",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_registry_urls_methods_aliases_and_unique_run_all",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_unsupported_endpoint_has_no_cross_source_fallback",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_inspector.py::test_v3_alias_matches_canonical_symbol_query_and_v2_stays_legacy",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_mapping.py::test_catalog_missing_and_duplicate_identity_are_traceable_outside_sample",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_mapping.py::test_cli_fetches_once_and_prints_raw_clean_and_optional_rules",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_mapping.py::test_missing_date_in_v2_range_is_not_invented_and_missing_stays_null",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/inspectors/test_ssi_api_mapping.py::test_v2_range_uses_each_payload_date_and_does_not_overwrite_raw",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_backfill_pipeline.py::test_combined_completeness_failure_is_visible_and_later_dates_continue",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_backfill_pipeline.py::test_combined_runs_complete_branches_in_order_then_checks_each_date",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_backfill_pipeline.py::test_combined_uses_eod_compatible_failure_and_partial_semantics",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_backfill_pipeline.py::test_intraday_branch_preserves_partial_status_and_calls_nothing_else",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_backfill_pipeline.py::test_weekend_only_ranges_are_successful_noops",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_eod_dry_run.py::test_eod_dry_run_does_not_call_any_db_upsert",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_eod_dry_run.py::test_eod_dry_run_feature_output_contains_all_requested_timeframes",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_eod_dry_run.py::test_eod_dry_run_missing_daily_skips_symbol_safely",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_eod_dry_run.py::test_eod_dry_run_missing_intraday_skips_symbol_safely",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_both_feature_failures_make_final_failed",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_feature_exception_does_not_stop_other_branch_and_has_context",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_orchestrator_has_no_delete_replace_or_downstream_calls",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_refill_calls_exact_scope_and_stages_in_order",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_refill_rejects_non_single_symbol_before_any_stage",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_source_failed_skips_both_features",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_source_partial_runs_features_and_cannot_become_ok",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_refill_pipeline.py::test_weekend_only_is_no_op_and_does_not_call_features",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_stock_intraday_pipeline.py::test_intraday_default_date_is_weekday_on_or_before",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_stock_intraday_pipeline.py::test_intraday_no_effective_symbol_fails_without_ssi",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_stock_intraday_pipeline.py::test_intraday_only_stages_reuse_effective_scope",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_stock_intraday_pipeline.py::test_missing_daily_context_stays_observable",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/pipeline/test_stock_intraday_workflow.py::test_stock_intraday_workflow_is_independent_and_scheduled",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/streaming/test_streaming_ingest_pipeline.py::test_dry_run_does_not_write_db",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/streaming/test_streaming_ingest_pipeline.py::test_empty_timeout_returns_empty",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    },
+    {
+      "test": "tests/streaming/test_streaming_ingest_pipeline.py::test_invalid_clean_writes_raw_only_in_write_mode",
+      "reason": "Retired v2 transport/mapping/authentication, legacy or composite ingestion success behavior, or renamed v3-only test; replaced by explicit unavailable/no-service assertions or verified v3 fixture tests. Canonical validators, completeness, value/timestamp, persistence, feature and research tests remain.",
+      "replacement": "tests/cli/test_capability_retirement.py; tests/data_sources/test_ssi_v3_stock_daily.py; tests/data_contracts/test_engine.py; updated domain-specific retirement suites"
+    }
+  ],
+  "parameter_case_changes": "v2 and retired intraday/combined-success parameter cases removed; active v3 and daily-only cases retained. Several v2 helper tests migrated to canonical helper tests. New no-I/O command/API/script coverage is parameterized.",
+  "unchanged_analytical_AST_modules": 34
+}

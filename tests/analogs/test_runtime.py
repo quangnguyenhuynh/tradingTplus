@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from src.analogs.runtime import feature_trading_session
+from src.research.analogs.runtime import feature_trading_session
 
 
 def test_feature_time_uses_timezone_aware_vietnam_trading_session():

@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from src.features.runtime import fetch_stock_daily_rows
+from src.features.stock.runtime import fetch_stock_daily_rows
 from tests.features.test_feature_engine import _DB, _Query, _mk_daily
 
 

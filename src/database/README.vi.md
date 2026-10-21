@@ -29,7 +29,7 @@ Supabase client và các helper persistence của repository.
 
 ## Test
 
-Unit test nên mock Supabase client. Smoke test live mặc định read-only và chạy qua các script như `scripts/check_supabase.py` và `scripts/check_ssi_ingest_schema.py`.
+Unit test nên mock Supabase client. Smoke test live mặc định read-only và chạy qua các script như `scripts/checks/check_supabase.py` và `scripts/checks/check_ssi_ingest_schema.py`.
 
 ## Adapter Phase 1
 

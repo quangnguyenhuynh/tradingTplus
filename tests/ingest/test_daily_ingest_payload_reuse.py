@@ -5,30 +5,30 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-daily_mod = importlib.import_module("src.pipeline.daily")
-from src.data_sources.ssi_v2 import SSIV2Adapter
+daily_mod = importlib.import_module("src.ingest.stock_daily.daily")
+from src.providers.ssi.adapters.v3 import SSIV3Adapter
 
 
 def _daily(**overrides):
     base = {
-        "Symbol": "SSI",
-        "TradingDate": "18/06/2026",
+        "symbol": "SSI",
+        "tradingDate": "18/06/2026",
         "RefPrice": "10.0",
         "CeilingPrice": "11.0",
         "FloorPrice": "9.0",
-        "OpenPrice": "10.1",
-        "HighestPrice": "10.8",
-        "LowestPrice": "9.8",
-        "ClosePrice": "10.5",
-        "TotalMatchVol": "100",
-        "TotalMatchVal": "1050",
-        "TotalTradedVol": "100",
-        "TotalTradedValue": "1050",
-        "ForeignBuyVolTotal": "10",
-        "ForeignSellVolTotal": "3",
-        "ForeignBuyValTotal": "100",
-        "ForeignSellValTotal": "30",
-        "ForeignCurrentRoom": "1000",
+        "open": "10.1",
+        "high": "10.8",
+        "low": "9.8",
+        "close": "10.5",
+        "totalMatch": "100",
+        "totalMatchValue": "1050",
+        "totalDeal": "0",
+        "totalDealValue": "0",
+        "totalForeignBuy": "10",
+        "totalForeignSell": "3",
+        "totalForeignBuyValue": "100",
+        "totalForeignSellValue": "30",
+        "remainForeignRoom": "1000",
     }
     base.update(overrides)
     return base
@@ -40,9 +40,9 @@ class _SSI:
         self.daily_price_calls = 0
         self.foreign_calls = 0
 
-    def get_daily_price(self, symbol, date):
+    def securities_summary(self, symbol, date):
         self.daily_price_calls += 1
-        return self.payload
+        return SimpleNamespace(items=[self.payload] if self.payload else [])
 
     def get_foreign_trading(self, symbol=None, date=None, market=None):
         self.foreign_calls += 1
@@ -74,7 +74,7 @@ def _patch_daily_dependencies(monkeypatch, ssi, db):
         daily_mod,
         "create_production_adapter",
         lambda dataset, requested=None: (
-            SimpleNamespace(source="ssi_v2", status="deprecated"), SSIV2Adapter(ssi)
+            SimpleNamespace(source="ssi_v3", status="ready"), SSIV3Adapter(ssi)
         ),
     )
     monkeypatch.setattr(daily_mod, "SupabaseClient", lambda: db)
@@ -92,7 +92,7 @@ def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
     assert ssi.daily_price_calls == 1
     assert ssi.foreign_calls == 0
     assert db.raw_daily_records[0]["payload"] is payload
-    assert db.raw_daily_records[0]["source"] == "ssi_v2"
+    assert db.raw_daily_records[0]["source"] == "ssi_v3"
     assert db.stock_daily_records[0]["raw"] is payload
     assert db.stock_daily_records[0]["foreign_buy_vol_total"] == 10
     assert db.stock_daily_records[0]["foreign_sell_vol_total"] == 3
@@ -105,11 +105,11 @@ def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
 
 def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(monkeypatch):
     payload = _daily(
-        ForeignBuyVolTotal=None,
-        ForeignSellVolTotal=None,
-        ForeignBuyValTotal=None,
-        ForeignSellValTotal=None,
-        ForeignCurrentRoom=None,
+        totalForeignBuy=None,
+        totalForeignSell=None,
+        totalForeignBuyValue=None,
+        totalForeignSellValue=None,
+        remainForeignRoom=None,
     )
     ssi = _SSI(payload)
     db = _DB()
@@ -161,7 +161,7 @@ def test_daily_ingest_keeps_corporate_action_price_limit_warning(monkeypatch):
 
 
 def test_daily_ingest_wrong_payload_symbol_or_date_writes_no_stock_or_foreign(monkeypatch):
-    ssi = _SSI(_daily(Symbol="HPG"))
+    ssi = _SSI(_daily(symbol="HPG"))
     db = _DB()
     _patch_daily_dependencies(monkeypatch, ssi, db)
 

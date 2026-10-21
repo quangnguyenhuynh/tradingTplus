@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.index_features.calculator import compute_index_daily_features
+from src.features.index.calculator import compute_index_daily_features
 
 
 def source_rows(count=80):

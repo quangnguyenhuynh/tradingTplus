@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from src.foreign_features import loader, persistence, service
+from src.features.foreign import loader, persistence, service
 
 
 class Query:
