@@ -110,7 +110,10 @@ class SSIV3Client:
             except ValueError as exc: raise SSIReadError(f'non-JSON SSI response for {path}', response_body=getattr(r, 'text', None)) from exc
             if isinstance(body,dict):
                 code,message=_envelope_error(body)
-                if code not in (None,0,'0',200,'200','SUCCESS','success'):
+                ohlc_terminal_candidate = (method == 'GET' and path == '/data/ohlc'
+                                           and isinstance(params, dict) and params.get('timeFrame') == '1m'
+                                           and code in (204, '204'))
+                if not ohlc_terminal_candidate and code not in (None,0,'0',200,'200','SUCCESS','success'):
                     raise _request_error(method, path, params, r.status_code, body)
             return body
         raise SSIReadError(f'retry limit reached for {path}')
@@ -219,7 +222,7 @@ class SSIV3Client:
             seen_pages.add(signature)
             if terminal:
                 result.complete = True
-                result.termination = 'provider_pagesCount' if items else 'explicit_empty_page'
+                result.termination = metadata.get('_termination_reason') or ('provider_pagesCount' if items else 'explicit_empty_page')
                 return result
         result.diagnostics.append({'code': 'PAGE_LIMIT', 'message': 'pagination truncated at max_pages'})
         raise IntradayReadError('pagination truncated at max_pages', result)
@@ -257,22 +260,23 @@ def ohlc_1m_params(symbol: str, from_date: str, to_date: str | None = None, *,
     return result
 
 
-def ohlc_page(body: Any) -> tuple[list[Any], dict[str, int]]:
-    """Strict provisional envelopes: do not turn unknown/malformed objects into no-data.
+def ohlc_page(body: Any) -> tuple[list[Any], dict[str, Any]]:
+    """Strict OHLC envelopes: recognize verified 204, never turn other errors into no-data.
 
-    Recognized key names come from existing repository inspector contracts, not
-    newly captured SSI evidence. Metadata is read only on envelope objects.
+    Array key names come from existing repository inspector contracts. The owner
+    supplied real 204/No Content evidence separately. Metadata is envelope-only.
     """
     if isinstance(body, list):
         return body, {}
     if not isinstance(body, dict):
         raise SSIReadError('OHLC response must contain a data array')
-    metadata: dict[str, int] = {}
+    metadata: dict[str, Any] = {}
     current = body
     for _ in range(4):
         lower = {str(k).casefold(): v for k, v in current.items()}
         code = next((lower[k] for k in ('code', 'responsecode', 'statuscode', 'errorcode') if k in lower), None)
-        if (lower.get('success') is False or lower.get('status') in ('failed', 'error', 'FAILED')
+        terminal_204 = ohlc_no_content_204(current)
+        if not terminal_204 and (lower.get('success') is False or lower.get('status') in ('failed', 'error', 'FAILED')
                 or lower.get('error') not in (None, '', False, [], {})
                 or code not in (None, 0, '0', '00', 200, '200', 'SUCCESS', 'success')):
             raise SSIReadError('OHLC provider envelope reports failure')
@@ -286,6 +290,9 @@ def ohlc_page(body: Any) -> tuple[list[Any], dict[str, int]]:
             if name in metadata and metadata[name] != value:
                 raise SSIReadError(f'conflicting pagination metadata: {name}')
             metadata[name] = value
+        if terminal_204:
+            metadata['_termination_reason'] = 'provider_no_content_204'
+            return [], metadata
         arrays = [lower[key] for key in ('data', 'items', 'datalist', 'result') if isinstance(lower.get(key), list)]
         if len(arrays) > 1:
             raise SSIReadError('ambiguous OHLC data arrays')
@@ -296,3 +303,30 @@ def ohlc_page(body: Any) -> tuple[list[Any], dict[str, int]]:
             break
         current = nested[0]
     raise SSIReadError('OHLC response omitted a recognized data array')
+
+
+def ohlc_no_content_204(body: Any) -> bool:
+    """Recognize only the owner-verified OHLC terminal envelope, never generic errors."""
+    if not isinstance(body, dict):
+        return False
+    lower = {str(k).casefold(): v for k, v in body.items()}
+    code = lower.get('code')
+    if code not in (204, '204'):
+        return False
+    if type(code) not in (int, str):
+        raise SSIReadError('malformed OHLC 204 code')
+    messages = [lower[k] for k in ('msg', 'message') if k in lower]
+    if not messages or any(not isinstance(m, str) or m.strip().casefold() != 'no content' for m in messages):
+        raise SSIReadError('OHLC 204 requires No Content message')
+    if (lower.get('success') is False or lower.get('status') not in (None, '', 'success', 'SUCCESS', 'ok', 'OK')
+            or lower.get('error') not in (None, '', False, [], {})
+            or any(lower[k] not in (0, '0', '00', 200, '200', 204, '204')
+                   for k in ('errorcode', 'statuscode', 'responsecode') if k in lower)):
+        raise SSIReadError('conflicting OHLC 204 error markers')
+    payload_keys = {'data', 'items', 'datalist', 'result', 'response'}
+    allowed = payload_keys | {'code', 'msg', 'message', 'success', 'status', 'error',
+                              'errorcode', 'statuscode', 'responsecode', 'pageindex',
+                              'pagesize', 'pagescount', 'totalrecord', 'itemscount'}
+    if set(lower) - allowed or any(lower[k] not in (None, [], {}) for k in payload_keys if k in lower):
+        raise SSIReadError('conflicting or unsupported payload in OHLC 204 response')
+    return True

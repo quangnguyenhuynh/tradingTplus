@@ -37,10 +37,11 @@ def _to_int(value: Any) -> int | None:
 def calculate_trade_value(close: Any, volume: Any) -> int | None:
     """Return BIGINT-safe trade value for one normalized intraday candle.
 
-    SSI intraday candles provide per-candle OHLC + volume. They do not provide a
-    reliable turnover value, so normalized stock_intraday.value is always
-    derived as int(round(close * volume)). Missing/invalid close or volume keeps
-    value NULL.
+    Legacy estimator retained for existing callers and historical provenance.
+    SSI v3 preview maps the reported ohlc.value directly and never calls this
+    helper or supplies its result as a fallback. Production persistence still
+    has a legacy fallback requiring a source-specific guard before v3 promotion.
+    Missing/invalid close or volume keeps the legacy estimate NULL.
     """
     close_float = _to_float(close)
     volume_int = _to_int(volume)

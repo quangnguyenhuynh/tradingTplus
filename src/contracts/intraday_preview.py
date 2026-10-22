@@ -8,7 +8,6 @@ from src.contracts.transforms import VN_TZ
 
 from src.contracts import map_record
 from src.contracts.transforms import to_date, to_symbol
-from src.intraday_value import calculate_trade_value
 from src.quality.validators.intraday_validator import validate_intraday_record
 from dataclasses import asdict
 
@@ -44,6 +43,11 @@ def map_intraday_preview(rows: list[Any], symbol: str, start: str, end: str, *, 
                     if name == 'symbol' and to_symbol(value, {}) != expected:
                         raise ValueError('source symbol differs from requested symbol')
                     if name in ('date', 'tradingdate'):
+                        # A full tradingDate datetime is itself the time source;
+                        # validate its Vietnam instant via the source transform,
+                        # not by truncating a UTC/offset timestamp to its written date.
+                        if name == 'tradingdate' and isinstance(value, str) and len(value.strip()) > 10:
+                            continue
                         source_date = to_date(value, {})
                         if source_date < start or source_date > end:
                             raise ValueError('source date is outside requested range')
@@ -54,17 +58,21 @@ def map_intraday_preview(rows: list[Any], symbol: str, start: str, end: str, *, 
                 except (TypeError, ValueError) as exc:
                     report['errors'].append({'code': 'IDENTITY_MISMATCH', 'field': str(key), 'message': str(exc)})
             if candidate is not None:
-                # Reuse the established estimator; source turnover remains raw/unused.
-                try:
-                    candidate['value'] = calculate_trade_value(candidate['close'], candidate['volume'])
-                except (OverflowError, ValueError):
-                    candidate['value'] = None
-                    report['errors'].append({'code': 'ESTIMATED_VALUE_OUT_OF_BIGINT_RANGE', 'field': 'value'})
                 validation = validate_intraday_record(candidate)
                 report['errors'].extend(asdict(issue) for issue in validation.errors)
                 report['validation_warnings'] = [asdict(issue) for issue in validation.warnings]
-                if candidate['value'] is not None and not 0 <= candidate['value'] <= 2**63 - 1:
-                    report['errors'].append({'code': 'ESTIMATED_VALUE_OUT_OF_BIGINT_RANGE', 'field': 'value'})
+        if isinstance(row, dict):
+            source_values = [v for k, v in row.items() if str(k).casefold() == 'value']
+            present = any(v is not None and v != '' for v in source_values)
+            invalid = any(e.get('field') == 'value' for e in report['errors'])
+            report['source_value_present'] = present
+            report['source_value_status'] = ('INVALID' if invalid else 'MISSING' if not present else
+                                             'MAPPED' if candidate and not report['errors'] else 'VALIDATED_NOT_MAPPED')
+            if not present:
+                report.setdefault('warnings', []).append({
+                    'code': 'SOURCE_VALUE_MISSING', 'field': 'value',
+                    'message': 'SSI source value absent/null/empty; canonical value stays NULL; no fallback',
+                })
         if report['errors']:
             candidate = None
         report['records_valid'] = int(candidate is not None)

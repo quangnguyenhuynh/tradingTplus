@@ -1,54 +1,57 @@
-# SSI v3 Stock Intraday 1m Preview report
+# SSI v3 Intraday timestamp, terminal 204 and source-value fix report
 
-[Tiếng Việt](SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md) · [Runbook and checklist](STOCK_INTRADAY_PIPELINE.md)
+[Tiếng Việt](SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md) · [Runbook](STOCK_INTRADAY_PIPELINE.md)
 
-## Overall result: PARTIAL
+## Status: COMPLETE for the read-only fixes and offline verification
 
-The read-only preview, bounded pagination and shared mapping/validation are implemented and offline-tested. SSI v3 live verification is **NOT_RUN** because neither SSI_API_KEY nor SSI_API_SECRET is configured. SSI network access is also not established. No captured v3 intraday response or new authoritative intraday specification is available to resolve query/units/bar semantics. No invented market fixture is substituted for evidence. New tests explicitly use synthetic protocol/calculator inputs, not captured SSI responses.
+All three issues are fixed, the two owner-provided real candles/terminal envelope replay correctly, and offline tests ran. Agent live rerun: **NOT_RUN** because SSI credentials are unavailable. The complete 226-row capture was not supplied, so this report does not claim an independently replayed 226/226 result. Production readiness remains **false**; ingest/scheduling/backfill are disabled. Bar-start/end and official matched-turnover semantics remain independently unverified.
 
-GitHub verified base dev `804de03b819dedebcf32b1a97496d059978e1a63` (PR #179); its tree matches the existing documentation snapshot. Its commit hash was verified before creating feat/ssi-v3-intraday-preview. The pre-edit audit covered AGENTS, CLI/preflight, provider/contracts/client/adapter, ingest helpers, validators/completeness, value estimator, DB client/schema/migrations, inspector/tests/workflow/docs. No retired API or adapter fallback is used.
+Base dev: 09f0ea4a1d2f5d920f3f7eb2be4eb1d7a9375831 (merged PR #180); fix branch: fix/ssi-v3-intraday-evidence. The pre-edit audit covered AGENTS, CLI, client/adapter/mapper/transforms/dictionary/engine, contract/schema/migrations, validators, estimator, DB fallback, inspector, tests and docs. The owner's new requirement explicitly supersedes the estimate convention for this v3 preview only; legacy behavior/historical provenance are not changed.
 
-## Previous behavior, gaps and implementation
+## Root causes and before/after
 
-The preliminary ohlc_1m client concatenated a date/time string and used the generic pager that stops on short pages. The inspector mapped one page and computed value through a second mapping pass; naive timestamps were assumed to be Vietnam time without v3 evidence. Nullable OHLCV contract metadata does not replace the pipeline's required OHLCV validation. Historical v2 bar metadata is not proof of a v3 convention.
+| Issue | Before | After |
+| --- | --- | --- |
+| Timestamp | ohlc.time misses real tradingDate; naive timestamps reject | ohlc.tradingDate uses explicit Asia/Ho_Chi_Minh interpretation for observed YYYY/MM/DD HH:mm:ss, then UTC |
+| 204 | Client rejects API code 204 and decoder requires an array | OHLC 1m alone passes 204 for strict No Content decoding and existing consistency checks |
+| Value | derived plus calculate_trade_value(close, volume) | ohlc.value parsed exactly through Decimal/integer; no estimator or fallback |
 
-The 1m builder now normalizes dates/paging, downloads until evidenced termination or explicit failure and preserves received raw/pages on truncation/repeat/count errors. Adapter and inspector share a mapper and reuse existing value estimation/validation. Missing timestamp timezone/date is never guessed. --limit controls display; --full-json exposes every fetched page. Production registry, disabled CLI gates and workflow are unchanged.
+Mapping version is 1.2.0-preview; contract version 1.0.0 and fields/schema/nullability/keys remain intact. definitions.json only clarifies source/historical semantics; types/required/nullable flags do not change. The generic engine adds actual source-field context so the v3-specific transform scopes naive market-local handling to tradingDate; legacy time still requires an offset. The generic aware-only transform is not broadened for other datasets.
 
-## Endpoint, response, timestamp and units
+## Evidence and raw-to-clean comparison
 
-Only candidate: GET https://api.ssi.com.vn/api/v3/data/ohlc with symbol/from/to/timeFrame=1m/pageIndex/pageSize and optional native-route ascending. Builder bounds are YYYY/MM/DD 00:00:00 through YYYY/MM/DD 23:59:59; provider acceptance/inclusivity/sort are not live-verified. Inspector defaults pageSize 10 and max-pages 100; client default pageSize 1000. Syntax/range/paging are checked before I/O.
+The fixture tests/fixtures/data_preview/ssi_v3_intraday_ssi_2026-10-20_owner_samples.json copies exactly the two real candle objects and terminal envelope from the owner request, with no credentials/full logs. Array/page wrappers and modified edge cases are explicitly synthetic. No missing 224 rows are reconstructed as real evidence.
 
-Decoder support reflects existing repository conventions, not a verified real SSI response: top-level array or data/items/dataList/result arrays, bounded data/result/response nesting. Unknown/malformed shapes and provider failures are errors. pageIndex/pagesCount/totalRecord metadata is checked when available; itemsCount is not assumed to mean total across all pages. Raw response envelopes/candles remain intact; source value is not canonical turnover.
+| Raw tradingDate | Canonical UTC | Raw close | Raw volume | Raw value → clean int |
+| --- | --- | --- | --- | --- |
+| 2026/10/20 14:45:00 | 2026-10-20T07:45:00Z | 19950 | 2626600 | 52400670000 → 52400670000 |
+| 2026/10/20 14:29:00 | 2026-10-20T07:29:00Z | 19850 | 129000 | 2560650000 → 2560650000 |
 
-Only full source time with offset/Z is accepted, converted to UTC and checked against the requested Vietnam date range. Time-only/date-only/naive/epoch and other unverified forms reject; request dates never manufacture candle time. A supplied source date must agree with the timestamp. Seconds/fractions are retained. Naive timezone, bar-start/bar-end, price scaling and per-candle-volume semantics are **BLOCKED** pending real evidence. definitions.json is unchanged because historical v2 metadata cannot yet be replaced with a verified v3 convention.
+Offline replay: raw 2, mapped 2, rejected 0, duplicates 0; raw/string representations and descending order remain unchanged. Two synthetic one-candle page wrappers followed by the real 204 envelope yield three requested/received pages, pagination_complete=true and provider_no_content_204 termination. Short pages do not stop early. No auction candles/minute shifts are introduced. Local fractional seconds up to microseconds and previously supported explicit ISO offsets retain their exact instant. Invalid/missing/out-of-range date or mismatched identity still reject.
 
-## Field-by-field mapping
+The owner reported, for SSI 2026-10-20 only: 226 raw/unique, 23 nonempty pages, terminal 24, 135 morning + 90 afternoon + one 14:45 candle, all values present and coincidentally equal to close × volume. These remain **owner-reported observations**, not the agent's full-capture replay result or a universal completeness invariant. Equality is not permission to recalculate canonical value.
 
-| Canonical | Handling |
-| --- | --- |
-| symbol | Request identity checked against source symbol if present |
-| time | ohlc.time → intraday_timestamp; full aware timestamp required |
-| timeframe | 1m; conflicting returned timeFrame rejects |
-| open/high/low/close | Same-named finite positive floats, OHLC inequalities; VND scale unverified |
-| volume | Exact nonnegative integral BIGINT from same-named source; units/per-candle meaning unverified; no cumulative differencing |
-| value | Reuses int(round(close * volume)), estimated; source value never becomes canonical turnover |
-| reference_price/ceiling_price/floor_price | NULL/unsupported until equivalent fields/context are verified; no daily DB lookup |
+## Value preservation, nulls and failures
 
-Missing optional values remain null in mapping evidence; missing record-validator-required OHLCV rejects the candidate. Raw data and errors remain observable. Invalid prices/volume/time are never repaired into a valid record.
+Canonical value is **SSI-reported intraday candle value**, not independently certified official matched turnover. No scaling/unit conversion is invented. Exact integers/integral decimal strings are parsed with Decimal, never float, preserving values above 2^53 through 2^63−1. Float/bool, non-finite, fractional, negative, overflow and malformed strings reject while raw remains intact. Zero stays zero. Missing/NULL/empty retains canonical NULL and SOURCE_VALUE_MISSING warnings, without estimate/zero substitution.
 
-Synthetic test comparison extending the repository's existing 10.5/100 input (not a real SSI payload): time=2026-09-08T09:15:00+07:00, OHLC=10.5, volume=100 → time=2026-09-08T02:15:00Z, timeframe=1m, OHLC=10.5, volume=100, value=1050, three context prices=null. Naive time=2026/09/08 09:15:00 is rejected rather than guessed.
+A **synthetic** close=19950, volume=100, value=1994000 test proves clean.value=1994000 rather than 1995000. The estimator is monkeypatched to fail if preview calls it. This is not a real market candle.
 
-## Pagination and quality evidence
+Report counters distinguish source_value_present_count, source_value_numeric_valid_count, source_value_mapped_count, missing/invalid counts and source_value_semantics_verified=false. Receiving a value, preserving it, validating its numeric form and independently validating market semantics are separate outcomes. Missing-value warnings remain visible outside display samples.
 
-Tests exercise two short nonempty pages followed by an explicit empty page: all three calls occur. Valid terminal metadata terminates; repeats/reordered repeats, mismatched pageIndex, changing totals, terminal count mismatch, early empty pages and page limits fail with received raw evidence. A request failure after page one retains that page's raw/candidates. Bounded retries and provider/JSON/auth/network errors are distinct from no-data. Starts after page one are explicitly suffix scope.
+## Terminal 204 and retained failures
 
-Tests cover identity/date/UTC, invalid timestamp, finite positive OHLC/inequalities, nonnegative integral volume, nulls, missing context, raw ordering, duplicates, morning/lunch/afternoon/auction observations, continuous-minute gaps and no cross-date/lunch stitching. No candle is fabricated and no universal count assumed. Duplicates remain visible and fail batch validation; structural warnings are separate. Completeness remains UNVERIFIED even when HTTP/paging/validation pass. A clean nonempty preview is still PROVISIONAL, not certified source readiness.
+Accept integer/string code 204 with No Content and no nonempty/unsupported payload or contradictory error marker. First-page 204 means EMPTY; after data pages it terminates. Original envelope and requested/received page counts remain available. Prior pageIndex/totalRecord/pagesCount, final row counts, changed metadata, repeated/reordered pages, duplicates, short-page continuation and max-pages remain checked. Conflicting/malformed 204 and unrelated 400/401/403/500/provider failures do not become no-data. Daily/Index behavior does not inherit the OHLC 1m 204 exemption.
 
-## Storage contracts — code/schema inspection only
+Completeness stays UNVERIFIED independently of pagination_complete. Descending order is preserved/reported; ascending-view/session/gap warnings never authorize data repair or candle fabrication. Missing source value respects nullability; invalid value rejects the affected candidate.
 
-Current raw stock_raw_intraday has symbol/time/data_hash uniqueness, nullable payload JSONB and source default SSI. Clean stock_intraday has symbol/timeframe/time primary key and monthly time partitions. The 20260803 payload migration targets raw_intraday; the 20260826 migration renames it stock_raw_intraday. This explains the observed historical names but does not certify deployed production migration order. Schema/conflict keys/source history are unchanged. Future ingestion must verify deployed keys/partitions/source/hash provenance and separately propose any proven required cross-source identity change.
+## Deferred persistence risk
 
-Migration: **none**. Database impact: **none** (no DB reads/writes, row/table/index/partition changes). Backfill: **none**. Features/research/master/streaming and intraday schedules/production ingestion remain unchanged.
+src/database/client.py:upsert_intraday still calls calculate_trade_value for absent/NULL value. That method and its consumers are unchanged. Preview never invokes it and tests block DB access. Before production promotion, a source-specific v3 guard must carry value unchanged, preserve NULL without fallback, reject invalid values and prove no recomputation. Passing NULL to the existing helper is insufficient. Do not globally remove legacy fallback without auditing callers. Historical estimates require a separate explicitly authorized symbol/date/provenance repair task.
+
+Schema remains stock_raw_intraday (symbol/time/data_hash, original payload/source) and stock_intraday (symbol/timeframe/time, monthly partitions, nullable BIGINT value). The old payload migration uses raw_intraday, renamed by the later standardization migration; no schema/key change is needed for preview.
+
+Migration: **none**. Production DB writes/data/history changes: **none**. Backfill: **none**. No feature/signal/backtest, scheduled ingest or production capability enablement.
 
 ## Modified files
 
@@ -56,46 +59,57 @@ Migration: **none**. Database impact: **none** (no DB reads/writes, row/table/in
 - `docs/CLI_USAGE.vi.md`
 - `docs/DATA_CONVENTIONS.md`
 - `docs/DATA_CONVENTIONS.vi.md`
+- `docs/SSI_V3_INTRADAY_PREVIEW_REPORT.md`
+- `docs/SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md`
 - `docs/STOCK_INTRADAY_PIPELINE.md`
 - `docs/STOCK_INTRADAY_PIPELINE.vi.md`
 - `scripts/inspectors/ssi_rest/README.md`
 - `scripts/inspectors/ssi_rest/README.vi.md`
-- `scripts/inspectors/ssi_rest/endpoints.py`
 - `scripts/inspectors/ssi_rest/inspect.py`
-- `scripts/inspectors/ssi_rest/mapping.py`
+- `src/contracts/README.md`
+- `src/contracts/README.vi.md`
+- `src/contracts/definitions.json`
+- `src/contracts/engine.py`
+- `src/contracts/intraday_preview.py`
 - `src/contracts/mappings/ssi_v3.json`
 - `src/contracts/transforms.py`
 - `src/ingest/stock_intraday/README.md`
 - `src/ingest/stock_intraday/README.vi.md`
+- `src/intraday_value.py`
 - `src/providers/ssi/README.md`
 - `src/providers/ssi/README.vi.md`
-- `src/providers/ssi/adapters/v3.py`
+- `src/providers/ssi/adapters/intraday_preview.py`
 - `src/providers/ssi/clients/rest_v3.py`
-- `tests/inspectors/test_ssi_api_mapping.py`
+- `tests/data_preview/test_intraday_preview.py`
 
 ## Created files
 
-- `docs/SSI_V3_INTRADAY_PREVIEW_REPORT.md`
-- `docs/SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md`
-- `src/contracts/intraday_preview.py`
-- `src/providers/ssi/adapters/intraday_preview.py`
-- `tests/data_preview/test_intraday_preview.py`
+- `tests/data_preview/test_intraday_evidence_fix.py`
+- `tests/fixtures/data_preview/ssi_v3_intraday_ssi_2026-10-20_owner_samples.json`
 
-## Validation commands and results
+## Executed validation commands and results
+
+| Command | Result |
+| --- | --- |
+| `.venv/bin/python -m pytest -q tests/data_preview` | 148 passed |
+| `.venv/bin/python -m pytest -q tests/inspectors` | 64 passed |
+| `.venv/bin/python -m pytest -q tests/data_contracts` | 17 passed |
+| `.venv/bin/python -m pytest -q tests/validation` | 57 passed |
+| `.venv/bin/python -m pytest -q tests/ingest` | 81 passed |
+| `.venv/bin/python -m pytest -q tests/cli` | 58 passed |
+| `.venv/bin/python -m pytest -q` | 718 passed, 7 skipped |
+| `.venv/bin/python -m compileall main.py src scripts tests` | PASS |
+| `git diff --check` | PASS |
+
+Seven PostgreSQL atomic-replace tests skip without TEST_DATABASE_URL. The full suite covers Daily/Index, feature and disabled-capability regressions; feature tests and Daily/Index logic are unchanged. Tests verify that 204 does not extend to Daily/Index, block DB access and prove no estimator call. The real fixture contains only supplied excerpts; 67 added cases accompany affected old test updates. No database write smoke test or fabricated live PASS was performed.
+
+## Owner read-only verification commands
 
 ```bash
-.venv/bin/python -m pytest -q tests/inspectors tests/data_contracts tests/data_sources tests/data_preview tests/ingest tests/validation tests/cli
-.venv/bin/python -m pytest -q
-.venv/bin/python -m compileall main.py src scripts tests
-.venv/bin/python scripts/inspectors/ssi_rest/inspect.py list
-.venv/bin/python scripts/inspectors/ssi_rest/inspect.py run --help
-git diff --check
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --show-mapping
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 ```
 
-Final combined tests: **372 passed**; full suite: **651 passed, 7 skipped** (PostgreSQL atomic-replace tests require TEST_DATABASE_URL). There are 74 new tests; one existing test now rejects the unverified naive-time assumption. Daily/Index, feature and disabled-capability regressions pass; feature tests were not changed. Compile/help/list/whitespace and documentation links/example syntax were checked offline. A credential-free preview invocation confirms FAILED/exit 1 with a missing-credential message and no traceback/network access. No live SSI/Supabase or write smoke test was performed.
+A separate manual-ingestion task can be considered after owner review of the full raw/clean rerun, the persistence no-recomputation/NULL guard and deployed schema/provenance/partition checks. Manual production is not enabled here; registry/CLI/workflow remain unchanged. Next run the commands above with local credentials, review terminal 204 and source-value counters, then obtain owner acceptance for a separately scoped promotion task.
 
-## Production-readiness decision and next step
-
-**Do not promote to production.** Remaining risks: no real source evidence; units/time/bar/sort/bounds and metadata semantics unresolved; session coverage and deployed schema not certified. Next configure credentials and approved SSI access, inspect SSI on a completed day and a second symbol/date read-only, review raw/clean evidence and settle semantics. After owner acceptance, a separate task can implement manual raw-first/validated-clean persistence and verify idempotency/partitions/provenance before registry/CLI promotion. Scheduling/backfill remain separate scope. See the full checklist in the runbook.
-
-Final checks after the error-body retention refinement: `.venv/bin/python -m pytest -q tests/data_preview tests/data_sources tests/inspectors tests/cli` → **217 passed**. Offline link and request-plan/parser checks: **22 inspector examples passed**. Full suite before that diagnostic-only refinement: 651 passed, 7 skipped; source/feature algorithms were not changed by the refinement.
+Final documentation checks: 25 inspector examples pass parser/request-plan validation and changed local links resolve. Automated scope checks confirm only descriptive contract metadata changed and DB client/schema/registry/CLI gates/workflow/feature tests remain untouched.
