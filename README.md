@@ -32,7 +32,7 @@ python -m pip install pytest
 
 Verified against `dev` commit `b5cb3276` (PR #178). Run from the repository root. Examples use illustrative dates and symbols; check source availability and choose the exact intended scope before executing. Syntax was checked offline, not against live SSI or Supabase.
 
-SSI v3 Stock Daily (`securitiesSummary`) and Index Daily (`indexSummary`) ingestion are ACTIVE. Stock, foreign and index features are ACTIVE on persisted clean data. Screener and Historical Analog are RESEARCH_ACTIVE. Intraday source ingestion, master synchronization, streaming and orderbook capture are NOT_IMPLEMENTED. The retired source has no fallback.
+SSI v3 Stock Daily (`securitiesSummary`) and Index Daily (`indexSummary`) ingestion are ACTIVE. Stock, foreign and index features are ACTIVE on persisted clean data. Screener and Historical Analog are RESEARCH_ACTIVE. Stock intraday has an isolated manual single-symbol/day pilot (read-only unless `--write`); unattended intraday, master synchronization, streaming and orderbook capture remain NOT_IMPLEMENTED. See [manual runbook](docs/STOCK_INTRADAY_PIPELINE.md). The retired source has no fallback.
 
 READ-ONLY — database read means no writes but still requires database access. READ-ONLY — SSI API request can make live requests without using Supabase. WRITE labels identify persistence, including explicit apply and scoped replacement. UNSUPPORTED means an input or operation is rejected, not an empty successful result.
 

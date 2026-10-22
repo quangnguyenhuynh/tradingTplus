@@ -1,6 +1,20 @@
-# SSI v3 Intraday 1m — runbook chỉ đọc
+# SSI v3 Intraday 1m — runbook preview và pilot thủ công
 
 [English](STOCK_INTRADAY_PIPELINE.md) · [CLI](CLI_USAGE.vi.md) · [Báo cáo xác minh](SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md)
+
+
+## Pilot intraday thủ công có guard
+
+`stock-intraday` hỗ trợ đúng một mã và ngày giao dịch Việt Nam tường minh. Mặc định/`--dry-run` là READ-ONLY; chỉ `--write` mới cho phép chuỗi chèn raw → clean có kiểm soát. Cần credential SSI; credential service Supabase cho phép preflight chỉ đọc eligibility/xung đột và bắt buộc khi ghi. Nếu chưa cấu hình DB, dry-run báo `NOT_RUN_NO_CREDENTIALS`, số dự kiến chưa biết và `write_ready=false`.
+
+```bash
+python main.py stock-intraday 20/10/2026 --symbols SSI
+python main.py stock-intraday 20/10/2026 --symbols SSI --write
+```
+
+Lệnh thứ hai **chỉ dành cho chủ sở hữu sau khi kiểm tra dry-run/preflight**. Không nhận khoảng ngày, ALL/wildcard, scope thiếu, nhiều mã hoặc ngày tương lai. Cả hai status trong master phải active. Chỉ nguồn `ssi_v3`, timeframe `1m`; value canonical giữ chính xác `ohlc.value`, thiếu/sai sẽ chặn pilot và không ước tính bù. Hàng giống giữ nguyên; clean khác giá trị hoặc raw xung đột key/source/payload sẽ chặn. Không force overwrite. Xác nhận raw trước clean; ghi dở dang/không rõ kết quả trả exit khác 0, cần kiểm tra đúng scope rồi chạy lại an toàn. Không cam kết transaction xuyên hai bảng. Completeness vẫn UNVERIFIED. Các lệnh ingest/backfill/refill/streaming intraday khác và schedule vẫn tắt. Pilot không chạy feature/signal/backtest.
+
+Xem [báo cáo triển khai](SSI_V3_INTRADAY_MANUAL_REPORT.vi.md) về thứ tự ghi, idempotency, partition, phục hồi và xác minh của chủ sở hữu. Inspector vẫn hoàn toàn chỉ đọc; registry giữ preview, không có factory production chung.
 
 ## Phạm vi và bằng chứng
 
@@ -10,7 +24,7 @@ Canonical v3 `value` là **SSI-reported intraday candle value** (giá trị nế
 
 Envelope 204/No Content đã xác nhận chỉ kết thúc paging OHLC 1m khi không có payload/marker lỗi mâu thuẫn và đã qua kiểm tra metadata/số đếm. Giữ nguyên raw envelope, termination provider_no_content_204. Trang ngắn không rỗng không tự kết thúc; trang lặp, total sai, malformed/lỗi và cắt cụt do giới hạn vẫn fail. --limit chỉ giới hạn in; --full-json giữ các trang raw đã nhận, candidate và diagnostic.
 
-Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest/schedule production vẫn tắt; preview không đọc/ghi DB.
+Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest tự động/schedule vẫn tắt; inspector preview không đọc/ghi DB.
 
 
 ## Chạy an toàn
@@ -24,7 +38,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-Không thêm lệnh CLI. Native intraday-ohlc hiện có dùng cùng adapter/mapper provider. Production intraday-ingest, stock-intraday, backfill-intraday, backfill kết hợp và refill vẫn NOT_IMPLEMENTED trước service. Clean 1m lịch sử vẫn có thể dùng cho feature độc lập; preview không kích hoạt feature.
+Không thêm lệnh CLI. Native intraday-ohlc hiện có dùng cùng adapter/mapper provider. Intraday-ingest tự động, backfill-intraday, backfill kết hợp và refill vẫn NOT_IMPLEMENTED trước service. Clean 1m lịch sử vẫn có thể dùng cho feature độc lập; preview không kích hoạt feature.
 
 ## Request và pagination
 
@@ -56,18 +70,40 @@ Giữ giây và microsecond hợp lệ. Ngày thiếu/sai, ngoài phạm vi ngà
 
 ## Report và chất lượng
 
-Report có field time/diễn giải thực tế, số raw/mapped/rejected, trang request/nhận, terminal reason, cận raw/UTC và chronology, duplicate, thứ tự nhận giữ nguyên, lỗi OHLCV/identity và warning cấu trúc. Giữ thứ tự giảm dần từ nguồn; warning đảo so với view tăng dần tự nó không chứng minh dữ liệu hỏng. Dùng validator phiên/gap hiện có; nghỉ trưa/auction/no-trade không tạo nến giả. Completeness luôn UNVERIFIED.
+Report có field time/diễn giải thực tế, số raw/mapped/rejected, trang request/nhận, terminal reason, cận raw/UTC và chronology, duplicate, thứ tự nhận giữ nguyên, lỗi OHLCV/identity và warning cấu trúc. Giữ thứ tự giảm dần từ nguồn, sort view validation clean; vẫn giữ warning mixed và chặn pilot. Dùng validator phiên/gap hiện có; nghỉ trưa/auction/no-trade không tạo nến giả. Completeness luôn UNVERIFIED.
 
 source_value_present_count: API có value khác null/rỗng; source_value_numeric_valid_count: parse số nghiêm ngặt pass; source_value_mapped_count: candidate clean thực sự giữ value. source_value_missing_count và source_value_invalid_count tách riêng; source_value_semantics_verified=false nghĩa là chưa chứng nhận độc lập ý nghĩa official matched turnover. Warning thiếu value ngoài sample in vẫn hiển thị.
 
 PROVISIONAL (không rỗng, sạch) và EMPTY exit 0; mapping/batch PARTIAL hoặc request/paging FAILED exit 1; CLI/plan sai exit 2. Không trạng thái nào chứng minh production readiness hay completeness thị trường. --show-mapping in quy tắc/bằng chứng; --full-json có mọi trang raw đã nhận cùng candidate/lỗi theo vị trí. Không đổi chuỗi/thứ tự/value nguồn.
 
-## Contract DB và guard persistence tương lai
+## Contract DB: inspector và pilot
 
-Không gọi DB. stock_raw_intraday giữ identity symbol/time/data_hash, source và payload gốc nullable; stock_intraday giữ khóa symbol/timeframe/time, value BIGINT nullable và partition time theo tháng. Migration payload cũ gọi raw_intraday; migration chuẩn hóa sau đổi thành stock_raw_intraday. Không cần đổi tên/key/schema ở đây.
+Inspector không gọi DB. Pilot thủ công mới dùng các bảng/khóa hiện có qua boundary chèn riêng mô tả dưới đây. Helper legacy `upsert_intraday()` vẫn ước tính khi value thiếu; pilot hoàn toàn không gọi helper này và chặn missing/null value trước ghi. Không sửa provenance/value lịch sử. Registry vẫn preview; CLI chỉ mở pilot một mã/ngày. Schedule/backfill và ingest tự động vẫn tắt. Không cần migration hoặc backfill; Codex không chạy live DB writes.
 
-src/database/client.py:upsert_intraday vẫn gọi calculate_trade_value khi value thiếu/NULL. Không đổi hành vi legacy hoặc consumer hiện có. **Trước promotion v3, phải có guard persistence theo nguồn: mang nguyên value được trả về, giữ NULL không fallback, từ chối value sai và chứng minh không gọi estimator.** Không đơn thuần truyền NULL vào helper persistence hiện tại: nó sẽ tính ước lượng. Sửa giá trị ước lượng lịch sử phải là thao tác riêng có scope mã/ngày/provenance và cho phép tường minh; task này không làm.
+## Persistence và phục hồi pilot thủ công
 
-Bước promotion tiếp theo cần chủ sở hữu review lần chạy chỉ đọc mới, đầy đủ raw/clean/value và page/duplicate check; làm rõ độc lập bar/value semantics khi cần; xác minh constraint/partition/provenance triển khai; task persist thủ công có scope cùng guard value riêng. Task này không bật registry/CLI/schedule/backfill.
+Workflow hiện có chỉ gọi `src/ingest/stock_intraday/manual.py`. Ingest chung vẫn tắt; registry giữ preview, không có intraday production factory. Pilot tái sử dụng `SSIV3Adapter.preview_intraday()` từ trang 1 cho toàn ngày, cùng retry/paging có giới hạn và 204 hiện có. Chấp nhận tăng/giảm dần nghiêm ngặt; chỉ sort view validation của dữ liệu giảm dần, giữ raw và thứ tự gốc. Mixed và timestamp trùng chặn ghi. Mọi candle phải map đúng identity/ngày, OHLCV hợp lệ và source value nguyên chính xác không thiếu; không lọc hàng lỗi để ghi batch dở.
 
-Migration: none. Ghi DB/sửa lịch sử: none. Backfill: none. Không feature/signal/backtest/alert.
+Eligibility chỉ đọc đúng hàng `symbols` được yêu cầu, cần `status=active` và `intraday_status=active`. Thiếu/không rõ/inactive chặn trước fetch nếu có DB. Không tự active, không mở rộng universe. Guard scope chạy trước khi tạo client. Nguồn rỗng/ngày nghỉ chặn ghi, không tạo candle. Dry-run thiếu DB chỉ xác minh nguồn, không chứng nhận eligibility/xung đột.
+
+Ví dụ ngày Việt Nam 2026-10-20: query `symbol=SSI`, UTC `time >= 2026-10-19T17:00:00Z`, `time < 2026-10-20T17:00:00Z`; clean thêm `timeframe=1m`. Đọc DB theo trang 100 hàng, đối chiếu exact count, giới hạn 10.000 hàng; count thiếu/thay đổi hoặc chạm giới hạn sẽ chặn. Không dùng ngày lịch UTC. Timestamp clean thừa trong scope cũng chặn trước ghi. Không đụng mã/ngày/timeframe khác.
+
+Dựng đủ cả hai payload trước mutation đầu tiên. Raw chỉ dùng symbol/time/OHLCV/data_hash/payload/source/fetched_at hiện có; source `value` nguyên bản nằm trong payload. Hash SHA-256 từ JSON UTF-8 canonical (key sort, separator compact), không chứa thời gian fetch/header transport. Gán audit timestamp tường minh. Khóa raw `(symbol,time,data_hash)` không có source: cùng key nhưng khác source/payload/raw values sẽ chặn. Hash lịch sử khác key candidate giữ nguyên; raw count toàn scope có thể lớn hơn số hàng nguồn khớp.
+
+Clean dùng khóa `(symbol,timeframe,time)`, OHLCV/value và audit timestamp hiện có, chỉ `1m`. `value` nguyên nguồn đi đường riêng hoàn toàn không gọi `upsert_intraday()` hoặc fallback ước tính. Thiếu/null/sai value chặn trước cả hai lớp ghi; không đổi contract nullable chung hay caller khác. Clean giống canonical được skip, không gán lại provenance không biết. Khác bất kỳ field canonical nào chặn toàn bộ preflight. Audit timestamp không tham gia equality/hash.
+
+Thứ tự ghi:
+
+1. Hoàn tất fetch/map/validation, eligibility và cả hai kiểm tra xung đột.
+2. Chèn raw bằng `ignore_duplicates=True`, đọc lại đúng scope, so mọi key/payload/source dự kiến.
+3. Kiểm tra lại eligibility và xung đột clean. Chỉ gọi RPC `create_partition_if_not_exists` cho tháng UTC thực sự cần chèn clean; dry-run và rerun no-op không tạo partition.
+4. Chèn clean bằng `ignore_duplicates=True`. Hàng xung đột xuất hiện đồng thời không bị ghi đè; đọc lại sẽ phát hiện khác biệt.
+5. Đọc lại hai scope, xác nhận raw dự kiến và clean timestamp/count/canonical values. Consistency PASS vẫn đi cùng completeness UNVERIFIED. Gap/session warning chỉ là quan sát, không chứng minh thiếu dữ liệu hoặc yêu cầu 226 candle chung.
+
+Mỗi request DB có một lần thử ở tầng ứng dụng; chạy lại tường minh để phục hồi kết quả chưa rõ. Hai lớp là HTTP write riêng, không atomic xuyên bảng. Raw thành công rồi clean/partition/readback lỗi trả PARTIAL, exit khác 0 và failed stage. Số chèn gồm các batch đã được xác nhận; `insert_counts_confirmed=false` cảnh báo request lỗi có thể đã commit thêm. Giữ evidence, kiểm tra đúng mã/ngày, xử lý xung đột rồi chạy lại cùng lệnh. Raw giống được skip, clean thiếu được chèn; không cleanup/delete/overwrite. Rerun thành công là no-op. Writer độc lập vẫn có thể đổi dữ liệu sau final readback; dừng chúng khi owner xác minh. Pilot không update hàng có sẵn.
+
+## Chủ sở hữu xác minh sau merge
+
+Codex không chạy live Supabase writes. Không cần migration, sửa lịch sử hay backfill. Sau khi cấu hình SSI/Supabase service local, owner chạy lệnh chỉ đọc phía trên; xem eligibility, pagination toàn ngày, rejected/duplicate/missing/invalid value bằng 0, timestamp canonical, conflict, planned counts và warning. Sau đó mới chạy lệnh `--write` rồi lặp lại. Yêu cầu consistency raw/clean readback PASS và lần lặp không thêm hàng; lưu ba JSON report. OK/PASS không chứng nhận completeness thị trường. Giữ job tự động tắt. Multi-symbol/history chỉ được làm trong task riêng sau owner validation và có ủy quyền.
+
+Evidence owner cung cấp: SSI 2026-10-20, HPG 2026-10-20, SSI 2026-10-21 mỗi mẫu có 226 raw/226 clean/0 reject, giảm dần, paging kết thúc 204, không trùng hoặc lỗi source value, validation PASS, completeness UNVERIFIED. Đây là quan sát owner, không phải ba full capture hay agent live test.

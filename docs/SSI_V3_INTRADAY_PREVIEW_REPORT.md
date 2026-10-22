@@ -1,5 +1,8 @@
 # SSI v3 Intraday timestamp, terminal 204 and source-value fix report
 
+
+This report records the earlier preview milestone. For the subsequent manual pilot see the [implementation report](SSI_V3_INTRADAY_MANUAL_REPORT.md); unattended ingestion remains disabled.
+
 [Tiếng Việt](SSI_V3_INTRADAY_PREVIEW_REPORT.vi.md) · [Runbook](STOCK_INTRADAY_PIPELINE.md)
 
 ## Status: COMPLETE for the read-only fixes and offline verification

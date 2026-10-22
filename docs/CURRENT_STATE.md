@@ -1,11 +1,11 @@
 # Current state — SSI v3 only
 
-Reviewed 21 October 2026 against `dev` commit `b5cb3276f367a0e50ded3c83967570f24b7480c6` (PR #178). Current and historical documentation were compared for the CLI restoration. Live SSI/Supabase checks were not run.
+Manual pilot reviewed 22 October 2026 against `dev` commit `3598a675bc1e3105b92a773d18ce0db4baab3136` (PR #181). See [pilot runbook](STOCK_INTRADAY_PIPELINE.md). The earlier CLI restoration review used PR #178. Codex did not run live SSI/Supabase checks.
 
 | Capability | Status |
 | --- | --- |
 | SSI v3 Stock Daily / Index Daily | ACTIVE |
-| SSI v3 Stock Intraday ingestion | NOT_IMPLEMENTED |
+| SSI v3 Stock Intraday ingestion | MANUAL_PILOT: one symbol/date, read-only unless --write; unattended paths disabled |
 | SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
 | SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
 | Stock technical, foreign and index features | ACTIVE |

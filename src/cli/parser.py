@@ -150,17 +150,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     stock_intraday = sub.add_parser(
         "stock-intraday",
-        help="SSI IntradayOhlc 1m source ingest + intraday completeness only; no daily/features/signals/backtests",
+        help="Guarded SSI v3 1m manual pilot; one symbol/date, read-only unless --write",
     )
     stock_intraday.add_argument(
         "date", nargs="?",
-        help="Trading date DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam",
+        help="Required explicit trading date DD/MM/YYYY or YYYY-MM-DD",
     )
     stock_intraday.add_argument(
         "--symbols", nargs="+", default=None,
-        help="Symbols intersected with status=active and intraday_status=active",
+        help="Exactly one explicit symbol; status and intraday_status must both be active",
     )
     stock_intraday.add_argument("--data-source", default=None)
+    intraday_mode = stock_intraday.add_mutually_exclusive_group()
+    intraday_mode.add_argument("--write", action="store_true", help="Persist the validated manual pilot")
+    intraday_mode.add_argument("--dry-run", action="store_true", help="Explicit read-only mode (default)")
 
     for command, help_text in (
         (
