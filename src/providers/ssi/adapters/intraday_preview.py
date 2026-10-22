@@ -22,12 +22,15 @@ def preview_intraday(client: SSIV3Client, symbol: str, start: str, end: str | No
         result = exc.result
     clean, reports = map_intraday_preview(result.items, symbol, start, end or start, source='ssi_v3')
     valid = [row for row in clean if row is not None]
-    validation = validate_intraday_batch(valid)
     timestamps = [row['time'] for row in valid]
     instants = [datetime.fromisoformat(t.replace('Z', '+00:00')) for t in timestamps]
     received_order = ('descending' if len(instants) > 1 and all(b <= a for a, b in zip(instants, instants[1:])) else
                       'ascending' if len(instants) > 1 and all(b >= a for a, b in zip(instants, instants[1:])) else
                       'mixed' if len(instants) > 1 else 'single_or_empty')
+    # Validate a chronological view of legitimate descending source data only.
+    # Raw evidence, aligned candidates and actual mixed-order warnings stay intact.
+    validation = validate_intraday_batch(sorted(valid, key=lambda row: row['time'])
+                                         if received_order == 'descending' else valid)
     duplicates = sum(count - 1 for count in Counter(timestamps).values())
     ordering = sum(later < earlier for earlier, later in zip(instants, instants[1:]))
     errors = [error for report in reports for error in report['errors']]

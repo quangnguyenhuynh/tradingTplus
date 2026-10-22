@@ -10,7 +10,7 @@ from src.providers.ssi.registry import resolve_source
 COMMAND_GROUPS = {'analogs': 'analogs', 'init': 'maintenance', 'sync-master-data': 'maintenance', 'daily': 'stock', 'index-daily': 'index', 'index-backfill': 'index', 'index-check': 'index', 'index-preview': 'index', 'index-features-preview': 'index', 'index-features-daily': 'index', 'index-features-backfill': 'index', 'index-features-check': 'index', 'stock-screener-config': 'screener', 'stock-screener': 'screener', 'foreign-features-preview': 'foreign', 'foreign-features-daily': 'foreign', 'foreign-features-backfill': 'foreign', 'foreign-features-check': 'foreign', 'foreign-rank': 'foreign', 'foreign-symbol': 'foreign', 'intraday-ingest': 'stock', 'stock-eod': 'stock', 'stock-daily': 'stock', 'stock-intraday': 'stock', 'backfill-daily': 'maintenance', 'backfill-intraday': 'maintenance', 'backfill': 'maintenance', 'refill': 'maintenance', 'features': 'features', 'features-daily': 'features', 'features-intraday': 'features', 'streaming-ingest': 'streaming'}
 DISABLED = {
     "init": "master", "sync-master-data": "master",
-    "intraday-ingest": "stock_intraday", "stock-intraday": "stock_intraday",
+    "intraday-ingest": "stock_intraday",
     "backfill-intraday": "stock_intraday", "backfill": "stock_intraday",
     "refill": "stock_intraday", "streaming-ingest": "streaming",
 }
@@ -25,8 +25,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         requested = getattr(args, "data_source", None)
         if requested is not None:
-            dataset = "index_daily" if args.command.startswith("index-") else "stock_daily"
-            resolve_source(dataset, requested)
+            dataset = ("stock_intraday" if args.command == "stock-intraday" else
+                       "index_daily" if args.command.startswith("index-") else "stock_daily")
+            resolve_source(dataset, requested, production=args.command != "stock-intraday")
         if args.command in DISABLED:
             raise CapabilityUnavailableError(DISABLED[args.command])
         handler = import_module(f"src.cli.{COMMAND_GROUPS[args.command]}")

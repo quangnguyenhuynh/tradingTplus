@@ -1,5 +1,8 @@
 # Báo cáo sửa timestamp, terminal 204 và value SSI v3 Intraday
 
+
+Báo cáo này ghi nhận bước preview trước đây. Pilot thủ công mới: [báo cáo](SSI_V3_INTRADAY_MANUAL_REPORT.vi.md); không mở ingest tự động.
+
 [English](SSI_V3_INTRADAY_PREVIEW_REPORT.md) · [Runbook](STOCK_INTRADAY_PIPELINE.vi.md)
 
 ## Status: COMPLETE cho phạm vi sửa preview và kiểm tra offline

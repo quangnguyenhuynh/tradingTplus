@@ -25,7 +25,7 @@ def run(args):
         _print_summary(summary)
         return _status_to_exit(summary)
     if args.command == "stock-intraday":
-        summary = run_stock_intraday_pipeline(args.date, symbols=normalize_symbol_scope(args.symbols), **_source_kwargs(args))
+        summary = run_stock_intraday_pipeline(args.date, symbols=args.symbols, write=args.write, **_source_kwargs(args))
         _print_summary(summary)
-        return _status_to_exit(summary)
+        return 0 if summary.get("status") == "OK" else 1
     raise ValueError(f"Unsupported command: {args.command}")

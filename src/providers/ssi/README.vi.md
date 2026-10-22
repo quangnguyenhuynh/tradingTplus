@@ -2,6 +2,20 @@
 
 Hợp đồng provider và registry SSI v3. Chỉ Stock Daily và Index Daily sẵn sàng production; không có v2 hoặc fallback.
 
+
+## Pilot intraday thủ công có guard
+
+`stock-intraday` hỗ trợ đúng một mã và ngày giao dịch Việt Nam tường minh. Mặc định/`--dry-run` là READ-ONLY; chỉ `--write` mới cho phép chuỗi chèn raw → clean có kiểm soát. Cần credential SSI; credential service Supabase cho phép preflight chỉ đọc eligibility/xung đột và bắt buộc khi ghi. Nếu chưa cấu hình DB, dry-run báo `NOT_RUN_NO_CREDENTIALS`, số dự kiến chưa biết và `write_ready=false`.
+
+```bash
+python main.py stock-intraday 20/10/2026 --symbols SSI
+python main.py stock-intraday 20/10/2026 --symbols SSI --write
+```
+
+Lệnh thứ hai **chỉ dành cho chủ sở hữu sau khi kiểm tra dry-run/preflight**. Không nhận khoảng ngày, ALL/wildcard, scope thiếu, nhiều mã hoặc ngày tương lai. Cả hai status trong master phải active. Chỉ nguồn `ssi_v3`, timeframe `1m`; value canonical giữ chính xác `ohlc.value`, thiếu/sai sẽ chặn pilot và không ước tính bù. Hàng giống giữ nguyên; clean khác giá trị hoặc raw xung đột key/source/payload sẽ chặn. Không force overwrite. Xác nhận raw trước clean; ghi dở dang/không rõ kết quả trả exit khác 0, cần kiểm tra đúng scope rồi chạy lại an toàn. Không cam kết transaction xuyên hai bảng. Completeness vẫn UNVERIFIED. Các lệnh ingest/backfill/refill/streaming intraday khác và schedule vẫn tắt. Pilot không chạy feature/signal/backtest.
+
+Xem [runbook](../../../docs/STOCK_INTRADAY_PIPELINE.vi.md) về thứ tự ghi, idempotency, partition, phục hồi và xác minh của chủ sở hữu. Inspector vẫn hoàn toàn chỉ đọc; registry giữ preview, không có factory production chung.
+
 Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
 
 Các module:
@@ -14,7 +28,7 @@ Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capab
 
 ## Triển khai capability trong tương lai
 
-Intraday: chỉ thêm adapter/mapping sau khi xác minh response SSI v3 1m, đơn vị, timestamp và convention đầu/cuối candle. Output phải giữ hợp đồng `stock_intraday`: symbol, market time có timezone, timeframe `1m`, OHLCV/value nullable và context giá. Giữ raw payload, reject timestamp sai, validate trước clean write. Không suy đoán alias từ v2. Chỉ bật lại sau khi kiểm tra pagination, scope, idempotency, phiên giao dịch và không partial-write.
+Intraday: adapter preview đã được tái sử dụng cho pilot thủ công cô lập. Registry vẫn preview, factory production chung vẫn không có. Không bật ingest tự động/schedule/backfill; xem runbook về guard, provenance và hạn chế completeness.
 
 Master: triển khai adapter/mapping riêng trong `providers/ssi/adapters` và service ở `ingest/master`; giữ status do operator điều khiển, không suy luận danh sách mã từ lịch sử giá, không sync master ngầm trong ingest.
 
@@ -32,7 +46,7 @@ Canonical v3 `value` là **SSI-reported intraday candle value** (giá trị nế
 
 Envelope 204/No Content đã xác nhận chỉ kết thúc paging OHLC 1m khi không có payload/marker lỗi mâu thuẫn và đã qua kiểm tra metadata/số đếm. Giữ nguyên raw envelope, termination provider_no_content_204. Trang ngắn không rỗng không tự kết thúc; trang lặp, total sai, malformed/lỗi và cắt cụt do giới hạn vẫn fail. --limit chỉ giới hạn in; --full-json giữ các trang raw đã nhận, candidate và diagnostic.
 
-Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest/schedule production vẫn tắt; preview không đọc/ghi DB.
+Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest tự động/schedule vẫn tắt; inspector preview không đọc/ghi DB. Pilot thủ công riêng được mô tả phía trên.
 
 Xem [runbook và checklist](../../../docs/STOCK_INTRADAY_PIPELINE.vi.md) để biết mapping từng field, paging, validation/session/gap, giới hạn nguồn và cách promotion riêng.
 

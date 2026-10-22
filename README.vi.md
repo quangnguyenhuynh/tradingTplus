@@ -32,7 +32,7 @@ python -m pip install pytest
 
 Đối chiếu commit `b5cb3276` trên `dev` (PR #178). Chạy tại thư mục gốc repository. Ngày và mã trong ví dụ chỉ minh họa; kiểm tra nguồn và chọn đúng phạm vi trước khi chạy. Chỉ kiểm tra cú pháp offline, chưa gọi SSI hay Supabase thật.
 
-Ingest Stock Daily (`securitiesSummary`) và Index Daily (`indexSummary`) qua SSI v3: ACTIVE. Feature stock, foreign và index: ACTIVE trên dữ liệu clean đã lưu. Screener và Historical Analog: RESEARCH_ACTIVE. Ingest intraday, đồng bộ master, streaming và chụp orderbook: NOT_IMPLEMENTED. Không có fallback về nguồn đã nghỉ.
+Ingest Stock Daily (`securitiesSummary`) và Index Daily (`indexSummary`) qua SSI v3: ACTIVE. Feature stock, foreign và index: ACTIVE trên dữ liệu clean đã lưu. Screener và Historical Analog: RESEARCH_ACTIVE. Intraday có pilot thủ công đúng một mã/ngày (chỉ đọc nếu không có `--write`); intraday tự động, đồng bộ master, streaming và chụp orderbook vẫn NOT_IMPLEMENTED. Xem [runbook thủ công](docs/STOCK_INTRADAY_PIPELINE.vi.md). Không có fallback về nguồn đã nghỉ.
 
 READ-ONLY — database read: chỉ đọc nhưng vẫn cần kết nối DB. READ-ONLY — SSI API request: có thể gọi API thật nhưng không dùng Supabase. WRITE: có ghi dữ liệu, bao gồm apply và thay thế phạm vi. UNSUPPORTED: đầu vào hoặc thao tác bị từ chối, không phải kết quả rỗng thành công.
 
