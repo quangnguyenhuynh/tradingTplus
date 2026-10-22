@@ -95,10 +95,7 @@ Record and preserve whether a field is exchange-provided or derived. Do not mix
 per-candle volume with cumulative volume, and do not compare values with
 different units without normalization.
 
-For current normalized intraday rows, `value` is the estimate
-`round(close * volume)`. It is not exact exchange-provided turnover. Preserve
-`NULL` when `close` or `volume` is invalid or missing; do not replace it with
-zero.
+Value is source-specific: SSI v3 intraday preview preserves `ohlc.value` as exact BIGINT with no calculated fallback; missing/null stays NULL with diagnostics and malformed values reject. Historical rows and legacy callers may use `round(close * volume)` estimates; they are not relabeled or rewritten. SSI turnover semantics are not independently certified.
 
 ## Downstream use checklist
 
@@ -127,7 +124,13 @@ See [`docs/FOREIGN_EOD_FEATURES.md`](FOREIGN_EOD_FEATURES.md) for the approved d
 
 The REST inspector stock-intraday/native intraday-ohlc routes now use the shared preview adapter and download successive pages from the requested start until explicit termination or failure/bound. `--limit` limits display only; `--full-json` includes every received raw page and clean candidate. `--max-pages` defaults to 100 (1–1000); hitting the bound, repeated pages, inconsistent totals or request failures return FAILED/exit 1 and retain received evidence. Other daily/index/catalog inspector routes keep their single-page behavior.
 
-SSI credentials were unavailable for verification: live NOT_RUN. V3 source semantics remain PROVISIONAL and completeness always UNVERIFIED. Only full source timestamps with explicit timezone normalize to UTC; naive/time-only/date-only values are rejected without request-date fabrication. Price/volume units are not certified; estimated value reuses round(close * volume) while source value stays raw. Production intraday CLI/scheduling remains disabled; preview makes zero Supabase reads/writes.
+Owner-provided live SSI excerpts for 2026-10-20 verify `ohlc.tradingDate` in `YYYY/MM/DD HH:mm:ss`, source `ohlc.value`, and terminal `{"code":204,"msg":"No Content"}`. This exact source-local timestamp is explicitly interpreted in `Asia/Ho_Chi_Minh` and normalized to UTC; valid explicit-offset forms remain supported. The legacy `time` alias still requires an explicit timezone. Date-only/time-only and arbitrary naive formats remain rejected; no request-date fabrication or minute shifting.
+
+Canonical v3 `value` is **SSI-reported intraday candle value**, parsed exactly as a nonnegative signed-BIGINT integer without float conversion. There is **no calculated estimate or fallback**. Absent/null/empty source value stays NULL with SOURCE_VALUE_MISSING; malformed/non-finite/fractional/negative/overflow value rejects the candidate. Zero stays zero. Source-value presence, numeric validity and preservation are reported separately from independently verified market-data semantics (still false).
+
+The verified 204/No Content envelope terminates OHLC 1m paging only without conflicting payload/error markers and after metadata/count checks. Its original envelope is retained and termination is provider_no_content_204. Short nonempty pages never terminate by themselves; repeats, wrong totals, malformed/errors and page-limit truncation still fail. --limit controls display only; --full-json retains received raw pages, candidates and diagnostics.
+
+The supplied day had 226 unique rows over 23 nonempty pages then page 24, descending order, 135 morning/90 afternoon/one 14:45 candle. These are owner-reported observations for that day, not a universal count or a formula rule. Only two real candle objects and the terminal envelope were supplied; offline replay verifies those 2/2 without reconstructing missing rows. Agent live rerun: NOT_RUN (no credentials). Bar-start/end, independent value/turnover semantics and market completeness remain unverified. Production ingestion/scheduling remains disabled; preview performs zero database reads/writes.
 
 See the [runbook and promotion checklist](STOCK_INTRADAY_PIPELINE.md) for field mappings, paging, validation/session/gap rules, source limitations and separate promotion steps.
 
@@ -137,4 +140,11 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --from-date 2026-10-01 --to-date 2026-10-19 --page-size 100 --max-pages 100 --limit 5
 python scripts/inspectors/ssi_rest/inspect.py run intraday-ohlc --symbol SSI --date 2026-10-19 --ascending --limit 5
+```
+
+```bash
+python scripts/inspectors/ssi_rest/inspect.py list
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --show-mapping
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```

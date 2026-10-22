@@ -1,0 +1,49 @@
+{
+  "provenance": {
+    "kind": "owner_provided_live_response_excerpt",
+    "symbol": "SSI",
+    "date": "2026-10-20",
+    "endpoint": "GET /api/v3/data/ohlc",
+    "timeframe": "1m",
+    "note": "Exactly two candle objects and terminal envelope copied from the user request. Full 226-row capture and original nonempty page envelopes were not supplied. Tests wrapping rows in data arrays are synthetic protocol replay."
+  },
+  "raw_candles": [
+    {
+      "symbol": "SSI",
+      "tradingDate": "2026/10/20 14:45:00",
+      "open": "19950",
+      "high": "19950",
+      "low": "19950",
+      "close": "19950",
+      "volume": "2626600",
+      "value": "52400670000"
+    },
+    {
+      "symbol": "SSI",
+      "tradingDate": "2026/10/20 14:29:00",
+      "open": "19900",
+      "high": "19950",
+      "low": "19850",
+      "close": "19850",
+      "volume": "129000",
+      "value": "2560650000"
+    }
+  ],
+  "terminal_envelope": {
+    "code": 204,
+    "msg": "No Content"
+  },
+  "owner_reported_observations": {
+    "raw_records": 226,
+    "unique_timestamps": 226,
+    "nonempty_pages": 23,
+    "terminal_page": 24,
+    "order": "descending",
+    "morning_candles": 135,
+    "afternoon_candles": 90,
+    "auction_candles": 1,
+    "all_rows_have_value": true,
+    "observed_value_equals_close_times_volume": true,
+    "note": "Observations for this captured day only, not an invariant, completeness rule or instruction to recalculate source value."
+  }
+}

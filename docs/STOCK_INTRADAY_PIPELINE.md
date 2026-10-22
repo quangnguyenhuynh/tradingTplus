@@ -1,90 +1,73 @@
-# SSI v3 Stock Intraday 1m — read-only preview
+# SSI v3 Intraday 1m — read-only operational runbook
 
-[Tiếng Việt](STOCK_INTRADAY_PIPELINE.vi.md) · [CLI](CLI_USAGE.md) · [Evidence report](SSI_V3_INTRADAY_PREVIEW_REPORT.md)
+[Tiếng Việt](STOCK_INTRADAY_PIPELINE.vi.md) · [CLI](CLI_USAGE.md) · [Verification report](SSI_V3_INTRADAY_PREVIEW_REPORT.md)
 
-## Status and evidence
+## Scope and evidence
 
-**READ-ONLY — SSI API requests, zero database reads/writes. Production ingest remains NOT_IMPLEMENTED.** The preview is implemented and offline-tested; SSI source semantics remain **PROVISIONAL / PARTIAL**. Live verification is **NOT_RUN** because SSI credentials are not configured. There is no captured v3 intraday response in the repository. Existing alias/envelope conventions and synthetic protocol tests are not live API evidence.
+Owner-provided live SSI excerpts for 2026-10-20 verify `ohlc.tradingDate` in `YYYY/MM/DD HH:mm:ss`, source `ohlc.value`, and terminal `{"code":204,"msg":"No Content"}`. This exact source-local timestamp is explicitly interpreted in `Asia/Ho_Chi_Minh` and normalized to UTC; valid explicit-offset forms remain supported. The legacy `time` alias still requires an explicit timezone. Date-only/time-only and arbitrary naive formats remain rejected; no request-date fabrication or minute shifting.
 
-The source registry remains preview-only without a production factory. `intraday-ingest`, `stock-intraday`, `backfill-intraday`, combined `backfill` and `refill` still fail before service access. The intraday workflow has manual unavailable diagnostics only, no schedule. Historical clean 1m remains usable for explicit features; this preview does not calculate them.
+Canonical v3 `value` is **SSI-reported intraday candle value**, parsed exactly as a nonnegative signed-BIGINT integer without float conversion. There is **no calculated estimate or fallback**. Absent/null/empty source value stays NULL with SOURCE_VALUE_MISSING; malformed/non-finite/fractional/negative/overflow value rejects the candidate. Zero stays zero. Source-value presence, numeric validity and preservation are reported separately from independently verified market-data semantics (still false).
 
-## Run the preview
+The verified 204/No Content envelope terminates OHLC 1m paging only without conflicting payload/error markers and after metadata/count checks. Its original envelope is retained and termination is provider_no_content_204. Short nonempty pages never terminate by themselves; repeats, wrong totals, malformed/errors and page-limit truncation still fail. --limit controls display only; --full-json retains received raw pages, candidates and diagnostics.
 
-Use the Python 3.11 venv with `requirements.txt` installed. Set `SSI_API_KEY` and `SSI_API_SECRET` locally; Supabase credentials are unnecessary. Help/list do not require credentials or network. Run from the repository root. Dates accept YYYY-MM-DD or DD/MM/YYYY. These commands have been checked offline only; a liquid-symbol completed day such as SSI on 2026-10-19 is an illustrative investigation scope, not a claim that its response was inspected.
+The supplied day had 226 unique rows over 23 nonempty pages then page 24, descending order, 135 morning/90 afternoon/one 14:45 candle. These are owner-reported observations for that day, not a universal count or a formula rule. Only two real candle objects and the terminal envelope were supplied; offline replay verifies those 2/2 without reconstructing missing rows. Agent live rerun: NOT_RUN (no credentials). Bar-start/end, independent value/turnover semantics and market completeness remain unverified. Production ingestion/scheduling remains disabled; preview performs zero database reads/writes.
+
+
+## Run safely
+
+Run at repository root in the Python 3.11 virtual environment with requirements installed. Set SSI_API_KEY and SSI_API_SECRET locally; Supabase credentials are not needed. Help/list are local. No credential is stored in the sample fixture. These command examples are parser/plan checked offline; they are the owner's next read-only verification commands.
 
 ```bash
 python scripts/inspectors/ssi_rest/inspect.py list
-python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --show-mapping
-python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-19 --full-json
-python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --from-date 2026-10-01 --to-date 2026-10-19 --page-size 100 --max-pages 100 --limit 5
-python scripts/inspectors/ssi_rest/inspect.py run intraday-ohlc --symbol SSI --date 2026-10-19 --ascending --limit 5
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --show-mapping
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
+python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-`--show-mapping` prints dictionary rules and provisional evidence. `--full-json` makes every returned raw envelope, candle, aligned clean candidate and record diagnostic available (credential redaction still applies). Normal mode shows samples; `--limit` limits display only. Errors outside the sample remain visible. Raw arrays preserve original receive order and original values; rejected rows retain their raw objects and aligned `None` candidate with explicit errors.
+There is no new CLI command. Existing native intraday-ohlc routes use the same provider adapter/mapper. Production intraday-ingest, stock-intraday, backfill-intraday, combined backfill and refill still return NOT_IMPLEMENTED before service access. Historical clean 1m may still feed independent feature jobs, which this preview never triggers.
 
-## Candidate SSI request contract
+## Request and pagination
 
-GET `https://api.ssi.com.vn/api/v3/data/ohlc`, with `symbol=SSI`, `from=2026/10/19 00:00:00`, `to=2026/10/19 23:59:59`, `timeFrame=1m`, `pageIndex=1`, `pageSize=10` by default in the inspector. Provider client default page size is 1000. Range bounds are constructed as inclusive complete calendar-day bounds, not asserted to be SSI-verified inclusivity. `ascending=true` is sent only when requested through native `intraday-ohlc`; the canonical dataset retains its existing rejection of ascending. Sort support, bound inclusivity and actual envelope require verification before promotion. No other timeframe, endpoint or retired-source fallback is added.
+GET https://api.ssi.com.vn/api/v3/data/ohlc with symbol, from/to (YYYY/MM/DD 00:00:00 through 23:59:59), timeFrame=1m, pageIndex/pageSize. Inspector defaults page index 1, size 10, max-pages 100; client default size 1000. Positive paging and inclusive ordered day bounds are constructed before I/O. Native --ascending remains optional; no sorting is imposed on raw data. Sort support, date-bound inclusivity and metadata meanings beyond supplied evidence need independent confirmation.
 
-The common `ohlc_1m_params` builder is used by both provider and inspector. Dates are converted before I/O; invalid/reversed bounds and nonpositive paging parameters fail. `--max-pages` bounds data-page attempts to 100 by default (allowed 1–1000). HTTP retries remain separately bounded; pages_requested counts logical data-page attempts, not retry/auth HTTP requests.
+Fetch successive pages until explicit empty array, consistent declared pagesCount, or verified 204/No Content. No Content on the first page means EMPTY, without candles. A malformed or conflicting 204 is FAILED; it is never a generic exemption for HTTP/API errors. Wrong page identity, changing totals/page counts, early empty terminal pages, repeated/reordered pages, mismatched final totalRecord and max-pages all fail with received evidence retained. Terminal metadata is checked against prior pages too. Requests starting after page 1 are labeled suffix scope. No candle count is hardcoded. HTTP retry bounds remain separate from logical page/request counts.
 
-## Pagination and failures
+204 recognition is limited to the v3 OHLC 1m path. Daily/Index client error behavior is unchanged. Raw pages include the terminal envelope. The recognized terminal has code 204 (integer or string), a No Content message, no nonempty/unsupported payload and no contradictory status/error markers. Missing message, nonempty data, other errors or malformed metadata reject.
 
-The 1m route downloads successive pages beginning at `--page-index` (default 1). It does **not** terminate on a short nonempty page. With no usable provider page count it requests an explicit empty terminal page; with `pagesCount` it checks the reported last page. If `totalRecord` exists, page-1 downloads must match its count. These recognized metadata names come from existing inspector code, not a newly verified SSI schema. Unknown shapes remain malformed, not empty data.
+## Canonical mapping
 
-Repeated pages (including reordered repeats), wrong page identity, changing totals/page counts, inconsistent terminal counts, unexpected early empty pages and the page bound are explicit failures. HTTP/auth/network/provider/non-JSON failures keep already received pages/candles; fetched error bodies remain available when received. Page-limit/truncation is FAILED, never successful completeness. Requests from page >1 are labeled suffix scope and cannot prove whole-range coverage. `itemsCount` is retained as metadata but is not assumed to mean the total across pages.
+Dictionary: src/contracts/mappings/ssi_v3.json, mapping 1.2.0-preview, unchanged contract version 1.0.0. The provider adapter and inspector share src/contracts/intraday_preview.py; the generic engine passes source-field context to transforms so market-local parsing cannot leak to the legacy time alias or other datasets.
 
-Recognized provisional arrays include a top-level array or data/items/dataList/result array in an envelope, with bounded nesting through data/result/response. Provider failure markers are not treated as no-data. Envelope objects, including metadata and unused source fields, stay available in full output.
-
-## Mapping and timestamp guardrails
-
-The shared mapper is `src/contracts/intraday_preview.py`, declared by `src/contracts/mappings/ssi_v3.json` version `1.1.0-preview`, contract `1.0.0`. The adapter and inspector call the same mapper. The generic contract fields/schema are unchanged.
-
-| Canonical field | Provisional source / handling |
+| Field | Mapping and validation |
 | --- | --- |
-| symbol | Requested symbol, checked against source symbol if present; mismatch rejects |
-| time | `time` with complete source date/time and explicit Z or ±HH:MM; normalized to UTC without shifting/truncating the timestamp |
-| timeframe | Constant 1m; a conflicting returned timeFrame/timeframe rejects |
-| open/high/low/close | Same-named source values converted to finite floats; no scaling invented; positive prices and OHLC inequalities validated |
-| volume | Same-named source value converted exactly to nonnegative integral BIGINT range; no cumulative differencing |
-| value | Existing `calculate_trade_value`: int(round(close * volume)); estimated, not official turnover |
-| reference_price/ceiling_price/floor_price | NULL: equivalent source/context has not been verified; no daily DB lookup |
+| symbol | Request identity checked against returned symbol |
+| time | ohlc.tradingDate → source-specific transform → aware UTC; slash local format uses Vietnam timezone; explicit ISO offset retains its instant |
+| timeframe | Constant 1m; conflicting source timeframe rejects |
+| open/high/low/close | Same-named finite positive numbers, unchanged OHLC inequalities; original strings remain raw |
+| volume | Same-named exact nonnegative integer in BIGINT range, no cumulative differencing |
+| value | ohlc.value → exact Decimal/integer parsing → Python int; never close × volume |
+| reference_price/ceiling_price/floor_price | NULL while source/context fields remain unconfirmed; no DB lookup |
 
-Missing optional values remain null in mapping evidence; missing required OHLCV for record validation rejects the candidate rather than fabricating values. Unknown fields and original source `value` remain raw/unused. Non-finite, boolean, fractional-volume, negative-volume, invalid OHLC and overflowing estimated values reject with diagnostics. Existing `round` behavior is reused; this task does not alter the estimator.
+Value parsing accepts exact integer or decimal-string representations with integral numeric content (including integral decimal/scientific strings), but rejects float/bool input to avoid already-rounded large numbers. It rejects non-finite, negative, fractional and out-of-range values. Null/missing/empty is nullable and warned, never converted to zero or an estimate. Valid value remains unchanged even when it differs from close × volume.
 
-**BLOCKED source semantics:** price scaling to VND/share, whether source volume is per-candle shares, timezone for naive timestamps, and bar-start versus bar-end. Numeric candidate conversion is not unit certification. Until these are evidenced, all nonempty previews are at best PROVISIONAL. No fabricated intraday fixture is claimed as evidence.
+The copied 14:45 candle maps tradingDate 2026/10/20 14:45:00 → 2026-10-20T07:45:00Z, close 19950, volume 2626600, value 52400670000. The copied 14:29 candle maps to 07:29:00Z with value 2560650000. A synthetic close=19950, volume=100, value=1994000 case explicitly proves that value is not replaced by 1995000. The synthetic mismatch is not real market evidence.
 
-Naive datetime, date-only, time-only, epoch/other unsupported representations are rejected. Request date is never used to manufacture a candle timestamp. A separate source date/time combination is not implemented without evidence. A source date supplied alongside an aware timestamp must agree with that timestamp and requested Vietnam range. Existing historical v2 bar metadata in definitions.json is retained because v3 convention is not verified; it must not be read as proof of v3 bar convention.
+Seconds and supported microseconds are preserved. Missing/invalid date, out-of-request Vietnam date, inconsistent source identity, time-only/date-only/epoch and unsupported naive formats reject. A full aware tradingDate is checked by its Vietnam instant, not by truncating its written UTC date. Bar-start versus bar-end remains unverified; no fabricated 14:30–14:44 candles, no minute shifts and no cross-session/date joins.
 
-## Quality and output interpretation
+## Report and quality
 
-The report separates request/pagination, mapping/validation, structural observations and completeness. It exposes requests/pages, raw/mapped/rejected counts, source first/last received time, canonical first/last received UTC and chronological bounds, duplicate timestamp count, received-order inversions, identity/timestamp errors, missing optional/unsupported fields, OHLCV errors and estimated-value formula.
+Report includes actual timestamp field/interpretation, received raw and mapped/rejected counts, requested/received pages, terminal reason, raw and UTC endpoints, chronological bounds, duplicates, preserved received order, OHLCV/identity errors and structural warnings. Descending source order is retained; ascending-view inversion warnings are not alone proof of corrupted data. Session/gap rules reuse existing validators; lunch/auction/no-trade gaps do not create fake candles. Completeness always stays UNVERIFIED.
 
-Existing `validate_intraday_record` and `validate_intraday_batch` rules are reused. Session warnings use Vietnam 09:00–11:30 and 13:00–15:00; missing continuous-minute buckets use 09:00–11:29 and 13:00–14:29. Lunch, cross-date boundaries and auctions do not create invented candles. Source timestamps remain unchanged, including seconds/fractions. Closing-auction bar convention is unresolved; warnings are observations, not evidence that source bars need shifting. Gaps may be no-trade intervals or omissions. No universal candle count is assumed.
+source_value_present_count means the API row supplied a non-null/nonempty value; source_value_numeric_valid_count means strict numeric parsing passed; source_value_mapped_count means a clean candidate actually preserved it. source_value_missing_count and source_value_invalid_count remain distinct; source_value_semantics_verified=false means official matched-turnover meaning has not been independently certified. Missing-value record warnings remain visible even outside the display sample.
 
-| Final status | Meaning / process exit |
-| --- | --- |
-| PROVISIONAL | Received/mapped without blocking errors; live semantics unresolved; exit 0 |
-| EMPTY | Explicit source data array empty; not a proven holiday/session; exit 0 |
-| PARTIAL | Individual mapping/validation rejections or duplicate-candle batch errors; exit 1 |
-| FAILED | Request, malformed response, pagination loop/truncation/bound failure; exit 1 |
-| Invalid CLI / request plan | Parser/validation failure; exit 2 |
+PROVISIONAL (clean nonempty) and EMPTY exit 0; mapping/batch PARTIAL or request/paging FAILED exit 1; invalid CLI/plan exits 2. None implies production readiness or market completeness. --show-mapping prints source rules/evidence; --full-json includes all received raw pages and aligned candidates/errors. Raw strings/order/source values remain untouched.
 
-Structural warnings may accompany PROVISIONAL. Completeness is always **UNVERIFIED**, independent of HTTP success, pagination termination, validation PASS or exit 0. Validation PASS means only that mapped numeric/identity/time shape passed offline-defined rules. Invalid records are not silently repaired; duplicates remain in preview evidence and prevent a clean batch claim.
+## Database contracts and future persistence guard
 
-## Database contract inspection (no persistence)
+No DB path is called. Existing stock_raw_intraday keeps symbol/time/data_hash identity, source and nullable original payload; stock_intraday keeps symbol/timeframe/time key, nullable BIGINT value and monthly time partitions. The old payload migration names raw_intraday; the subsequent standardization migration renames it stock_raw_intraday. No rename/key/schema change is required here.
 
-Current schema: `stock_raw_intraday` has symbol/time/data_hash unique index, original nullable payload JSONB and source provenance (default SSI). It is not the monthly-partitioned clean table. `stock_intraday` has `(symbol,timeframe,time)` primary key and monthly time partitions, nullable OHLCV/value/context and additional existing columns. Preview uses neither persistence helper nor schema query, changes no partitions/rows and does not relabel historical provenance.
+src/database/client.py:upsert_intraday still calls calculate_trade_value when value is absent/NULL. This legacy behavior and its consumers are unchanged. **Before any v3 production promotion, a source-specific persistence guard must carry reported value unchanged, preserve NULL without fallback, reject invalid source values, and prove no estimator path is invoked.** Do not simply pass NULL to the current persistence helper: it would estimate it. Any rewrite of historical estimates needs separate explicit symbol/date/provenance scope and approval; none occurs here.
 
-Historical `20260803_add_raw_intraday_payload.sql` targets `raw_intraday`; `20260826_standardize_stock_table_names.sql` renames it to `stock_raw_intraday`. This is an observed migration-history naming difference, not a reason to create/rename a table in this task. Actual deployed schema/order remains unverified. Future manual ingestion must verify deployed constraints/partitions and assess raw source/hash identity across historical sources in a separate reviewed proposal; no preview migration is needed.
+Promotion next requires owner review of a new live read-only run, full raw/clean/value evidence and duplicate/page checks, independent bar/value-semantic clarification where needed, deployed constraints/partitions/provenance verification, and a separate manually scoped persistence implementation with the value guard. Registry/CLI/schedules/backfill are not enabled by this task.
 
-## Production promotion checklist — separate task after acceptance
-
-1. Configure SSI credentials and approved network access; capture bounded real responses for SSI and another symbol/date on completed sessions. Do not capture secrets in fixtures.
-2. Verify query keys, bounds, sort, envelope/metadata and every page boundary; compare first/last candles and totals without a universal count.
-3. Establish timestamp format/timezone/bar-start-or-end, source price scaling and per-candle volume units from actual responses and SSI documentation. Keep unresolved rows blocked.
-4. Review raw/clean comparisons, errors, duplicates, session/gap evidence and estimated value. Obtain owner acceptance of the mapping.
-5. In a separate task verify deployed raw/clean keys, source/hash provenance, payload/nullable fields and monthly partitions read-only; propose a migration only if a proven production contract change needs review.
-6. Implement/review manual raw-first, validated-clean 1m persistence with idempotency and bounded scope; then separately authorize promotion of registry/CLI. Scheduling and historical backfill require their own scope and approval. This preview performs none of these steps automatically.
-
-Migration: none. Data impact: none. Backfill: none. No features, signals, backtests or alerts are triggered.
+Migration: none. Database writes/history modifications: none. Backfill: none. No features/signals/backtests/alerts.

@@ -97,10 +97,10 @@ TRANSFORMS: dict[str, Callable[[Any, dict[str, Any]], Any]] = {
 
 
 def intraday_timestamp(value: Any, context: dict[str, Any]) -> str:
-    """Only accept a full source datetime with explicit timezone until SSI evidence exists.
+    """Generic normalization accepts only a full source datetime with explicit timezone.
 
-    Unlike the historical preview transform, never assume that a naive timestamp
-    is Vietnam time, or combine a time-only value with the request date.
+    Source-specific market-local formats use a separate allow-listed transform.
+    Never combine a time-only value with the request date.
     """
     if not isinstance(value, str) or not re.fullmatch(
         r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})", value.strip()
@@ -137,3 +137,50 @@ def intraday_volume(value: Any, _context: dict[str, Any]) -> int:
 
 
 TRANSFORMS['intraday_volume'] = intraday_volume
+
+
+def ssi_v3_intraday_timestamp(value: Any, context: dict[str, Any]) -> str:
+    """Observed SSI v3 tradingDate is market-local; other naive forms stay rejected.
+
+    This transform is referenced only by the SSI v3 stock_intraday mapping.
+    The timezone interpretation does not establish bar-start/end semantics.
+    """
+    if isinstance(value, str) and re.fullmatch(
+        r'\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?', value.strip()
+    ):
+        # The caller identifies which alias was used; only tradingDate has
+        # observed evidence for market-local (timezone-less) timestamps.
+        source_field = context.get('mapping_source_field', 'ohlc.tradingDate')
+        if source_field.casefold() != 'ohlc.tradingdate':
+            raise TransformError('UNVERIFIED_TIMESTAMP: legacy time alias requires an explicit timezone')
+        text = value.strip()
+        try:
+            parsed = datetime.strptime(text, '%Y/%m/%d %H:%M:%S.%f' if '.' in text else '%Y/%m/%d %H:%M:%S')
+        except ValueError as exc:
+            raise TransformError('invalid SSI v3 tradingDate datetime') from exc
+        value = parsed.replace(tzinfo=VN_TZ).isoformat()
+    return intraday_timestamp(value, context)
+
+
+def intraday_source_value(value: Any, _context: dict[str, Any]) -> int:
+    """Exact SSI-reported value, never through float, within nullable BIGINT contract."""
+    from decimal import Decimal, InvalidOperation
+
+    if isinstance(value, (bool, float)) or not isinstance(value, (str, int, Decimal)):
+        raise TransformError('source value must be an exact decimal string or integer, not float/bool')
+    text = str(value).strip()
+    if not re.fullmatch(r'[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?', text):
+        raise TransformError('source value must be finite and integral')
+    try:
+        number = Decimal(text)
+        if not number.is_finite() or number != number.to_integral_value():
+            raise TransformError('source value must be finite and integral')
+        if not 0 <= number <= 2**63 - 1:
+            raise TransformError('source value is outside nonnegative signed BIGINT range')
+    except InvalidOperation as exc:
+        raise TransformError('source value must be finite and integral') from exc
+    return int(number)
+
+
+TRANSFORMS['ssi_v3_intraday_timestamp'] = ssi_v3_intraday_timestamp
+TRANSFORMS['intraday_source_value'] = intraday_source_value

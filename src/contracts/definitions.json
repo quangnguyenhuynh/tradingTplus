@@ -257,7 +257,7 @@
           "required": true,
           "nullable": false,
           "timezone": "source Asia/Ho_Chi_Minh; output UTC",
-          "bar_convention": "SSI v2 candle timestamp"
+          "bar_convention": "Source-specific; SSI v3 tradingDate uses explicit Asia/Ho_Chi_Minh interpretation for observed market-local format; bar start/end remains unverified. Historical conventions are not relabeled."
         },
         "open": {
           "description": "Unadjusted candle open",
@@ -306,9 +306,9 @@
           ]
         },
         "value": {
-          "description": "Estimated candle value: round(close * volume)",
+          "description": "Source-specific intraday candle value: SSI v3 preserves reported value; historical/legacy callers may contain estimates. Nullable; no v3 preview fallback.",
           "type": "integer",
-          "unit": "estimated VND",
+          "unit": "source-reported value for SSI v3; historical estimates retain their existing provenance",
           "required": false,
           "nullable": true
         },

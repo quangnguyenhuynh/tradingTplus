@@ -21,7 +21,7 @@ from scripts.inspectors.ssi_rest.client import InspectorResponse
 
 def candle(time='2026-09-08T09:15:00+07:00', **changes):
     return {'symbol': 'SSI', 'time': time, 'open': '10.5', 'high': '10.5',
-            'low': '10.5', 'close': '10.5', 'volume': '100', **changes}
+            'low': '10.5', 'close': '10.5', 'volume': '100', 'value': '1050', **changes}
 
 
 class Response:
@@ -160,15 +160,15 @@ def mapped(row):
     return clean[0], reports[0]
 
 
-def test_valid_aware_mapping_no_scaling_raw_value_unused():
+def test_valid_aware_mapping_no_scaling_source_value_preserved():
     row = candle(value='999999999', refPrice=123)
     before = copy.deepcopy(row)
     clean, report = mapped(row)
     assert clean['time'] == '2026-09-08T02:15:00Z' and clean['timeframe'] == '1m'
     assert clean['open'] == 10.5 and clean['volume'] == 100 and type(clean['volume']) is int
-    assert clean['value'] == 1050  # estimator, not source value
+    assert clean['value'] == 999999999  # deliberately synthetic source/formula mismatch
     assert clean['reference_price'] is clean['ceiling_price'] is clean['floor_price'] is None
-    assert 'ohlc.value' in report['unused_source_fields'] and row == before
+    assert 'ohlc.value' not in report['unused_source_fields'] and row == before
 
 
 @pytest.mark.parametrize('time', ['09:15:00', '2026-09-08', '2026/09/08 09:15:00',
@@ -201,7 +201,7 @@ def test_partial_null_records_and_missing_optional_remain_observable():
 
 
 def test_zero_volume_is_valid_not_missing():
-    clean, _ = mapped(candle(volume=0))
+    clean, _ = mapped(candle(volume=0, value=0))
     assert clean['volume'] == clean['value'] == 0
 
 
@@ -247,7 +247,7 @@ def test_time_fraction_is_not_shifted_or_discarded():
 
 def test_source_date_disagreement_inside_range_rejected():
     clean, report = map_intraday_preview([candle(tradingDate='2026-09-09')], 'SSI', '2026-09-08', '2026-09-09', source='ssi_v3')
-    assert clean == [None] and report[0]['errors'][0]['code'] == 'IDENTITY_MISMATCH'
+    assert clean == [None] and any(e['field'] == 'time' for e in report[0]['errors'])
 
 
 def test_production_route_and_readiness_stay_disabled():

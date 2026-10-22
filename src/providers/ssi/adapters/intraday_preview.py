@@ -25,10 +25,14 @@ def preview_intraday(client: SSIV3Client, symbol: str, start: str, end: str | No
     validation = validate_intraday_batch(valid)
     timestamps = [row['time'] for row in valid]
     instants = [datetime.fromisoformat(t.replace('Z', '+00:00')) for t in timestamps]
+    received_order = ('descending' if len(instants) > 1 and all(b <= a for a, b in zip(instants, instants[1:])) else
+                      'ascending' if len(instants) > 1 and all(b >= a for a, b in zip(instants, instants[1:])) else
+                      'mixed' if len(instants) > 1 else 'single_or_empty')
     duplicates = sum(count - 1 for count in Counter(timestamps).values())
     ordering = sum(later < earlier for earlier, later in zip(instants, instants[1:]))
     errors = [error for report in reports for error in report['errors']]
-    source_times = [next((v for k, v in row.items() if str(k).casefold() == 'time'), None)
+    source_times = [next((v for k, v in row.items() if str(k).casefold() == 'tradingdate'),
+                         next((v for k, v in row.items() if str(k).casefold() == 'time'), None))
                     if isinstance(row, dict) else None for row in result.items]
     raw_mapped = sum(row is not None for row in clean)
     status = ('FAILED' if not result.complete else 'EMPTY' if not result.items else
@@ -54,6 +58,8 @@ def preview_intraday(client: SSIV3Client, symbol: str, start: str, end: str | No
         'canonical_min_utc': min(instants).isoformat().replace('+00:00', 'Z') if instants else None,
         'canonical_max_utc': max(instants).isoformat().replace('+00:00', 'Z') if instants else None,
         'duplicate_timestamp_count': duplicates, 'ordering_anomalies': ordering,
+        'received_order': received_order,
+        'ordering_reference': 'Inversions are measured against ascending time; descending provider order is preserved, not repaired',
         'identity_error_count': sum(e.get('code') == 'IDENTITY_MISMATCH' for e in errors),
         'timestamp_error_count': sum(e.get('field') == 'time' for e in errors),
         'missing_optional_fields': sorted({f for r in reports for f in r.get('missing_optional', [])}),
@@ -63,7 +69,17 @@ def preview_intraday(client: SSIV3Client, symbol: str, start: str, end: str | No
         'structural_warnings': [asdict(issue) for issue in validation.warnings],
         'completeness_status': 'UNVERIFIED',
         'completeness_reason': 'No verified calendar/bar convention; gaps may represent no trades. Never infer complete sessions from HTTP or row counts.',
-        'value_formula': 'estimated round(close * volume); source turnover is not canonical',
+        'timestamp_source_field': 'ohlc.tradingDate (verified); legacy ohlc.time explicit-offset compatibility',
+        'timestamp_interpretation': 'Observed slash datetime: Asia/Ho_Chi_Minh market-local; explicit timezone timestamps retain their instant',
+        'bar_timestamp_convention': 'UNVERIFIED',
+        'value_source': 'ohlc.value',
+        'value_interpretation': 'SSI-reported intraday candle value; preserved without estimation or fallback',
+        'source_value_present_count': sum(r.get('source_value_present', False) for r in reports),
+        'source_value_missing_count': sum(r.get('source_value_status') == 'MISSING' for r in reports),
+        'source_value_invalid_count': sum(r.get('source_value_status') == 'INVALID' for r in reports),
+        'source_value_mapped_count': sum(r.get('source_value_status') == 'MAPPED' for r in reports),
+        'source_value_numeric_valid_count': sum(r.get('source_value_status') in ('MAPPED', 'VALIDATED_NOT_MAPPED') for r in reports),
+        'source_value_semantics_verified': False,
         'errors': errors,
     }
     return AdapterResult('ssi_v3', 'stock_intraday', result.items, clean, errors, report,

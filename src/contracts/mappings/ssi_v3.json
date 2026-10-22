@@ -192,7 +192,7 @@
       }
     },
     "stock_intraday": {
-      "mapping_version": "1.1.0-preview",
+      "mapping_version": "1.2.0-preview",
       "contract_version": "1.0.0",
       "fields": {
         "symbol": {
@@ -201,9 +201,10 @@
         },
         "time": {
           "aliases": [
+            "ohlc.tradingDate",
             "ohlc.time"
           ],
-          "transform": "intraday_timestamp"
+          "transform": "ssi_v3_intraday_timestamp"
         },
         "open": {
           "aliases": [
@@ -240,8 +241,10 @@
           "transform": "text"
         },
         "value": {
-          "derived": true,
-          "transform": "int"
+          "aliases": [
+            "ohlc.value"
+          ],
+          "transform": "intraday_source_value"
         },
         "reference_price": {
           "unsupported": true,
@@ -264,12 +267,16 @@
         "prefix": "ohlc"
       },
       "evidence": {
-        "status": "PROVISIONAL",
-        "live_verification": "NOT_RUN",
-        "timestamp": "Only full source datetime with explicit timezone; naive/time-only/date-only rejected pending evidence",
-        "bar_convention": "BLOCKED: bar start/end not verified",
-        "units": "BLOCKED: price scaling and per-candle volume semantics not live-verified",
-        "origin": "Existing preview aliases, not a captured intraday payload"
+        "status": "USER_PROVIDED_RESPONSE_VERIFIED",
+        "source": "Owner-provided live SSI samples for SSI 2026-10-20; two candle objects and terminal envelope stored, not the complete 226-row capture",
+        "live_verification_by_agent": "NOT_RUN",
+        "timestamp_field": "tradingDate verified; legacy time alias supports explicit timezone only",
+        "timestamp_interpretation": "Observed YYYY/MM/DD HH:mm:ss tradingDate interpreted explicitly as Asia/Ho_Chi_Minh market time",
+        "bar_convention": "UNVERIFIED: bar start/end not independently confirmed",
+        "terminal_envelope": "code 204, msg No Content, without conflicting payload",
+        "value": "SSI-reported intraday candle value; exact numeric preservation, no estimate or fallback",
+        "value_semantics_verified": false,
+        "units": "Observed prices/volume retained without scaling; independently verified turnover semantics remain unresolved"
       }
     },
     "index_daily": {

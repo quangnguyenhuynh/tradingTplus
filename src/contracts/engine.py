@@ -47,7 +47,7 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
             (missing_required if required else missing_optional).append(target); candidate[target] = None; continue
         normalized = []
         for key, value in values or [("<context>", raw)]:
-            try: normalized.append((key, TRANSFORMS[rule["transform"]](value, context)))
+            try: normalized.append((key, TRANSFORMS[rule["transform"]](value, {**context, 'mapping_source_field': key})))
             except TransformError as exc: errors.append({"field": target, "source_field": key, "code": "TRANSFORM_ERROR", "message": str(exc)})
         if not normalized: candidate[target] = None; continue
         if any(not _same(normalized[0][1], item[1]) for item in normalized[1:]):

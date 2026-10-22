@@ -250,7 +250,7 @@ def _intraday_preview(client: InspectorClient, args: argparse.Namespace, params:
     output(result.clean if args.full_json else result.clean[:selected])
     print('Mapping diagnostics (errors remain visible outside display sample):')
     output(report['record_reports'] if args.full_json else
-           [r for i, r in enumerate(report['record_reports']) if i < args.limit or r['errors']])
+           [r for i, r in enumerate(report['record_reports']) if i < args.limit or r['errors'] or r.get('warnings')])
     if args.show_mapping:
         print('Mapping dictionary: src/contracts/mappings/ssi_v3.json (PROVISIONAL)')
         output(get_mapping('ssi_v3', 'stock_intraday'))
