@@ -269,7 +269,9 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 
 ## Data quality and completeness tools
 
-All active checks below are READ-ONLY — database read. `check_ingest.py` checks persisted stock daily/intraday coverage; it always returns 0 after printing a successful function result, so inspect its JSON completeness status. Intraday missing data is still reportable while ingestion is disabled. `check_supabase.py` has no CLI arguments or help parser: it performs core-table connectivity checks, not comprehensive schema certification. `check_ssi_ingest_schema.py` selects listed columns and prints index verification SQL; its legacy column expectations may be stale against contract 2.0 and need a separate code fix, not schema changes to satisfy the diagnostic.
+Phase 0 supports `1m`, `1d`, `15m`, `60m`; 1m needs no feature row. Schema checks use canonical stock_raw_intraday/stock_features and retain RPC security. Only ssi_v3 is remapped; legacy/missing/ambiguous evidence is UNKNOWN, verified mismatches FAIL. Intraday volume/value are exact integers, OHLC tolerance is 1e-6, aware timestamps match exact instants without rounding seconds. Closed observed buckets compare OHLCV/value using existing pure helpers; NULL/open/missing evidence is UNKNOWN, with no feature computation. Reconciliation exits 0 PASS/WARNING, 1 FAIL, 2 UNKNOWN; payload presence is informational. All diagnostics are read-only.
+
+All active checks below are READ-ONLY — database read. `check_ingest.py` checks persisted stock daily/intraday coverage; it returns exit 0 for OK, 1 for PARTIAL/FAILED or query errors, and 2 for invalid/indeterminate results. JSON stdout preserves the original status; progress goes to stderr. Intraday missing data remains reportable independently of the isolated manual pilot. `check_supabase.py` has no CLI arguments or help parser: it performs core-table connectivity checks, not comprehensive schema certification. `check_ssi_ingest_schema.py` selects listed columns and prints index verification SQL; its legacy column expectations may be stale against contract 2.0 and need a separate code fix, not schema changes to satisfy the diagnostic.
 
 `phase0_validate_schema.py` uses read-only PostgreSQL catalog queries; prefer the environment variable over putting a database URL in shell history. `phase0_reconcile_sample.py` checks one symbol/date/timeframe, optional exact timestamp and tolerance 1e-6. PASS/FAIL/UNKNOWN matter independently of process execution. See [checks](../scripts/checks/README.md).
 
@@ -280,6 +282,8 @@ python scripts/checks/check_supabase.py
 python scripts/checks/check_ssi_ingest_schema.py
 python scripts/checks/phase0_validate_schema.py
 python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-19 --timeframe 1d
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-21 --timeframe 1m
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-21 --timeframe 15m
 ```
 
 

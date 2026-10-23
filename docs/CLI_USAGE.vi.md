@@ -267,7 +267,9 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 
 ## Công cụ chất lượng và completeness
 
-Các check active dưới đây đều READ-ONLY — database read. `check_ingest.py` kiểm tra coverage stock daily/intraday đã lưu; sau khi hàm chạy xong và in kết quả, script luôn trả 0 nên phải đọc trạng thái completeness trong JSON. Vẫn báo thiếu intraday dù ingest đang tắt. `check_supabase.py` không có tham số CLI/help parser: kiểm tra kết nối bảng lõi, không chứng nhận toàn bộ schema. `check_ssi_ingest_schema.py` select danh sách cột và in SQL kiểm tra index; kỳ vọng cột cũ có thể lệch contract 2.0, cần sửa code riêng, không đổi schema chỉ để chiều diagnostic.
+Phase 0 hỗ trợ `1m`, `1d`, `15m`, `60m`; 1m không cần feature. Schema check dùng stock_raw_intraday/stock_features canonical và giữ RPC security. Chỉ source ssi_v3 được map lại; legacy/thiếu/ambiguous UNKNOWN, mismatch thật FAIL. Volume/value nguyên chính xác, OHLC tolerance 1e-6; timestamp aware đúng instant, không làm tròn giây. Aggregate chỉ so OHLCV/value observed bucket đã đóng bằng helper hiện có, NULL/dở/thiếu evidence UNKNOWN; không tính feature. Reconciliation exit 0 PASS/WARNING, 1 FAIL, 2 UNKNOWN, payload-presence chỉ là thông tin. Mọi diagnostic chỉ đọc.
+
+Các check active dưới đây đều READ-ONLY — database read. `check_ingest.py` kiểm tra coverage stock daily/intraday đã lưu; trả exit 0 khi OK, 1 khi PARTIAL/FAILED hoặc lỗi query, 2 khi input sai/kết quả không xác định. Giữ status gốc trong JSON stdout, progress đưa sang stderr. Coverage intraday được kiểm tra độc lập pilot thủ công. `check_supabase.py` không có tham số CLI/help parser: kiểm tra kết nối bảng lõi, không chứng nhận toàn bộ schema. `check_ssi_ingest_schema.py` select danh sách cột và in SQL kiểm tra index; kỳ vọng cột cũ có thể lệch contract 2.0, cần sửa code riêng, không đổi schema chỉ để chiều diagnostic.
 
 `phase0_validate_schema.py` query catalog PostgreSQL chỉ đọc; ưu tiên biến môi trường thay vì ghi URL DB vào shell history. `phase0_reconcile_sample.py` kiểm tra một mã/ngày/timeframe, tùy chọn timestamp chính xác và tolerance 1e-6. PASS/FAIL/UNKNOWN có ý nghĩa riêng với việc tiến trình chạy được. Xem [công cụ kiểm tra](../scripts/checks/README.vi.md).
 
@@ -278,6 +280,8 @@ python scripts/checks/check_supabase.py
 python scripts/checks/check_ssi_ingest_schema.py
 python scripts/checks/phase0_validate_schema.py
 python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-19 --timeframe 1d
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-21 --timeframe 1m
+python scripts/checks/phase0_reconcile_sample.py --symbol SSI --date 2026-10-21 --timeframe 15m
 ```
 
 
