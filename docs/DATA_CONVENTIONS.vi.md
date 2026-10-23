@@ -127,7 +127,7 @@ Canonical v3 `value` là **SSI-reported intraday candle value** (giá trị nế
 
 Envelope 204/No Content đã xác nhận chỉ kết thúc paging OHLC 1m khi không có payload/marker lỗi mâu thuẫn và đã qua kiểm tra metadata/số đếm. Giữ nguyên raw envelope, termination provider_no_content_204. Trang ngắn không rỗng không tự kết thúc; trang lặp, total sai, malformed/lỗi và cắt cụt do giới hạn vẫn fail. --limit chỉ giới hạn in; --full-json giữ các trang raw đã nhận, candidate và diagnostic.
 
-Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest/schedule production vẫn tắt; preview không đọc/ghi DB.
+Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest tự động/schedule vẫn tắt; inspector preview không đọc/ghi DB. Pilot thủ công riêng cần --write tường minh; diagnostic không gọi pilot.
 
 Xem [runbook và checklist](STOCK_INTRADAY_PIPELINE.vi.md) để biết mapping từng field, paging, validation/session/gap, giới hạn nguồn và cách promotion riêng.
 
@@ -145,3 +145,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
+
+## Đối soát lineage Phase 0 SSI v3
+
+Reconciliation chỉ SELECT persisted raw/clean/features đúng mã/ngày Việt Nam; không ingest hay tính feature. Chỉ source `ssi_v3` dùng mapper hiện có; `SSI` legacy và TradingDate/Time/Value khác nghĩa không được coi như v3. So timestamp theo instant UTC, giữ giây; --timestamp không lấy hàng lân cận. Volume/value nguyên chính xác không qua float/tolerance, OHLC dùng tolerance tường minh. NULL vẫn NULL, không ước tính từ close*volume hoặc đổi thành zero; aggregate thiếu input báo UNKNOWN trước helper legacy. 1m không cần feature; 15m/60m dùng bucket trái/ngày/phiên/closure của helper hiện có, không yêu cầu số nến cố định. PASS là khớp có evidence, FAIL là mâu thuẫn xác minh được, UNKNOWN là thiếu/ambiguous/unsupported; FAIL không bị UNKNOWN che. Completeness OK chỉ là structural check, không chứng nhận mọi phút thị trường. Không thay schema/dữ liệu/backfill. [Runbook](../scripts/checks/README.vi.md).
