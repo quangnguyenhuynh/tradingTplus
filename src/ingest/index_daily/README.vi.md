@@ -1,5 +1,7 @@
 # src/ingest/index_daily
 
+Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `index-daily-backfill` → `index-backfill`. Chỉ tên CLI thay đổi; runner, tham số, flow JSON và exit code giữ nguyên. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill DISABLED / NOT_IMPLEMENTED, tách biệt manual pilot.
+
 [English](README.md)
 
 ## Preview và ingest Index Daily
@@ -18,14 +20,14 @@ python main.py index-daily 19/10/2026
 ```
 ## Backfill và completeness Index Daily
 
-`index-backfill`: WRITE — raw/clean ingest, bắt buộc cặp ngày bao gồm hai đầu `--from`/`--to` (alias `--from-date`/`--to-date`), tùy chọn mã `--indexes` theo master và source. Bỏ cuối tuần, báo số ngày/index; không tự tính feature.
+`index-daily-backfill`: WRITE — raw/clean ingest, bắt buộc cặp ngày bao gồm hai đầu `--from`/`--to` (alias `--from-date`/`--to-date`), tùy chọn mã `--indexes` theo master và source. Bỏ cuối tuần, báo số ngày/index; không tự tính feature.
 
 `index-check`: READ-ONLY — database read, kiểm tra raw/clean của ngày positional tùy chọn và mã trong master. Mặc định ngày trong tuần trước hôm nay, khác index-daily. Chỉ cần credential DB. Có raw không chứng minh có clean hợp lệ. Sau ingest OK/PARTIAL vẫn phải đọc bằng chứng validation/completeness.
 
 ```bash
-python main.py index-backfill --help
+python main.py index-daily-backfill --help
 python main.py index-check --help
-python main.py index-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-daily-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
 python main.py index-check 19/10/2026 --indexes VNINDEX
 ```
 

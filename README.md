@@ -1,5 +1,7 @@
 # TradingTPlus — SSI v3
 
+Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+
 [Tiếng Việt](README.vi.md)
 
 Trading T+ researches Vietnamese stocks over roughly T+3–T+5 trading sessions. Phase 0 is COMPLETE_WITH_NOTES; Phase 1 is same-symbol, same-checkpoint Historical Analog EOD research. Research output does not automatically create signals, alerts or NAV allocation.
@@ -49,7 +51,7 @@ python main.py stock-screener --date 19/10/2026 --symbols SSI --version v2
 ```
 
 ```bash
-python main.py backfill-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI
+python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI
 python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json
 python main.py foreign-rank --date 19/10/2026 --ranking accumulation --window 5 --symbols SSI --top 20
 python main.py analogs profiles register --profile TPLUS_ANALOG_CORE_EOD --version 1

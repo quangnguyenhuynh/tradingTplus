@@ -1,5 +1,7 @@
 # src/cli — parsing and dispatch
 
+Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`; `stock-intraday-backfill` → `backfill-intraday`; `index-daily-backfill` → `index-backfill`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+
 [Tiếng Việt](README.vi.md)
 
 
@@ -24,7 +26,7 @@ The seven commands below retain their parsers but fail before loading handlers o
 | --- | --- | --- |
 | sync-master-data, init | Idempotent master sync | Verified v3 master adapters preserving operator status; master |
 | intraday-ingest | Source 1m raw/clean ingestion | Verified v3 1m adapter, pagination, timestamps, units; stock_intraday |
-| backfill-intraday | Source 1m history | Same adapter; stock_intraday |
+| stock-intraday-backfill | Source 1m history | Same adapter; stock_intraday |
 | backfill | Combined daily/intraday plus checks | Same adapter; stock_intraday; no partial daily work |
 | refill | Single-symbol source/check/features | Same adapter; stock_intraday; no partial daily/features work |
 | streaming-ingest | Bounded streaming, optional write | Verified v3 protocol/auth/capture adapter; streaming |

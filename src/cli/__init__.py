@@ -14,6 +14,13 @@ DISABLED = {
     "backfill-intraday": "stock_intraday", "backfill": "stock_intraday",
     "refill": "stock_intraday", "streaming-ingest": "streaming",
 }
+# Argparse retains the invoked alias. Keep existing handler keys, runners and
+# JSON flow identities; normalize only these three user-facing command names.
+BACKFILL_COMMANDS = {
+    "stock-daily-backfill": "backfill-daily",
+    "stock-intraday-backfill": "backfill-intraday",
+    "index-daily-backfill": "index-backfill",
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,12 +29,16 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return int(exc.code or 0)
+    args.command = BACKFILL_COMMANDS.get(args.command, args.command)
     try:
         requested = getattr(args, "data_source", None)
         if requested is not None:
-            dataset = ("stock_intraday" if args.command == "stock-intraday" else
+            intraday = args.command in {"stock-intraday", "backfill-intraday"}
+            dataset = ("stock_intraday" if intraday else
                        "index_daily" if args.command.startswith("index-") else "stock_daily")
-            resolve_source(dataset, requested, production=args.command != "stock-intraday")
+            # Preview source lookup constructs no adapter. The disabled guard
+            # below still blocks intraday backfill, including explicit ssi_v3.
+            resolve_source(dataset, requested, production=not intraday)
         if args.command in DISABLED:
             raise CapabilityUnavailableError(DISABLED[args.command])
         handler = import_module(f"src.cli.{COMMAND_GROUPS[args.command]}")

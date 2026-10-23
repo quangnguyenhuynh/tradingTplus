@@ -38,7 +38,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-Không thêm lệnh CLI. Native intraday-ohlc hiện có dùng cùng adapter/mapper provider. Intraday-ingest tự động, backfill-intraday, backfill kết hợp và refill vẫn NOT_IMPLEMENTED trước service. Clean 1m lịch sử vẫn có thể dùng cho feature độc lập; preview không kích hoạt feature.
+Không thêm lệnh CLI. Native intraday-ohlc hiện có dùng cùng adapter/mapper provider. Intraday-ingest tự động, stock-intraday-backfill (alias backfill-intraday), backfill kết hợp và refill vẫn NOT_IMPLEMENTED trước service. Clean 1m lịch sử vẫn có thể dùng cho feature độc lập; preview không kích hoạt feature.
 
 ## Request và pagination
 

@@ -38,7 +38,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-There is no new CLI command. Existing native intraday-ohlc routes use the same provider adapter/mapper. Unattended intraday-ingest, backfill-intraday, combined backfill and refill still return NOT_IMPLEMENTED before service access. Historical clean 1m may still feed independent feature jobs, which this preview never triggers.
+There is no new CLI command. Existing native intraday-ohlc routes use the same provider adapter/mapper. Unattended intraday-ingest, stock-intraday-backfill (alias backfill-intraday), combined backfill and refill still return NOT_IMPLEMENTED before service access. Historical clean 1m may still feed independent feature jobs, which this preview never triggers.
 
 ## Request and pagination
 

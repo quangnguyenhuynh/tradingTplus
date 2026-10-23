@@ -1,5 +1,7 @@
 # src/ingest/stock_daily
 
+Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+
 [Tiếng Việt](README.vi.md)
 
 ## Stock Daily ingestion
@@ -22,13 +24,13 @@ python main.py stock-daily 19/10/2026 --symbols SSI HPG
 ```
 ## Stock Daily historical backfill
 
-WRITE — raw/clean ingest: `backfill-daily` requires `--from` and `--to`; `--from-date` and `--to-date` are aliases. Optional symbols apply to every included date; omitted means active master scope per ingest. Optional `--data-source ssi_v3` makes selection explicit; omission selects the ready v3 adapter, not the literal value `auto`.
+WRITE — raw/clean ingest: `stock-daily-backfill` requires `--from` and `--to`; `--from-date` and `--to-date` are aliases. Optional symbols apply to every included date; omitted means active master scope per ingest. Optional `--data-source ssi_v3` makes selection explicit; omission selects the ready v3 adapter, not the literal value `auto`.
 
 The runner skips weekends, rejects future/reversed ranges, records per-day OK/PARTIAL/FAILED and continues across failures. Weekend-only ranges are OK no-ops. It does not verify completeness: inspect daily summaries and perform a separately scoped read-only check. Reruns may update existing clean rows and retain raw evidence. It does not calculate features or call the disabled combined backfill.
 
 ```bash
-python main.py backfill-daily --help
-python main.py backfill-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
+python main.py stock-daily-backfill --help
+python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
 ```
 
 [CLI](../../../docs/CLI_USAGE.md)

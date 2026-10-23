@@ -28,7 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
     index_daily.add_argument("--data-source", default=None, help="Production source (default: newest ready source for index_daily)")
 
-    index_backfill = sub.add_parser("index-backfill", help="Inclusive index daily source-data backfill")
+    index_backfill = sub.add_parser("index-daily-backfill", aliases=["index-backfill"],
+                                    help="ACTIVE / WRITE: inclusive index daily source-data backfill; index-backfill is a compatible alias",
+                                    description="ACTIVE / WRITE: inclusive index daily source-data backfill; index-backfill is a compatible alias")
     index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--indexes", nargs="+", default=None)
@@ -165,21 +167,21 @@ def build_parser() -> argparse.ArgumentParser:
     intraday_mode.add_argument("--write", action="store_true", help="Persist the validated manual pilot")
     intraday_mode.add_argument("--dry-run", action="store_true", help="Explicit read-only mode (default)")
 
-    for command, help_text in (
+    for command, aliases, help_text in (
         (
-            "backfill-daily",
-            "Inclusive daily-only source-data backfill; no completeness/features/signals/backtests",
+            "stock-daily-backfill", ["backfill-daily"],
+            "ACTIVE / WRITE: inclusive stock daily source-data backfill; backfill-daily is a compatible alias",
         ),
         (
-            "backfill-intraday",
-            "Inclusive 1m intraday-only source-data backfill; no daily/completeness/features/signals/backtests",
+            "stock-intraday-backfill", ["backfill-intraday"],
+            "DISABLED / NOT_IMPLEMENTED: reserved stock intraday backfill; backfill-intraday is a compatible alias",
         ),
         (
-            "backfill",
+            "backfill", [],
             "Inclusive daily + intraday source-data backfill with completeness; no features/signals/backtests",
         ),
     ):
-        command_parser = sub.add_parser(command, help=help_text)
+        command_parser = sub.add_parser(command, aliases=aliases, help=help_text, description=help_text)
         command_parser.add_argument(
             "--from",
             "--from-date",
