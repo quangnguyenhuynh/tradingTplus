@@ -58,6 +58,33 @@ def semantic_hash(payload: dict) -> str:
     return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
 
 
+def _failure_category(stage, exc, diagnostics):
+    """Add orchestration metadata only; do not change pilot status/write policy."""
+    if isinstance(exc, PilotBlocked) and str(exc) == 'Database returned an error':
+        return 'DB_DEPENDENCY', True
+    if stage == 'configuration':
+        return 'CONFIGURATION', True
+    messages = [str(d.get('message', '')) for d in diagnostics
+                if isinstance(d, dict) and d.get('code') == 'REQUEST_FAILED']
+    if any(('Missing SSI_API_KEY/SSI_API_SECRET' in m or '/auth/token' in m or
+            'authentication response omitted access token' in m or
+            re.search(r'(?:http_status|api_code)=[\'\"]?(?:401|403)\b', m)) for m in messages):
+        return 'SSI_AUTH_CONFIGURATION', True
+    if any(('network failure for ' in m or re.search(r'(?:http_status|api_code)=[\'\"]?(?:429|5\d\d)\b', m)) for m in messages):
+        return 'SSI_SHARED_DEPENDENCY', True
+    if stage == 'source_fetch_validation':
+        if not isinstance(exc, PilotBlocked) and not diagnostics:
+            return 'SSI_SHARED_DEPENDENCY', True
+        return ('SOURCE_UNAVAILABLE' if any(d.get('code') == 'REQUEST_FAILED' for d in diagnostics)
+                else 'SOURCE_VALIDATION'), False
+    if stage in {'eligibility', 'clean_preflight_recheck'} and isinstance(exc, PilotBlocked) and (
+        str(exc).startswith('Symbol eligibility blocked:') or str(exc).startswith('Requested symbol is missing')):
+        return 'SYMBOL_INELIGIBLE', False
+    if not isinstance(exc, PilotBlocked):
+        return 'DB_DEPENDENCY', True
+    return 'CONFLICT_OR_PREFLIGHT' if stage in {'conflict_preflight', 'clean_preflight_recheck'} else 'PERSISTENCE_OR_READBACK', False
+
+
 class PilotStore:
     """Narrow PostgREST boundary; never uses overwrite/estimated-value helpers."""
     def __init__(self, db):
@@ -202,6 +229,7 @@ def run_manual_intraday(date=None, *, symbols=None, data_source=None, write=Fals
                    planned_raw_insert=None, planned_clean_insert=None, conflict_count=0,
                    readback_raw_count=None, readback_clean_count=None, validation_warnings=[],
                    completeness_status='UNVERIFIED', failures=[], errors=[], conflicts=[],
+                   validation_status='NOT_RUN', source_status=None, error_category=None, systemic_failure=False,
                    db_preflight='NOT_RUN', write_ready=False, write_attempted=False,
                    insert_counts_confirmed=True, clean_provenance='Not stored; identical historical rows are not relabeled',
                    utc_scope=[instant(start), instant(end)])
@@ -210,6 +238,8 @@ def run_manual_intraday(date=None, *, symbols=None, data_source=None, write=Fals
         if db is None and config.SUPABASE_URL and config.SUPABASE_SERVICE_KEY:
             db = SupabaseClient()
         store = PilotStore(db) if db is not None else None
+        if store is None:
+            summary['db_preflight'] = 'NOT_RUN_NO_CREDENTIALS'
         if write and store is None:
             raise PilotBlocked('WRITE requires configured Supabase service credentials; no writes attempted')
         if store:
@@ -219,6 +249,7 @@ def run_manual_intraday(date=None, *, symbols=None, data_source=None, write=Fals
         result = (adapter or SSIV3Adapter()).preview_intraday(symbol, day, page_index=1)
         r = result.mapping_report
         summary.update(raw_received=len(result.raw), mapped_valid=r.get('records_valid', 0),
+                       validation_status=r.get('validation_status', 'NOT_RUN'), source_status=r.get('status'),
                        rejected=r.get('records_rejected', 0), duplicate_count=r.get('duplicate_timestamp_count', 0),
                        pagination_complete=r.get('pagination_complete', False),
                        pagination_termination=r.get('pagination_termination'),
@@ -296,7 +327,9 @@ def run_manual_intraday(date=None, *, symbols=None, data_source=None, write=Fals
     except Exception as exc:
         # Do not expose provider/DB exception bodies (which may contain credentials).
         message = str(exc) if isinstance(exc, PilotBlocked) else f'{type(exc).__name__} during {stage}; inspect sanitized operator logs'
+        category, systemic = _failure_category(stage, exc, summary.get('source_diagnostics', []))
         summary.update(status='PARTIAL' if summary['write_attempted'] else 'BLOCKED',
+                       error_category=category, systemic_failure=systemic,
                        write_ready=False, failed_stage=stage,
                        errors=[{'stage': stage, 'message': message}], failures=[message],
                        recovery='Inspect this symbol/day read-only, resolve conflicts, then rerun the same command. No cleanup/overwrite is performed.')

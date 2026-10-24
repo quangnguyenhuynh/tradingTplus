@@ -7,10 +7,14 @@ def run(args):
     if args.command in {"init", "sync-master-data"}:
         init_symbols()
         return 0
-    if args.command in {"backfill-daily", "backfill-intraday", "backfill"}:
+    if args.command == "backfill-intraday":
+        summary = run_intraday_backfill_pipeline(args.from_date, args.to_date, symbols=args.symbols,
+                                                 write=args.write, **_source_kwargs(args))
+        _print_summary(summary)
+        return 0 if summary.get("status") == "OK" else 1
+    if args.command in {"backfill-daily", "backfill"}:
         runner = {
             "backfill-daily": run_daily_backfill_pipeline,
-            "backfill-intraday": run_intraday_backfill_pipeline,
             "backfill": run_backfill_pipeline,
         }[args.command]
         summary = runner(
