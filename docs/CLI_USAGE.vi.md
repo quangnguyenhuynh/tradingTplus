@@ -1,5 +1,7 @@
 # Hướng dẫn vận hành TradingTPlus CLI — SSI v3
 
+Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-daily-backfill` → `backfill-daily`; `stock-intraday-backfill` → `backfill-intraday`; `index-daily-backfill` → `index-backfill`. Chỉ tên CLI thay đổi; runner, tham số, flow JSON và exit code giữ nguyên. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill DISABLED / NOT_IMPLEMENTED, tách biệt manual pilot.
+
 [English](CLI_USAGE.md)
 
 
@@ -100,14 +102,14 @@ python main.py stock-daily 19/10/2026 --symbols SSI HPG
 
 ## Backfill lịch sử Stock Daily
 
-WRITE — raw/clean ingest: `backfill-daily` bắt buộc `--from`, `--to`; alias là `--from-date`, `--to-date`. Mã tùy chọn áp dụng cho từng ngày; bỏ mã dùng master active trong mỗi lần ingest. Có thể chỉ định `--data-source ssi_v3`; bỏ tùy chọn chọn adapter v3 ready, không truyền chuỗi `auto`.
+WRITE — raw/clean ingest: `stock-daily-backfill` bắt buộc `--from`, `--to`; alias là `--from-date`, `--to-date`. Mã tùy chọn áp dụng cho từng ngày; bỏ mã dùng master active trong mỗi lần ingest. Có thể chỉ định `--data-source ssi_v3`; bỏ tùy chọn chọn adapter v3 ready, không truyền chuỗi `auto`.
 
 Runner bỏ cuối tuần, từ chối khoảng đảo/tương lai, ghi trạng thái OK/PARTIAL/FAILED từng ngày và tiếp tục khi có lỗi. Khoảng chỉ có cuối tuần là OK không làm gì. Không chạy completeness: đọc summary từng ngày và kiểm tra chỉ đọc với phạm vi riêng. Chạy lại có thể cập nhật clean và giữ bằng chứng raw. Không tính feature hay gọi combined backfill đang tắt.
 
 
 ```bash
-python main.py backfill-daily --help
-python main.py backfill-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
+python main.py stock-daily-backfill --help
+python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
 ```
 
 
@@ -130,15 +132,15 @@ python main.py index-daily 19/10/2026
 
 ## Backfill và completeness Index Daily
 
-`index-backfill`: WRITE — raw/clean ingest, bắt buộc cặp ngày bao gồm hai đầu `--from`/`--to` (alias `--from-date`/`--to-date`), tùy chọn mã `--indexes` theo master và source. Bỏ cuối tuần, báo số ngày/index; không tự tính feature.
+`index-daily-backfill`: WRITE — raw/clean ingest, bắt buộc cặp ngày bao gồm hai đầu `--from`/`--to` (alias `--from-date`/`--to-date`), tùy chọn mã `--indexes` theo master và source. Bỏ cuối tuần, báo số ngày/index; không tự tính feature.
 
 `index-check`: READ-ONLY — database read, kiểm tra raw/clean của ngày positional tùy chọn và mã trong master. Mặc định ngày trong tuần trước hôm nay, khác index-daily. Chỉ cần credential DB. Có raw không chứng minh có clean hợp lệ. Sau ingest OK/PARTIAL vẫn phải đọc bằng chứng validation/completeness.
 
 
 ```bash
-python main.py index-backfill --help
+python main.py index-daily-backfill --help
 python main.py index-check --help
-python main.py index-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-daily-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
 python main.py index-check 19/10/2026 --indexes VNINDEX
 ```
 
@@ -305,7 +307,7 @@ Bảy lệnh dưới giữ parser nhưng dừng trước khi nạp handler hoặ
 | --- | --- | --- |
 | sync-master-data, init | Đồng bộ master idempotent | Adapter master v3 được xác minh, giữ status operator; master |
 | intraday-ingest | Ingest raw/clean nguồn 1m | Adapter v3 1m, pagination, timestamp, đơn vị đã xác minh; stock_intraday |
-| backfill-intraday | Lịch sử nguồn 1m | Cùng adapter; stock_intraday |
+| stock-intraday-backfill | Lịch sử nguồn 1m | Cùng adapter; stock_intraday |
 | backfill | Daily/intraday kèm check | Cùng adapter; stock_intraday; không chạy riêng phần daily |
 | refill | Nguồn/check/feature một mã | Cùng adapter; stock_intraday; không chạy riêng daily/feature |
 | streaming-ingest | Streaming giới hạn, ghi tùy chọn | Adapter protocol/auth/capture v3 đã xác minh; streaming |
@@ -318,7 +320,7 @@ python main.py init --help
 python main.py sync-master-data --help
 python main.py intraday-ingest --help
 python main.py stock-intraday --help
-python main.py backfill-intraday --help
+python main.py stock-intraday-backfill --help
 python main.py backfill --help
 python main.py refill --help
 python main.py streaming-ingest --help
@@ -436,7 +438,9 @@ Credential: SSI có; Supabase có. Ngoại lệ dry-run local/config preview và
 | `--indexes` | không | `—` | + |
 | `--data-source` | không | `—` | 1 |
 
-### `index-backfill`
+### `index-daily-backfill`
+
+Alias legacy tương thích: `index-backfill`.
 
 Lấy dữ liệu nguồn daily chỉ số.
 
@@ -721,7 +725,9 @@ SSI v3 OHLC 1m → stock_raw_intraday → stock_intraday; không chạy lớp do
 
 BLOCKED/PARTIAL/FAILED đều exit 1; scope sai exit 2. Dry-run không tạo partition, số chèn thực luôn 0; planned là trường riêng.
 
-### `backfill-daily`
+### `stock-daily-backfill`
+
+Alias legacy tương thích: `backfill-daily`.
 
 Lấy lịch sử daily không kèm completeness.
 
@@ -738,7 +744,9 @@ Credential: SSI có; Supabase có. Ngoại lệ dry-run local/config preview và
 | `--symbols` | không | `—` | + |
 | `--data-source` | không | `—` | 1 |
 
-### `backfill-intraday`
+### `stock-intraday-backfill`
+
+Alias legacy tương thích: `backfill-intraday`.
 
 Điều phối nguồn trước đây; hiện chưa triển khai.
 

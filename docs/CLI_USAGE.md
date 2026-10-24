@@ -1,5 +1,7 @@
 # TradingTPlus CLI operational runbook — SSI v3
 
+Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`; `stock-intraday-backfill` → `backfill-intraday`; `index-daily-backfill` → `index-backfill`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+
 [Tiếng Việt](CLI_USAGE.vi.md)
 
 
@@ -100,14 +102,14 @@ python main.py stock-daily 19/10/2026 --symbols SSI HPG
 
 ## Stock Daily historical backfill
 
-WRITE — raw/clean ingest: `backfill-daily` requires `--from` and `--to`; `--from-date` and `--to-date` are aliases. Optional symbols apply to every included date; omitted means active master scope per ingest. Optional `--data-source ssi_v3` makes selection explicit; omission selects the ready v3 adapter, not the literal value `auto`.
+WRITE — raw/clean ingest: `stock-daily-backfill` requires `--from` and `--to`; `--from-date` and `--to-date` are aliases. Optional symbols apply to every included date; omitted means active master scope per ingest. Optional `--data-source ssi_v3` makes selection explicit; omission selects the ready v3 adapter, not the literal value `auto`.
 
 The runner skips weekends, rejects future/reversed ranges, records per-day OK/PARTIAL/FAILED and continues across failures. Weekend-only ranges are OK no-ops. It does not verify completeness: inspect daily summaries and perform a separately scoped read-only check. Reruns may update existing clean rows and retain raw evidence. It does not calculate features or call the disabled combined backfill.
 
 
 ```bash
-python main.py backfill-daily --help
-python main.py backfill-daily --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
+python main.py stock-daily-backfill --help
+python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG --data-source ssi_v3
 ```
 
 
@@ -130,15 +132,15 @@ python main.py index-daily 19/10/2026
 
 ## Index Daily backfill and completeness
 
-`index-backfill` is WRITE — raw/clean ingest, with required inclusive `--from`/`--to` (aliases `--from-date`/`--to-date`), optional master-backed `--indexes`, and optional source. It skips weekends and reports day/index counts; no feature calculation follows automatically.
+`index-daily-backfill` is WRITE — raw/clean ingest, with required inclusive `--from`/`--to` (aliases `--from-date`/`--to-date`), optional master-backed `--indexes`, and optional source. It skips weekends and reports day/index counts; no feature calculation follows automatically.
 
 `index-check` is READ-ONLY — database read of raw/clean coverage for an optional positional date and master-backed indexes. The default is the previous weekday, not the index-daily default. It needs database credentials only. Raw persistence is not proof that a valid clean row exists. An OK/PARTIAL ingest return must be followed by review of validation/completeness evidence.
 
 
 ```bash
-python main.py index-backfill --help
+python main.py index-daily-backfill --help
 python main.py index-check --help
-python main.py index-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-daily-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
 python main.py index-check 19/10/2026 --indexes VNINDEX
 ```
 
@@ -307,7 +309,7 @@ The seven commands below retain their parsers but fail before loading handlers o
 | --- | --- | --- |
 | sync-master-data, init | Idempotent master sync | Verified v3 master adapters preserving operator status; master |
 | intraday-ingest | Source 1m raw/clean ingestion | Verified v3 1m adapter, pagination, timestamps, units; stock_intraday |
-| backfill-intraday | Source 1m history | Same adapter; stock_intraday |
+| stock-intraday-backfill | Source 1m history | Same adapter; stock_intraday |
 | backfill | Combined daily/intraday plus checks | Same adapter; stock_intraday; no partial daily work |
 | refill | Single-symbol source/check/features | Same adapter; stock_intraday; no partial daily/features work |
 | streaming-ingest | Bounded streaming, optional write | Verified v3 protocol/auth/capture adapter; streaming |
@@ -320,7 +322,7 @@ python main.py init --help
 python main.py sync-master-data --help
 python main.py intraday-ingest --help
 python main.py stock-intraday --help
-python main.py backfill-intraday --help
+python main.py stock-intraday-backfill --help
 python main.py backfill --help
 python main.py refill --help
 python main.py streaming-ingest --help
@@ -438,7 +440,9 @@ Credentials: SSI yes; Supabase yes. Local config/profile dry-runs and Analog gat
 | `--indexes` | no | `—` | + |
 | `--data-source` | no | `—` | 1 |
 
-### `index-backfill`
+### `index-daily-backfill`
+
+Compatible legacy alias: `index-backfill`.
 
 Fetch index daily source rows.
 
@@ -723,7 +727,9 @@ SSI v3 OHLC 1m → stock_raw_intraday → stock_intraday; no downstream work. SS
 
 BLOCKED/PARTIAL/FAILED all exit 1; invalid scope exits 2. Dry-run creates no partition and actual inserts remain 0; planned counts use separate fields.
 
-### `backfill-daily`
+### `stock-daily-backfill`
+
+Compatible legacy alias: `backfill-daily`.
 
 Fetch daily history without completeness.
 
@@ -740,7 +746,9 @@ Credentials: SSI yes; Supabase yes. Local config/profile dry-runs and Analog gat
 | `--symbols` | no | `—` | + |
 | `--data-source` | no | `—` | 1 |
 
-### `backfill-intraday`
+### `stock-intraday-backfill`
+
+Compatible legacy alias: `backfill-intraday`.
 
 Previous source orchestration; currently unavailable.
 

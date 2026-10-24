@@ -1,5 +1,7 @@
 # src/ingest/index_daily
 
+Canonical CLI names and compatible legacy aliases (no removal date): `index-daily-backfill` → `index-backfill`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+
 [Tiếng Việt](README.vi.md)
 
 ## Index Daily preview and ingestion
@@ -18,14 +20,14 @@ python main.py index-daily 19/10/2026
 ```
 ## Index Daily backfill and completeness
 
-`index-backfill` is WRITE — raw/clean ingest, with required inclusive `--from`/`--to` (aliases `--from-date`/`--to-date`), optional master-backed `--indexes`, and optional source. It skips weekends and reports day/index counts; no feature calculation follows automatically.
+`index-daily-backfill` is WRITE — raw/clean ingest, with required inclusive `--from`/`--to` (aliases `--from-date`/`--to-date`), optional master-backed `--indexes`, and optional source. It skips weekends and reports day/index counts; no feature calculation follows automatically.
 
 `index-check` is READ-ONLY — database read of raw/clean coverage for an optional positional date and master-backed indexes. The default is the previous weekday, not the index-daily default. It needs database credentials only. Raw persistence is not proof that a valid clean row exists. An OK/PARTIAL ingest return must be followed by review of validation/completeness evidence.
 
 ```bash
-python main.py index-backfill --help
+python main.py index-daily-backfill --help
 python main.py index-check --help
-python main.py index-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
+python main.py index-daily-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX HNXINDEX
 python main.py index-check 19/10/2026 --indexes VNINDEX
 ```
 
