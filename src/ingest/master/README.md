@@ -11,7 +11,6 @@ The eight commands below retain their parsers but fail before loading handlers o
 | sync-master-data, init | Idempotent master sync | Verified v3 master adapters preserving operator status; master |
 | intraday-ingest | Source 1m raw/clean ingestion | Verified v3 1m adapter, pagination, timestamps, units; stock_intraday |
 | stock-intraday | 1m ingestion and completeness | Same adapter; stock_intraday |
-| stock-intraday-backfill (alias: backfill-intraday) | Source 1m history | Same adapter; stock_intraday |
 | backfill | Combined daily/intraday plus checks | Same adapter; stock_intraday; no partial daily work |
 | refill | Single-symbol source/check/features | Same adapter; stock_intraday; no partial daily/features work |
 | streaming-ingest | Bounded streaming, optional write | Verified v3 protocol/auth/capture adapter; streaming |

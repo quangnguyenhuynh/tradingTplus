@@ -11,7 +11,7 @@ COMMAND_GROUPS = {'analogs': 'analogs', 'init': 'maintenance', 'sync-master-data
 DISABLED = {
     "init": "master", "sync-master-data": "master",
     "intraday-ingest": "stock_intraday",
-    "backfill-intraday": "stock_intraday", "backfill": "stock_intraday",
+    "backfill": "stock_intraday",
     "refill": "stock_intraday", "streaming-ingest": "streaming",
 }
 # Argparse retains the invoked alias. Keep existing handler keys, runners and
@@ -36,8 +36,8 @@ def main(argv: list[str] | None = None) -> int:
             intraday = args.command in {"stock-intraday", "backfill-intraday"}
             dataset = ("stock_intraday" if intraday else
                        "index_daily" if args.command.startswith("index-") else "stock_daily")
-            # Preview source lookup constructs no adapter. The disabled guard
-            # below still blocks intraday backfill, including explicit ssi_v3.
+            # Only the guarded operator paths may resolve intraday preview.
+            # This lookup never constructs an adapter or promotes readiness.
             resolve_source(dataset, requested, production=not intraday)
         if args.command in DISABLED:
             raise CapabilityUnavailableError(DISABLED[args.command])

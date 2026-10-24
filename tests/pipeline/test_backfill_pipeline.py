@@ -146,7 +146,7 @@ def test_module_has_no_eod_or_downstream_engine_dependency():
         assert forbidden not in source
 
 
-@pytest.mark.parametrize("name", ["run_backfill_pipeline", "run_intraday_backfill_pipeline"])
+@pytest.mark.parametrize("name", ["run_backfill_pipeline"])
 def test_unavailable_backfill_never_starts_daily_or_completeness(monkeypatch, name):
     from src.providers.ssi.capabilities import CapabilityUnavailableError
     def fail(*args, **kwargs): raise AssertionError("partial work")

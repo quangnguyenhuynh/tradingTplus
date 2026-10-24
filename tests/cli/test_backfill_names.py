@@ -68,7 +68,7 @@ def test_all_help_is_offline_and_canonical_discoverable(name, capsys, monkeypatc
     if name is None:
         for canonical, legacy, *_ in PAIRS:
             assert f'{canonical} ({legacy})' in text
-        assert 'DISABLED / NOT_IMPLEMENTED' in text
+        assert 'read-only unless --write' in text
     else:
         canonical = next(c for c, old, *_ in PAIRS if name in (c, old))
         assert canonical in text
@@ -116,31 +116,35 @@ def test_omitted_scope_and_source_preserve_defaults(name, monkeypatch, capsys):
 def test_source_preflight_uses_correct_dataset_without_adapter(canonical, legacy, scope, dataset, monkeypatch):
     seen = []
     monkeypatch.setattr(cli, 'resolve_source', lambda ds, source, **kw: seen.append((ds, source, kw)))
-    if dataset != 'stock_intraday':
+    if dataset == 'stock_intraday':
+        monkeypatch.setattr(maintenance_cli, 'run_intraday_backfill_pipeline', lambda *a, **kw: {'status': 'OK'})
+    else:
         module = index_cli if dataset == 'index_daily' else maintenance_cli
         monkeypatch.setattr(module, 'run_index_backfill_pipeline' if dataset == 'index_daily' else 'run_daily_backfill_pipeline', lambda *a, **kw: {'status': 'OK'})
     for name in (canonical, legacy):
-        assert cli.main([name, '--from', '01/10/2026', '--to', '20/10/2026', '--data-source', 'ssi_v3']) == (1 if dataset == 'stock_intraday' else 0)
+        assert cli.main([name, '--from', '01/10/2026', '--to', '20/10/2026', '--' + scope, 'SSI' if scope == 'symbols' else 'VNINDEX', '--data-source', 'ssi_v3']) == 0
     assert seen == [(dataset, 'ssi_v3', {'production': dataset != 'stock_intraday'})] * 2
 
 
 @pytest.mark.parametrize('name', ['stock-intraday-backfill', 'backfill-intraday'])
 @pytest.mark.parametrize('source', [None, 'ssi_v3'])
-def test_intraday_names_both_block_before_handler(name, source, monkeypatch, capsys):
-    monkeypatch.setattr(cli, 'import_module', lambda *_: pytest.fail('disabled handler loaded'))
+def test_intraday_names_both_route_guarded_runner(name, source, monkeypatch, capsys):
+    captured = []
+    monkeypatch.setattr(maintenance_cli, 'run_intraday_backfill_pipeline',
+                        lambda *a, **kw: captured.append((a, kw)) or {'status': 'OK', 'flow': 'backfill-intraday'})
     argv = [name, '--from-date', '01/10/2026', '--to-date', '20/10/2026', '--symbols', 'SSI', 'HPG']
     if source: argv += ['--data-source', source]
-    assert cli.main(argv) == 1
-    out = capsys.readouterr()
-    result = json.loads(out.out)
-    assert result['status'] == 'FAILED' and result['error_type'] == 'NOT_IMPLEMENTED'
-    assert result['dataset'] == 'stock_intraday'
+    assert cli.main(argv) == 0
+    assert json.loads(capsys.readouterr().out)['flow'] == 'backfill-intraday'
+    expected = {'symbols': ['SSI', 'HPG'], 'write': False}
+    if source: expected['data_source'] = source
+    assert captured == [(('01/10/2026', '20/10/2026'), expected)]
 
 
 @pytest.mark.parametrize('name', NAMES)
 def test_rejected_source_preserves_exit_two_before_handler(name, monkeypatch, capsys):
     monkeypatch.setattr(cli, 'import_module', lambda *_: pytest.fail('handler loaded'))
-    assert cli.main([name, '--from', '01/10/2026', '--to', '20/10/2026', '--data-source', 'ssi_v2']) == 2
+    assert cli.main([name, '--from', '01/10/2026', '--to', '20/10/2026', *(['--symbols', 'SSI'] if 'intraday' in name else []), '--data-source', 'ssi_v2']) == 2
     assert 'unsupported data source: ssi_v2' in capsys.readouterr().err
 
 
@@ -148,13 +152,14 @@ def test_no_normalization_of_unrelated_commands():
     assert set(cli.BACKFILL_COMMANDS) == {'stock-daily-backfill', 'stock-intraday-backfill', 'index-daily-backfill'}
 
 
-def test_documented_primary_names_and_disabled_intraday():
+def test_documented_primary_names_and_guarded_intraday():
     for language in ('md', 'vi.md'):
         runbook = Path(f'docs/backfill/README.{language}').read_text()
         for canonical, legacy, *_ in PAIRS:
             assert f'`{canonical}`' in runbook and f'`{legacy}`' in runbook
         assert 'NOT_IMPLEMENTED' in runbook
         assert 'python main.py stock-intraday-backfill --help' in runbook
-        assert 'python main.py stock-intraday-backfill --from' not in runbook
+        assert 'python main.py stock-intraday-backfill --from' in runbook
+        assert 'DRY_RUN' in runbook
         assert 'python main.py stock-daily-backfill --from' in runbook
         assert 'python main.py index-daily-backfill --from' in runbook

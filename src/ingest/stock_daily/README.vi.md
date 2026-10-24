@@ -1,6 +1,6 @@
 # src/ingest/stock_daily
 
-Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-daily-backfill` → `backfill-daily`. Chỉ tên CLI thay đổi; runner, tham số, flow JSON và exit code giữ nguyên. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill DISABLED / NOT_IMPLEMENTED, tách biệt manual pilot.
+Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-daily-backfill` → `backfill-daily`. Giữ tên CLI tương thích; daily/index không đổi. Intraday dùng contract range operator có guard. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill có guard, chỉ operator, mặc định DRY_RUN, ghi cần --write và tối đa 50 cặp weekday; luồng tự động vẫn tắt.
 
 [English](README.md)
 

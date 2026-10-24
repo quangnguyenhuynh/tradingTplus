@@ -1,6 +1,6 @@
 # src/ingest/workflows
 
-Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-intraday-backfill` → `backfill-intraday`. Chỉ tên CLI thay đổi; runner, tham số, flow JSON và exit code giữ nguyên. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill DISABLED / NOT_IMPLEMENTED, tách biệt manual pilot.
+Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-intraday-backfill` → `backfill-intraday`. Giữ tên CLI tương thích; daily/index không đổi. Intraday dùng contract range operator có guard. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill có guard, chỉ operator, mặc định DRY_RUN, ghi cần --write và tối đa 50 cặp weekday; luồng tự động vẫn tắt.
 
 [English](README.md)
 
@@ -14,7 +14,7 @@ python main.py stock-intraday 20/10/2026 --symbols SSI
 python main.py stock-intraday 20/10/2026 --symbols SSI --write
 ```
 
-Lệnh thứ hai **chỉ dành cho chủ sở hữu sau khi kiểm tra dry-run/preflight**. Không nhận khoảng ngày, ALL/wildcard, scope thiếu, nhiều mã hoặc ngày tương lai. Cả hai status trong master phải active. Chỉ nguồn `ssi_v3`, timeframe `1m`; value canonical giữ chính xác `ohlc.value`, thiếu/sai sẽ chặn pilot và không ước tính bù. Hàng giống giữ nguyên; clean khác giá trị hoặc raw xung đột key/source/payload sẽ chặn. Không force overwrite. Xác nhận raw trước clean; ghi dở dang/không rõ kết quả trả exit khác 0, cần kiểm tra đúng scope rồi chạy lại an toàn. Không cam kết transaction xuyên hai bảng. Completeness vẫn UNVERIFIED. Các lệnh ingest/backfill/refill/streaming intraday khác và schedule vẫn tắt. Pilot không chạy feature/signal/backtest.
+Lệnh thứ hai **chỉ dành cho chủ sở hữu sau khi kiểm tra dry-run/preflight**. Không nhận khoảng ngày, ALL/wildcard, scope thiếu, nhiều mã hoặc ngày tương lai. Cả hai status trong master phải active. Chỉ nguồn `ssi_v3`, timeframe `1m`; value canonical giữ chính xác `ohlc.value`, thiếu/sai sẽ chặn pilot và không ước tính bù. Hàng giống giữ nguyên; clean khác giá trị hoặc raw xung đột key/source/payload sẽ chặn. Không force overwrite. Xác nhận raw trước clean; ghi dở dang/không rõ kết quả trả exit khác 0, cần kiểm tra đúng scope rồi chạy lại an toàn. Không cam kết transaction xuyên hai bảng. Completeness vẫn UNVERIFIED. Intraday-ingest tự động, backfill kết hợp, refill, streaming và schedule vẫn tắt. Pilot không chạy feature/signal/backtest.
 
 Xem [runbook](../../../docs/STOCK_INTRADAY_PIPELINE.vi.md) về thứ tự ghi, idempotency, partition, phục hồi và xác minh của chủ sở hữu. Inspector vẫn hoàn toàn chỉ đọc; registry giữ preview, không có factory production chung.
 
@@ -38,13 +38,12 @@ python main.py stock-daily 19/10/2026 --symbols SSI HPG
 ```
 ## Các lệnh tạm tắt
 
-Bảy lệnh dưới giữ parser nhưng dừng trước khi nạp handler hoặc tạo client SSI/DB. Trả exit 1 và JSON status FAILED, error_type NOT_IMPLEMENTED. Source tường minh bị từ chối có thể trả exit 2 ở preflight trước đó. Help vẫn mô tả mục đích cũ, không chứng minh khả năng chạy.
+Các nhóm lệnh còn tắt dưới giữ parser nhưng dừng trước khi nạp handler hoặc tạo client SSI/DB. Trả exit 1 và JSON status FAILED, error_type NOT_IMPLEMENTED. Source tường minh bị từ chối có thể trả exit 2 ở preflight trước đó. Help vẫn mô tả mục đích cũ, không chứng minh khả năng chạy.
 
 | Lệnh | Mục đích trước đây | Adapter / dataset cần trong tương lai |
 | --- | --- | --- |
 | sync-master-data, init | Đồng bộ master idempotent | Adapter master v3 được xác minh, giữ status operator; master |
 | intraday-ingest | Ingest raw/clean nguồn 1m | Adapter v3 1m, pagination, timestamp, đơn vị đã xác minh; stock_intraday |
-| stock-intraday-backfill | Lịch sử nguồn 1m | Cùng adapter; stock_intraday |
 | backfill | Daily/intraday kèm check | Cùng adapter; stock_intraday; không chạy riêng phần daily |
 | refill | Nguồn/check/feature một mã | Cùng adapter; stock_intraday; không chạy riêng daily/feature |
 | streaming-ingest | Streaming giới hạn, ghi tùy chọn | Adapter protocol/auth/capture v3 đã xác minh; streaming |

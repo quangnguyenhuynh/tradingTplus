@@ -1,6 +1,6 @@
 # src/ingest/stock_daily
 
-Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`. Only CLI naming changes; runners, arguments, JSON flow identifiers and exits stay unchanged. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is DISABLED / NOT_IMPLEMENTED, separate from the manual pilot.
+Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`. Compatible CLI spellings remain; daily/index behavior is unchanged. Intraday uses the guarded operator range contract. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is guarded operator-only, DRY_RUN by default, with explicit --write and at most 50 weekday pairs; unattended routes remain disabled.
 
 [Tiếng Việt](README.vi.md)
 

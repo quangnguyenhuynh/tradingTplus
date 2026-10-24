@@ -13,8 +13,6 @@ from src.providers.ssi.registry import DataSourceError, resolve_source
 DISABLED_COMMANDS = [
     ["init"], ["sync-master-data"],
     ["intraday-ingest", "19/10/2026", "--symbols", "SSI"],
-    ["backfill-intraday", "--from", "19/10/2026", "--to", "19/10/2026"],
-    ["stock-intraday-backfill", "--from", "19/10/2026", "--to", "19/10/2026"],
     ["backfill", "--from-date", "19/10/2026", "--to-date", "19/10/2026"],
     ["refill", "--symbol", "SSI", "--from", "19/10/2026", "--to", "19/10/2026"],
     ["streaming-ingest", "--symbols", "SSI", "--channels", "quote", "--write"],

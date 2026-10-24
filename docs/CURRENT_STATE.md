@@ -1,11 +1,11 @@
 # Current state — SSI v3 only
 
-Manual pilot reviewed 22 October 2026 against `dev` commit `3598a675bc1e3105b92a773d18ce0db4baab3136` (PR #181). See [pilot runbook](STOCK_INTRADAY_PIPELINE.md). The earlier CLI restoration review used PR #178. Codex did not run live SSI/Supabase checks.
+Guarded operator backfill reviewed 24 October 2026 against `dev` commit `89acaef907b34d7b2df966d4172900035f3b044d` (PR #184). Earlier manual-pilot review used PR #181. See [pilot runbook](STOCK_INTRADAY_PIPELINE.md). The earlier CLI restoration review used PR #178. Codex did not run live SSI/Supabase checks.
 
 | Capability | Status |
 | --- | --- |
 | SSI v3 Stock Daily / Index Daily | ACTIVE |
-| SSI v3 Stock Intraday ingestion | MANUAL_PILOT: one symbol/date, read-only unless --write; unattended paths disabled |
+| SSI v3 Stock Intraday ingestion | GUARDED_OPERATOR: single-pair pilot and up to 50 explicit weekday backfill pairs; read-only unless --write; unattended paths disabled |
 | SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
 | SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
 | Stock technical, foreign and index features | ACTIVE |

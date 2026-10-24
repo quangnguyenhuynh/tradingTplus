@@ -174,7 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         (
             "stock-intraday-backfill", ["backfill-intraday"],
-            "DISABLED / NOT_IMPLEMENTED: reserved stock intraday backfill; backfill-intraday is a compatible alias",
+            "Guarded SSI v3 intraday backfill: explicit symbols, at most 50 weekday pairs; read-only unless --write",
         ),
         (
             "backfill", [],
@@ -199,10 +199,15 @@ def build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument(
             "--symbols",
             nargs="+",
-            default=None,
-            help="Stock symbols used for every date; omitted means active master symbols",
+            default=None, required=command == "stock-intraday-backfill",
+            help=("Explicit stock symbols; no ALL/wildcards; at most 50 weekday pairs" if command == "stock-intraday-backfill"
+                  else "Stock symbols used for every date; omitted means active master symbols"),
         )
         command_parser.add_argument("--data-source", default=None)
+        if command == "stock-intraday-backfill":
+            backfill_mode = command_parser.add_mutually_exclusive_group()
+            backfill_mode.add_argument("--write", action="store_true", help="Persist each pair through the guarded manual pilot")
+            backfill_mode.add_argument("--dry-run", action="store_true", help="Explicit read-only mode (default)")
 
     refill = sub.add_parser(
         "refill",
