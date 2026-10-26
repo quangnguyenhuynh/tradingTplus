@@ -62,3 +62,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
+
+## Master registry
+
+`master_contract.py`, `master_registry.py` and `adapters/master_v3.py` isolate master readiness from daily/intraday readiness. SSI v3 master datasets are BLOCKED; no v4/v5 implementation. No master source fields are verified yet. [Contracts, extension steps and evidence audit](../../ingest/master/README.md).

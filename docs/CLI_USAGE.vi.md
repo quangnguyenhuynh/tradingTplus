@@ -34,7 +34,7 @@ python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json
 
 ## 2. Lấy dữ liệu EOD
 
-**WRITE — ghi raw/clean.** Master mã/index phải tồn tại; `init` và `sync-master-data` hiện chưa triển khai. Bỏ `--data-source` để dùng nguồn mặc định sẵn sàng (SSI v3); không truyền `auto`.
+**WRITE — ghi raw/clean.** Master mã/index phải tồn tại; `init` và `sync-master-data` có luồng guard nhưng dataset SSI v3 còn BLOCKED. Bỏ `--data-source` để dùng nguồn mặc định sẵn sàng (SSI v3); không truyền `auto`.
 
 ```bash
 # Một ngày, một hoặc nhiều cổ phiếu
@@ -107,9 +107,13 @@ python main.py stock-intraday-backfill --help
 
 - Ngày các lệnh ví dụ phần lớn dùng `DD/MM/YYYY` (nhiều lệnh còn hỗ trợ `YYYY-MM-DD`); tham số và kiểu ngày khác nhau tùy domain. Mã cổ phiếu dùng **khoảng trắng** sau `--symbols`; riêng `index-preview` dùng chuỗi mã phân tách bằng **dấu phẩy**.
 - **Exit 0 không luôn nghĩa là dữ liệu đầy đủ**: xem status, count, warnings và check raw/clean. `PARTIAL`, `BLOCKED` hoặc API EMPTY cần xem kỹ.
-- Các lệnh `init`, `sync-master-data`, `intraday-ingest`, `backfill` (combined), `refill`, `streaming-ingest` hiện **UNAVAILABLE**; có `--help` không có nghĩa là chạy được.
+- Các lệnh `intraday-ingest`, `backfill` (combined), `refill`, `streaming-ingest` hiện **UNAVAILABLE**; có `--help` không có nghĩa là chạy được.
 - Các tên cũ `backfill-daily`, `backfill-intraday`, `index-backfill` vẫn tương thích, nhưng hướng dẫn này dùng tên canonical.
 
 ## Chi tiết kỹ thuật
 
 [Toàn bộ CLI, tham số, alias, status và recovery](CLI_REFERENCE.vi.md) · [Runbook intraday](STOCK_INTRADAY_PIPELINE.vi.md) · [Backfill](backfill/README.vi.md) · [Scripts](../scripts/README.vi.md) · [Quy ước dữ liệu](DATA_CONVENTIONS.vi.md).
+
+## Master sync — cập nhật 26/10/2026
+
+`sync-master-data` và alias `init` đã dùng orchestrator có guard, mặc định DRY_RUN. Cả bốn dataset SSI v3 hiện BLOCKED; không tự khởi tạo master production. Không nguồn READY thì không gọi API/DB. --write cần đúng một --dataset tường minh và provider READY. Giữ status operator; stock/index mới inactive. Không migration/backfill giá. [Runbook và báo cáo PARTIAL](../src/ingest/master/README.vi.md).

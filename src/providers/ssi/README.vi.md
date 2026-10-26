@@ -64,3 +64,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
+
+## Registry master
+
+Contract/registry master tách khỏi readiness daily/intraday. Cả bốn dataset SSI v3 BLOCKED; không triển khai v4/v5 giả, chưa xác minh field master. [Contract, cách thêm version và audit](../../ingest/master/README.vi.md).

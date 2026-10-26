@@ -42,7 +42,7 @@ Stock 1d lấy từ `stock_daily`; intraday 1m được lưu riêng, feature 15m
 
 ## Lưu ý quan trọng
 
-- Master phải có sẵn: `init` và `sync-master-data` chưa triển khai. `intraday-ingest` tự động, combined `backfill`, `refill`, `streaming-ingest` hiện tắt.
+- Master phải có sẵn: `init` và `sync-master-data` đã có luồng guard nhưng cả bốn dataset SSI v3 còn BLOCKED do thiếu bằng chứng nguồn. `intraday-ingest` tự động, combined `backfill`, `refill`, `streaming-ingest` hiện tắt.
 - Intraday chỉ hỗ trợ pilot thủ công và backfill có guard; mặc định DRY-RUN, chỉ `--write` mới ghi. Completeness chưa xác minh, không giả định 226 nến.
 - Exit 0/OK không thay cho kiểm tra completeness. `PARTIAL`, `BLOCKED`, nguồn EMPTY cần kiểm tra.
 - Các lệnh `replace`/`rebuild-clean` có thể thay thế dữ liệu feature trong phạm vi chỉ định; đọc reference và kiểm tra DB trước khi dùng.
@@ -58,3 +58,7 @@ python main.py --help
 python -m compileall main.py src scripts tests
 python -m pytest -q tests/cli tests/inspectors
 ```
+
+## Master sync — cập nhật 26/10/2026
+
+`sync-master-data` và alias `init` đã dùng orchestrator có guard, mặc định DRY_RUN. Cả bốn dataset SSI v3 hiện BLOCKED; không tự khởi tạo master production. Không nguồn READY thì không gọi API/DB. --write cần đúng một --dataset tường minh và provider READY. Giữ status operator; stock/index mới inactive. Không migration/backfill giá. [Runbook và báo cáo PARTIAL](src/ingest/master/README.vi.md).
