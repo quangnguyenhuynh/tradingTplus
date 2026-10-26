@@ -32,3 +32,7 @@ For a future SSI v4: add a client under `src/providers/ssi/clients/`, an adapter
 - [Hướng dẫn CLI tiếng Việt](CLI_USAGE.vi.md)
 - [Documentation audit](CLI_DOCUMENTATION_AUDIT.md)
 - [Báo cáo kiểm tra tài liệu](CLI_DOCUMENTATION_AUDIT.vi.md)
+
+## Master sync — updated 26 October 2026
+
+`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. All four SSI v3 datasets are BLOCKED; production master bootstrapping remains unavailable. No ready provider means no API/DB access. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and PARTIAL report](../src/ingest/master/README.md).

@@ -26,7 +26,7 @@ python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json
 
 ## 2. Ingest EOD — WRITE raw/clean
 
-Master records must already exist: `init` and `sync-master-data` are disabled. Omit `--data-source` to use the ready SSI v3 default; do not pass `auto`.
+Master records must already exist: `init` and `sync-master-data` have a guarded entrypoint but SSI v3 datasets are BLOCKED. Omit `--data-source` to use the ready SSI v3 default; do not pass `auto`.
 
 ```bash
 python main.py stock-eod 19/10/2026 --symbols SSI HPG
@@ -94,7 +94,11 @@ python main.py stock-intraday-backfill --help
 
 - Most examples use `DD/MM/YYYY`; supported formats differ by domain. Separate stock symbols with spaces; **`index-preview` alone uses comma-separated index values**.
 - Exit code 0 does **not** guarantee full, valid or fresh data. Check counts, status, warnings, raw/clean and completeness. Review PARTIAL/BLOCKED/EMPTY.
-- `init`, `sync-master-data`, `intraday-ingest`, combined `backfill`, `refill`, and `streaming-ingest` are **UNAVAILABLE**, even if help parses.
+- `intraday-ingest`, combined `backfill`, `refill`, and `streaming-ingest` are **UNAVAILABLE**, even if help parses.
 - Compatible aliases `backfill-daily`, `backfill-intraday`, `index-backfill` remain accepted; this guide uses canonical names.
 
 [Full CLI/reference](CLI_REFERENCE.md) · [Intraday runbook](STOCK_INTRADAY_PIPELINE.md) · [Backfill](backfill/README.md) · [Scripts](../scripts/README.md) · [Data conventions](DATA_CONVENTIONS.md).
+
+## Master sync — updated 26 October 2026
+
+`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. All four SSI v3 datasets are BLOCKED; production master bootstrapping remains unavailable. No ready provider means no API/DB access. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and PARTIAL report](../src/ingest/master/README.md).

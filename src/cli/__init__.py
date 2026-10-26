@@ -9,7 +9,6 @@ from src.providers.ssi.registry import resolve_source
 
 COMMAND_GROUPS = {'analogs': 'analogs', 'init': 'maintenance', 'sync-master-data': 'maintenance', 'daily': 'stock', 'index-daily': 'index', 'index-backfill': 'index', 'index-check': 'index', 'index-preview': 'index', 'index-features-preview': 'index', 'index-features-daily': 'index', 'index-features-backfill': 'index', 'index-features-check': 'index', 'stock-screener-config': 'screener', 'stock-screener': 'screener', 'foreign-features-preview': 'foreign', 'foreign-features-daily': 'foreign', 'foreign-features-backfill': 'foreign', 'foreign-features-check': 'foreign', 'foreign-rank': 'foreign', 'foreign-symbol': 'foreign', 'intraday-ingest': 'stock', 'stock-eod': 'stock', 'stock-daily': 'stock', 'stock-intraday': 'stock', 'backfill-daily': 'maintenance', 'backfill-intraday': 'maintenance', 'backfill': 'maintenance', 'refill': 'maintenance', 'features': 'features', 'features-daily': 'features', 'features-intraday': 'features', 'streaming-ingest': 'streaming'}
 DISABLED = {
-    "init": "master", "sync-master-data": "master",
     "intraday-ingest": "stock_intraday",
     "backfill": "stock_intraday",
     "refill": "stock_intraday", "streaming-ingest": "streaming",
@@ -32,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     args.command = BACKFILL_COMMANDS.get(args.command, args.command)
     try:
         requested = getattr(args, "data_source", None)
-        if requested is not None:
+        if requested is not None and args.command not in {"init", "sync-master-data"}:
             intraday = args.command in {"stock-intraday", "backfill-intraday"}
             dataset = ("stock_intraday" if intraday else
                        "index_daily" if args.command.startswith("index-") else "stock_daily")

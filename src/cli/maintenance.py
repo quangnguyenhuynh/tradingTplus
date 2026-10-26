@@ -5,8 +5,9 @@ from .common import _print_summary, _status_to_exit, _source_kwargs
 
 def run(args):
     if args.command in {"init", "sync-master-data"}:
-        init_symbols()
-        return 0
+        summary = init_symbols(dataset=args.dataset, data_source=args.data_source, write=args.write)
+        _print_summary(summary)
+        return 0 if summary.get("status") == "OK" else 1
     if args.command == "backfill-intraday":
         summary = run_intraday_backfill_pipeline(args.from_date, args.to_date, symbols=args.symbols,
                                                  write=args.write, **_source_kwargs(args))

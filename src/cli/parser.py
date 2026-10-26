@@ -9,8 +9,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TradingTPlus production flows")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("sync-master-data", help="Sync SSI master data into DB")
-    sub.add_parser("init", help="Alias for sync-master-data")
+    master = sub.add_parser("sync-master-data", aliases=["init"],
+                            help="Guarded master sync (default DRY_RUN; unverified SSI datasets BLOCKED)")
+    master.add_argument("--dataset", choices=("all", "symbols", "securities", "index_master", "index_components"),
+                        default=None, help="Default all previews; --write requires one explicit dataset")
+    master.add_argument("--data-source", default=None, help="Default newest verified READY master provider per dataset")
+    master_mode = master.add_mutually_exclusive_group()
+    master_mode.add_argument("--dry-run", action="store_true")
+    master_mode.add_argument("--write", action="store_true")
 
     daily = sub.add_parser(
         "daily",
