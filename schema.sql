@@ -3331,3 +3331,25 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 -- Streaming ingest reconciliation snapshot (Issue #73).
 -- See migrations/20260717_reconcile_streaming_ingest.sql for idempotent production DDL.
+
+-- Unified security master expansion (Stage A; manual deployment).
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS stock_en_name text;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS sec_type text;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS exchange text;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS issuer text;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS lot_size numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS listed_share numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS issue_date date;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS first_trading_date date;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS last_trading_date date;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS maturity_date date;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_price1 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_increment1 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_price2 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_increment2 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_price3 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_increment3 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_price4 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS tick_increment4 numeric;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS raw jsonb;
+ALTER TABLE public.symbols ADD COLUMN IF NOT EXISTS updated_at timestamptz;

@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.database.client import SupabaseClient
 
 REQUIRED_COLUMNS = {
-    "securities": ["symbol", "market", "stock_name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
+    "symbols": ["symbol", "market", "name", "stock_en_name", "sec_type", "exchange", "issuer", "lot_size", "raw", "updated_at"],
     "stock_daily": ["symbol", "trading_date", "source", "price_change", "per_price_change", "ceiling_price", "floor_price", "ref_price", "open_price", "highest_price", "lowest_price", "close_price", "average_price", "close_price_adjusted", "total_match_vol", "total_match_val", "total_deal_vol", "total_deal_val", "total_traded_vol", "total_traded_value", "foreign_buy_vol_total", "foreign_sell_vol_total", "foreign_buy_val_total", "foreign_sell_val_total", "foreign_remaining_room", "foreign_total_room", "net_foreign_vol", "net_foreign_val", "total_buy_trade", "total_buy_trade_vol", "total_sell_trade", "total_sell_trade_vol", "raw", "created_at", "updated_at"],
     "stock_raw_daily": ["symbol", "trading_date", "source", "data_hash", "payload", "fetched_at", "created_at"],
     "index_master": ["index_code", "index_name", "exchange", "raw", "updated_at"],
@@ -37,7 +37,7 @@ REQUIRED_COLUMNS = {
 }
 
 REQUIRED_UNIQUE_INDEXES = {
-    "securities": "primary key (symbol)",
+    "symbols": "primary key (symbol)",
     "stock_daily": "unique index on (symbol, trading_date)",
     "stock_raw_daily": "unique index on (symbol, trading_date, source, data_hash)",
     "index_master": "primary key (index_code)",
@@ -86,7 +86,7 @@ def main() -> None:
 select tablename, indexname, indexdef
 from pg_indexes
 where schemaname = 'public'
-  and tablename in ('securities','stock_daily','stock_raw_daily','index_master','index_components','index_raw_daily','index_daily','stock_foreign_trading','stock_orderbook_snapshot','stream_raw_snapshot','stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot','stream_status_snapshot','stream_bar_snapshot')
+  and tablename in ('symbols','stock_daily','stock_raw_daily','index_master','index_components','index_raw_daily','index_daily','stock_foreign_trading','stock_orderbook_snapshot','stream_raw_snapshot','stream_quote_snapshot','stream_trade_snapshot','stream_foreign_snapshot','stream_index_snapshot','stream_status_snapshot','stream_bar_snapshot')
 order by tablename, indexname;
 """.strip())
 

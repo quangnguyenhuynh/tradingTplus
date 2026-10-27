@@ -18,11 +18,13 @@ def checked_data(response):
 
 
 def select_columns(dataset):
-    if dataset != 'securities':
+    if dataset not in ('symbols', 'securities'):
         return '*'
     # PostgREST casts preserve exact numeric values through the SDK JSON decoder,
     # whose default floating-point parsing would round fractional NUMERICs.
     columns = set(KEYS[dataset]) | FIELDS[dataset] | {'updated_at'}
+    if dataset == 'symbols':
+        columns |= {'status', 'intraday_status', 'created_at'}
     return ','.join(column + '::text' if column in NUMERIC else column for column in sorted(columns))
 
 
@@ -31,13 +33,21 @@ class MasterStore:
         self.client = client if client is not None else SupabaseClient().get()
 
     def read(self, dataset):
+        if dataset == 'securities':
+            raise MasterStoreError('DEPRECATED_DATASET: use canonical symbols pipeline')
         rows, expected, seen = [], None, set()
         # 100 rows avoids silently trusting a deployment's larger REST row cap.
         for offset in range(0, 100_000, 100):
             query = self.client.table(dataset).select(select_columns(dataset), count="exact")
             for key in KEYS[dataset]:
                 query = query.order(key)
-            response = query.range(offset, offset + 99).execute()
+            try:
+                response = query.range(offset, offset + 99).execute()
+            except Exception as exc:
+                if dataset == 'symbols':
+                    from src.providers.ssi.master_contract import MasterSourceError
+                    raise MasterSourceError('SYMBOLS_SCHEMA_REQUIRED_APPLY_STAGE_A_OR_CHECK_DB_ACCESS') from None
+                raise
             page = checked_data(response)
             count = getattr(response, "count", None)
             if isinstance(count, bool) or not isinstance(count, int) or count < 0 or (expected is not None and count != expected):
@@ -69,6 +79,10 @@ class MasterStore:
             payload["created_at"] = app_now_iso()
         elif dataset != "symbols":
             payload["updated_at"] = app_now_iso()
+        if dataset == 'securities':
+            raise MasterStoreError('DEPRECATED_DATASET: use symbols')
+        if dataset == 'symbols':
+            payload['updated_at'] = app_now_iso()
         table = self.client.table(dataset)
         if operation["classification"] == "NEW":
             query = table.upsert(payload, on_conflict=",".join(KEYS[dataset]), ignore_duplicates=True)
@@ -81,7 +95,7 @@ class MasterStore:
                 if key == "raw" and value is not None:
                     value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
                 query = query.is_(key, "null") if value is None else query.eq(key, value)
-        if dataset == 'securities':
+        if dataset in ('symbols', 'securities'):
             query = query.select(select_columns(dataset))
         acknowledged = checked_data(query.execute())
         if len(acknowledged) != 1:
@@ -93,6 +107,8 @@ class MasterStore:
         return 1
 
     def verify(self, dataset, operation):
+        if dataset == 'securities':
+            raise MasterStoreError('DEPRECATED_DATASET: use symbols')
         query = self.client.table(dataset).select(select_columns(dataset))
         for key, value in operation["identity"].items():
             query = query.eq(key, value)

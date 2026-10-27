@@ -23,6 +23,10 @@ FIELDS = {
     "index_master": frozenset(("index_name", "exchange", "raw")),
     "index_components": frozenset(("exchange", "raw")),
 }
+# One physical security master; securities is only a deprecated input alias.
+FIELDS['symbols'] = (FIELDS['securities'] - {'stock_name'}) | {'name'}
+FIELDS['securities'] = FIELDS['symbols']
+
 DEFAULTS = {"symbols": {"status": "inactive", "intraday_status": "inactive"},
             "index_master": {"status": "inactive"}}
 

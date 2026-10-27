@@ -62,3 +62,7 @@ python -m pytest -q tests/cli tests/inspectors
 ## Master sync — cập nhật 27/10/2026
 
 `sync-master-data` và alias `init` đã dùng orchestrator có guard, mặc định DRY_RUN. SSI v3 symbols/securities đã hỗ trợ refresh có guard ba board; index_master/index_components giữ BLOCKED. READY chỉ cho refresh không xóa có guard; market completeness authoritative vẫn UNVERIFIED. --write cần đúng một --dataset tường minh và provider READY. Giữ status operator; stock/index mới inactive. Không migration/backfill giá. [Runbook và báo cáo xác minh](src/ingest/master/README.vi.md).
+
+## Cutover master hợp nhất — 27/10/2026
+
+Phần này thay thế hướng dẫn cũ sync symbols/securities độc lập: chỉ symbols là đích vật lý; securities là alias deprecated có warning, all chỉ chạy symbols một lần. Owner apply A expand/merge TRƯỚC deploy app; B retire riêng có approval, mặc định abort. Agent không apply production. VN50 GROWTH được loại đúng rule và đếm; HNX-request DERIVATIVES/Future giữ domain thật và inactive mặc định. Index vẫn BLOCKED; không backfill giá. [Runbook](src/ingest/master/README.vi.md).

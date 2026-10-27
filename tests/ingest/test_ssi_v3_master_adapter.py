@@ -74,7 +74,7 @@ def run(adapter, dataset='symbols', *, write=False, rows=(), memory=None):
     return result['datasets'][0], memory
 
 
-@pytest.mark.parametrize('dataset', ['symbols', 'securities'])
+@pytest.mark.parametrize('dataset', ['symbols'])
 def test_all_three_boards_and_mappings(dataset):
     a, session = adapter()
     snap = a.fetch(dataset)
@@ -86,30 +86,26 @@ def test_all_three_boards_and_mappings(dataset):
     assert snap.pagination['authoritative_market_completeness'] == 'UNVERIFIED'
     assert snap.pagination['provider_reported_total'] is None
     by_symbol = {r['symbol']: r for r in snap.records}
-    if dataset == 'symbols':
-        assert by_symbol['SSI'] == {'symbol': 'SSI', 'market': 'HOSE', 'name': 'Chứng khoán mẫu'}
-        assert all(set(r) == {'symbol', 'market', 'name'} for r in snap.records)
-    else:
-        ssi = by_symbol['SSI']
-        assert (ssi['stock_name'], ssi['stock_en_name'], ssi['market'], ssi['exchange'], ssi['sec_type']) == (
-            'Chứng khoán mẫu', 'Sample Securities', 'HOSE', 'HOSE', 'Stock')
-        assert ssi['listed_share'] == '9007199254740993'
-        assert ssi['first_trading_date'] == '2006-12-15' and ssi['maturity_date'] is None
-        assert by_symbol['UPSTOCK']['first_trading_date'] == '2026-01-27'
-        assert by_symbol['BOND202610270001']['sec_type'] == 'Bond'
-        assert by_symbol['E1SAMPLE']['sec_type'] == 'ETF Product'
-        assert by_symbol['FUNDSAMPLE']['sec_type'] == 'Investment Fund'
-        assert by_symbol['UNKNOWNTYPE']['sec_type'] == 'New instrument class'
-        assert by_symbol['NULLTYPE']['sec_type'] is None
-        assert by_symbol['HNXSTOCK']['stock_en_name'] is None
-        assert by_symbol['HNXSTOCK']['listed_share'] is None
-        assert 'issuer' not in ssi and 'cwUnderlyingSymbol' not in ssi
-        assert ssi['raw']['symbolNameVi'] == 'Chứng khoán mẫu'
+    ssi = by_symbol['SSI']
+    assert (ssi['name'], ssi['stock_en_name'], ssi['market'], ssi['exchange'], ssi['sec_type']) == (
+        'Chứng khoán mẫu', 'Sample Securities', 'HOSE', 'HOSE', 'Stock')
+    assert ssi['listed_share'] == '9007199254740993'
+    assert ssi['first_trading_date'] == '2006-12-15' and ssi['maturity_date'] is None
+    assert by_symbol['UPSTOCK']['first_trading_date'] == '2026-01-27'
+    assert by_symbol['BOND202610270001']['sec_type'] == 'Bond'
+    assert by_symbol['E1SAMPLE']['sec_type'] == 'ETF Product'
+    assert by_symbol['FUNDSAMPLE']['sec_type'] == 'Investment Fund'
+    assert by_symbol['UNKNOWNTYPE']['sec_type'] == 'New instrument class'
+    assert by_symbol['NULLTYPE']['sec_type'] is None
+    assert by_symbol['HNXSTOCK']['stock_en_name'] is None
+    assert by_symbol['HNXSTOCK']['listed_share'] is None
+    assert 'issuer' not in ssi and 'cwUnderlyingSymbol' not in ssi
+    assert ssi['raw']['symbolNameVi'] == 'Chứng khoán mẫu'
     types = snap.pagination['boards'][-1]['unknown_security_types']
     assert types == {'New instrument class': 1, '<NULL>': 1}
 
 
-@pytest.mark.parametrize('dataset', ['symbols', 'securities'])
+@pytest.mark.parametrize('dataset', ['symbols'])
 @pytest.mark.parametrize('field,value', [
     ('symbol', None), ('symbol', ''), ('symbol', {}), ('symbol', '*'), ('symbol', True),
     ('board', None), ('board', 'HNX'), ('board', 'upcom'), ('board', 10),
@@ -217,7 +213,7 @@ def test_exact_json_decimal_parsing_and_sanitized_raw():
     body[0].update(lotSize='123.456789012345678901', authToken='secret',
                    nested={'password':'secret','safe':'synthetic-api-secret'})
     session.responses[1] = response(body, raw=json.dumps(body).replace('"123.456789012345678901"', '123.456789012345678901').encode())
-    snap = a.fetch('securities')
+    snap = a.fetch('symbols')
     row = snap.records[0]
     assert snap.complete and row['lot_size'] == '123.456789012345678901'
     assert row['raw']['lotSize'] == '123.456789012345678901'
@@ -246,7 +242,7 @@ def test_large_db_drop_blocks_before_missing_classifications():
     assert report['source_missing_records'] is None and report['classifications'] == []
 
 
-@pytest.mark.parametrize('dataset', ['symbols','securities'])
+@pytest.mark.parametrize('dataset', ['symbols'])
 def test_real_adapter_pipeline_dry_write_repeat(dataset):
     a, _ = adapter()
     report, memory = run(a, dataset)
@@ -271,8 +267,8 @@ def test_existing_controls_missing_records_and_nulls_preserved():
     assert next(r for r in memory.tables['symbols'] if r['symbol']=='ABSENT') == old[1]
     a, _ = adapter()
     old = [dict(symbol='HNXSTOCK',market='HNX',stock_en_name='known English name',listed_share='100000')]
-    report, memory = run(a, 'securities', write=True, rows=old)
-    row = next(r for r in memory.tables['securities'] if r['symbol']=='HNXSTOCK')
+    report, memory = run(a, 'symbols', write=True, rows=old)
+    row = next(r for r in memory.tables['symbols'] if r['symbol']=='HNXSTOCK')
     assert row['stock_en_name']=='known English name' and row['listed_share']=='100000'
 
 
@@ -334,7 +330,7 @@ def test_retry_after_date_and_invalid_values():
     ('firstTradingDate',' '), ('lastTradingDate',''), ('maturityDate',None), ('stockType','')])
 def test_optional_empty_fields_are_null(field,value):
     row=deepcopy(SAMPLES['HOSE'][0]);row[field]=value
-    mapped=map_verified_record('securities',row)
+    mapped=map_verified_record('symbols',row)
     target={'symbolNameEn':'stock_en_name','lotSize':'lot_size','listedShare':'listed_share',
             'firstTradingDate':'first_trading_date','lastTradingDate':'last_trading_date',
             'maturityDate':'maturity_date','stockType':'sec_type'}[field]
@@ -362,7 +358,7 @@ def test_api_error_envelopes_are_not_success(code,expected):
 
 def test_symbol_normalization_long_bond_unknown_type_and_zero():
     row=deepcopy(SAMPLES['HNX'][1]);row.update(symbol=' bond_identifier_12345678901234567890 ',stockType='Warrant-like future type',lotSize=0)
-    mapped=map_verified_record('securities',row)
+    mapped=map_verified_record('symbols',row)
     assert mapped['symbol']=='BOND_IDENTIFIER_12345678901234567890'
     assert mapped['sec_type']=='Warrant-like future type' and mapped['lot_size']=='0'
 
@@ -392,7 +388,7 @@ def test_failure_after_successful_boards_retains_evidence_without_any_write():
 def test_security_type_distribution_compared_against_existing_db():
     a,_=adapter()
     old=[dict(symbol='SSI',market='HOSE',sec_type='Stock'),dict(symbol='EXISTING',market='HOSE',sec_type='Bond')]
-    report,_=run(a,'securities',rows=old)
+    report,_=run(a,'symbols',rows=old)
     distribution={item['value']:item for item in report['retention_check']['distribution_comparison']}
     assert distribution['Stock']['existing_count']==1 and distribution['Stock']['source_count']==3
     assert distribution['Bond']['existing_count']==1 and distribution['Bond']['source_count']==1
@@ -409,7 +405,7 @@ def test_actual_sdk_numeric_text_casts_on_read_write_and_readback():
         calls.append(request)
         assert 'lot_size::text' in request.url.params['select']
         assert 'listed_share::text' in request.url.params['select']
-        row={'symbol':'SSI','lot_size':exact}
+        row={'symbol':'SSI','lot_size':exact,'status':'inactive','intraday_status':'inactive'}
         if request.method=='POST':
             payload=json.loads(request.content)
             assert payload['lot_size']==exact
@@ -418,12 +414,12 @@ def test_actual_sdk_numeric_text_casts_on_read_write_and_readback():
     http=httpx.Client(base_url='https://master.invalid',transport=httpx.MockTransport(handle))
     client=SyncPostgrestClient('https://master.invalid',http_client=http)
     store=MasterStore(client)
-    existing=store.read('securities')
+    existing=store.read('symbols')
     assert existing[0]['lot_size']==exact
-    plan,_=compare('securities',[{'symbol':'SSI','lot_size':exact}],[])
-    assert store.apply('securities',plan[0])==1
-    store.verify('securities',plan[0])
-    unchanged,_=compare('securities',[{'symbol':'SSI','lot_size':exact}],existing)
+    plan,_=compare('symbols',[{'symbol':'SSI','lot_size':exact}],[])
+    assert store.apply('symbols',plan[0])==1
+    store.verify('symbols',plan[0])
+    unchanged,_=compare('symbols',[{'symbol':'SSI','lot_size':exact}],existing)
     assert unchanged==[] and len(calls)==3
     http.close()
 
@@ -446,7 +442,7 @@ def test_missing_credentials_do_not_request_or_access_database(monkeypatch):
 
 def test_access_token_echo_redacted_in_raw_or_blocks_mapped_field():
     samples=deepcopy(SAMPLES);samples['HOSE'][0]['unknownNote']='echo synthetic-token'
-    a,_=adapter(samples);snap=a.fetch('securities')
+    a,_=adapter(samples);snap=a.fetch('symbols')
     assert snap.complete and snap.records[0]['raw']['unknownNote']=='echo [REDACTED]'
     samples['HOSE'][0]['stockType']='synthetic-token';a,_=adapter(samples)
     report,memory=run(a,write=True)

@@ -96,3 +96,7 @@ See [`docs/FOREIGN_EOD_FEATURES.md`](../docs/FOREIGN_EOD_FEATURES.md) for the ap
 ## 20260928 SSI v3 `index_daily` rebuild
 
 `20260928_rebuild_index_daily_ssi_v3.sql` manually replaces the untrusted SSI v2 clean contract with nullable SSI v3 `indexSummary` columns while retaining `(index_code, trading_date)` as the primary key. It deletes old **clean** rows rather than copying v2 `change` semantics, and never changes or deletes `index_raw_daily`. Apply in a maintenance window, backfill clean data from v3, validate it, and separately rerun index features. Review the migration's verification and rollback guidance before applying.
+
+## Unified master cutover — 27 October 2026
+
+This supersedes earlier independent symbols/securities procedures: symbols is the sole physical write target; securities is a deprecated CLI alias with an explicit warning. all syncs symbols once. Apply Stage A expansion/merge BEFORE application deployment; Stage B retirement is separately owner-approved and aborts by default. Never apply production migrations through the agent. VN50 GROWTH exact index exclusion is counted; HNX-request DERIVATIVES/Future retains its actual domain and inactive defaults. Index capabilities remain BLOCKED. No price backfill. [Runbook](../src/ingest/master/README.md).
