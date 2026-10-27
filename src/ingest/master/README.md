@@ -1,203 +1,206 @@
-# Guarded versioned master synchronization
+# Guarded SSI v3 master sync — symbols and securities
 
 [Tiếng Việt](README.vi.md)
 
-**Implementation status: PARTIAL. Production source validation: BLOCKED.**
-`sync-master-data` and compatible alias `init` now execute the new orchestrator.
-All four SSI v3 master capabilities are explicitly BLOCKED; this release cannot
-bootstrap production master data. No verified master response fixtures or SSI
-credentials were available. Nothing is silently promoted to READY.
+The versioned architecture from PR #186 is reused. SSI v3 **symbols** and
+**securities** are READY for the guarded non-destructive refresh contract below.
+**index_master** and **index_components** remain unchanged, unverified and BLOCKED.
+READY means verified mapping plus validated three-board acquisition and guarded
+persistence, **not strict authoritative market-universe completeness**.
 
-## Evidence and source boundaries
+## Source evidence, scope and completeness
 
-Audited latest `dev`: `32f03abab80648f15afa80cfeb31ea15027bd44d` (26 October 2026).
-The inspector defines candidate requests, not proven response/mapping contracts:
+[Owner evidence, 26–27 October 2026](../../../docs/SSI_V3_MASTER_EVIDENCE.md):
+GET /api/v3/data/securitiesByBoard with board=HOSE, HNX, UPCOM returned unpaginated
+JSON arrays of 793/410/851 rows (2,054 observed). These counts are historical
+reference diagnostics, never required equality or permanent market totals.
 
-| Dataset | Candidate endpoint | Known request definition | Unresolved evidence |
-| --- | --- | --- | --- |
-| symbols | `/api/v3/data/securitiesByBoard`, `/api/v3/data/masterdata` | exactly one symbol/board/index selector for securitiesByBoard; masterdata from/to dates plus pageIndex/pageSize | Actual identity/name/board/security-type fields; universe completeness; HOSE/HNX/UPCoM representation |
-| securities | same candidates | same definitions | Every detailed field, type and missing-field meaning |
-| index_master | `/api/v3/data/indexList` | optional board; inspector single-page | Index identity/name/exchange fields and authoritative complete listing |
-| index_components | `/api/v3/data/securitiesByBoard` | candidate index selector | Actual constituent relationship and authoritative complete membership |
+Every run fetches each board separately through SSIV3Client, validates HTTP 200,
+parses the complete response bytes, requires an array, checks every record's
+identity/board/types/optional numeric/date fields, and rejects duplicate identities
+within/across boards. No paging parameters are invented. All three boards must
+succeed; no invalid record is silently skipped into a successful snapshot.
+Symbols and securities share this exact fetch/mapper implementation; independent
+CLI runs deliberately obtain independent current snapshots, with no global cache.
 
-There are **zero verified v3 master response fields/mappings** in this release.
-The inspector aliases do not establish endpoint equivalence or membership.
-Daily securitiesSummary fixtures and OHLC fixtures prove only their own price
-contracts. They are not master fixtures. No successful SSI master fixture was
-invented. No live SSI request or Supabase write occurred during development.
-The v3 adapter raises safe explicit errors if fetched/mapped directly and does
-not construct a client. Generic permissive `SSIV3Client.paged()` is not used to
-claim complete master pagination. Authentication/retry utilities remain shared
-and unchanged; production master fetch/paging implementation awaits evidence.
+Reports distinguish full HTTP response parsing, successful board enumeration,
+internal consistency and authoritative market coverage. pagination_complete means
+complete acquisition of the declared three-board response scope, not a provider
+market total. pagination.mode=UNPAGINATED_ARRAY; provider_reported_total=null;
+authoritative_market_completeness=UNVERIFIED is always visible. No HTTP 200/parsed
+array/count threshold can independently prove that SSI returned every security.
 
-## CLI and current outcomes
+Conservative policy, before any mutation or SOURCE_MISSING classifications:
+
+- Empty board, malformed/truncated body, wrong board, invalid/duplicate record,
+  failed board, row/body limit or any source error blocks the whole dataset.
+- A board count below 50% of the latest owner reference blocks with
+  SOURCE_COUNT_REGRESSION. Counts may differ normally; no equality is required.
+  Reference evidence must be updated only after separate source investigation,
+  never by bypassing CLI validation. The threshold is an anomaly policy, not an
+  estimated authoritative market size. Production has no force/override flag.
+- A source universe or known DB market group below 50% of existing dataset counts
+  blocks SOURCE_DB_COUNT_REGRESSION before mass missing conclusions. Count, board
+  and securities security-type distributions/deltas are reported. The owner
+  provided no historical type distribution; DB distribution is compared when
+  available. Unknown types are retained and counted, not coerced or excluded.
+- Source failures preserve board-level diagnostics and completed evidence, with
+  no partial dataset write. Missing authoritative totals remain a residual risk
+  even after every guard passes. Avoid overlapping sync writers.
+
+Request bounds: three board data calls, at most three attempts each by default
+(client hard cap five), shared auth, 30s per request, maximum 16 MiB parsed body
+and 20,000 records/board. HTTP 429/5xx use bounded backoff; Retry-After up to 30s
+is respected, longer/invalid waits fail safely instead of retrying early. Transport
+truncation, JSON/non-finite/duplicate-key errors, auth, HTTP and rate-limit errors
+have distinct safe codes. No credentials, tokens, auth bodies or full error bodies
+are logged. No live SSI request was made by the agent in this task.
+
+## Canonical mapping
+
+| Source | symbols | securities |
+| --- | --- | --- |
+| symbol | symbol | symbol |
+| board | market | market, exchange |
+| symbolNameVi | name | stock_name |
+| symbolNameEn | — | stock_en_name |
+| stockType | — | sec_type |
+| lotSize | — | lot_size |
+| listedShare | — | listed_share |
+| firstTradingDate | — | first_trading_date |
+| lastTradingDate | — | last_trading_date |
+| maturityDate | — | maturity_date |
+| sanitized source object | — | raw |
+
+Identifiers trim/uppercase, retain long bond identifiers, and obey the existing
+canonical allowed characters/max 64. Boards must exactly match HOSE/HNX/UPCOM and
+the requested board. Names preserve Unicode; absent/null/blank optional text,
+numbers and dates become NULL. Nonempty invalid numeric/date values block both
+datasets. Numeric strings and numeric JSON tokens are parsed without binary float;
+dates YYYY/MM/DD or YYYY-MM-DD normalize to ISO. No zero/name/issuer/type fallback.
+Zero stays zero. All Stock/Bond/ETF Product/Investment Fund/unknown/NULL types are
+represented in both tables. Market existence does not imply T+ strategy eligibility.
+
+securities.raw is a recursively sanitized JSON-compatible source copy. Secret
+keys and configured credential values are redacted; unknown JSON-safe source
+fields may remain raw-only. Exact JSON Decimal values use an integer when integral,
+otherwise a decimal string for JSONB/SDK compatibility. No unknown field becomes
+a schema column. issuer, issue_date and tick_price/tick_increment fields are not
+sourced; report lists them unsupported and existing DB values remain intact.
+Securities numeric DB columns are selected/cast to text for compare, write acknowledgements and readback, avoiding SDK binary-float decoding. Generic DB/price clients are unchanged.
+Mapping version: ssi_v3.securitiesByBoard.1.0.0. Inspector symbol_list mapping now
+populates stock_name/market/exchange/security_type using the verified names;
+its PASS is row mapping only, not board/universe/persistence validation.
+
+## CLI and database prerequisites
 
 ```bash
-python main.py sync-master-data
+python main.py sync-master-data --dataset symbols --data-source ssi_v3 --dry-run
+python main.py sync-master-data --dataset securities --data-source ssi_v3 --dry-run
 python main.py init --dataset symbols --data-source ssi_v3 --dry-run
-python main.py sync-master-data --dataset index_master --data-source ssi_v3 --dry-run
-python main.py sync-master-data --help
-python main.py init --help
 ```
 
-Current previews exit **1/BLOCKED**, zero API/DB access. Omitted dataset previews
-all four independent datasets. Omitted source selects the newest explicitly
-registered verified READY provider per dataset; currently none exists, so each
-report says NO_READY_MASTER_PROVIDER and lists the available blocked capability.
-An explicit ssi_v3 source reports MASTER_CAPABILITY_NOT_READY. Unknown ssi_v2,
-ssi_v4, ssi_v5 or auto sources exit 2; no fallback. Dry-run/write are mutually
-exclusive. There are no unverified boards/symbols/index selectors in this CLI.
+SSI_API_KEY/SSI_API_SECRET and local Supabase service credentials are required to
+fetch and compare. Dry-run performs zero mutations. Omitted source selects the
+newest verified READY master provider for that dataset, currently ssi_v3 for these
+two only. Explicit ssi_v2/v4/v5/auto is rejected, no fallback. The price registry
+and all daily/intraday behavior remain unchanged.
 
-The future owner write syntax is below, **not a working production example**:
+Only after reviewing both dry-run reports, the owner may run:
 
 ```bash
 python main.py sync-master-data --dataset symbols --data-source ssi_v3 --write
+python main.py sync-master-data --dataset securities --data-source ssi_v3 --write
 ```
 
-This still exits BLOCKED today. `--write` requires exactly one explicit dataset;
-command-only write and `--dataset all --write` exit 2. All is preview-only.
-Dataset names: symbols, securities, index_master, index_components. Only status
-OK exits 0; PARTIAL, FAILED, BLOCKED and UNSUPPORTED exit 1.
+--write requires exactly one explicit dataset. --dataset all --write and
+command-only --write reject (exit 2); --dry-run/--write are mutually exclusive.
+all/omitted dataset is preview-only and currently PARTIAL because indexes BLOCKED.
+Only OK exits 0; PARTIAL/FAILED/BLOCKED/UNSUPPORTED exit 1.
 
-## Architecture and canonical schema
+Read-only catalog verification of TradingTPus_DS on 27 October 2026 confirmed
+symbols_pkey(symbol), securities_pkey(symbol), numeric/date/JSONB descriptive
+columns, symbol status checks, and **no securities→symbols foreign key**. Therefore
+securities can sync independently; symbols-first is an operational recommendation,
+not a hidden dependency or automatic write. No related rows are created outside
+the selected dataset. Recheck deployed constraints if the owner changes schema.
 
-`CLI → run_master_sync → MasterRegistry → version adapter → MasterSnapshot →
-canonical validation → compare → MasterStore → JSON`.
-Price registry/readiness, clients, Daily/Intraday pipelines and generic DB upsert
-defaults are unchanged. The orchestrator contains no SSI endpoint/response names.
-The old v2 mapper logic was removed. Public Python sync/map names remain thin
-wrappers; map wrappers reject unverified mapping. Legacy injected SSI/DB objects
-and index scopes are explicitly rejected instead of starting retired logic.
+## Persistence, controls and recovery
 
-| Table / unique key | Allowed canonical source-owned fields |
-| --- | --- |
-| symbols / symbol | market, name |
-| securities / symbol | market, stock_name, stock_en_name, sec_type, exchange, issuer, lot_size, listed_share, issue_date, maturity_date, first_trading_date, last_trading_date, tick_price1..4, tick_increment1..4, raw |
-| index_master / index_code | index_name, exchange, raw |
-| index_components / index_code,symbol | exchange, raw |
+CLI → existing master registry → v3 adapter → MasterSnapshot → canonical validation
+→ existing comparison → guarded MasterStore → readback → JSON. No rebuilt CLI or
+second orchestrator. Generic SupabaseClient upsert defaults remain unchanged.
 
-These are DB contracts, **not claimed SSI mappings**. Identifier normalization:
-trim/uppercase; restricted nonblank identifier; duplicates including normalized
-collisions block the whole dataset. Unknown columns and local operator controls
-in adapter records are rejected. Decimal fields preserve precision without float;
-non-finite, negative and float inputs reject. Dates require canonical ISO dates.
-Missing optional values remain NULL/omitted; existing non-null fields are never
-overwritten with NULL. No fallback names, inferred boards/types, inactivity,
-delisting or membership. Meaningful source distinctions must be verified and
-mapped by each future adapter, never discarded by orchestration.
+MasterStore reads ordered pages of 100 with stable exact counts, unique identities
+and a 100,000-row bound. Complete dataset validation/retention/plan precedes the
+first mutation. Only NEW/CHANGED write; UNCHANGED skips; SOURCE_MISSING never means
+confirmed delisting and never deletes or marks inactive. No membership replacement.
+Existing non-null descriptions are never overwritten by NULL. Existing symbols
+retain status/intraday_status; inserts explicitly inactive/inactive. Source status
+never controls eligibility. Existing index code/status behavior is unchanged.
 
-## Guards, comparison and transactions
+Insert uses existing unique key and ignore_duplicates. Concurrent insert cannot
+overwrite controls. Update sends changed source-owned fields with compare-and-set,
+never status. timestamps are application controlled. Every acknowledgement and
+readback is checked. Actual counts are acknowledged-only, distinct from planned.
+**Transactions remain one row/request, not atomic across a dataset/tables.**
+Partial or ambiguous failure stops, preserves acknowledged evidence and reports
+PARTIAL/nonzero; insert_counts_confirmed=false also covers uncertain updates.
+No ambiguous automatic DB retry, delete, rollback or cleanup. Inspect reported
+identities read-only, rerun DRY_RUN, then owner explicitly reruns the same dataset.
+Completed identical rows become UNCHANGED. DB reads are not repeatable-read across
+pages; use one sync writer, while concurrent operator flag edits are preserved.
 
-A usable adapter must supply canonical records, source count, mapping version,
-exact resolved scope and complete pagination evidence in MasterSnapshot. Current
-CLI contract is full dataset scope only (`{"kind":"ALL"}`). Any source error,
-incomplete response, unknown scope, mapping/count mismatch, invalid/duplicate
-identity or empty source blocks before DB writes. One source record must account
-for each canonical row in this initial contract. No partial subset is written.
-An unverified or PREVIEW capability cannot write; default selection excludes it.
-A later independent dataset blocker does not discard earlier preview evidence.
-
-MasterStore reads ordered pages of 100, requires stable exact counts and unique
-identities, and blocks at 100,000 rows or truncated pages. A full dataset plan is
-validated before the first mutation. Classifications: NEW, CHANGED, UNCHANGED,
-SOURCE_MISSING, INVALID, CONFLICT; UNSUPPORTED is also explicit at capability level.
-Unknown counts are null, not fabricated zero. Reports contain per-dataset mode,
-source/capability/evidence/scope/pagination/mapping, source/canonical/validation and
-change counts, identity-only classifications, planned/actual counts, readback,
-safe error codes, warnings and recovery. Raw source bodies and DB exception text
-are never printed. Actual counts mean acknowledged writes, not guessed commits.
-
-Existing symbols retain status/intraday_status; existing index_master retains
-status. Updates send only changed source-owned fields. New stocks explicitly
-insert inactive/inactive; new indexes inactive. created_at is sent only for new
-symbols; other tables receive application updated_at only when written. Generic
-upsert_symbols/upsert_index_master defaults are deliberately unchanged.
-
-Insert uses existing unique key with ignore_duplicates, then verifies returned
-row and readback. A concurrent insert cannot overwrite local controls. Updates
-use identity plus compare-and-set on changed descriptive columns, never status.
-UNCHANGED is not rewritten. SOURCE_MISSING is absence from the source snapshot,
-not confirmed delisting; no deletion/inactivation. Membership is never replaced.
-
-**Atomicity: one row/request, no cross-table or whole-dataset transaction.**
-Later failure preserves acknowledged counts and PARTIAL status. An ambiguous
-write sets insert_counts_confirmed=false (also covers updates) and stops without
-retry. Readback failure is explicit. No delete/rollback/cleanup is automatic.
-Concurrent dataset reads are not a repeatable-read DB snapshot; count, identity
-and compare-and-set guards fail closed on detected changes, but an owner should
-avoid overlapping sync writers. Concurrency of operator status edits is allowed:
-updates never send those fields or revert the operator's decision.
-
-## Recovery and provider extension
-
-On write/readback failure, stop; inspect the reported identity and current rows
-read-only. Re-run DRY_RUN, review its plan, then explicitly rerun that one dataset
-with --write only after source readiness is independently verified. Previously
-completed identical records become UNCHANGED. No automatic ambiguous-write retry.
-
-To add SSI v4/v5 (none implemented):
-
-1. Capture redacted real endpoint envelopes, request contracts, field/type/board
-   semantics and all paging/terminal/error evidence, independently per dataset.
-2. Implement a version adapter/mapper using shared authentication and bounded
-   retries. Never use a short page alone as completeness proof. Validate totals,
-   repeated/wrong/changed pages, missing envelopes, caps and authoritative scope.
-3. Return MasterSnapshot canonical DTOs; report missing/unsupported fields and
-   safe distinct auth/HTTP/rate-limit/timeout/malformed/pagination errors.
-4. Register explicit per-dataset MasterCapability in master_registry.py, initially
-   BLOCKED/PREVIEW. READY requires evidence plus verified complete source contract;
-   it is never inferred from version number or availability of daily adapters.
-5. Add real-source fixture mapping/paging tests and independent canonical/store
-   tests. Verify read-only against the source before separately authorizing READY.
-   CLI, table names, canonical validation and store implementation remain intact.
-
-## Owner read-only verification SQL
-
-These statements are supplied only; not executed during this task.
+## Owner read-only checks
 
 ```sql
 select status,intraday_status,count(*) from public.symbols group by 1,2;
-select status,count(*) from public.index_master group by 1;
-select symbol,market,name,status,intraday_status,created_at
-from public.symbols where symbol = 'SSI';
-select * from public.securities where symbol = 'SSI';
-select * from public.index_master where index_code = 'VNINDEX';
-select * from public.index_components where index_code = 'VNINDEX' order by symbol;
-select indexname,indexdef from pg_indexes where schemaname='public'
-and tablename in ('symbols','securities','index_master','index_components');
+select market,count(*) from public.symbols group by 1 order by 1;
+select market,sec_type,count(*) from public.securities group by 1,2 order by 1,2;
+select * from public.symbols where symbol='SSI';
+select * from public.securities where symbol='SSI';
+select conrelid::regclass,conname,pg_get_constraintdef(oid)
+from pg_constraint where conrelid in ('public.symbols'::regclass,'public.securities'::regclass);
 ```
 
-## Audit, database impact and validation report — 26 October 2026
+These owner data checks were supplied, not executed. Agent catalog and numeric-literal cast reads were
+performed. Production rows written: NONE. No migration, schema change, price
+backfill, feature/signal/backtest, workflow or schedule change.
 
-Before coding: inspected AGENTS, main, parser/dispatch/maintenance, legacy master
-modules, DB status/upsert helpers, schema and all master-related migrations,
-provider registry/client/adapter, inspector endpoint/selectors, shared scope,
-master/retirement/inspector tests, existing source fixtures, bilingual root/CLI/
-ingest/provider docs and repository-wide master references/workflows/scripts.
-Root gap: disabled orchestration plus obsolete v2 field guesses; inspector
-request definitions provide no valid source mapping. Generic master helpers
-activate new rows by default and are unsuitable for sync-specific defaults.
-Proposed/implemented files are inventoried below. No alternate legacy business
-logic survives. Existing disabled check_complete_ssi_ingest script and unrelated
-retired commands remain disabled. No workflow/schedule was enabled.
+## Extension and validation status
 
-Tables reused: symbols, securities, index_master, index_components. Schema and
-migration: NONE. Development rows touched: NONE. Existing data/control decisions
-preserved. Price backfill: NONE. No downstream ingestion/features/research.
-Production mapping is unresolved: **PARTIAL**, not production-ready sync.
+Future SSI v4/v5 needs its own real evidence, adapter/mapper and explicit per-dataset
+registration. Canonical validation, store, tables and public CLI remain reusable.
+MasterSnapshot.retention_policy is optional version-neutral comparison metadata,
+not an SSI field in orchestration. No v4/v5 or index support is fabricated.
 
-Offline canonical tests are synthetic version-neutral fixtures, not real SSI
-master payloads. Source pagination/mapping live validation is NOT_RUN/BLOCKED;
-no live SSI request, Supabase read/write, migration or live write smoke was run.
-Next step: obtain bounded redacted real v3 master response/paging evidence and
-verify each dataset independently before implementing/promoting its mapper.
+Audit base dev: d2211cb329dc0503661e43f11e7e7bd83cfc91a3 (merged PR #186). Reviewed
+AGENTS/main/CLI, all master modules, client/registry, schema/master migrations,
+actual catalog/constraints, inspector/mapping, fixtures/tests/workflows and bilingual
+docs. Gap: v3 adapter stub and unverified inspector descriptions; no architecture
+replacement needed. All schema fields fit. Updated files/inventory and final
+commands/results are recorded below.
 
-## Final validation and file inventory
+Implementation complete for guarded symbols/securities. Residual limitations:
+no authoritative provider total, no full owner response archive, no agent live SSI
+smoke (credentials absent), no production write verification. Fixtures use
+representative values under owner-verified field contracts, not verbatim market
+rows. Offline HTTP/SDK tests validate code, not a new live-source observation.
+Next step: owner runs the two dry-runs, reviews board counts/type distributions,
+NULLs/unsupported fields/plan and controls, then separately executes scoped writes.
 
-Targeted: **91 passed**; full suite: **1115 passed, 7 skipped** (26.65s). Seven existing PostgreSQL integration tests require TEST_DATABASE_URL. Compile, both CLI help commands and diff whitespace check passed. Real PostgREST SDK query checks used httpx.MockTransport (no network).
+## Final report — 27 October 2026
+
+Status: **PARTIAL** overall verification; requested code and offline checks complete. Agent live SSI smoke and production write/readback verification NOT_RUN (no SSI credentials; production writes forbidden). Owner-verified source evidence is distinguished from representative offline samples. Capability READY is limited to the documented guarded refresh, with authoritative market completeness UNVERIFIED. Both index capabilities remain BLOCKED.
+
+Targeted: **2 + 66 + 132 = 200 passed**. Full suite: **1222 passed, 7 skipped** (31.65s); existing PostgreSQL integration tests require TEST_DATABASE_URL. Compile, help and diff check passed. PostgREST SDK HTTP queries/decimal text casts verified offline; read-only PostgreSQL numeric literal cast returned exact decimal/large integer. No Supabase write or live SSI request.
+
+Tables: symbols/securities only for future owner writes; actual development data writes NONE. Existing records/controls preserved, new inactive defaults, no migration/schema/backfill/schedule/downstream change. No files deleted; compatibility wrappers remain. Next: owner reviews both dry-runs then explicitly writes one dataset at a time.
 
 ```bash
-.venv/bin/python -m pytest -q tests/ingest/test_versioned_master_sync.py tests/ingest/test_master_data_pipeline.py tests/cli/test_capability_retirement.py
+.venv/bin/python -m pytest -q tests/ingest/test_master_data_pipeline.py
+.venv/bin/python -m pytest -q tests/ingest/test_versioned_master_sync.py
+.venv/bin/python -m pytest -q tests/ingest/test_ssi_v3_master_adapter.py tests/inspectors/test_ssi_api_mapping.py tests/data_preview/test_v3_client.py
 .venv/bin/python -m pytest -q
 .venv/bin/python -m compileall main.py src scripts tests
 .venv/bin/python main.py sync-master-data --help
@@ -214,34 +217,38 @@ Modified files:
 - `docs/CLI_USAGE.md`
 - `docs/CLI_USAGE.vi.md`
 - `docs/CURRENT_STATE.md`
+- `scripts/inspectors/ssi_rest/README.md`
+- `scripts/inspectors/ssi_rest/README.vi.md`
 - `src/README.md`
 - `src/README.vi.md`
 - `src/cli/README.md`
 - `src/cli/README.vi.md`
-- `src/cli/__init__.py`
-- `src/cli/maintenance.py`
-- `src/cli/parser.py`
+- `src/contracts/README.md`
+- `src/contracts/README.vi.md`
+- `src/contracts/mappings/ssi_v3.json`
 - `src/ingest/README.md`
 - `src/ingest/README.vi.md`
 - `src/ingest/master/README.md`
 - `src/ingest/master/README.vi.md`
-- `src/ingest/master/index_master.py`
-- `src/ingest/master/init_symbols.py`
+- `src/ingest/master/contracts.py`
+- `src/ingest/master/store.py`
+- `src/ingest/master/sync.py`
 - `src/providers/ssi/README.md`
 - `src/providers/ssi/README.vi.md`
 - `src/providers/ssi/adapters/README.md`
 - `src/providers/ssi/adapters/README.vi.md`
-- `tests/cli/test_capability_retirement.py`
+- `src/providers/ssi/adapters/master_v3.py`
+- `src/providers/ssi/clients/rest_v3.py`
+- `src/providers/ssi/master_contract.py`
+- `src/providers/ssi/master_registry.py`
 - `tests/ingest/test_master_data_pipeline.py`
+- `tests/ingest/test_versioned_master_sync.py`
 
 Created files:
 
-- `src/ingest/master/contracts.py`
-- `src/ingest/master/store.py`
-- `src/ingest/master/sync.py`
-- `src/providers/ssi/adapters/master_v3.py`
-- `src/providers/ssi/master_contract.py`
-- `src/providers/ssi/master_registry.py`
-- `tests/ingest/test_versioned_master_sync.py`
+- `docs/SSI_V3_MASTER_EVIDENCE.md`
+- `docs/SSI_V3_MASTER_EVIDENCE.vi.md`
+- `tests/fixtures/data_preview/ssi_v3_master_contract_samples.json`
+- `tests/ingest/test_ssi_v3_master_adapter.py`
 
-Deleted files: NONE. Removed legacy mapper bodies; import names retained as wrappers.
+Deleted files: NONE.

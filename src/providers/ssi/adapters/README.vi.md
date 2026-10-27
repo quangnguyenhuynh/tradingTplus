@@ -10,6 +10,6 @@ Các module:
 
 Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
 
-## Registry master
+## Master chứng khoán đã xác minh
 
-Contract/registry master tách khỏi readiness daily/intraday. Cả bốn dataset SSI v3 BLOCKED; không triển khai v4/v5 giả, chưa xác minh field master. [Contract, cách thêm version và audit](../../../ingest/master/README.vi.md).
+master_v3 dùng chung fetch/map securitiesByBoard cho HOSE/HNX/UPCOM. Symbols/securities READY có guard; hai capability index giữ nguyên BLOCKED. Không total authoritative, completeness thị trường UNVERIFIED. Giữ mọi loại chứng khoán, không tự bật eligibility. [Mapping, guard, bằng chứng và recovery](../../../ingest/master/README.vi.md).

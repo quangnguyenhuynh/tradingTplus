@@ -2,6 +2,9 @@
 from __future__ import annotations
 import time
 import json
+from decimal import Decimal
+from email.utils import parsedate_to_datetime
+from datetime import timezone
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -9,10 +12,44 @@ import requests
 from src.config import config
 
 BASE = "https://api.ssi.com.vn/api/v3"
+
+
+def reject_json_constant(value):
+    raise ValueError('Non-finite JSON constant')
+
+
+def unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate JSON object key')
+        result[key] = value
+    return result
+
+
+def master_retry_delay(response, attempt):
+    """Respect Retry-After up to 30s; a larger wait fails instead of retrying early."""
+    header = response.headers.get('Retry-After')
+    if header is None:
+        return min(.25 * 2 ** (attempt - 1), 4)
+    try:
+        delay = float(header)
+    except (TypeError, ValueError):
+        try:
+            moment = parsedate_to_datetime(header)
+            if moment.tzinfo is None:
+                return None
+            delay = (moment - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return max(0, delay) if 0 <= delay <= 30 else None
+
+
 class SSIReadError(RuntimeError):
-    def __init__(self, message: str = "", *, response_body=None):
+    def __init__(self, message: str = "", *, response_body=None, code=None):
         super().__init__(message)
         self.response_body = response_body
+        self.code = code
 
 
 def provider_date(value: str) -> str:
@@ -74,7 +111,9 @@ def _request_error(method: str, path: str, params: Any, status: int, body: Any =
         detail += f" api_code={code!r}"
     if message is not None:
         detail += f" api_msg={message!r}"
-    return SSIReadError(f"SSI request failed: {detail}", response_body=body)
+    return SSIReadError(f"SSI request failed: {detail}", response_body=body, code=(
+        'SSI_AUTH_FAILED' if status in (401,403) or code in (401,403,'401','403') else
+        'SSI_RATE_LIMIT' if status == 429 or code in (429,'429') else 'SSI_HTTP_ERROR'))
 @dataclass
 class PageResult:
     items: list[dict]
@@ -88,7 +127,7 @@ class PageResult:
 class SSIV3Client:
     def __init__(self, session=None, timeout=30, max_attempts=3, page_size=1000):
         self.session=session or requests.Session(); self.timeout=timeout; self.max_attempts=max(1,min(max_attempts,5)); self.page_size=page_size; self.token=None
-    def _request(self, method, path, *, params=None, payload=None, auth=True):
+    def _request(self, method, path, *, params=None, payload=None, auth=True, master_snapshot=False):
         headers={'Accept':'application/json'}
         if auth:
             if not self.token:self.login()
@@ -97,17 +136,47 @@ class SSIV3Client:
         for attempt in range(1,self.max_attempts+1):
             try:r=self.session.request(method,url,params=params,json=payload,headers=headers,timeout=self.timeout)
             except (requests.Timeout,requests.ConnectionError) as exc:
-                if attempt==self.max_attempts: raise SSIReadError(f'network failure for {path}') from exc
+                if attempt==self.max_attempts:
+                    raise SSIReadError(f'network failure for {path}', code=(
+                        'SSI_TIMEOUT' if isinstance(exc, requests.Timeout) else 'SSI_NETWORK_ERROR')) from None
                 time.sleep(.05*attempt); continue
+            except requests.RequestException:
+                if not master_snapshot:
+                    raise
+                raise SSIReadError('Incomplete master HTTP response', code='SSI_BODY_INCOMPLETE') from None
             if r.status_code in (429,) or r.status_code>=500:
-                if attempt<self.max_attempts: time.sleep(.05*attempt); continue
+                if attempt<self.max_attempts:
+                    delay = master_retry_delay(r, attempt) if master_snapshot else .05*attempt
+                    if delay is not None:
+                        time.sleep(delay); continue
+            if master_snapshot and r.status_code != 200:
+                raise SSIReadError('Master HTTP request failed', code=(
+                    'SSI_AUTH_FAILED' if r.status_code in (401,403) else
+                    'SSI_RATE_LIMIT' if r.status_code == 429 else 'SSI_HTTP_ERROR'))
             if r.status_code>=400:
                 try: error_body=r.json()
                 except ValueError: error_body=getattr(r, "text", None)
                 raise _request_error(method, path, params, r.status_code, error_body)
             try:
-                body=r.json()
-            except ValueError as exc: raise SSIReadError(f'non-JSON SSI response for {path}', response_body=getattr(r, 'text', None)) from exc
+                if master_snapshot:
+                    if len(r.content) > 16 * 1024 * 1024:
+                        raise SSIReadError('Master response too large', code='SSI_BODY_LIMIT')
+                    # Parse original bytes, never route exact numbers through float.
+                    body=json.loads(r.content, parse_float=Decimal,
+                                    parse_constant=reject_json_constant,
+                                    object_pairs_hook=unique_json_object)
+                else:
+                    body=r.json()
+            except ValueError as exc:
+                if master_snapshot:
+                    raise SSIReadError('Malformed master JSON response', code='SSI_MALFORMED_JSON') from None
+                raise SSIReadError(f'non-JSON SSI response for {path}', response_body=getattr(r, 'text', None)) from exc
+            if master_snapshot and not isinstance(body, list):
+                code, _ = _envelope_error(body)
+                raise SSIReadError('Master response must be an array', code=(
+                    'SSI_AUTH_FAILED' if code in (401,403,'401','403') else
+                    'SSI_RATE_LIMIT' if code in (429,'429') else
+                    'SSI_API_ERROR' if code not in (None,0,'0',200,'200') else 'SSI_INVALID_ENVELOPE'))
             if isinstance(body,dict):
                 code,message=_envelope_error(body)
                 ohlc_terminal_candidate = (method == 'GET' and path == '/data/ohlc'
@@ -118,7 +187,7 @@ class SSIV3Client:
             return body
         raise SSIReadError(f'retry limit reached for {path}')
     def login(self):
-        if not config.SSI_API_KEY or not config.SSI_API_SECRET: raise SSIReadError('Missing SSI_API_KEY/SSI_API_SECRET for ssi_v3')
+        if not config.SSI_API_KEY or not config.SSI_API_SECRET: raise SSIReadError('Missing SSI_API_KEY/SSI_API_SECRET for ssi_v3', code='SSI_CONFIGURATION')
         body=self._request('POST','/auth/token',payload={'apiKey':config.SSI_API_KEY,'apiSecret':config.SSI_API_SECRET},auth=False)
         def find(v):
             if isinstance(v,dict):
@@ -128,7 +197,7 @@ class SSIV3Client:
                     z=find(x)
                     if z:return z
         self.token=find(body)
-        if not self.token:raise SSIReadError('authentication response omitted access token')
+        if not self.token:raise SSIReadError('authentication response omitted access token', code='SSI_AUTH_INVALID_RESPONSE')
     @staticmethod
     def _items(body):
         if isinstance(body,list):return body
@@ -153,6 +222,11 @@ class SSIV3Client:
         params=securities_summary_params(symbol,date,page_size=self.page_size)
         return self.paged('/data/securitiesSummary',params)
     def masterdata(self,date):return self.paged('/data/masterdata',{'from':date,'to':date})
+    def securities_by_board(self, board):
+        """Owner-verified unpaginated array contract; no invented paging params."""
+        if board not in ('HOSE', 'HNX', 'UPCOM'):
+            raise ValueError('Unsupported master board')
+        return self._request('GET', '/data/securitiesByBoard', params={'board': board}, master_snapshot=True)
     def ohlc_1m(self, symbol, date, to_date=None, *, page_index=1, page_size=None,
                 max_pages=100, ascending=None):
         """Read a bounded 1m preview. Request semantics remain provisional, not production-ready.

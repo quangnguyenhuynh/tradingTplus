@@ -24,3 +24,7 @@ Envelope 204/No Content đã xác nhận chỉ kết thúc paging OHLC 1m khi kh
 Ngày được cung cấp có 226 hàng unique trên 23 trang không rỗng rồi trang 24, thứ tự giảm dần, 135 nến sáng/90 chiều/một nến 14:45. Đây là quan sát do chủ sở hữu báo cho riêng ngày đó, không phải số count hay công thức chung. Chỉ có hai object candle thật và terminal envelope được cung cấp; replay offline xác minh 2/2, không tái tạo các hàng còn thiếu. Agent live rerun: NOT_RUN (thiếu credential). Bar-start/end, ý nghĩa value/turnover độc lập và completeness thị trường còn chưa xác minh. Ingest/schedule production vẫn tắt; preview không đọc/ghi DB.
 
 [Mapping, quy tắc và guard persistence](../../docs/STOCK_INTRADAY_PIPELINE.vi.md)
+
+## Mapping catalog chứng khoán — 27/10/2026
+
+symbol_list SSI v3 version 1.1.0-preview map symbolNameVi→stock_name, board→market/exchange, stockType→security_type. Optional thiếu giữ NULL, type lạ giữ text nguồn. Contract daily/intraday/index không đổi. PASS chỉ kiểm tra row mapping, không chứng minh đủ board/universe hoặc ghi DB. [Bằng chứng và provenance fixture](../../docs/SSI_V3_MASTER_EVIDENCE.vi.md).

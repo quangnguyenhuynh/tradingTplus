@@ -444,7 +444,7 @@
       }
     },
     "symbol_list": {
-      "mapping_version": "1.0.0-preview",
+      "mapping_version": "1.1.0-preview",
       "contract_version": "1.0.0",
       "fields": {
         "symbol": {
@@ -454,24 +454,28 @@
           "transform": "symbol"
         },
         "stock_name": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 securitiesByBoard name field has been verified from a live response"
+          "aliases": [
+            "securitiesByBoard.symbolNameVi"
+          ],
+          "transform": "text"
         },
         "market": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 securitiesByBoard market field has been verified from a live response"
+          "aliases": [
+            "securitiesByBoard.board"
+          ],
+          "transform": "text"
         },
         "exchange": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 securitiesByBoard exchange field has been verified from a live response"
+          "aliases": [
+            "securitiesByBoard.board"
+          ],
+          "transform": "text"
         },
         "security_type": {
-          "unsupported": true,
-          "transform": "text",
-          "reason": "No v3 securitiesByBoard security-type field has been verified from a live response"
+          "aliases": [
+            "securitiesByBoard.stockType"
+          ],
+          "transform": "text"
         }
       },
       "inspector": {

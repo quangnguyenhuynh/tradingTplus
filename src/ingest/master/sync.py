@@ -5,7 +5,7 @@ from collections import Counter
 
 from src.providers.ssi.master_contract import MASTER_DATASETS, MasterSnapshot, MasterSourceError
 from src.providers.ssi.master_registry import MASTER_REGISTRY
-from .contracts import canonical_record, compare, identity, FIELDS, KEYS
+from .contracts import canonical_record, compare, identity, FIELDS, KEYS, retention_check
 from .store import MasterStore
 
 
@@ -47,6 +47,8 @@ def _dataset(dataset, source, write, registry, store_factory):
                       errors=[{"code": "MASTER_CAPABILITY_NOT_READY"}], error_count=1,
                       warnings=[capability.note])
         return report
+    if capability.note:
+        report['warnings'].append(capability.note)
     try:
         report["stage"] = "SOURCE_FETCH"
         snapshot = capability.factory().fetch(dataset)
@@ -60,7 +62,12 @@ def _dataset(dataset, source, write, registry, store_factory):
         )
         # Adapters supply only safe codes/metadata, never raw source bodies.
         if snapshot.errors:
-            report["errors"] = [{"code": e.get("code", "SOURCE_INVALID")} for e in snapshot.errors]
+            report["errors"] = [{k: e[k] for k in ('code', 'board', 'record') if k in e}
+                                for e in snapshot.errors]
+            report['duplicate_identities'] = sum(e.get('code') == 'DUPLICATE_SOURCE_IDENTITY' for e in snapshot.errors)
+            report['invalid_records'] = sum('record' in e and e.get('code') != 'DUPLICATE_SOURCE_IDENTITY'
+                                            for e in snapshot.errors)
+            report['valid_records'] = len(snapshot.records)
         if (snapshot.complete is not True or snapshot.errors or not snapshot.mapping_version
                 or snapshot.resolved_scope != {"kind": "ALL"}
                 or isinstance(snapshot.source_records, bool) or not isinstance(snapshot.source_records, int)
@@ -93,6 +100,9 @@ def _dataset(dataset, source, write, registry, store_factory):
         store = store_factory()
         existing = store.read(dataset)
         report["stage"] = "DB_COMPARE"
+        report['retention_check'] = retention_check(dataset, canonical, existing, snapshot.retention_policy)
+        if report['retention_check'].get('status') == 'BLOCKED':
+            raise MasterSourceError('SOURCE_DB_COUNT_REGRESSION')
         plan, classifications = compare(dataset, canonical, existing)
         report["classifications"] = classifications
         counts = Counter(item["classification"] for item in classifications)

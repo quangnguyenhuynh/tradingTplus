@@ -118,7 +118,7 @@ def execute(snap, *, rows=(), write=False, client=None, status="READY"):
     return result["datasets"][0], client
 
 
-@pytest.mark.parametrize("dataset", MASTER_DATASETS)
+@pytest.mark.parametrize("dataset", ["index_master", "index_components"])
 def test_real_v3_explicitly_blocked_without_services(dataset):
     for write in (False, True):
         report = run_master_sync(dataset, data_source="ssi_v3", write=write)
@@ -128,11 +128,12 @@ def test_real_v3_explicitly_blocked_without_services(dataset):
     with pytest.raises(MasterSourceError): map_verified_record(dataset, {"Symbol": "SSI"})
 
 
-def test_omitted_source_does_not_promote_unverified_v3():
-    report = run_master_sync()
-    assert len(report["datasets"]) == 4
-    assert all(r["errors"][0]["code"] == "NO_READY_MASTER_PROVIDER" for r in report["datasets"])
-    assert MASTER_REGISTRY.resolve("symbols") is None
+def test_only_verified_security_capabilities_promoted():
+    for dataset in ("symbols", "securities"):
+        assert MASTER_REGISTRY.resolve(dataset).status == "READY"
+    for dataset in ("index_master", "index_components"):
+        assert MASTER_REGISTRY.resolve(dataset) is None
+        assert MASTER_REGISTRY.resolve(dataset, "ssi_v3").status == "BLOCKED"
 
 
 @pytest.mark.parametrize("source", ["ssi_v2", "ssi_v4", "ssi_v5", "auto"])
@@ -266,7 +267,7 @@ def test_broad_write_rejected(dataset):
 
 @pytest.mark.parametrize("command", ["sync-master-data", "init"])
 def test_cli_alias_and_blocked_json(command, capsys):
-    assert main([command, "--dataset", "symbols", "--data-source", "ssi_v3"]) == 1
+    assert main([command, "--dataset", "index_master", "--data-source", "ssi_v3"]) == 1
     report = json.loads(capsys.readouterr().out)
     assert report["flow"] == "sync-master-data" and report["mode"] == "DRY_RUN"
     assert main([command, "--write"]) == 2

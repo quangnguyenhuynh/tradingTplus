@@ -36,6 +36,6 @@ def test_master_upserts_preserve_existing_inactive_status(monkeypatch):
 
 def test_master_sync_blocked_without_any_database_access(monkeypatch):
     monkeypatch.setattr(SupabaseClient, "__init__", lambda *_: (_ for _ in ()).throw(AssertionError("DB access")))
-    result = init_symbols.init_symbols()
+    result = init_symbols.init_symbols(dataset="index_master")
     assert result["status"] == "BLOCKED"
-    assert len(result["datasets"]) == 4
+    assert len(result["datasets"]) == 1

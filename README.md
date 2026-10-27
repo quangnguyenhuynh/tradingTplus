@@ -42,7 +42,7 @@ See the [task-based CLI guide](docs/CLI_USAGE.md) for `--write` intraday, backfi
 
 ## Important safeguards
 
-- Master records must exist: `init` and `sync-master-data` route to guarded sync, but all SSI v3 master datasets remain BLOCKED pending verified source fixtures. Automated `intraday-ingest`, combined `backfill`, `refill`, and `streaming-ingest` remain disabled.
+- Master records must exist: `init` and `sync-master-data` route to guarded sync, but symbols/securities can be synchronized with guarded three-board validation; index datasets remain BLOCKED. Automated `intraday-ingest`, combined `backfill`, `refill`, and `streaming-ingest` remain disabled.
 - Intraday manual pilot and guarded range backfill default to DRY-RUN; only `--write` persists. Completeness is unverified; never assume 226 bars per day.
 - Exit 0/OK alone does not prove completeness; inspect PARTIAL/BLOCKED/EMPTY.
 - `replace`/`rebuild-clean` may replace scoped feature data; read the reference and check DB before use.
@@ -59,6 +59,6 @@ python -m compileall main.py src scripts tests
 python -m pytest -q tests/cli tests/inspectors
 ```
 
-## Master sync — updated 26 October 2026
+## Master sync — updated 27 October 2026
 
-`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. All four SSI v3 datasets are BLOCKED; production master bootstrapping remains unavailable. No ready provider means no API/DB access. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and PARTIAL report](src/ingest/master/README.md).
+`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. SSI v3 symbols/securities now support guarded refresh across HOSE/HNX/UPCOM; index_master/index_components remain BLOCKED. READY is scoped to guarded non-destructive refresh; authoritative market completeness remains UNVERIFIED. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and validation report](src/ingest/master/README.md).

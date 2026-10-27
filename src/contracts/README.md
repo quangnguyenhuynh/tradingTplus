@@ -24,3 +24,7 @@ The verified 204/No Content envelope terminates OHLC 1m paging only without conf
 The supplied day had 226 unique rows over 23 nonempty pages then page 24, descending order, 135 morning/90 afternoon/one 14:45 candle. These are owner-reported observations for that day, not a universal count or a formula rule. Only two real candle objects and the terminal envelope were supplied; offline replay verifies those 2/2 without reconstructing missing rows. Agent live rerun: NOT_RUN (no credentials). Bar-start/end, independent value/turnover semantics and market completeness remain unverified. Production ingestion/scheduling remains disabled; preview performs zero database reads/writes.
 
 [Mapping rules and persistence guard](../../docs/STOCK_INTRADAY_PIPELINE.md)
+
+## Security catalog mapping — 27 October 2026
+
+SSI v3 symbol_list mapping 1.1.0-preview maps symbolNameVi→stock_name, board→market/exchange, stockType→security_type. Optional missing values stay NULL; unknown type stays source text. Daily/intraday/index contracts are unchanged. Inspector PASS validates row mapping only, not complete board/universe or persistence. [Evidence and sample provenance](../../docs/SSI_V3_MASTER_EVIDENCE.md).
