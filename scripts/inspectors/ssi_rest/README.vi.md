@@ -124,3 +124,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
+
+## Mapping catalog chứng khoán — 27/10/2026
+
+symbol_list SSI v3 version 1.1.0-preview map symbolNameVi→stock_name, board→market/exchange, stockType→security_type. Optional thiếu giữ NULL, type lạ giữ text nguồn. Contract daily/intraday/index không đổi. PASS chỉ kiểm tra row mapping, không chứng minh đủ board/universe hoặc ghi DB. [Bằng chứng và provenance fixture](../../../docs/SSI_V3_MASTER_EVIDENCE.vi.md).

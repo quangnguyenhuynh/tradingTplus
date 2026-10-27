@@ -20,6 +20,8 @@ class MasterSnapshot:
     pagination: dict[str, Any] = field(default_factory=dict)
     errors: list[dict[str, Any]] = field(default_factory=list)
     unsupported_fields: tuple[str, ...] = ()
+    # Optional version-neutral comparison guard for full-universe snapshots.
+    retention_policy: dict[str, str] = field(default_factory=dict)
 
 
 class MasterProvider(Protocol):

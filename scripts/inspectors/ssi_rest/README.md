@@ -124,3 +124,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --full-json
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
+
+## Security catalog mapping — 27 October 2026
+
+SSI v3 symbol_list mapping 1.1.0-preview maps symbolNameVi→stock_name, board→market/exchange, stockType→security_type. Optional missing values stay NULL; unknown type stays source text. Daily/intraday/index contracts are unchanged. Inspector PASS validates row mapping only, not complete board/universe or persistence. [Evidence and sample provenance](../../../docs/SSI_V3_MASTER_EVIDENCE.md).

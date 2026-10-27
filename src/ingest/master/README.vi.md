@@ -1,176 +1,186 @@
-# Đồng bộ master có guard và registry theo version
+# Đồng bộ master SSI v3 có guard — symbols và securities
 
 [English](README.md)
 
-**Trạng thái triển khai: PARTIAL; xác minh nguồn production: BLOCKED.**
-`sync-master-data` và alias `init` chạy orchestrator mới. Cả bốn capability master
-SSI v3 hiện BLOCKED vì chưa có fixture response master thật và credential SSI.
-Bản này chưa khởi tạo được master production. Không tự nâng provider thành READY.
+Tái sử dụng kiến trúc versioned từ PR #186. **symbols** và **securities** của SSI v3
+READY cho hợp đồng refresh không xóa có guard dưới đây. **index_master** và
+**index_components** giữ nguyên BLOCKED. READY xác nhận mapper, kiểm tra ba board
+và persistence có guard; không chứng nhận universe toàn thị trường authoritative.
 
-## Bằng chứng SSI v3
+## Nguồn, phạm vi và completeness
 
-Audit dev `32f03abab80648f15afa80cfeb31ea15027bd44d`, ngày 26/10/2026.
-Inspector chỉ cung cấp định nghĩa request ứng viên:
+[Bằng chứng owner 26–27/10/2026](../../../docs/SSI_V3_MASTER_EVIDENCE.vi.md):
+GET /api/v3/data/securitiesByBoard?board=HOSE/HNX/UPCOM trả JSON array không phân
+trang, count quan sát 793/410/851, tổng 2.054. Đây là mốc lịch sử phát hiện bất thường,
+không phải tổng cố định phải khớp hay bằng chứng toàn thị trường.
 
-| Dataset | Endpoint ứng viên | Contract request hiện có | Chưa xác minh |
-| --- | --- | --- | --- |
-| symbols | /api/v3/data/securitiesByBoard; /api/v3/data/masterdata | securitiesByBoard chọn đúng một symbol/board/index; masterdata from/to, pageIndex/pageSize | Tên trường identity/name, board, loại chứng khoán, HOSE/HNX/UPCoM và universe đầy đủ |
-| securities | cùng hai endpoint trên | cùng request trên | Toàn bộ trường chi tiết, kiểu và ý nghĩa missing |
-| index_master | /api/v3/data/indexList | board tùy chọn; inspector một trang | Mã/tên/sàn chỉ số, listing đầy đủ |
-| index_components | /api/v3/data/securitiesByBoard | selector index là ứng viên | Quan hệ constituent và snapshot membership đầy đủ |
+Mỗi lần chạy gọi riêng từng board qua SSIV3Client, yêu cầu HTTP 200 và parse trọn
+body byte thành array. Kiểm tra mọi identity/board/kiểu/optional numeric/date; chặn
+đúp trong và giữa board. Không thêm paging parameter giả. Cả ba board phải thành
+công; không bỏ row lỗi rồi báo snapshot hoàn chỉnh. Hai dataset dùng chung fetch/
+mapper; CLI độc lập lấy snapshot độc lập, không cache nguồn toàn cục.
 
-**Chưa có trường/mapping master v3 nào được xác minh trong bản này.** Alias của
-inspector không chứng minh schema hay membership. Fixture securitiesSummary/OHLC
-chỉ xác minh hợp đồng giá riêng của chúng. Không tạo fixture SSI master thành
-công giả. Adapter v3 hiện báo lỗi an toàn khi gọi fetch/map và không tạo client.
-SSIV3Client.paged() tổng quát chưa đủ chứng minh completeness master; không dùng
-nó để nhận một response bị cắt thành universe đầy đủ. Auth/retry dùng client chung
-khi có triển khai nguồn được xác minh sau này; không nhân đôi authentication.
+Report tách parse body HTTP, enumerate ba board, consistency nội bộ và coverage
+thị trường. pagination_complete nghĩa là nhận/kiểm tra đủ scope response ba board,
+không phải tổng thị trường. mode=UNPAGINATED_ARRAY, provider_reported_total=null,
+authoritative_market_completeness=UNVERIFIED luôn hiển thị. HTTP 200, array parse
+được hay ngưỡng count không chứng minh SSI đã trả tất cả chứng khoán.
 
-## CLI
+Policy bảo thủ, chạy trước mutation và trước SOURCE_MISSING:
+
+- Board rỗng, HTTP/body lỗi/cắt, board sai, row invalid/đúp, board thất bại, vượt giới
+  hạn row/body hoặc lỗi nguồn đều chặn cả dataset, không ghi một phần snapshot.
+- Count board thấp hơn 50% mốc owner gây SOURCE_COUNT_REGRESSION. Không yêu cầu count
+  bằng mốc cũ; tăng/giảm bình thường vẫn được. Chỉ cập nhật mốc sau điều tra nguồn
+  riêng, không bypass CLI. Đây là anomaly policy, không phải ước tính tổng thị trường.
+- Universe hoặc nhóm market có sẵn trong DB giảm dưới 50% gây SOURCE_DB_COUNT_REGRESSION
+  trước khi kết luận hàng loạt missing. Report có count/delta board, tổng và phân bố
+  sec_type nguồn so với DB securities khi có. Owner chưa cung cấp phân bố type lịch
+  sử. Type lạ được giữ và đếm, không ép về Stock hoặc lọc bỏ.
+- Lỗi board sau vẫn giữ diagnostics board trước; không write subset. Ngay khi mọi
+  guard đạt, authoritative completeness vẫn UNVERIFIED. Tránh sync writer chạy chồng.
+
+Giới hạn: ba board data request, mặc định tối đa ba attempt mỗi request (client
+hard cap năm), auth dùng chung, timeout 30 giây/request, body parse tối đa 16 MiB và
+20.000 records/board. 429/5xx bounded backoff; Retry-After đến 30 giây được tôn trọng,
+lâu hơn hoặc sai thì dừng thay vì retry sớm. Mã lỗi riêng cho auth/HTTP/rate limit,
+transport cắt, JSON malformed/non-finite/duplicate key. Không log credential/token,
+auth payload hay full error body. Agent không gọi SSI live trong task này.
+
+## Mapping canonical
+
+| SSI | symbols | securities |
+| --- | --- | --- |
+| symbol | symbol | symbol |
+| board | market | market, exchange |
+| symbolNameVi | name | stock_name |
+| symbolNameEn | — | stock_en_name |
+| stockType | — | sec_type |
+| lotSize | — | lot_size |
+| listedShare | — | listed_share |
+| firstTradingDate | — | first_trading_date |
+| lastTradingDate | — | last_trading_date |
+| maturityDate | — | maturity_date |
+| source object đã sanitize | — | raw |
+
+Symbol trim/uppercase, hỗ trợ bond identifier dài trong contract tối đa 64 ký tự.
+Board phải đúng HOSE/HNX/UPCOM và khớp request. Tên giữ Unicode; optional thiếu/null/
+chuỗi trống thành NULL. Numeric/date không rỗng nhưng sai chặn cả hai dataset.
+Numeric string và JSON number parse chính xác không qua binary float; ngày
+YYYY/MM/DD hoặc YYYY-MM-DD thành ISO. Không zero/name/issuer/type fallback; zero
+vẫn zero. Stock/Bond/ETF Product/Investment Fund/type lạ/NULL đều được biểu diễn;
+tồn tại trên thị trường không có nghĩa đủ điều kiện chiến lược T+.
+
+raw là bản sao JSON-compatible đã sanitize đệ quy: bỏ key secret và redaction giá
+trị credential cấu hình; field nguồn lạ chỉ giữ raw nếu JSON-safe. Decimal JSON
+tích phân thành integer, còn lại thành decimal string để tương thích SDK/JSONB.
+Không tạo cột mới từ field lạ. issuer, issue_date, tick fields không có nguồn mapping,
+report unsupported và giữ giá trị DB có sẵn. Cột numeric securities được select/cast text khi compare, nhận ack và readback để tránh SDK decode binary float; client DB/giá chung không đổi. Mapping version:
+ssi_v3.securitiesByBoard.1.0.0. Inspector symbol_list đã map stock_name/market/
+exchange/security_type; PASS chỉ kiểm tra row mapping, không chứng minh toàn board/
+universe hay khả năng ghi.
+
+## CLI và điều kiện DB
 
 ```bash
-python main.py sync-master-data
+python main.py sync-master-data --dataset symbols --data-source ssi_v3 --dry-run
+python main.py sync-master-data --dataset securities --data-source ssi_v3 --dry-run
 python main.py init --dataset symbols --data-source ssi_v3 --dry-run
-python main.py sync-master-data --dataset index_master --data-source ssi_v3 --dry-run
-python main.py sync-master-data --help
-python main.py init --help
 ```
 
-Hiện trả exit 1/BLOCKED, không gọi API/DB. Bỏ dataset preview riêng cả bốn dataset.
-Bỏ source chỉ chọn provider master đã đăng ký, verified và READY mới nhất cho
-mỗi dataset; hiện không có, report NO_READY_MASTER_PROVIDER và danh sách capability
-bị chặn. Chỉ định ssi_v3 trả MASTER_CAPABILITY_NOT_READY. ssi_v2/v4/v5/auto bị từ
-chối exit 2; không fallback. Không thêm selector board/symbol/index chưa xác minh.
+Cần SSI_API_KEY/SSI_API_SECRET và Supabase service credential cục bộ để fetch/compare.
+Dry-run không mutation. Bỏ source chọn provider master verified READY mới nhất cho
+dataset, hiện là ssi_v3 cho hai dataset này. ssi_v2/v4/v5/auto bị từ chối, không
+fallback. Price registry và daily/intraday không thay đổi.
 
-Cú pháp ghi cho owner sau khi nguồn được xác minh, **hiện vẫn BLOCKED**:
+Chỉ sau khi xem cả hai dry-run, owner có thể chạy:
 
 ```bash
 python main.py sync-master-data --dataset symbols --data-source ssi_v3 --write
+python main.py sync-master-data --dataset securities --data-source ssi_v3 --write
 ```
 
-Mặc định DRY_RUN. --dry-run và --write loại trừ nhau; --write bắt buộc đúng một
-dataset tường minh. Command-only write và all+write bị từ chối exit 2. all chỉ
-preview. Dataset: symbols, securities, index_master, index_components. Chỉ OK trả
-exit 0; PARTIAL/FAILED/BLOCKED/UNSUPPORTED trả exit 1.
+--write cần đúng một --dataset tường minh. all+write và command-only write trả exit 2;
+--dry-run/--write loại trừ nhau. all hoặc bỏ dataset chỉ preview, hiện PARTIAL vì index
+BLOCKED. Chỉ OK trả exit 0; PARTIAL/FAILED/BLOCKED/UNSUPPORTED trả exit 1.
 
-## Kiến trúc và canonical
+Catalog TradingTPus_DS kiểm tra chỉ đọc ngày 27/10/2026 xác nhận primary key symbol
+của hai bảng, kiểu numeric/date/JSONB, status check và **không có FK securities→symbols**.
+Securities chạy độc lập; symbols-first chỉ là khuyến nghị vận hành, không dependency
+ẩn, không tự tạo hàng liên quan ngoài dataset. Recheck nếu schema triển khai thay đổi.
 
-CLI → run_master_sync → MasterRegistry → adapter version → MasterSnapshot →
-validation canonical → compare → MasterStore → JSON.
-Orchestrator không chứa URL/tên trường response SSI v3. Price registry, Daily,
-Intraday và generic upsert không đổi. Logic mapper v2 cũ đã bỏ; các public sync/map
-name giữ dạng wrapper mỏng. Map chưa xác minh bị từ chối. Injection SSI/DB cũ và
-scope membership cũ bị từ chối tường minh, không chạy business logic đã nghỉ.
+## Persistence, operator và recovery
 
-| Bảng / khóa unique | Trường descriptive canonical nguồn được phép sở hữu |
-| --- | --- |
-| symbols / symbol | market, name |
-| securities / symbol | market, stock_name, stock_en_name, sec_type, exchange, issuer, lot_size, listed_share, issue_date, maturity_date, first_trading_date, last_trading_date, tick_price1..4, tick_increment1..4, raw |
-| index_master / index_code | index_name, exchange, raw |
-| index_components / index_code,symbol | exchange, raw |
+CLI → registry hiện có → adapter v3 → MasterSnapshot → canonical validation → compare
+hiện có → MasterStore guard → readback → JSON. Không tạo CLI/orchestrator cạnh tranh;
+generic SupabaseClient.upsert_symbols/upsert_securities giữ nguyên.
 
-Đây là contract DB, không phải mapping SSI đã xác minh. Identifier trim/uppercase,
-không trống và theo tập ký tự giới hạn; đúp sau normalize chặn cả dataset. DTO có
-cột lạ hoặc status operator bị từ chối. Numeric dùng decimal chính xác, không float,
-không âm/NaN/Infinity; ngày ISO. Optional missing giữ NULL/omitted; không ghi NULL
-đè giá trị đã có. Không tên fallback, suy diễn board/type/delisting hay membership.
-Mỗi adapter tương lai phải chứng minh và giữ phân biệt có ý nghĩa từ nguồn.
+DB read trang 100 theo thứ tự khóa, exact count ổn định, identity unique, tối đa
+100.000 rows. Validate toàn bộ nguồn/retention/plan trước mutation đầu tiên.
+Chỉ NEW/CHANGED ghi; UNCHANGED bỏ qua; SOURCE_MISSING không xác nhận delisting, không
+xóa hoặc inactive, không thay membership. Không NULL đè descriptive đã biết.
+Existing symbols giữ status/intraday_status; insert inactive/inactive. SSI status/type
+không bật eligibility. Hành vi index/status hiện có không đổi.
 
-## Guard, compare và persistence
-
-MasterSnapshot phải có canonical rows, source count, mapping version, scope đầy đủ
-và bằng chứng pagination complete. Contract CLI hiện chỉ full dataset scope
-`{"kind":"ALL"}`, một source record cho một canonical row. Lỗi nguồn, paging
-không đủ, scope lạ, mapping/count lệch, identity invalid/đúp và source rỗng đều chặn
-trước DB write. PREVIEW/unverified không được ghi, cũng không được chọn mặc định.
-Dataset sau lỗi không làm mất bằng chứng preview dataset trước đã hoàn thành.
-
-DB read theo thứ tự khóa, trang 100, exact count ổn định; chặn đúp, trang cắt và
-vượt 100.000 rows. Validate toàn bộ plan dataset trước mutation đầu tiên.
-Classification gồm NEW, CHANGED, UNCHANGED, SOURCE_MISSING, INVALID, CONFLICT;
-UNSUPPORTED tường minh ở capability. Count chưa biết là null. JSON gồm capability,
-evidence, scope, paging, mapping, số nguồn/canonical/validation/change, classification
-chỉ chứa identity/tên cột, planned/actual, readback, mã lỗi an toàn và recovery.
-Không in raw response hoặc exception text có thể chứa secret.
-
-Existing symbols giữ status/intraday_status; index_master giữ status. Update chỉ gửi
-trường nguồn thay đổi, không gửi status. Insert stock mới inactive/inactive; index
-mới inactive. created_at chỉ gửi khi insert symbols; bảng khác gửi updated_at từ
-ứng dụng khi thật sự ghi. Generic upsert_symbols/upsert_index_master không đổi
-mặc định để tránh ảnh hưởng caller khác.
-
-Insert theo unique key hiện có, ignore_duplicates và kiểm tra row trả về/readback;
-không ghi đè concurrent insert. Update compare-and-set theo identity và giá trị
-trường descriptive trước sửa. UNCHANGED không ghi lại. SOURCE_MISSING chỉ là vắng
-trong snapshot, không xác nhận delisting; không xóa/inactive, không thay membership.
-
-**Transaction: từng row/request, không atomic cả dataset hay nhiều bảng.** Lỗi sau
-một số write giữ số ack đã xác nhận và PARTIAL. Write mơ hồ đặt
-insert_counts_confirmed=false (áp dụng cả update), dừng không retry. Readback lỗi
-báo FAIL. Không rollback/delete/cleanup tự động. DB read nhiều trang không phải
-repeatable-read snapshot; guard count/identity/compare-and-set phát hiện sai lệch
-nhưng owner nên tránh sync writer chạy chồng. Operator đổi status đồng thời là hợp
-lệ; sync không gửi status hay hoàn tác quyết định operator.
-
-## Recovery và thêm version
-
-Khi write/readback lỗi: dừng, kiểm tra identity hiện tại chỉ đọc; chạy lại DRY_RUN,
-xem plan rồi owner chạy --write đúng một dataset sau khi nguồn READY. Hàng đã ghi
-đúng chuyển UNCHANGED; không retry write mơ hồ tự động.
-
-Thêm v4/v5 (chưa triển khai version giả): thu response thật đã redaction, request,
-trường/kiểu/board và bằng chứng mọi trang/terminal/error; viết adapter/mapper riêng
-dùng auth và bounded retry chung; không dừng chỉ vì short page. Xác minh total,
-trang lặp/sai/thay đổi, malformed, cap và authoritative scope. Trả MasterSnapshot,
-missing/unsupported fields và mã lỗi auth/HTTP/rate-limit/timeout/malformed/paging
-riêng. Đăng ký MasterCapability theo dataset ở master_registry.py, ban đầu
-BLOCKED/PREVIEW; chỉ READY khi có bằng chứng đầy đủ. Thêm fixture nguồn thật và test
-canonical/store độc lập, verify read-only. Không cần sửa CLI, bảng, validator hay
-persistence. Version number hoặc adapter daily không tự chứng minh master readiness.
+Insert theo unique key ignore_duplicates; concurrent insert không ghi đè controls.
+Update compare-and-set descriptive, không gửi status. Timestamp từ ứng dụng. Kiểm
+tra acknowledgement và readback; actual count là số ack, khác planned.
+**Transaction theo row/request, không atomic toàn dataset/nhiều bảng.** Lỗi dở dang/
+mơ hồ dừng, giữ bằng chứng đã ack và PARTIAL/nonzero; insert_counts_confirmed=false
+bao gồm update chưa rõ kết quả. Không retry DB mơ hồ, rollback/delete/cleanup tự động.
+Kiểm tra identity chỉ đọc, chạy lại DRY_RUN, owner quyết định write đúng dataset;
+row đã đúng trở thành UNCHANGED. DB read nhiều trang không repeatable-read; nên một
+sync writer, đồng thời vẫn bảo toàn thay đổi flag từ operator.
 
 ## SQL chỉ đọc cho owner
 
-Các câu SQL chỉ được cung cấp, chưa chạy trong task:
-
 ```sql
 select status,intraday_status,count(*) from public.symbols group by 1,2;
-select status,count(*) from public.index_master group by 1;
-select symbol,market,name,status,intraday_status,created_at
-from public.symbols where symbol='SSI';
+select market,count(*) from public.symbols group by 1 order by 1;
+select market,sec_type,count(*) from public.securities group by 1,2 order by 1,2;
+select * from public.symbols where symbol='SSI';
 select * from public.securities where symbol='SSI';
-select * from public.index_master where index_code='VNINDEX';
-select * from public.index_components where index_code='VNINDEX' order by symbol;
-select indexname,indexdef from pg_indexes where schemaname='public'
-and tablename in ('symbols','securities','index_master','index_components');
+select conrelid::regclass,conname,pg_get_constraintdef(oid)
+from pg_constraint where conrelid in ('public.symbols'::regclass,'public.securities'::regclass);
 ```
 
-## Báo cáo audit, ảnh hưởng DB và kiểm thử — 26/10/2026
+SQL dữ liệu cho owner chưa được thực thi; agent chỉ query catalog và kiểm tra cast numeric literal. Không hàng
+production nào được ghi. Không migration, đổi schema, backfill giá, feature/signal/
+backtest, workflow hoặc schedule.
 
-Trước code đã đọc AGENTS/main/CLI, master cũ, helper DB/status/upsert, schema và
-migration liên quan master, registry/client/adapter, inspector request/scope,
-shared scope, test/fixture hiện có, README hai ngôn ngữ và mọi tham chiếu master
-trong repo/workflow/script. Gốc vấn đề: orchestration bị tắt và mapper v2 đoán field;
-request inspector không đủ làm mapping. Helper generic bật stock/index mới active,
-không phù hợp mặc định sync inactive; giữ helper nguyên, dùng store riêng.
+## Thêm version và trạng thái xác minh
 
-Tái sử dụng symbols, securities, index_master, index_components. Migration/schema:
-KHÔNG. Row production chạm trong task: KHÔNG. Backfill giá: KHÔNG. Không bật workflow,
-schedule, downstream ingest/feature/research. Script check_complete_ssi_ingest và
-các capability bị tắt ngoài master giữ nguyên. Không giữ hai business implementation.
+V4/v5 cần bằng chứng thật, adapter/mapper riêng và đăng ký capability tường minh.
+Canonical validation, store, bảng và CLI vẫn tái sử dụng. retention_policy của
+MasterSnapshot là metadata so sánh trung lập version, không đưa field SSI vào
+orchestrator. Không tạo hỗ trợ v4/v5 hay index giả.
 
-Test canonical là dữ liệu tổng hợp trung lập version, không chứng minh SSI response.
-Xác minh nguồn/paging live: NOT_RUN/BLOCKED. Không SSI request live, không Supabase
-read/write, không apply migration hay live write smoke. Task ở trạng thái PARTIAL,
-không tuyên bố production-ready. Bước tiếp: lấy bằng chứng response/paging master v3
-thật có redaction rồi xác minh độc lập từng dataset trước khi viết/promote mapper.
+Audit dev d2211cb329dc0503661e43f11e7e7bd83cfc91a3 (PR #186 đã merge). Đã đọc
+AGENTS/main/CLI/master modules/client/registry, schema/migration master, catalog
+thật/constraints, inspector/mapping, test/fixture/workflow và docs hai ngôn ngữ.
+Thiếu chính: stub adapter và descriptive inspector chưa map; không cần xây lại
+kiến trúc. Schema đủ dùng. Danh sách file/lệnh/kết quả cuối ghi dưới.
 
-## Kết quả cuối và danh sách file
+Code hoàn thiện cho guarded symbols/securities. Giới hạn còn lại: không total
+provider authoritative; không có full response archive owner; không live SSI smoke
+của agent do thiếu credential; không kiểm chứng production write. Fixture dùng giá
+trị minh họa theo contract field owner xác minh, không phải row live nguyên văn.
+Test HTTP/SDK offline xác minh code, không phải quan sát live mới. Bước tiếp: owner
+chạy hai dry-run, xem count/type distribution/NULL/unsupported/plan/control rồi mới
+thực hiện write tường minh từng dataset.
 
-Test mục tiêu: **91 passed**; toàn bộ: **1115 passed, 7 skipped** (26,65 giây). Bảy test PostgreSQL integration có sẵn cần TEST_DATABASE_URL. Compile/help hai alias/diff check đạt. Kiểm tra truy vấn qua PostgREST SDK thật dùng httpx.MockTransport, không network.
+## Báo cáo cuối — 27/10/2026
+
+Trạng thái: **PARTIAL** cho xác minh tổng thể; code yêu cầu và kiểm thử offline đã hoàn tất. Agent SSI live smoke và kiểm chứng production write/readback NOT_RUN (không có credential SSI; cấm ghi production trong task). Tách bằng chứng nguồn owner xác minh khỏi mẫu offline minh họa. READY chỉ cho refresh có guard đã mô tả, market completeness authoritative UNVERIFIED. Hai capability index giữ BLOCKED.
+
+Mục tiêu: **2 + 66 + 132 = 200 passed**. Toàn bộ: **1222 passed, 7 skipped** (31,65 giây); test PostgreSQL integration có sẵn cần TEST_DATABASE_URL. Compile/help/diff check đạt. Truy vấn SDK và numeric text cast kiểm thử HTTP offline; PostgreSQL query numeric literal chỉ đọc trả đúng decimal/integer lớn. Không write Supabase, không SSI request live.
+
+Chỉ symbols/securities là đích ghi owner tương lai; task không ghi dữ liệu production. Giữ records/control có sẵn, row mới inactive, không migration/schema/backfill/schedule/downstream. Không xóa file; giữ wrapper tương thích. Bước tiếp: owner xem hai dry-run rồi write tường minh từng dataset.
 
 ```bash
-.venv/bin/python -m pytest -q tests/ingest/test_versioned_master_sync.py tests/ingest/test_master_data_pipeline.py tests/cli/test_capability_retirement.py
+.venv/bin/python -m pytest -q tests/ingest/test_master_data_pipeline.py
+.venv/bin/python -m pytest -q tests/ingest/test_versioned_master_sync.py
+.venv/bin/python -m pytest -q tests/ingest/test_ssi_v3_master_adapter.py tests/inspectors/test_ssi_api_mapping.py tests/data_preview/test_v3_client.py
 .venv/bin/python -m pytest -q
 .venv/bin/python -m compileall main.py src scripts tests
 .venv/bin/python main.py sync-master-data --help
@@ -187,34 +197,38 @@ File sửa:
 - `docs/CLI_USAGE.md`
 - `docs/CLI_USAGE.vi.md`
 - `docs/CURRENT_STATE.md`
+- `scripts/inspectors/ssi_rest/README.md`
+- `scripts/inspectors/ssi_rest/README.vi.md`
 - `src/README.md`
 - `src/README.vi.md`
 - `src/cli/README.md`
 - `src/cli/README.vi.md`
-- `src/cli/__init__.py`
-- `src/cli/maintenance.py`
-- `src/cli/parser.py`
+- `src/contracts/README.md`
+- `src/contracts/README.vi.md`
+- `src/contracts/mappings/ssi_v3.json`
 - `src/ingest/README.md`
 - `src/ingest/README.vi.md`
 - `src/ingest/master/README.md`
 - `src/ingest/master/README.vi.md`
-- `src/ingest/master/index_master.py`
-- `src/ingest/master/init_symbols.py`
+- `src/ingest/master/contracts.py`
+- `src/ingest/master/store.py`
+- `src/ingest/master/sync.py`
 - `src/providers/ssi/README.md`
 - `src/providers/ssi/README.vi.md`
 - `src/providers/ssi/adapters/README.md`
 - `src/providers/ssi/adapters/README.vi.md`
-- `tests/cli/test_capability_retirement.py`
+- `src/providers/ssi/adapters/master_v3.py`
+- `src/providers/ssi/clients/rest_v3.py`
+- `src/providers/ssi/master_contract.py`
+- `src/providers/ssi/master_registry.py`
 - `tests/ingest/test_master_data_pipeline.py`
+- `tests/ingest/test_versioned_master_sync.py`
 
 File tạo:
 
-- `src/ingest/master/contracts.py`
-- `src/ingest/master/store.py`
-- `src/ingest/master/sync.py`
-- `src/providers/ssi/adapters/master_v3.py`
-- `src/providers/ssi/master_contract.py`
-- `src/providers/ssi/master_registry.py`
-- `tests/ingest/test_versioned_master_sync.py`
+- `docs/SSI_V3_MASTER_EVIDENCE.md`
+- `docs/SSI_V3_MASTER_EVIDENCE.vi.md`
+- `tests/fixtures/data_preview/ssi_v3_master_contract_samples.json`
+- `tests/ingest/test_ssi_v3_master_adapter.py`
 
-File xóa: KHÔNG. Bỏ thân mapper legacy; giữ tên import dạng wrapper.
+File xóa: KHÔNG.

@@ -16,7 +16,7 @@ Each pair reuses `run_manual_intraday()` eligibility (both persisted statuses ac
 
 Ordinary pair conflicts/source validation errors continue safely; systemic configuration/auth/exhausted shared-dependency errors halt with completed and unprocessed scopes reported. No automatic retry of ambiguous DB writes. Pair PARTIAL retains raw commits, acknowledged counts and recovery; inspect exact scope read-only, resolve the cause, then explicitly rerun. Identical rows skip and missing clean can be completed under the existing guards; no cleanup/delete or cross-table atomicity claim. Range OK requires every planned pair verified (or no work); mixed verified success/failure is PARTIAL; no verified success with failures is FAILED, even when a pair committed partial raw data. Per-pair PARTIAL/insert counts remain visible in that FAILED range. CLI exits 0 only for OK, 1 for any non-success/unverified range, 2 for invalid scope/source/arguments. Other CLI exits are unchanged.
 
-Range JSON retains `flow=backfill-intraday`, reports planned/processed/OK/blocked/partial/failed/no-source pairs, totals, planned inserts, halted/unprocessed scopes and full pilot summaries in per_symbol_date. Only summaries survive each pair; raw/clean working batches are released. Registry remains preview with no generic intraday production factory. Single-symbol/day stock-intraday is unchanged; intraday-ingest, combined backfill, refill and streaming stay disabled; master uses guarded orchestration with SSI v3 datasets BLOCKED. No automatic feature/completeness/signal/backtest/alert stage. Workflow stock-intraday remains disabled and unscheduled. No migration or development backfill; Codex performs no live writes. See [runbook](backfill/README.md) for operator recovery and post-write read-only checks.
+Range JSON retains `flow=backfill-intraday`, reports planned/processed/OK/blocked/partial/failed/no-source pairs, totals, planned inserts, halted/unprocessed scopes and full pilot summaries in per_symbol_date. Only summaries survive each pair; raw/clean working batches are released. Registry remains preview with no generic intraday production factory. Single-symbol/day stock-intraday is unchanged; intraday-ingest, combined backfill, refill and streaming stay disabled; master uses guarded orchestration with symbols/securities guarded READY, index datasets BLOCKED. No automatic feature/completeness/signal/backtest/alert stage. Workflow stock-intraday remains disabled and unscheduled. No migration or development backfill; Codex performs no live writes. See [runbook](backfill/README.md) for operator recovery and post-write read-only checks.
 
 Canonical CLI names and compatible legacy aliases (no removal date): `stock-daily-backfill` → `backfill-daily`; `stock-intraday-backfill` → `backfill-intraday`; `index-daily-backfill` → `index-backfill`. Compatible CLI spellings remain; daily/index behavior is unchanged. Intraday uses the guarded operator range contract. Stock Daily/Index Daily backfill are ACTIVE / WRITE; Stock Intraday backfill is guarded operator-only, DRY_RUN by default, with explicit --write and at most 50 weekday pairs; unattended routes remain disabled.
 
@@ -40,7 +40,7 @@ See [runbook](STOCK_INTRADAY_PIPELINE.md) for sequence, idempotency, partition b
 
 Verified against `dev` commit `b5cb3276` (PR #178). Run from the repository root. Examples use illustrative dates and symbols; check source availability and choose the exact intended scope before executing. Syntax was checked offline, not against live SSI or Supabase.
 
-SSI v3 Stock Daily (`securitiesSummary`) and Index Daily (`indexSummary`) ingestion are ACTIVE. Stock, foreign and index features are ACTIVE on persisted clean data. Screener and Historical Analog are RESEARCH_ACTIVE. Master synchronization now has guarded orchestration with all SSI v3 master datasets BLOCKED; streaming and orderbook capture remain NOT_IMPLEMENTED. The retired source has no fallback.
+SSI v3 Stock Daily (`securitiesSummary`) and Index Daily (`indexSummary`) ingestion are ACTIVE. Stock, foreign and index features are ACTIVE on persisted clean data. Screener and Historical Analog are RESEARCH_ACTIVE. Master synchronization now has guarded orchestration with symbols/securities guarded READY, index datasets BLOCKED; streaming and orderbook capture remain NOT_IMPLEMENTED. The retired source has no fallback.
 
 READ-ONLY — database read means no writes but still requires database access. READ-ONLY — SSI API request can make live requests without using Supabase. WRITE labels identify persistence, including explicit apply and scoped replacement. UNSUPPORTED means an input or operation is rejected, not an empty successful result.
 
@@ -84,7 +84,7 @@ python scripts/inspectors/ssi_rest/inspect.py run --help
 
 ## Quick-start workflows
 
-Start with read-only SSI preview. Source ingestion requires existing master data: master sync has a guarded entrypoint but all SSI v3 master datasets are BLOCKED, so an empty installation cannot bootstrap itself with `init`. After validating the ingest summary, calculate features explicitly. Each command below is independent; stop and inspect its result before continuing.
+Start with read-only SSI preview. Source ingestion requires existing master data: symbols/securities support guarded sync; bootstrap symbols/securities with explicit dry-run/write; index datasets remain blocked. After validating the ingest summary, calculate features explicitly. Each command below is independent; stop and inspect its result before continuing.
 
 The preview is READ-ONLY — SSI API request. Stock EOD is WRITE — raw/clean ingest. Daily features are WRITE — feature calculation. Screener defaults to READ-ONLY — database read. Do not execute all writes merely to test documentation.
 
@@ -366,7 +366,7 @@ Illustrative output, not an observed execution:
 | Missing SSI credentials / 401 / 403 | Check the v3 key/secret and account entitlement locally; do not print tokens or use old consumer credentials. |
 | NO_DATA / EMPTY_RESPONSE | Check exact symbol/date, publication delay and market session; do not fabricate rows or assume weekday means session. |
 | MISMATCH / mapping failure | Inspect raw payload, record identity and mapping diagnostics; do not overwrite source evidence to force success. |
-| Empty master scope | Inspect persisted symbols/index_master; SSI v3 master capabilities are BLOCKED pending source evidence. |
+| Empty master scope | Inspect persisted symbols/index_master; symbols/securities support guarded sync; index master remains BLOCKED. |
 | Raw exists but clean/features missing | Review validation failures and warm-up; run features separately only after source checks. |
 | RPC/column/unique constraint error | Compare deployed schema with existing migrations; code checkout does not deploy database changes. |
 | PARTIAL or exit 0 without output | Read warnings, counts, scope and per-day results; verify persisted rows/completeness independently. |
@@ -400,13 +400,13 @@ Tables below reflect the current parser. `+` means one or more values, `*` zero 
 
 ### `sync-master-data` / `init`
 
-Guarded master sync; default DRY_RUN. Current SSI v3 datasets **BLOCKED**.
+Guarded master sync; default DRY_RUN. SSI v3 symbols/securities guarded **READY**; both index datasets **BLOCKED**.
 Only OK exits 0. Full source audit and runbook: [master](../src/ingest/master/README.md).
 
 | Argument | Required | Default | Values |
 | --- | --- | --- | --- |
 | --dataset | one explicit dataset for write | all previews | symbols, securities, index_master, index_components, all (preview only) |
-| --data-source | no | newest verified READY per dataset; currently none | ssi_v3 registered BLOCKED; no guessed v4/v5 |
+| --data-source | no | newest verified READY per dataset | ssi_v3 symbols/securities READY; indexes BLOCKED; no v4/v5 |
 | --dry-run / --write | mutually exclusive | DRY_RUN | write requires explicit dataset and READY capability |
 
 ### `daily`
@@ -1165,6 +1165,6 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-## Master sync — updated 26 October 2026
+## Master sync — updated 27 October 2026
 
-`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. All four SSI v3 datasets are BLOCKED; production master bootstrapping remains unavailable. No ready provider means no API/DB access. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and PARTIAL report](../src/ingest/master/README.md).
+`sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. SSI v3 symbols/securities now support guarded refresh across HOSE/HNX/UPCOM; index_master/index_components remain BLOCKED. READY is scoped to guarded non-destructive refresh; authoritative market completeness remains UNVERIFIED. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and validation report](../src/ingest/master/README.md).

@@ -65,6 +65,6 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-## Registry master
+## Master chứng khoán đã xác minh
 
-Contract/registry master tách khỏi readiness daily/intraday. Cả bốn dataset SSI v3 BLOCKED; không triển khai v4/v5 giả, chưa xác minh field master. [Contract, cách thêm version và audit](../../ingest/master/README.vi.md).
+master_v3 dùng chung fetch/map securitiesByBoard cho HOSE/HNX/UPCOM. Symbols/securities READY có guard; hai capability index giữ nguyên BLOCKED. Không total authoritative, completeness thị trường UNVERIFIED. Giữ mọi loại chứng khoán, không tự bật eligibility. [Mapping, guard, bằng chứng và recovery](../../ingest/master/README.vi.md).

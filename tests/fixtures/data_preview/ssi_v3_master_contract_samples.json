@@ -1,0 +1,22 @@
+{
+  "provenance": {
+    "kind": "representative_test_samples_from_owner_verified_field_contract",
+    "owner_evidence_dates": ["2026-10-26", "2026-10-27"],
+    "note": "Fields/boards/types/date formats are owner verified. Individual sample values are illustrative, not verbatim live payloads. Full 2054-row owner responses were not supplied.",
+    "observed_counts": {"HOSE": 793, "HNX": 410, "UPCOM": 851}
+  },
+  "HOSE": [
+    {"symbol": "SSI", "symbolNameVi": "Chứng khoán mẫu", "symbolNameEn": "Sample Securities", "board": "HOSE", "stockType": "Stock", "lotSize": 100, "listedShare": "9007199254740993", "firstTradingDate": "2006/12/15", "lastTradingDate": "", "maturityDate": "", "cwUnderlyingSymbol": null, "cwExercisePrice": null, "cwExecutionRatio": null, "icbCode": "8770", "icbName": "Dịch vụ tài chính", "iIndex": null, "iNav": null, "openInterest": null, "settlementPrice": null},
+    {"symbol": "E1SAMPLE", "symbolNameVi": "Quỹ ETF mẫu", "board": "HOSE", "stockType": "ETF Product", "lotSize": "100", "listedShare": null, "firstTradingDate": "", "lastTradingDate": null, "maturityDate": ""},
+    {"symbol": "FUNDSAMPLE", "symbolNameVi": "Quỹ đầu tư mẫu", "board": "HOSE", "stockType": "Investment Fund", "lotSize": 100}
+  ],
+  "HNX": [
+    {"symbol": "HNXSTOCK", "symbolNameVi": "Cổ phiếu HNX mẫu", "board": "HNX", "stockType": "Stock", "listedShare": null, "lotSize": null, "symbolNameEn": null, "firstTradingDate": "", "lastTradingDate": "", "maturityDate": ""},
+    {"symbol": "BOND202610270001", "symbolNameVi": "Trái phiếu mẫu", "board": "HNX", "stockType": "Bond", "lotSize": "1", "maturityDate": "2030/10/27"}
+  ],
+  "UPCOM": [
+    {"symbol": "UPSTOCK", "symbolNameVi": "Cổ phiếu UPCoM mẫu", "board": "UPCOM", "stockType": "Stock", "lotSize": "100", "firstTradingDate": "2026/01/27"},
+    {"symbol": "UNKNOWNTYPE", "symbolNameVi": "Chứng khoán loại mới", "board": "UPCOM", "stockType": "New instrument class", "lotSize": null},
+    {"symbol": "NULLTYPE", "symbolNameVi": "Chứng khoán chưa có loại", "board": "UPCOM", "stockType": null}
+  ]
+}

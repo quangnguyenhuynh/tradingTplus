@@ -4,7 +4,7 @@ import json
 
 from src.database.client import SupabaseClient
 from src.utils.time_utils import app_now_iso
-from .contracts import KEYS, DEFAULTS, equivalent, identity
+from .contracts import KEYS, FIELDS, NUMERIC, equivalent, identity
 
 
 class MasterStoreError(RuntimeError):
@@ -17,6 +17,15 @@ def checked_data(response):
     return response.data
 
 
+def select_columns(dataset):
+    if dataset != 'securities':
+        return '*'
+    # PostgREST casts preserve exact numeric values through the SDK JSON decoder,
+    # whose default floating-point parsing would round fractional NUMERICs.
+    columns = set(KEYS[dataset]) | FIELDS[dataset] | {'updated_at'}
+    return ','.join(column + '::text' if column in NUMERIC else column for column in sorted(columns))
+
+
 class MasterStore:
     def __init__(self, client=None):
         self.client = client if client is not None else SupabaseClient().get()
@@ -25,7 +34,7 @@ class MasterStore:
         rows, expected, seen = [], None, set()
         # 100 rows avoids silently trusting a deployment's larger REST row cap.
         for offset in range(0, 100_000, 100):
-            query = self.client.table(dataset).select("*", count="exact")
+            query = self.client.table(dataset).select(select_columns(dataset), count="exact")
             for key in KEYS[dataset]:
                 query = query.order(key)
             response = query.range(offset, offset + 99).execute()
@@ -72,6 +81,8 @@ class MasterStore:
                 if key == "raw" and value is not None:
                     value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
                 query = query.is_(key, "null") if value is None else query.eq(key, value)
+        if dataset == 'securities':
+            query = query.select(select_columns(dataset))
         acknowledged = checked_data(query.execute())
         if len(acknowledged) != 1:
             raise MasterStoreError("Write not acknowledged: conflict or unknown result")
@@ -82,7 +93,7 @@ class MasterStore:
         return 1
 
     def verify(self, dataset, operation):
-        query = self.client.table(dataset).select("*")
+        query = self.client.table(dataset).select(select_columns(dataset))
         for key, value in operation["identity"].items():
             query = query.eq(key, value)
         rows = checked_data(query.limit(2).execute())

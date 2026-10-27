@@ -16,7 +16,7 @@ Mỗi cặp tái sử dụng `run_manual_intraday()`: eligibility cả hai statu
 
 Conflict/validation lỗi từng cặp được ghi rồi tiếp tục an toàn; lỗi cấu hình/auth/shared dependency đã hết retry thì dừng, giữ completed và unprocessed scope. Không tự retry DB write chưa rõ kết quả. Pair PARTIAL giữ raw đã commit/count được xác nhận và recovery; kiểm tra đúng scope chỉ đọc, xử lý nguyên nhân rồi rerun tường minh. Hàng giống skip, clean thiếu có thể được bổ sung qua guard cũ; không cleanup/delete hoặc hứa atomic xuyên bảng. Range OK khi mọi cặp được xác minh (hoặc không có việc); có verified success lẫn lỗi là PARTIAL; không có cặp success mà có lỗi là FAILED, kể cả đã commit raw dở ở một pair. Pair PARTIAL/count vẫn hiện rõ trong range FAILED. CLI exit 0 chỉ khi OK, 1 cho range lỗi/không xác minh đủ, 2 cho scope/source/argument sai; không đổi exit CLI khác.
 
-JSON range giữ `flow=backfill-intraday`, có planned/processed/OK/blocked/partial/failed/no-source pairs, tổng count, planned insert, halted/unprocessed scope và report pilot trong per_symbol_date. Chỉ giữ summary; batch raw/clean được giải phóng sau mỗi cặp. Registry vẫn preview, không có intraday production factory chung. Stock-intraday một mã/ngày giữ nguyên; intraday-ingest tự động, backfill kết hợp, refill và streaming vẫn tắt; master có luồng guard với dataset SSI v3 BLOCKED. Không tự chạy feature/completeness/signal/backtest/alert. Workflow stock-intraday vẫn tắt, không schedule. Không migration hoặc backfill trong phát triển; Codex không ghi live. Xem [runbook](backfill/README.vi.md) về phục hồi và post-write check chỉ đọc.
+JSON range giữ `flow=backfill-intraday`, có planned/processed/OK/blocked/partial/failed/no-source pairs, tổng count, planned insert, halted/unprocessed scope và report pilot trong per_symbol_date. Chỉ giữ summary; batch raw/clean được giải phóng sau mỗi cặp. Registry vẫn preview, không có intraday production factory chung. Stock-intraday một mã/ngày giữ nguyên; intraday-ingest tự động, backfill kết hợp, refill và streaming vẫn tắt; master có luồng guard với symbols/securities READY có guard, index BLOCKED. Không tự chạy feature/completeness/signal/backtest/alert. Workflow stock-intraday vẫn tắt, không schedule. Không migration hoặc backfill trong phát triển; Codex không ghi live. Xem [runbook](backfill/README.vi.md) về phục hồi và post-write check chỉ đọc.
 
 Tên CLI canonical và alias tương thích (không có lịch bỏ alias): `stock-daily-backfill` → `backfill-daily`; `stock-intraday-backfill` → `backfill-intraday`; `index-daily-backfill` → `index-backfill`. Giữ tên CLI tương thích; daily/index không đổi. Intraday dùng contract range operator có guard. Stock Daily/Index Daily backfill ACTIVE / WRITE; Stock Intraday backfill có guard, chỉ operator, mặc định DRY_RUN, ghi cần --write và tối đa 50 cặp weekday; luồng tự động vẫn tắt.
 
@@ -40,7 +40,7 @@ Xem [runbook](STOCK_INTRADAY_PIPELINE.vi.md) về thứ tự ghi, idempotency, p
 
 Đối chiếu commit `b5cb3276` trên `dev` (PR #178). Chạy tại thư mục gốc repository. Ngày và mã trong ví dụ chỉ minh họa; kiểm tra nguồn và chọn đúng phạm vi trước khi chạy. Chỉ kiểm tra cú pháp offline, chưa gọi SSI hay Supabase thật.
 
-Ingest Stock Daily (`securitiesSummary`) và Index Daily (`indexSummary`) qua SSI v3: ACTIVE. Feature stock, foreign và index: ACTIVE trên dữ liệu clean đã lưu. Screener và Historical Analog: RESEARCH_ACTIVE. Master sync có orchestrator guard, dataset SSI v3 BLOCKED; streaming và chụp orderbook vẫn NOT_IMPLEMENTED. Không có fallback về nguồn đã nghỉ.
+Ingest Stock Daily (`securitiesSummary`) và Index Daily (`indexSummary`) qua SSI v3: ACTIVE. Feature stock, foreign và index: ACTIVE trên dữ liệu clean đã lưu. Screener và Historical Analog: RESEARCH_ACTIVE. Master sync có orchestrator guard, symbols/securities READY có guard, index BLOCKED; streaming và chụp orderbook vẫn NOT_IMPLEMENTED. Không có fallback về nguồn đã nghỉ.
 
 READ-ONLY — database read: chỉ đọc nhưng vẫn cần kết nối DB. READ-ONLY — SSI API request: có thể gọi API thật nhưng không dùng Supabase. WRITE: có ghi dữ liệu, bao gồm apply và thay thế phạm vi. UNSUPPORTED: đầu vào hoặc thao tác bị từ chối, không phải kết quả rỗng thành công.
 
@@ -84,7 +84,7 @@ python scripts/inspectors/ssi_rest/inspect.py run --help
 
 ## Quy trình bắt đầu nhanh
 
-Bắt đầu bằng preview SSI chỉ đọc. Ingest cần master đã có: đồng bộ master có luồng guard nhưng cả bốn dataset SSI v3 còn BLOCKED nên cài mới không thể tự khởi tạo bằng `init`. Sau khi xác minh summary ingest, tính feature bằng lệnh riêng. Mỗi lệnh dưới đây độc lập; dừng đọc kết quả trước khi tiếp tục.
+Bắt đầu bằng preview SSI chỉ đọc. Ingest cần master đã có: dùng `init`/`sync-master-data` dry-run rồi write riêng symbols/securities; index master vẫn BLOCKED. Sau khi xác minh summary ingest, tính feature bằng lệnh riêng. Mỗi lệnh độc lập; đọc kết quả trước khi tiếp tục.
 
 Preview: READ-ONLY — SSI API request. Stock EOD: WRITE — raw/clean ingest. Daily feature: WRITE — feature calculation. Screener mặc định: READ-ONLY — database read. Không chạy các lệnh ghi chỉ để thử tài liệu.
 
@@ -364,7 +364,7 @@ JSON minh họa, không phải kết quả đã chạy thật:
 | Thiếu SSI credential / 401 / 403 | Kiểm tra key/secret v3, quyền tài khoản tại local; không in token hay dùng consumer credential cũ. |
 | NO_DATA / EMPTY_RESPONSE | Kiểm tra mã/ngày chính xác, độ trễ công bố và phiên; không tạo hàng giả hoặc coi weekday là phiên. |
 | MISMATCH / lỗi mapping | Xem raw payload, identity và diagnostic mapping; không sửa bằng chứng nguồn để ép thành công. |
-| Master rỗng | Kiểm tra symbols/index_master đã lưu; dataset master SSI v3 BLOCKED do chưa xác minh nguồn. |
+| Master rỗng | Kiểm tra symbols/index_master đã lưu; symbols/securities hỗ trợ sync guard; index master vẫn BLOCKED. |
 | Có raw, thiếu clean/feature | Xem lỗi validation và warm-up; chỉ chạy feature riêng sau khi kiểm tra nguồn. |
 | Lỗi RPC/cột/unique constraint | Đối chiếu schema triển khai với migration hiện có; checkout code không triển khai DB. |
 | PARTIAL hoặc exit 0 không có output | Đọc warning, số đếm, phạm vi, kết quả từng ngày; xác minh hàng persist/completeness độc lập. |
@@ -398,13 +398,13 @@ Mỗi bảng dưới lấy từ parser hiện tại. `+`: ít nhất một giá 
 
 ### `sync-master-data` / `init`
 
-Master sync có guard, mặc định DRY_RUN. Dataset SSI v3 hiện **BLOCKED**.
+Master sync có guard, mặc định DRY_RUN. SSI v3 symbols/securities **READY có guard**; hai dataset index **BLOCKED**.
 Chỉ OK trả exit 0. [Audit nguồn và runbook](../src/ingest/master/README.vi.md).
 
 | Tham số | Bắt buộc | Mặc định | Giá trị |
 | --- | --- | --- | --- |
 | --dataset | một dataset tường minh khi ghi | preview tất cả | symbols, securities, index_master, index_components, all (chỉ preview) |
-| --data-source | không | READY đã xác minh mới nhất theo dataset; hiện chưa có | ssi_v3 BLOCKED; không đoán v4/v5 |
+| --data-source | không | READY đã xác minh mới nhất theo dataset | ssi_v3 symbols/securities READY; index BLOCKED; không v4/v5 |
 | --dry-run / --write | loại trừ nhau | DRY_RUN | ghi cần dataset tường minh và capability READY |
 
 ### `daily`
@@ -1163,6 +1163,6 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --date 2026-10-20 --page-size 10 --max-pages 100 --limit 5
 ```
 
-## Master sync — cập nhật 26/10/2026
+## Master sync — cập nhật 27/10/2026
 
-`sync-master-data` và alias `init` đã dùng orchestrator có guard, mặc định DRY_RUN. Cả bốn dataset SSI v3 hiện BLOCKED; không tự khởi tạo master production. Không nguồn READY thì không gọi API/DB. --write cần đúng một --dataset tường minh và provider READY. Giữ status operator; stock/index mới inactive. Không migration/backfill giá. [Runbook và báo cáo PARTIAL](../src/ingest/master/README.vi.md).
+`sync-master-data` và alias `init` đã dùng orchestrator có guard, mặc định DRY_RUN. SSI v3 symbols/securities đã hỗ trợ refresh có guard ba board; index_master/index_components giữ BLOCKED. READY chỉ cho refresh không xóa có guard; market completeness authoritative vẫn UNVERIFIED. --write cần đúng một --dataset tường minh và provider READY. Giữ status operator; stock/index mới inactive. Không migration/backfill giá. [Runbook và báo cáo xác minh](../src/ingest/master/README.vi.md).

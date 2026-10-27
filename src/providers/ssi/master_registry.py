@@ -40,10 +40,17 @@ class MasterRegistry:
 
 MASTER_REGISTRY = MasterRegistry(
     MasterCapability(
-        "ssi_v3", dataset, 3, "BLOCKED", False, SSIV3MasterAdapter,
-        "scripts/inspectors/ssi_rest/endpoints.py: request candidates only; "
-        "no verified v3 master response fixture in tests/fixtures",
-        "Response fields, board/security-type semantics and complete snapshot "
-        "pagination remain unverified; index membership is not inferred.",
+        "ssi_v3", dataset, 3, "READY" if dataset in {"symbols", "securities"} else "BLOCKED",
+        dataset in {"symbols", "securities"}, SSIV3MasterAdapter,
+        ("Owner-verified securitiesByBoard arrays/fields, 2026-10-26/27; "
+         "docs/SSI_V3_MASTER_EVIDENCE.md; tested strict fetch/mapping and retention guards"
+         if dataset in {"symbols", "securities"} else
+         "scripts/inspectors/ssi_rest/endpoints.py: request candidates only; "
+         "no verified v3 master response fixture in tests/fixtures"),
+        ("Guarded non-destructive three-board refresh; authoritative market completeness "
+         "UNVERIFIED (no provider total); count/identity/board guards are required."
+         if dataset in {"symbols", "securities"} else
+         "Response fields, board/security-type semantics and complete snapshot "
+         "pagination remain unverified; index membership is not inferred."),
     ) for dataset in MASTER_DATASETS
 )
