@@ -164,3 +164,7 @@ File tạo:
 - `tests/ingest/test_unified_master_postgres.py`
 
 Deleted: NONE. Migration order: A → deploy → owner verification/backups/approval → optional B. Deployment PARTIAL, not applied.
+
+## CI PostgreSQL verification — 27 October 2026
+
+[Unit Tests run 40465219387](https://github.com/quangnguyenhuynh/tradingTplus/actions/runs/40465219387) on commit `1b9b56d0cf704ffce7dc6eef80ca3e92e5e9629e`: **1213 passed, zero skipped**, PostgreSQL 16 (17.94s). This includes the three migration execution tests (precision/JSONB/status/FK preservation, rerun, conflict rollback and Stage B approval refusal). Earlier NOT_RUN/skip statements above describe local execution only. CI tested disposable data; production migration/deployment remains owner-only and NOT_RUN.
