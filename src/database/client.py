@@ -368,7 +368,8 @@ class SupabaseClient:
         self._upsert_in_batches('symbols', records, on_conflict='symbol')
 
     def upsert_securities(self, records):
-        self._upsert_in_batches('securities', records, on_conflict='symbol')
+        # No silent rerouting or unsafe legacy overwrite path.
+        raise ValueError('securities retired as a write target; use sync-master-data --dataset symbols after Stage A migration')
 
     def upsert_stock_daily(self, records):
         self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')

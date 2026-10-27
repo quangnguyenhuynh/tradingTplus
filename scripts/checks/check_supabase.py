@@ -14,7 +14,6 @@ from src.config import config
 from src.database.client import SupabaseClient
 
 CORE_TABLE_COLUMNS = {
-    "securities": "symbol",
     "stock_raw_daily": "symbol",
     "stock_daily": "symbol",
     "stock_raw_intraday": "symbol",

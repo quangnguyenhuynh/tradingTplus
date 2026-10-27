@@ -38,3 +38,7 @@ Agent không gọi SSI live vì thiếu credential. Đã query catalog TradingTP
 Supabase, migration hay backfill giá.
 
 [Policy guard và quy trình owner](../src/ingest/master/README.vi.md).
+
+## Cutover master hợp nhất — 27/10/2026
+
+Phần này thay thế hướng dẫn cũ sync symbols/securities độc lập: chỉ symbols là đích vật lý; securities là alias deprecated có warning, all chỉ chạy symbols một lần. Owner apply A expand/merge TRƯỚC deploy app; B retire riêng có approval, mặc định abort. Agent không apply production. VN50 GROWTH được loại đúng rule và đếm; HNX-request DERIVATIVES/Future giữ domain thật và inactive mặc định. Index vẫn BLOCKED; không backfill giá. [Runbook](../src/ingest/master/README.vi.md).

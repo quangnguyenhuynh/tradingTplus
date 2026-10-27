@@ -11,7 +11,7 @@ from src.providers.ssi.clients.rest_v3 import SSIV3Client, SSIReadError
 from src.providers.ssi.master_contract import MASTER_DATASETS, MasterSourceError, MasterSnapshot
 
 BOARDS = ('HOSE', 'HNX', 'UPCOM')
-MAPPING_VERSION = 'ssi_v3.securitiesByBoard.1.0.0'
+MAPPING_VERSION = 'ssi_v3.unified_symbols.2.0.0'
 # Historical anomaly reference, NOT expected totals or an authoritative universe.
 OWNER_REFERENCE = {'date': '2026-10-26/27', 'counts': {'HOSE': 793, 'HNX': 410, 'UPCOM': 851}}
 KNOWN_TYPES = frozenset(('Stock', 'Bond', 'ETF Product', 'Investment Fund'))
@@ -101,7 +101,8 @@ def map_verified_record(dataset: str, payload: dict, *, requested_board: str | N
     if symbol is None or not re.fullmatch(r'[A-Z0-9][A-Z0-9._-]{0,63}', symbol.upper()):
         raise MasterSourceError('INVALID_SOURCE_IDENTITY')
     board = _text(payload.get('board'))
-    if board not in BOARDS or (requested_board is not None and board != requested_board):
+    derivative = requested_board == 'HNX' and board == 'DERIVATIVES' and payload.get('stockType') == 'Future'
+    if not derivative and (board not in BOARDS or (requested_board is not None and board != requested_board)):
         raise MasterSourceError('SOURCE_BOARD_MISMATCH')
     vi, en, kind = (_text(payload.get(k)) for k in ('symbolNameVi', 'symbolNameEn', 'stockType'))
     numbers = {k: _numeric(payload.get(k)) for k in NUMERIC_FIELDS}
@@ -109,9 +110,7 @@ def map_verified_record(dataset: str, payload: dict, *, requested_board: str | N
     # Extra verified fields stay raw-only, unknown fields are retained only after
     # recursive credential redaction and strict JSON-safe validation.
     raw = _safe_raw(payload, sensitive_values)
-    if dataset == 'symbols':
-        return {'symbol': symbol.upper(), 'market': board, 'name': vi}
-    return {'symbol': symbol.upper(), 'stock_name': vi, 'stock_en_name': en,
+    return {'symbol': symbol.upper(), 'name': vi, 'stock_en_name': en,
             'market': board, 'exchange': board, 'sec_type': kind,
             'lot_size': numbers['lotSize'], 'listed_share': numbers['listedShare'],
             'first_trading_date': dates['firstTradingDate'], 'last_trading_date': dates['lastTradingDate'],
@@ -138,11 +137,11 @@ class SSIV3MasterAdapter:
         if dataset not in ('symbols', 'securities'):
             raise MasterSourceError('SSI_V3_MASTER_RESPONSE_UNVERIFIED')
         client = self.client if self.client is not None else SSIV3Client()
-        records, errors, diagnostics, seen = [], [], [], set()
+        records, errors, diagnostics, seen, excluded = [], [], [], set(), []
         received = 0
         for board in BOARDS:
             diagnostic = {'board': board, 'status': 'NOT_RUN', 'records_received': None,
-                          'records_mapped': 0, 'security_types': {}, 'unknown_security_types': {}}
+                          'records_mapped': 0, 'excluded_records': 0, 'actual_markets': {}, 'security_types': {}, 'unknown_security_types': {}}
             diagnostics.append(diagnostic)
             try:
                 rows = client.securities_by_board(board)
@@ -158,6 +157,15 @@ class SSIV3MasterAdapter:
                 types, unknown = Counter(), Counter()
                 for position, row in enumerate(rows, 1):
                     try:
+                        if (board == 'HOSE' and isinstance(row, dict) and row.get('symbol') == 'VN50 GROWTH'
+                                and row.get('board') == 'HOSE' and row.get('stockType') is None):
+                            if 'VN50 GROWTH' in seen:
+                                raise MasterSourceError('DUPLICATE_SOURCE_IDENTITY')
+                            seen.add('VN50 GROWTH')
+                            excluded.append({'symbol': 'VN50 GROWTH', 'requested_board': board,
+                                             'reason': 'OWNER_VERIFIED_INDEX_LIST_IDENTITY_OUTSIDE_SECURITY_SCOPE'})
+                            diagnostic['excluded_records'] += 1
+                            continue
                         mapped = map_verified_record(dataset, row, requested_board=board,
                                                      sensitive_values=(getattr(client, 'token', None),))
                         symbol = mapped['symbol']
@@ -165,6 +173,8 @@ class SSIV3MasterAdapter:
                             raise MasterSourceError('DUPLICATE_SOURCE_IDENTITY')
                         seen.add(symbol)
                         records.append(mapped)
+                        markets = diagnostic['actual_markets']
+                        markets[mapped['market']] = markets.get(mapped['market'], 0) + 1
                         diagnostic['records_mapped'] += 1
                         kind = _text(row.get('stockType'))
                         types[kind if kind is not None else '<NULL>'] += 1
@@ -200,8 +210,8 @@ class SSIV3MasterAdapter:
                         'provider_reported_total': None, 'authoritative_market_completeness': 'UNVERIFIED',
                         'historical_reference': self.reference,
                         'limitation': 'Parsed complete HTTP arrays from all three boards; no authoritative provider total.'},
-            errors=errors, unsupported_fields=(
+            errors=errors, excluded_records=excluded, unsupported_fields=(
                 ('issuer', 'issue_date', *(f'tick_{kind}{n}' for n in range(1,5) for kind in ('price','increment')))
-                if dataset == 'securities' else ()),
+                if dataset in ('symbols', 'securities') else ()),
             retention_policy={'group_field': 'market', 'minimum_fraction': '0.5',
-                              **({'distribution_field': 'sec_type'} if dataset == 'securities' else {})})
+                              'distribution_field': 'sec_type'})

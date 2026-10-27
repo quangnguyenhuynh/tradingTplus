@@ -1168,3 +1168,7 @@ python scripts/inspectors/ssi_rest/inspect.py run stock-intraday --symbol SSI --
 ## Master sync — updated 27 October 2026
 
 `sync-master-data` and alias `init` now use guarded orchestration, default DRY_RUN. SSI v3 symbols/securities now support guarded refresh across HOSE/HNX/UPCOM; index_master/index_components remain BLOCKED. READY is scoped to guarded non-destructive refresh; authoritative market completeness remains UNVERIFIED. --write requires one explicit --dataset and a READY provider. Operator statuses are preserved; new stocks/indexes inactive. No migration or price backfill. [Runbook and validation report](../src/ingest/master/README.md).
+
+## Unified master cutover — 27 October 2026
+
+This supersedes earlier independent symbols/securities procedures: symbols is the sole physical write target; securities is a deprecated CLI alias with an explicit warning. all syncs symbols once. Apply Stage A expansion/merge BEFORE application deployment; Stage B retirement is separately owner-approved and aborts by default. Never apply production migrations through the agent. VN50 GROWTH exact index exclusion is counted; HNX-request DERIVATIVES/Future retains its actual domain and inactive defaults. Index capabilities remain BLOCKED. No price backfill. [Runbook](../src/ingest/master/README.md).

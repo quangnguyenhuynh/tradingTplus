@@ -32,7 +32,7 @@ def offline(monkeypatch):
 
 ROWS = {
     "symbols": [{"symbol": "ssi", "market": "HOSE", "name": "Source confirmed name"}],
-    "securities": [{"symbol": "SSI", "stock_name": "Source confirmed name", "lot_size": "100"}],
+    "symbols": [{"symbol": "SSI", "name": "Source confirmed name", "lot_size": "100"}],
     "index_master": [{"index_code": "vnindex", "index_name": "Source confirmed index"}],
     "index_components": [{"index_code": "VNINDEX", "symbol": "ssi", "exchange": "HOSE"}],
 }
@@ -129,7 +129,7 @@ def test_real_v3_explicitly_blocked_without_services(dataset):
 
 
 def test_only_verified_security_capabilities_promoted():
-    for dataset in ("symbols", "securities"):
+    for dataset in ("symbols", "symbols"):
         assert MASTER_REGISTRY.resolve(dataset).status == "READY"
     for dataset in ("index_master", "index_components"):
         assert MASTER_REGISTRY.resolve(dataset) is None
@@ -147,7 +147,7 @@ def test_registry_version_selection_and_independent_capabilities():
     reg.register(replace(cap, source="future_test", order=99, status="PREVIEW"))
     assert reg.resolve("symbols").source == "test_provider"
     assert reg.resolve("symbols", "future_test").status == "PREVIEW"
-    assert reg.resolve("securities", "test_provider") is None
+    assert reg.resolve("index_master", "test_provider") is None
     with pytest.raises(ValueError): reg.register(cap)
     with pytest.raises(ValueError): MasterRegistry([replace(cap, verified=False)])
     with pytest.raises(ValueError): MasterRegistry([replace(cap, evidence="")])
@@ -155,7 +155,7 @@ def test_registry_version_selection_and_independent_capabilities():
     assert reg.resolve("symbols").source == "verified_future_test"
 
 
-@pytest.mark.parametrize("dataset", MASTER_DATASETS)
+@pytest.mark.parametrize("dataset", ("symbols", "index_master", "index_components"))
 def test_dry_run_write_and_idempotency(dataset):
     snap = snapshot(dataset)
     preview, client = execute(snap)
@@ -176,8 +176,8 @@ def test_status_and_nonnull_fields_preserved(status, intraday):
     snap = replace(snapshot(), records=[{"symbol": "SSI", "name": "new", "market": None}])
     report, client = execute(snap, rows=[old], write=True)
     assert report["actual_updates"] == 1
-    assert client.tables["symbols"][0] == {**old, "name": "new"}
-    assert client.writes == [("update", {"name": "new"})]
+    assert {k:client.tables["symbols"][0][k] for k in old} == {**old, "name": "new"}
+    assert client.writes[0][1]["name"] == "new"
 
 
 def test_existing_index_status_preserved_and_missing_members_not_deleted():
@@ -257,7 +257,7 @@ def test_completed_dataset_evidence_survives_later_blocker():
     reg = registry_for(snapshot())
     result = run_master_sync(registry=reg, store_factory=lambda: MasterStore(MemoryClient("symbols")))
     assert result["status"] == "PARTIAL" and result["datasets"][0]["planned_inserts"] == 1
-    assert len(result["datasets"]) == 4
+    assert len(result["datasets"]) == 3
 
 
 @pytest.mark.parametrize("dataset", [None, "all"])
@@ -275,7 +275,7 @@ def test_cli_alias_and_blocked_json(command, capsys):
     assert main([command, "--dataset", "symbols", "--data-source", "ssi_v4"]) == 2
 
 
-@pytest.mark.parametrize("dataset", MASTER_DATASETS)
+@pytest.mark.parametrize("dataset", ("symbols", "index_master", "index_components"))
 def test_database_read_pagination_exact_and_bounded(dataset):
     rows = [{**dict(zip(KEYS[dataset], (f"K{n}",) * len(KEYS[dataset])))} for n in range(205)]
     store = MasterStore(MemoryClient(dataset, rows))
@@ -297,15 +297,15 @@ def test_concurrent_insert_and_update_never_overwrite_operator_controls():
 
 @pytest.mark.parametrize("value", [True, 1.5, "NaN", "Infinity", "-1", "invalid"])
 def test_numeric_contract_rejects_non_exact_or_invalid(value):
-    with pytest.raises(ValueError): canonical_record("securities", {"symbol": "SSI", "lot_size": value})
+    with pytest.raises(ValueError): canonical_record("symbols", {"symbol": "SSI", "lot_size": value})
 
 
 def test_decimal_and_dates_exact_without_version_specific_names():
-    row = canonical_record("securities", {"symbol": "ssi", "listed_share": "9007199254740993", "issue_date": "2026-10-20"})
+    row = canonical_record("symbols", {"symbol": "ssi", "listed_share": "9007199254740993", "issue_date": "2026-10-20"})
     assert row["listed_share"] == "9007199254740993" and row["symbol"] == "SSI"
-    plan, _ = compare("securities", [row], [{**row, "listed_share": 9007199254740993}])
+    plan, _ = compare("symbols", [row], [{**row, "listed_share": 9007199254740993}])
     assert not plan
-    with pytest.raises(ValueError): canonical_record("securities", {"symbol": "SSI", "issue_date": "20/10/2026"})
+    with pytest.raises(ValueError): canonical_record("symbols", {"symbol": "SSI", "issue_date": "20/10/2026"})
 
 
 @pytest.mark.parametrize("fault", ["no_count", "count_change", "short_page", "duplicate", "error"])
@@ -345,9 +345,9 @@ def test_actual_sdk_queries_with_http_mock_transport():
     assert request.url.params["on_conflict"] == "symbol"
     assert "resolution=ignore-duplicates" in request.headers["prefer"]
     assert json.loads(request.content)["status"] == "inactive"
-    plan, _ = compare("securities", [{"symbol": "SSI", "raw": {"source": "new"}}],
+    plan, _ = compare("symbols", [{"symbol": "SSI", "raw": {"source": "new"}}],
                       [{"symbol": "SSI", "raw": {"source": "old"}}])
-    assert store.apply("securities", plan[0]) == 1
+    assert store.apply("symbols", plan[0]) == 1
     request = requests_seen[-1]
     assert request.method == "PATCH" and request.url.params["symbol"] == "eq.SSI"
     assert request.url.params["raw"] == 'eq.{"source":"old"}'

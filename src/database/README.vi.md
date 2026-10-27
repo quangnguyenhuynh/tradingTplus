@@ -35,3 +35,7 @@ Unit test nên mock Supabase client. Smoke test live mặc định read-only và
 
 Adapter database kiểu rule cũ đã bị xóa. Historical Analog dùng repository và
 migration bảy bảng riêng, không ghi raw, clean hoặc feature.
+
+## Cutover master hợp nhất — 27/10/2026
+
+Phần này thay thế hướng dẫn cũ sync symbols/securities độc lập: chỉ symbols là đích vật lý; securities là alias deprecated có warning, all chỉ chạy symbols một lần. Owner apply A expand/merge TRƯỚC deploy app; B retire riêng có approval, mặc định abort. Agent không apply production. VN50 GROWTH được loại đúng rule và đếm; HNX-request DERIVATIVES/Future giữ domain thật và inactive mặc định. Index vẫn BLOCKED; không backfill giá. [Runbook](../ingest/master/README.vi.md).

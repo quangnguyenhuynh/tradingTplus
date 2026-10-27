@@ -15,7 +15,7 @@ def _report(dataset, source, write):
         mode="WRITE" if write else "DRY_RUN", capability_status="UNSUPPORTED",
         requested_scope={"kind": "ALL"}, resolved_scope=None,
         pagination_complete=False, pagination={}, mapping_version=None,
-        source_records_received=None, canonical_records_mapped=None,
+        source_records_received=None, canonical_records_mapped=None, accepted_records=0, excluded_records=0, exclusions=[],
         valid_records=0, invalid_records=0, duplicate_identities=0,
         new_records=None, changed_records=None, unchanged_records=None,
         source_missing_records=None, unsupported_records=None,
@@ -59,6 +59,7 @@ def _dataset(dataset, source, write, registry, store_factory):
             canonical_records_mapped=len(snapshot.records), pagination_complete=snapshot.complete,
             pagination=snapshot.pagination, resolved_scope=snapshot.resolved_scope,
             mapping_version=snapshot.mapping_version, unsupported_fields=list(snapshot.unsupported_fields),
+            accepted_records=len(snapshot.records), excluded_records=len(snapshot.excluded_records), exclusions=snapshot.excluded_records,
         )
         # Adapters supply only safe codes/metadata, never raw source bodies.
         if snapshot.errors:
@@ -71,7 +72,7 @@ def _dataset(dataset, source, write, registry, store_factory):
         if (snapshot.complete is not True or snapshot.errors or not snapshot.mapping_version
                 or snapshot.resolved_scope != {"kind": "ALL"}
                 or isinstance(snapshot.source_records, bool) or not isinstance(snapshot.source_records, int)
-                or snapshot.source_records != len(snapshot.records)):
+                or snapshot.source_records != len(snapshot.records) + len(snapshot.excluded_records)):
             raise MasterSourceError("SOURCE_COMPLETENESS_UNVERIFIED")
         report["stage"] = "CANONICAL_VALIDATION"
         report["unverified_fields"] = []
@@ -132,6 +133,8 @@ def _dataset(dataset, source, write, registry, store_factory):
         # Exception text can contain secrets in source/DB responses: type/code only.
         code = exc.code if isinstance(exc, MasterSourceError) else stage + "_ERROR"
         report["errors"].append({"code": code, "stage": stage})
+        if 'SYMBOLS_SCHEMA_REQUIRED' in code:
+            report['recovery'] = 'Apply migrations/20261027_expand_symbols_master.sql manually before cutover; verify DB access and rerun dry-run. No legacy-schema fallback.'
         report["status"] = "PARTIAL" if (report["actual_inserts"] + report["actual_updates"] or
                                             not report["insert_counts_confirmed"]) else "FAILED"
         report["write_ready"] = False
@@ -152,7 +155,10 @@ def run_master_sync(dataset=None, *, data_source=None, write=False,
     if write and dataset not in MASTER_DATASETS:
         raise ValueError("--write requires one explicit --dataset; all is preview-only")
     registry = registry if registry is not None else MASTER_REGISTRY
-    datasets = MASTER_DATASETS if dataset in (None, "all") else (dataset,)
+    requested_dataset = dataset
+    if dataset == 'securities':
+        dataset = 'symbols'
+    datasets = ('symbols', 'index_master', 'index_components') if dataset in (None, 'all') else (dataset,)
     # Validate every source choice before any independently scoped work.
     for selected in datasets:
         registry.resolve(selected, data_source)
@@ -163,6 +169,9 @@ def run_master_sync(dataset=None, *, data_source=None, write=False,
         "PARTIAL" if any(s in {"OK", "PARTIAL"} for s in statuses) else
         "BLOCKED" if all(s in {"BLOCKED", "UNSUPPORTED"} for s in statuses) else "FAILED")
     return {"flow": "sync-master-data", "dataset": dataset or "all",
+            "requested_dataset": requested_dataset, "canonical_dataset": dataset or 'all',
+            "warnings": (["DEPRECATED: securities aliases symbols; physical target public.symbols only"]
+                         if requested_dataset == 'securities' else []),
             "mode": "WRITE" if write else "DRY_RUN", "data_source": data_source,
             "status": status, "datasets": reports,
             "actual_inserts": sum(r["actual_inserts"] for r in reports),

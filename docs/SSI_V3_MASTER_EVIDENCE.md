@@ -41,3 +41,7 @@ queries on TradingTPus_DS confirmed both primary keys and no securities→symbol
 foreign key. No Supabase write, migration or price-data backfill.
 
 [Guarded sync policy and owner procedure](../src/ingest/master/README.md).
+
+## Unified master cutover — 27 October 2026
+
+This supersedes earlier independent symbols/securities procedures: symbols is the sole physical write target; securities is a deprecated CLI alias with an explicit warning. all syncs symbols once. Apply Stage A expansion/merge BEFORE application deployment; Stage B retirement is separately owner-approved and aborts by default. Never apply production migrations through the agent. VN50 GROWTH exact index exclusion is counted; HNX-request DERIVATIVES/Future retains its actual domain and inactive defaults. Index capabilities remain BLOCKED. No price backfill. [Runbook](../src/ingest/master/README.md).
