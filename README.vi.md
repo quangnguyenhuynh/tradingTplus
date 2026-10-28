@@ -1,5 +1,37 @@
 # TradingTPlus — SSI v3
 
+## CLI EOD chuẩn — 28/10/2026
+
+| Lệnh | Hành vi hiện có giữ nguyên |
+| --- | --- |
+| `stock-eod` | Ingest stock + daily completeness, lọc mã active |
+| `stock-eod-backfill` | Backfill stock daily bao gồm hai đầu; không thêm completeness |
+| `index-eod` | Ingest index daily raw/clean hiện có |
+| `index-eod-backfill` | Backfill index daily bao gồm hai đầu hiện có |
+
+Chỉ bốn tên trên dùng cho top-level EOD ingest/backfill stock/index.
+Đã bỏ, không alias/redirect: `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Direct daily cũ có date/scope/completeness khác và đã nghỉ; stock-eod vẫn dùng
+run_stock_eod_pipeline, không thay bằng daily_run. Mặc định EOD stock/index lấy
+ngày trong tuần gần nhất tính cả hôm nay tại Việt Nam. Giữ validation, scope,
+summary và exit code. Backfill giữ alias --from/--from-date, --to/--to-date.
+PARTIAL vẫn có thể exit 0 theo _status_to_exit hiện có; không đổi policy.
+Python API daily_run/run_daily_ingest/run_index_daily_ingest/backfill, dataset ID
+stock_daily/index_daily và JSON flow cũ (index-daily, backfill-daily/index-backfill)
+giữ nguyên. Dataset Inspector `stock-daily` không đổi. Stock/index tách riêng;
+không tự tính feature/signal/backtest. Không migration/schema/data/backfill bắt buộc.
+Không chạy ví dụ WRITE để thử tên. Báo cáo tên/alias lịch sử phía dưới đã được
+phần này thay thế.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [English](README.md) · [CLI nhanh](docs/CLI_USAGE.vi.md) · [Tham chiếu đầy đủ](docs/CLI_REFERENCE.vi.md)
 
 Trading T+ nghiên cứu cổ phiếu Việt Nam cho T+3–T+5. **Ingest, feature và nghiên cứu là các bước độc lập.** Không có signal/alert/NAV tự chạy sau feature.
@@ -24,9 +56,9 @@ python main.py --help
 | --- | --- | --- |
 | Kiểm tra raw SSI | `python scripts/inspectors/ssi_rest/inspect.py run stock-daily --symbol SSI --date 19/10/2026 --show-mapping` | READ |
 | Lấy EOD cổ phiếu | `python main.py stock-eod 19/10/2026 --symbols SSI` | WRITE |
-| Backfill cổ phiếu | `python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI` | WRITE |
+| Backfill cổ phiếu | `python main.py stock-eod-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI` | WRITE |
 | Xem index SSI | `python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json` | READ |
-| Lấy index | `python main.py index-daily 19/10/2026 --indexes VNINDEX` | WRITE |
+| Lấy index | `python main.py index-eod 19/10/2026 --indexes VNINDEX` | WRITE |
 | Lấy intraday thử trước | `python main.py stock-intraday 20/10/2026 --symbols SSI` | DRY-RUN |
 | Tính daily features | `python main.py features-daily --date 19/10/2026 --symbols SSI` | WRITE |
 | Xếp hạng foreign | `python main.py foreign-rank --date 19/10/2026 --ranking accumulation --window 5 --top 20` | READ |

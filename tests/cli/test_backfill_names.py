@@ -12,9 +12,9 @@ import src.cli.maintenance as maintenance_cli
 from src.database.client import SupabaseClient
 from src.providers.ssi.clients.rest_v3 import SSIV3Client
 
-PAIRS = [('stock-daily-backfill', 'backfill-daily', 'symbols', 'stock_daily'),
+PAIRS = [('stock-eod-backfill', 'stock-eod-backfill', 'symbols', 'stock_daily'),
          ('stock-intraday-backfill', 'backfill-intraday', 'symbols', 'stock_intraday'),
-         ('index-daily-backfill', 'index-backfill', 'indexes', 'index_daily')]
+         ('index-eod-backfill', 'index-eod-backfill', 'indexes', 'index_daily')]
 NAMES = [name for canonical, legacy, *_ in PAIRS for name in (canonical, legacy)]
 
 
@@ -67,7 +67,7 @@ def test_all_help_is_offline_and_canonical_discoverable(name, capsys, monkeypatc
     text = capsys.readouterr().out
     if name is None:
         for canonical, legacy, *_ in PAIRS:
-            assert f'{canonical} ({legacy})' in text
+            assert (f'{canonical} ({legacy})' if canonical != legacy else canonical) in text
         assert 'read-only unless --write' in text
     else:
         canonical = next(c for c, old, *_ in PAIRS if name in (c, old))
@@ -101,7 +101,7 @@ def test_active_canonical_and_alias_same_runner_args_json_exit(scope, status, ex
     assert calls == [(('2026-10-01', '2026-10-20'), expected)] * 2
 
 
-@pytest.mark.parametrize('name', ['stock-daily-backfill', 'backfill-daily', 'index-daily-backfill', 'index-backfill'])
+@pytest.mark.parametrize('name', ['stock-eod-backfill', 'stock-eod-backfill', 'index-eod-backfill', 'index-eod-backfill'])
 def test_omitted_scope_and_source_preserve_defaults(name, monkeypatch, capsys):
     index = name.startswith('index-')
     module = index_cli if index else maintenance_cli
@@ -149,7 +149,7 @@ def test_rejected_source_preserves_exit_two_before_handler(name, monkeypatch, ca
 
 
 def test_no_normalization_of_unrelated_commands():
-    assert set(cli.BACKFILL_COMMANDS) == {'stock-daily-backfill', 'stock-intraday-backfill', 'index-daily-backfill'}
+    assert cli.BACKFILL_COMMANDS == {'stock-intraday-backfill': 'backfill-intraday'}
 
 
 def test_documented_primary_names_and_guarded_intraday():
@@ -161,5 +161,5 @@ def test_documented_primary_names_and_guarded_intraday():
         assert 'python main.py stock-intraday-backfill --help' in runbook
         assert 'python main.py stock-intraday-backfill --from' in runbook
         assert 'DRY_RUN' in runbook
-        assert 'python main.py stock-daily-backfill --from' in runbook
-        assert 'python main.py index-daily-backfill --from' in runbook
+        assert 'python main.py stock-eod-backfill --from' in runbook
+        assert 'python main.py index-eod-backfill --from' in runbook

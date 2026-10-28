@@ -34,7 +34,7 @@ The record below predates this restructuring. References to operational v2, mast
 
 ## Stock-only historical ingest boundary
 
-Phase 0 historical source ingest is stock-only. `daily` and `backfill-daily`
+Phase 0 historical source ingest is stock-only. `daily` and `stock-eod-backfill`
 call SSI `DailyStockPrice` and write only `stock_raw_daily`/`stock_daily`;
 `intraday-ingest` and `backfill-intraday` call `IntradayOhlc` resolution 1 and
 write only `stock_raw_intraday`/`stock_intraday`. EOD and combined backfill compose
@@ -1859,7 +1859,7 @@ Decision: production daily ingest and production intraday ingest are separate co
 
 Consequences:
 
-- `python main.py daily [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `stock_raw_intraday` or `stock_intraday`.
+- `python main.py stock-eod [DD/MM/YYYY]` must not call SSI `IntradayOhlc` and must not write `stock_raw_intraday` or `stock_intraday`.
 - `python main.py intraday-ingest [DD/MM/YYYY] [--symbols ...]` must call SSI `IntradayOhlc` resolution `1` and write only `stock_raw_intraday` and `stock_intraday` for candle ingest.
 - `python main.py stock-eod [DD/MM/YYYY]` is an orchestrator: daily-only ingest → daily-only completeness; stock-intraday separately runs 1m ingest → intraday-only completeness.
 - `python main.py features-intraday` remains the explicit intraday feature command and must not be redefined as an ingest command.

@@ -13,9 +13,9 @@ def run(args):
                                                  write=args.write, **_source_kwargs(args))
         _print_summary(summary)
         return 0 if summary.get("status") == "OK" else 1
-    if args.command in {"backfill-daily", "backfill"}:
+    if args.command in {"stock-eod-backfill", "backfill"}:
         runner = {
-            "backfill-daily": run_daily_backfill_pipeline,
+            "stock-eod-backfill": run_daily_backfill_pipeline,
             "backfill": run_backfill_pipeline,
         }[args.command]
         summary = runner(

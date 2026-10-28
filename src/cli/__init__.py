@@ -7,18 +7,16 @@ from .common import _print_summary
 from src.providers.ssi.capabilities import CapabilityUnavailableError
 from src.providers.ssi.registry import resolve_source
 
-COMMAND_GROUPS = {'analogs': 'analogs', 'init': 'maintenance', 'sync-master-data': 'maintenance', 'daily': 'stock', 'index-daily': 'index', 'index-backfill': 'index', 'index-check': 'index', 'index-preview': 'index', 'index-features-preview': 'index', 'index-features-daily': 'index', 'index-features-backfill': 'index', 'index-features-check': 'index', 'stock-screener-config': 'screener', 'stock-screener': 'screener', 'foreign-features-preview': 'foreign', 'foreign-features-daily': 'foreign', 'foreign-features-backfill': 'foreign', 'foreign-features-check': 'foreign', 'foreign-rank': 'foreign', 'foreign-symbol': 'foreign', 'intraday-ingest': 'stock', 'stock-eod': 'stock', 'stock-daily': 'stock', 'stock-intraday': 'stock', 'backfill-daily': 'maintenance', 'backfill-intraday': 'maintenance', 'backfill': 'maintenance', 'refill': 'maintenance', 'features': 'features', 'features-daily': 'features', 'features-intraday': 'features', 'streaming-ingest': 'streaming'}
+COMMAND_GROUPS = {'analogs': 'analogs', 'init': 'maintenance', 'sync-master-data': 'maintenance', 'index-eod': 'index', 'index-eod-backfill': 'index', 'index-check': 'index', 'index-preview': 'index', 'index-features-preview': 'index', 'index-features-daily': 'index', 'index-features-backfill': 'index', 'index-features-check': 'index', 'stock-screener-config': 'screener', 'stock-screener': 'screener', 'foreign-features-preview': 'foreign', 'foreign-features-daily': 'foreign', 'foreign-features-backfill': 'foreign', 'foreign-features-check': 'foreign', 'foreign-rank': 'foreign', 'foreign-symbol': 'foreign', 'intraday-ingest': 'stock', 'stock-eod': 'stock', 'stock-intraday': 'stock', 'stock-eod-backfill': 'maintenance', 'backfill-intraday': 'maintenance', 'backfill': 'maintenance', 'refill': 'maintenance', 'features': 'features', 'features-daily': 'features', 'features-intraday': 'features', 'streaming-ingest': 'streaming'}
 DISABLED = {
     "intraday-ingest": "stock_intraday",
     "backfill": "stock_intraday",
     "refill": "stock_intraday", "streaming-ingest": "streaming",
 }
 # Argparse retains the invoked alias. Keep existing handler keys, runners and
-# JSON flow identities; normalize only these three user-facing command names.
+# JSON flow identities; only unrelated intraday aliases are normalized.
 BACKFILL_COMMANDS = {
-    "stock-daily-backfill": "backfill-daily",
     "stock-intraday-backfill": "backfill-intraday",
-    "index-daily-backfill": "index-backfill",
 }
 
 

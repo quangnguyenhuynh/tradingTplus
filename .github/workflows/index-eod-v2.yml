@@ -62,7 +62,7 @@ jobs:
           echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"
           echo "target_date=$TARGET_DATE"
           echo "target_source=${{ steps.resolve-date.outputs.target_source }}"
-          cmd=(python main.py index-daily "$TARGET_DATE")
+          cmd=(python main.py index-eod "$TARGET_DATE")
           if [ -n "$INDEXES_INPUT" ]; then
             read -r -a indexes <<< "$INDEXES_INPUT"
             cmd+=(--indexes "${indexes[@]}")

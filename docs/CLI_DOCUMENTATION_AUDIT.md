@@ -1,5 +1,38 @@
 # CLI documentation restoration audit
 
+## Canonical EOD CLI — 28 October 2026
+
+| Command | Existing behavior retained |
+| --- | --- |
+| `stock-eod` | Stock ingest + existing daily completeness; active-symbol filtering |
+| `stock-eod-backfill` | Inclusive stock daily backfill; no added completeness |
+| `index-eod` | Existing index daily raw/clean ingest |
+| `index-eod-backfill` | Existing inclusive index daily backfill |
+
+Only these four top-level names are supported for stock/index EOD ingest/backfill.
+Removed (no aliases/redirects): `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Old direct daily had different date/scope/completeness semantics and is retired;
+stock-eod retains run_stock_eod_pipeline rather than adopting daily_run behavior.
+Stock/index EOD defaults resolve the latest weekday on/before today in Vietnam;
+original date validation, scope rules, summaries and exit codes remain unchanged.
+Backfill date aliases --from/--from-date and --to/--to-date remain available.
+PARTIAL can still exit 0 under existing _status_to_exit; no exit-policy changes.
+Internal daily_run/run_daily_ingest/run_index_daily_ingest/backfill imports,
+stock_daily/index_daily dataset IDs and JSON flows (including index-daily,
+backfill-daily/index-backfill) remain unchanged. Inspector `stock-daily` remains.
+Stock/index pipelines stay separate; no automatic feature/signal/backtest.
+No migration/schema/data changes or required backfill. Do not execute WRITE
+examples to verify naming. Historical naming/alias reports below are superseded.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [Tiếng Việt](CLI_DOCUMENTATION_AUDIT.vi.md)
 
 ## Scope and pre-edit audit
@@ -129,3 +162,71 @@ The validation helper is scratch under work/, not part of the documentation patc
 ## Impact and next step
 
 Migration: none. Database impact: none (no tables/indexes/rows changed). Backfill: none. Remaining risks are service permissions, deployed schema, live source/history quality not tested, and the separate code issues above. Next step: review the documentation patch; address streaming imports and Analog validation persistence in a separate code task before relying on blocked workflows.
+
+## EOD naming implementation report — 28 October 2026
+
+Base dev: `7a16dcd31b31600e8546b0b3f8288795f3c59cab`. Audited AGENTS/main/parser/dispatch, stock/index/backfill/shared scope runners, relevant schema/migrations, tests/docs/workflows. Removed direct daily with its different semantics; stock-eod retains the existing workflow. Updated parser/handlers and index workflow call-site; Python APIs, dataset IDs, Inspector stock-daily, JSON flows and all pipeline/data logic remain unchanged. Only intraday aliases normalize. All seven removed names reject with exit 2, without redirects.
+
+CLI: **225 passed**; ingest: **291 passed, 3 skipped**; pipeline: **146 passed**; full: **1241 passed, 10 skipped** (38.84s). Ten existing PostgreSQL integration cases require local disposable TEST_DATABASE_URL. Compile/help/rejection/diff checks PASS. No lint configuration found. All validation offline; no live ingest/backfill, SSI request or Supabase mutation.
+
+Migration/schema/data: NONE. Backfill required: NO. Main risk: external scripts using removed names must update; defaults, PARTIAL exit handling and runner flow labels intentionally stay as before. Next: review/merge PR then update any external invocation to the four canonical names.
+
+```bash
+.venv/bin/python -m pytest -q tests/cli/
+.venv/bin/python -m pytest -q tests/ingest/
+.venv/bin/python -m pytest -q tests/pipeline/
+.venv/bin/python -m pytest -q
+.venv/bin/python -m compileall -q main.py src scripts tests
+python main.py --help
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+git diff --check
+```
+
+Smoke legacy names: daily, stock-daily, stock-daily-backfill, backfill-daily, index-daily, index-daily-backfill, index-backfill, each with --help: expected exit 2. Canonical helps exit 0, no service access.
+
+Modified files:
+
+- `.github/workflows/index-eod-v2.yml`
+- `README.md`
+- `README.vi.md`
+- `docs/ARCHITECTURE_DECISIONS.md`
+- `docs/CLI_DOCUMENTATION_AUDIT.md`
+- `docs/CLI_DOCUMENTATION_AUDIT.vi.md`
+- `docs/CLI_REFERENCE.md`
+- `docs/CLI_REFERENCE.vi.md`
+- `docs/CLI_USAGE.md`
+- `docs/CLI_USAGE.vi.md`
+- `docs/backfill/README.md`
+- `docs/backfill/README.vi.md`
+- `src/cli/README.md`
+- `src/cli/README.vi.md`
+- `src/cli/__init__.py`
+- `src/cli/index.py`
+- `src/cli/maintenance.py`
+- `src/cli/parser.py`
+- `src/cli/stock.py`
+- `src/ingest/README.md`
+- `src/ingest/README.vi.md`
+- `src/ingest/index_daily/README.md`
+- `src/ingest/index_daily/README.vi.md`
+- `src/ingest/maintenance/README.md`
+- `src/ingest/maintenance/README.vi.md`
+- `src/ingest/stock_daily/README.md`
+- `src/ingest/stock_daily/README.vi.md`
+- `src/ingest/stock_intraday/README.md`
+- `src/ingest/stock_intraday/README.vi.md`
+- `src/ingest/workflows/README.md`
+- `src/ingest/workflows/README.vi.md`
+- `tests/cli/test_backfill_names.py`
+- `tests/cli/test_capability_retirement.py`
+- `tests/cli/test_cli_refactor.py`
+- `tests/pipeline/test_stock_eod_workflow.py`
+
+Created files:
+
+- `tests/cli/test_eod_names.py`
+
+Deleted files: NONE.

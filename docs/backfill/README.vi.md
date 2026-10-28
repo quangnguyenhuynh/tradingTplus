@@ -1,20 +1,52 @@
 # Backfill dữ liệu nguồn có guard
 
+## CLI EOD chuẩn — 28/10/2026
+
+| Lệnh | Hành vi hiện có giữ nguyên |
+| --- | --- |
+| `stock-eod` | Ingest stock + daily completeness, lọc mã active |
+| `stock-eod-backfill` | Backfill stock daily bao gồm hai đầu; không thêm completeness |
+| `index-eod` | Ingest index daily raw/clean hiện có |
+| `index-eod-backfill` | Backfill index daily bao gồm hai đầu hiện có |
+
+Chỉ bốn tên trên dùng cho top-level EOD ingest/backfill stock/index.
+Đã bỏ, không alias/redirect: `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Direct daily cũ có date/scope/completeness khác và đã nghỉ; stock-eod vẫn dùng
+run_stock_eod_pipeline, không thay bằng daily_run. Mặc định EOD stock/index lấy
+ngày trong tuần gần nhất tính cả hôm nay tại Việt Nam. Giữ validation, scope,
+summary và exit code. Backfill giữ alias --from/--from-date, --to/--to-date.
+PARTIAL vẫn có thể exit 0 theo _status_to_exit hiện có; không đổi policy.
+Python API daily_run/run_daily_ingest/run_index_daily_ingest/backfill, dataset ID
+stock_daily/index_daily và JSON flow cũ (index-daily, backfill-daily/index-backfill)
+giữ nguyên. Dataset Inspector `stock-daily` không đổi. Stock/index tách riêng;
+không tự tính feature/signal/backtest. Không migration/schema/data/backfill bắt buộc.
+Không chạy ví dụ WRITE để thử tên. Báo cáo tên/alias lịch sử phía dưới đã được
+phần này thay thế.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [English](README.md)
 
 ## Naming và availability
 
 | Canonical | Alias | Trạng thái |
 | --- | --- | --- |
-| `stock-daily-backfill` | `backfill-daily` | ACTIVE / WRITE như cũ |
+| `stock-eod-backfill` | `stock-eod-backfill` | ACTIVE / WRITE như cũ |
 | `stock-intraday-backfill` | `backfill-intraday` | GUARDED_OPERATOR / DRY_RUN mặc định |
-| `index-daily-backfill` | `index-backfill` | ACTIVE / WRITE như cũ |
+| `index-eod-backfill` | `index-eod-backfill` | ACTIVE / WRITE như cũ |
 
 Daily/index giữ nguyên runner, JSON flow, default ghi và không thêm --write/--dry-run. Feature backfill là luồng riêng, không bị đổi.
 
 ```bash
-python main.py stock-daily-backfill --from 01/10/2026 --to 20/10/2026 --symbols SSI HPG --data-source ssi_v3
-python main.py index-daily-backfill --from 01/10/2026 --to 20/10/2026 --indexes VNINDEX HNXINDEX --data-source ssi_v3
+python main.py stock-eod-backfill --from 01/10/2026 --to 20/10/2026 --symbols SSI HPG --data-source ssi_v3
+python main.py index-eod-backfill --from 01/10/2026 --to 20/10/2026 --indexes VNINDEX HNXINDEX --data-source ssi_v3
 python main.py stock-intraday-backfill --help
 python main.py backfill-intraday --help
 ```
@@ -153,12 +185,12 @@ Source preflight intraday backfill tường minh resolve đúng stock_intraday t
 .venv/bin/python -m pytest -q
 .venv/bin/python -m compileall main.py src scripts tests
 .venv/bin/python main.py --help
-.venv/bin/python main.py stock-daily-backfill --help
+.venv/bin/python main.py stock-eod-backfill --help
 .venv/bin/python main.py stock-intraday-backfill --help
-.venv/bin/python main.py index-daily-backfill --help
-.venv/bin/python main.py backfill-daily --help
+.venv/bin/python main.py index-eod-backfill --help
+.venv/bin/python main.py stock-eod-backfill --help
 .venv/bin/python main.py backfill-intraday --help
-.venv/bin/python main.py index-backfill --help
+.venv/bin/python main.py index-eod-backfill --help
 git diff --check
 ```
 

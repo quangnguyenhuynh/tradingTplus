@@ -1,5 +1,38 @@
 # TradingTPlus — SSI v3
 
+## Canonical EOD CLI — 28 October 2026
+
+| Command | Existing behavior retained |
+| --- | --- |
+| `stock-eod` | Stock ingest + existing daily completeness; active-symbol filtering |
+| `stock-eod-backfill` | Inclusive stock daily backfill; no added completeness |
+| `index-eod` | Existing index daily raw/clean ingest |
+| `index-eod-backfill` | Existing inclusive index daily backfill |
+
+Only these four top-level names are supported for stock/index EOD ingest/backfill.
+Removed (no aliases/redirects): `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Old direct daily had different date/scope/completeness semantics and is retired;
+stock-eod retains run_stock_eod_pipeline rather than adopting daily_run behavior.
+Stock/index EOD defaults resolve the latest weekday on/before today in Vietnam;
+original date validation, scope rules, summaries and exit codes remain unchanged.
+Backfill date aliases --from/--from-date and --to/--to-date remain available.
+PARTIAL can still exit 0 under existing _status_to_exit; no exit-policy changes.
+Internal daily_run/run_daily_ingest/run_index_daily_ingest/backfill imports,
+stock_daily/index_daily dataset IDs and JSON flows (including index-daily,
+backfill-daily/index-backfill) remain unchanged. Inspector `stock-daily` remains.
+Stock/index pipelines stay separate; no automatic feature/signal/backtest.
+No migration/schema/data changes or required backfill. Do not execute WRITE
+examples to verify naming. Historical naming/alias reports below are superseded.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [Tiếng Việt](README.vi.md) · [CLI quick guide](docs/CLI_USAGE.md) · [Full reference](docs/CLI_REFERENCE.md)
 
 TradingTPlus researches Vietnamese stocks over T+3–T+5 sessions. **Ingestion, features and research are independent steps.** Features do not automatically start signals, alerts, backtests, or NAV allocation.
@@ -24,9 +57,9 @@ python main.py --help
 | --- | --- | --- |
 | Preview raw SSI | `python scripts/inspectors/ssi_rest/inspect.py run stock-daily --symbol SSI --date 19/10/2026 --show-mapping` | READ |
 | Ingest stock EOD | `python main.py stock-eod 19/10/2026 --symbols SSI` | WRITE |
-| Stock backfill | `python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI` | WRITE |
+| Stock backfill | `python main.py stock-eod-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI` | WRITE |
 | Preview index | `python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json` | READ |
-| Ingest index | `python main.py index-daily 19/10/2026 --indexes VNINDEX` | WRITE |
+| Ingest index | `python main.py index-eod 19/10/2026 --indexes VNINDEX` | WRITE |
 | Preview intraday | `python main.py stock-intraday 20/10/2026 --symbols SSI` | DRY-RUN |
 | Compute daily features | `python main.py features-daily --date 19/10/2026 --symbols SSI` | WRITE |
 | Foreign ranking | `python main.py foreign-rank --date 19/10/2026 --ranking accumulation --window 5 --top 20` | READ |

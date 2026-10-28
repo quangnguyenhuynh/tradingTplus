@@ -1,20 +1,53 @@
 # Guarded source-data backfill
 
+## Canonical EOD CLI — 28 October 2026
+
+| Command | Existing behavior retained |
+| --- | --- |
+| `stock-eod` | Stock ingest + existing daily completeness; active-symbol filtering |
+| `stock-eod-backfill` | Inclusive stock daily backfill; no added completeness |
+| `index-eod` | Existing index daily raw/clean ingest |
+| `index-eod-backfill` | Existing inclusive index daily backfill |
+
+Only these four top-level names are supported for stock/index EOD ingest/backfill.
+Removed (no aliases/redirects): `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Old direct daily had different date/scope/completeness semantics and is retired;
+stock-eod retains run_stock_eod_pipeline rather than adopting daily_run behavior.
+Stock/index EOD defaults resolve the latest weekday on/before today in Vietnam;
+original date validation, scope rules, summaries and exit codes remain unchanged.
+Backfill date aliases --from/--from-date and --to/--to-date remain available.
+PARTIAL can still exit 0 under existing _status_to_exit; no exit-policy changes.
+Internal daily_run/run_daily_ingest/run_index_daily_ingest/backfill imports,
+stock_daily/index_daily dataset IDs and JSON flows (including index-daily,
+backfill-daily/index-backfill) remain unchanged. Inspector `stock-daily` remains.
+Stock/index pipelines stay separate; no automatic feature/signal/backtest.
+No migration/schema/data changes or required backfill. Do not execute WRITE
+examples to verify naming. Historical naming/alias reports below are superseded.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [Tiếng Việt](README.vi.md)
 
 ## Naming and availability
 
 | Canonical | Alias | Status |
 | --- | --- | --- |
-| `stock-daily-backfill` | `backfill-daily` | ACTIVE / WRITE unchanged |
+| `stock-eod-backfill` | `stock-eod-backfill` | ACTIVE / WRITE unchanged |
 | `stock-intraday-backfill` | `backfill-intraday` | GUARDED_OPERATOR / DRY_RUN by default |
-| `index-daily-backfill` | `index-backfill` | ACTIVE / WRITE unchanged |
+| `index-eod-backfill` | `index-eod-backfill` | ACTIVE / WRITE unchanged |
 
 Daily/index runners, JSON flows and write-by-default semantics stay unchanged; no write/dry-run flags are added to those routes. Feature backfill remains separate and unchanged.
 
 ```bash
-python main.py stock-daily-backfill --from 01/10/2026 --to 20/10/2026 --symbols SSI HPG --data-source ssi_v3
-python main.py index-daily-backfill --from 01/10/2026 --to 20/10/2026 --indexes VNINDEX HNXINDEX --data-source ssi_v3
+python main.py stock-eod-backfill --from 01/10/2026 --to 20/10/2026 --symbols SSI HPG --data-source ssi_v3
+python main.py index-eod-backfill --from 01/10/2026 --to 20/10/2026 --indexes VNINDEX HNXINDEX --data-source ssi_v3
 python main.py stock-intraday-backfill --help
 python main.py backfill-intraday --help
 ```
@@ -153,12 +186,12 @@ Explicit intraday-backfill source preflight now resolves stock_intraday rather t
 .venv/bin/python -m pytest -q
 .venv/bin/python -m compileall main.py src scripts tests
 .venv/bin/python main.py --help
-.venv/bin/python main.py stock-daily-backfill --help
+.venv/bin/python main.py stock-eod-backfill --help
 .venv/bin/python main.py stock-intraday-backfill --help
-.venv/bin/python main.py index-daily-backfill --help
-.venv/bin/python main.py backfill-daily --help
+.venv/bin/python main.py index-eod-backfill --help
+.venv/bin/python main.py stock-eod-backfill --help
 .venv/bin/python main.py backfill-intraday --help
-.venv/bin/python main.py index-backfill --help
+.venv/bin/python main.py index-eod-backfill --help
 git diff --check
 ```
 

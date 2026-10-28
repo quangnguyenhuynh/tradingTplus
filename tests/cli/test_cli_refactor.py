@@ -22,8 +22,8 @@ def test_main_invalid_command_returns_invalid_arguments(capsys):
 
 def test_daily_with_date_calls_pipeline(monkeypatch):
     captured = {}
-    monkeypatch.setattr(cli_stock, "daily_run", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
-    assert main.main(["daily", "10/07/2026"]) == 0
+    monkeypatch.setattr(cli_stock, "run_stock_eod_pipeline", lambda date, symbols=None: (captured.update(date=date, symbols=symbols), {"status": "OK"})[1])
+    assert main.main(["stock-eod", "10/07/2026"]) == 0
     assert captured["date"] == "10/07/2026"
     assert captured["symbols"] is None
     assert captured.get("symbols") is None
@@ -31,8 +31,8 @@ def test_daily_with_date_calls_pipeline(monkeypatch):
 
 def test_daily_without_date_calls_pipeline(monkeypatch):
     captured = {"called": False}
-    monkeypatch.setattr(cli_stock, "daily_run", lambda date, symbols=None: captured.update(called=True, date=date, symbols=symbols) or {"status": "OK"})
-    assert main.main(["daily"]) == 0
+    monkeypatch.setattr(cli_stock, "run_stock_eod_pipeline", lambda date, symbols=None: captured.update(called=True, date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["stock-eod"]) == 0
     assert captured == {"called": True, "date": None, "symbols": None}
 
 
@@ -105,7 +105,7 @@ def test_main_has_no_old_debug_commands():
 
 @pytest.mark.parametrize(
     ("command", "runner_name"),
-    [("backfill-daily", "run_daily_backfill_pipeline")],
+    [("stock-eod-backfill", "run_daily_backfill_pipeline")],
 )
 def test_split_backfill_cli_passes_dates_and_normalized_symbols(monkeypatch, command, runner_name):
     captured = {}
@@ -116,7 +116,7 @@ def test_split_backfill_cli_passes_dates_and_normalized_symbols(monkeypatch, com
 
 @pytest.mark.parametrize(
     ("command", "runner_name"),
-    [("backfill-daily", "run_daily_backfill_pipeline")],
+    [("stock-eod-backfill", "run_daily_backfill_pipeline")],
 )
 def test_split_backfill_cli_aliases_and_status_exit_codes(monkeypatch, command, runner_name):
     captured = {}
@@ -154,8 +154,8 @@ def test_backfill_cli_failed_summary_returns_one(monkeypatch):
 
 def test_daily_cli_normalizes_and_deduplicates_symbols(monkeypatch):
     captured = {}
-    monkeypatch.setattr(cli_stock, "daily_run", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
-    assert main.main(["daily", "10/07/2026", "--symbols", "ssi", " HPG ", "SSI"]) == 0
+    monkeypatch.setattr(cli_stock, "run_stock_eod_pipeline", lambda date, symbols=None: captured.update(date=date, symbols=symbols) or {"status": "OK"})
+    assert main.main(["stock-eod", "10/07/2026", "--symbols", "ssi", " HPG ", "SSI"]) == 0
     assert captured["symbols"] == ["SSI", "HPG"]
 
 
@@ -170,11 +170,11 @@ def test_stock_eod_cli_passes_symbols(monkeypatch):
 
 def test_ingest_commands_reject_symbols_flag_without_values():
     commands = [
-        ["daily", "10/07/2026", "--symbols"],
+        ["stock-eod", "10/07/2026", "--symbols"],
         ["intraday-ingest", "10/07/2026", "--symbols"],
         ["stock-eod", "10/07/2026", "--symbols"],
         ["backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
-        ["backfill-daily", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
+        ["stock-eod-backfill", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
         ["backfill-intraday", "--from", "10/07/2026", "--to", "14/07/2026", "--symbols"],
     ]
     assert [main.main(command) for command in commands] == [2, 2, 2, 2, 2, 2]
@@ -200,5 +200,5 @@ def test_features_intraday_routes_and_rejects_daily(monkeypatch):
 def test_stock_daily_alias_and_explicit_source(monkeypatch):
     captured = {}
     monkeypatch.setattr(cli_stock, "run_stock_eod_pipeline", lambda date, symbols=None, data_source=None: captured.update(date=date, symbols=symbols, data_source=data_source) or {"status": "OK"})
-    assert main.main(["stock-daily", "2026-09-08", "--symbols", "ssi", "--data-source", "ssi_v3"]) == 0
+    assert main.main(["stock-eod", "2026-09-08", "--symbols", "ssi", "--data-source", "ssi_v3"]) == 0
     assert captured == {"date": "2026-09-08", "symbols": ["SSI"], "data_source": "ssi_v3"}

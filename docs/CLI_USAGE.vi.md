@@ -1,5 +1,37 @@
 # TradingTPlus CLI — Hướng dẫn nhanh
 
+## CLI EOD chuẩn — 28/10/2026
+
+| Lệnh | Hành vi hiện có giữ nguyên |
+| --- | --- |
+| `stock-eod` | Ingest stock + daily completeness, lọc mã active |
+| `stock-eod-backfill` | Backfill stock daily bao gồm hai đầu; không thêm completeness |
+| `index-eod` | Ingest index daily raw/clean hiện có |
+| `index-eod-backfill` | Backfill index daily bao gồm hai đầu hiện có |
+
+Chỉ bốn tên trên dùng cho top-level EOD ingest/backfill stock/index.
+Đã bỏ, không alias/redirect: `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Direct daily cũ có date/scope/completeness khác và đã nghỉ; stock-eod vẫn dùng
+run_stock_eod_pipeline, không thay bằng daily_run. Mặc định EOD stock/index lấy
+ngày trong tuần gần nhất tính cả hôm nay tại Việt Nam. Giữ validation, scope,
+summary và exit code. Backfill giữ alias --from/--from-date, --to/--to-date.
+PARTIAL vẫn có thể exit 0 theo _status_to_exit hiện có; không đổi policy.
+Python API daily_run/run_daily_ingest/run_index_daily_ingest/backfill, dataset ID
+stock_daily/index_daily và JSON flow cũ (index-daily, backfill-daily/index-backfill)
+giữ nguyên. Dataset Inspector `stock-daily` không đổi. Stock/index tách riêng;
+không tự tính feature/signal/backtest. Không migration/schema/data/backfill bắt buộc.
+Không chạy ví dụ WRITE để thử tên. Báo cáo tên/alias lịch sử phía dưới đã được
+phần này thay thế.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [English](CLI_USAGE.md) · [Tham chiếu đầy đủ](CLI_REFERENCE.vi.md) · [Trang chủ](../README.vi.md)
 
 Chạy lệnh từ **thư mục gốc repo**, sử dụng Python 3.11 và cấu hình SSI/Supabase phù hợp. Ngày ví dụ chỉ minh họa (19–21/10/2026), không phải lệnh bắt buộc chạy hôm nay.
@@ -41,11 +73,11 @@ python main.py index-preview --date 19/10/2026 --indexes VNINDEX --json
 python main.py stock-eod 19/10/2026 --symbols SSI HPG
 
 # Backfill nhiều ngày
-python main.py stock-daily-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG
+python main.py stock-eod-backfill --from 01/10/2026 --to 19/10/2026 --symbols SSI HPG
 
 # Index EOD và backfill
-python main.py index-daily 19/10/2026 --indexes VNINDEX
-python main.py index-daily-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX
+python main.py index-eod 19/10/2026 --indexes VNINDEX
+python main.py index-eod-backfill --from 01/10/2026 --to 19/10/2026 --indexes VNINDEX
 ```
 
 `daily` không hoàn toàn giống `stock-eod` về default ngày và completeness; xem [reference](CLI_REFERENCE.vi.md) trước khi dùng.
@@ -108,7 +140,7 @@ python main.py stock-intraday-backfill --help
 - Ngày các lệnh ví dụ phần lớn dùng `DD/MM/YYYY` (nhiều lệnh còn hỗ trợ `YYYY-MM-DD`); tham số và kiểu ngày khác nhau tùy domain. Mã cổ phiếu dùng **khoảng trắng** sau `--symbols`; riêng `index-preview` dùng chuỗi mã phân tách bằng **dấu phẩy**.
 - **Exit 0 không luôn nghĩa là dữ liệu đầy đủ**: xem status, count, warnings và check raw/clean. `PARTIAL`, `BLOCKED` hoặc API EMPTY cần xem kỹ.
 - Các lệnh `intraday-ingest`, `backfill` (combined), `refill`, `streaming-ingest` hiện **UNAVAILABLE**; có `--help` không có nghĩa là chạy được.
-- Các tên cũ `backfill-daily`, `backfill-intraday`, `index-backfill` vẫn tương thích, nhưng hướng dẫn này dùng tên canonical.
+- Các tên cũ `stock-eod-backfill`, `backfill-intraday`, `index-eod-backfill` vẫn tương thích, nhưng hướng dẫn này dùng tên canonical.
 
 ## Chi tiết kỹ thuật
 
