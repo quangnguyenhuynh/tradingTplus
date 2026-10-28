@@ -1,5 +1,37 @@
 # Báo cáo khôi phục tài liệu CLI
 
+## CLI EOD chuẩn — 28/10/2026
+
+| Lệnh | Hành vi hiện có giữ nguyên |
+| --- | --- |
+| `stock-eod` | Ingest stock + daily completeness, lọc mã active |
+| `stock-eod-backfill` | Backfill stock daily bao gồm hai đầu; không thêm completeness |
+| `index-eod` | Ingest index daily raw/clean hiện có |
+| `index-eod-backfill` | Backfill index daily bao gồm hai đầu hiện có |
+
+Chỉ bốn tên trên dùng cho top-level EOD ingest/backfill stock/index.
+Đã bỏ, không alias/redirect: `daily`, `stock-daily`, `stock-daily-backfill`,
+`backfill-daily`, `index-daily`, `index-daily-backfill`, `index-backfill`.
+Direct daily cũ có date/scope/completeness khác và đã nghỉ; stock-eod vẫn dùng
+run_stock_eod_pipeline, không thay bằng daily_run. Mặc định EOD stock/index lấy
+ngày trong tuần gần nhất tính cả hôm nay tại Việt Nam. Giữ validation, scope,
+summary và exit code. Backfill giữ alias --from/--from-date, --to/--to-date.
+PARTIAL vẫn có thể exit 0 theo _status_to_exit hiện có; không đổi policy.
+Python API daily_run/run_daily_ingest/run_index_daily_ingest/backfill, dataset ID
+stock_daily/index_daily và JSON flow cũ (index-daily, backfill-daily/index-backfill)
+giữ nguyên. Dataset Inspector `stock-daily` không đổi. Stock/index tách riêng;
+không tự tính feature/signal/backtest. Không migration/schema/data/backfill bắt buộc.
+Không chạy ví dụ WRITE để thử tên. Báo cáo tên/alias lịch sử phía dưới đã được
+phần này thay thế.
+
+```bash
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+```
+
+
 [English](CLI_DOCUMENTATION_AUDIT.md)
 
 ## Phạm vi và audit trước chỉnh sửa
@@ -129,3 +161,71 @@ Script kiểm tra là scratch ở work/, không thuộc patch tài liệu. Sau �
 ## Tác động và bước tiếp theo
 
 Migration: none. Database impact: none (không bảng/index/hàng nào bị thay). Backfill: none. Rủi ro còn lại là quyền dịch vụ, schema đã triển khai, chất lượng/lịch sử dữ liệu chưa live-test và các issue code nêu trên. Bước tiếp theo: review patch tài liệu; tạo task code riêng cho streaming import và Analog validation persistence trước khi dùng luồng bị chặn.
+
+## Báo cáo đổi tên EOD — 28/10/2026
+
+Base dev: `7a16dcd31b31600e8546b0b3f8288795f3c59cab`. Đã audit AGENTS/main/parser/dispatch, các runner stock/index/backfill/shared scope, schema/migration liên quan, tests/docs/workflows. Bỏ direct daily khác semantics, giữ stock-eod workflow gốc. Đổi parser/handler và call-site index workflow; giữ Python API, dataset ID, SSI Inspector stock-daily, JSON flow và toàn bộ pipeline/data logic. Chỉ intraday giữ normalization alias. Tất cả bảy tên cũ bị từ chối exit 2, không redirect.
+
+CLI: **225 passed**; ingest: **291 passed, 3 skipped**; pipeline: **146 passed**; full: **1241 passed, 10 skipped** (38.84s). Ten existing PostgreSQL integration cases require local disposable TEST_DATABASE_URL. Compile/help/rejection/diff checks PASS. No lint configuration found. All validation offline; no live ingest/backfill, SSI request or Supabase mutation.
+
+Migration/schema/data: KHÔNG. Không cần backfill. Rủi ro: script bên ngoài còn tên cũ phải đổi; default, exit PARTIAL và flow label giữ nguyên có chủ ý. Bước tiếp: review/merge PR và cập nhật invocation ngoài repo sang bốn tên chuẩn.
+
+```bash
+.venv/bin/python -m pytest -q tests/cli/
+.venv/bin/python -m pytest -q tests/ingest/
+.venv/bin/python -m pytest -q tests/pipeline/
+.venv/bin/python -m pytest -q
+.venv/bin/python -m compileall -q main.py src scripts tests
+python main.py --help
+python main.py stock-eod --help
+python main.py stock-eod-backfill --help
+python main.py index-eod --help
+python main.py index-eod-backfill --help
+git diff --check
+```
+
+Smoke legacy names: daily, stock-daily, stock-daily-backfill, backfill-daily, index-daily, index-daily-backfill, index-backfill, each with --help: expected exit 2. Canonical helps exit 0, no service access.
+
+File sửa:
+
+- `.github/workflows/index-eod-v2.yml`
+- `README.md`
+- `README.vi.md`
+- `docs/ARCHITECTURE_DECISIONS.md`
+- `docs/CLI_DOCUMENTATION_AUDIT.md`
+- `docs/CLI_DOCUMENTATION_AUDIT.vi.md`
+- `docs/CLI_REFERENCE.md`
+- `docs/CLI_REFERENCE.vi.md`
+- `docs/CLI_USAGE.md`
+- `docs/CLI_USAGE.vi.md`
+- `docs/backfill/README.md`
+- `docs/backfill/README.vi.md`
+- `src/cli/README.md`
+- `src/cli/README.vi.md`
+- `src/cli/__init__.py`
+- `src/cli/index.py`
+- `src/cli/maintenance.py`
+- `src/cli/parser.py`
+- `src/cli/stock.py`
+- `src/ingest/README.md`
+- `src/ingest/README.vi.md`
+- `src/ingest/index_daily/README.md`
+- `src/ingest/index_daily/README.vi.md`
+- `src/ingest/maintenance/README.md`
+- `src/ingest/maintenance/README.vi.md`
+- `src/ingest/stock_daily/README.md`
+- `src/ingest/stock_daily/README.vi.md`
+- `src/ingest/stock_intraday/README.md`
+- `src/ingest/stock_intraday/README.vi.md`
+- `src/ingest/workflows/README.md`
+- `src/ingest/workflows/README.vi.md`
+- `tests/cli/test_backfill_names.py`
+- `tests/cli/test_capability_retirement.py`
+- `tests/cli/test_cli_refactor.py`
+- `tests/pipeline/test_stock_eod_workflow.py`
+
+File tạo:
+
+- `tests/cli/test_eod_names.py`
+
+Deleted files: NONE.

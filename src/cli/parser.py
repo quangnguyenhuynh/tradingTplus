@@ -18,25 +18,14 @@ def build_parser() -> argparse.ArgumentParser:
     master_mode.add_argument("--dry-run", action="store_true")
     master_mode.add_argument("--write", action="store_true")
 
-    daily = sub.add_parser(
-        "daily",
-        help="Daily SSI ingest only; no features/signals/backtests",
-    )
-    daily.add_argument(
-        "date",
-        nargs="?",
-        help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
-    )
-    daily.add_argument("--data-source", default=None, help="Production source (default: newest ready source for stock_daily)")
-
-    index_daily = sub.add_parser("index-daily", help="SSI index daily raw + validated clean ingest only")
+    index_daily = sub.add_parser("index-eod", help="SSI index daily raw + validated clean ingest only")
     index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")
     index_daily.add_argument("--data-source", default=None, help="Production source (default: newest ready source for index_daily)")
 
-    index_backfill = sub.add_parser("index-daily-backfill", aliases=["index-backfill"],
-                                    help="ACTIVE / WRITE: inclusive index daily source-data backfill; index-backfill is a compatible alias",
-                                    description="ACTIVE / WRITE: inclusive index daily source-data backfill; index-backfill is a compatible alias")
+    index_backfill = sub.add_parser("index-eod-backfill",
+                                    help="ACTIVE / WRITE: inclusive index daily source-data backfill; index EOD backfill",
+                                    description="ACTIVE / WRITE: inclusive index daily source-data backfill; index EOD backfill")
     index_backfill.add_argument("--from", "--from-date", dest="from_date", required=True, help="Inclusive start date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--to", "--to-date", dest="to_date", required=True, help="Inclusive end date YYYY-MM-DD or DD/MM/YYYY")
     index_backfill.add_argument("--indexes", nargs="+", default=None)
@@ -112,12 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--symbol", required=True)
     history.add_argument("--date", required=True, help="DD/MM/YYYY")
     history.add_argument("--lookback", type=int, default=20)
-    daily.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="Stock symbols to ingest; omitted means active master symbols",
-    )
+
 
     intraday_ingest = sub.add_parser(
         "intraday-ingest",
@@ -143,18 +127,13 @@ def build_parser() -> argparse.ArgumentParser:
     stock_eod.add_argument(
         "date",
         nargs="?",
-        help="Trading date DD/MM/YYYY; defaults to latest previous weekday",
+        help="Trading date DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam",
     )
     stock_eod.add_argument(
         "--symbols", nargs="+", default=None,
         help="Daily stock symbols intersected with status=active",
     )
     stock_eod.add_argument("--data-source", default=None)
-
-    stock_daily = sub.add_parser("stock-daily", help="Alias for stock-eod")
-    stock_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY")
-    stock_daily.add_argument("--symbols", nargs="+", default=None)
-    stock_daily.add_argument("--data-source", default=None)
 
     stock_intraday = sub.add_parser(
         "stock-intraday",
@@ -175,8 +154,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     for command, aliases, help_text in (
         (
-            "stock-daily-backfill", ["backfill-daily"],
-            "ACTIVE / WRITE: inclusive stock daily source-data backfill; backfill-daily is a compatible alias",
+            "stock-eod-backfill", [],
+            "ACTIVE / WRITE: inclusive stock daily source-data backfill; stock EOD backfill",
         ),
         (
             "stock-intraday-backfill", ["backfill-intraday"],

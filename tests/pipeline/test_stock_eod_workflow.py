@@ -22,11 +22,11 @@ def test_stock_eod_workflow_uses_renamed_stock_only_command():
 
 def test_index_eod_remains_independent():
     text = Path(".github/workflows/index-eod-v2.yml").read_text()
-    assert "python main.py index-daily" in text
+    assert "python main.py index-eod" in text
     assert 'cron: "30 1 * * 2-6"' in text
     assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
     assert "src.ingest.workflows.workflow_dates index" in text
-    assert 'cmd=(python main.py index-daily "$TARGET_DATE")' in text
+    assert 'cmd=(python main.py index-eod "$TARGET_DATE")' in text
     for forbidden_command in (
         "python main.py stock-eod",
         "python main.py stock-intraday",

@@ -37,7 +37,7 @@ def test_disabled_cli_preserves_parsing_but_never_executes_handler(argv, no_serv
     assert result["status"] == "FAILED" and result["error_type"] == "NOT_IMPLEMENTED"
 
 
-@pytest.mark.parametrize("command", ["stock-eod", "stock-daily", "daily", "index-daily"])
+@pytest.mark.parametrize("command", ["stock-eod", "stock-eod", "stock-eod", "index-eod"])
 def test_explicit_v2_is_rejected_before_any_service(command, no_services, capsys):
     assert main([command, "19/10/2026", "--data-source", "ssi_v2"]) == 2
     assert "unsupported data source: ssi_v2" in capsys.readouterr().err

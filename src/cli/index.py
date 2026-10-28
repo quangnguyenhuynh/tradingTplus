@@ -6,10 +6,10 @@ from src.features.index import check_index_features, run_index_features_backfill
 from .common import _print_summary, _status_to_exit, _source_kwargs
 
 def run(args):
-    if args.command == "index-daily":
+    if args.command == "index-eod":
         summary = run_index_daily_ingest(args.date, indexes=normalize_index_scope(args.indexes), **_source_kwargs(args))
         _print_summary(summary); return _status_to_exit(summary)
-    if args.command == "index-backfill":
+    if args.command == "index-eod-backfill":
         summary = run_index_backfill_pipeline(args.from_date, args.to_date, indexes=normalize_index_scope(args.indexes), **_source_kwargs(args))
         _print_summary(summary); return _status_to_exit(summary)
     if args.command == "index-check":
