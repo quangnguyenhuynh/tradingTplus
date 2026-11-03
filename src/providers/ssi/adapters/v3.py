@@ -101,22 +101,8 @@ class SSIV3Adapter:
         reports: list[dict[str, Any]] = []
         requested_symbol, requested_date = symbol.upper(), _iso_date(date)
         for payload in payloads:
-            qualified = {f"summary.{key}": value for key, value in payload.items()}
-            mapped = map_record("ssi_v3", "stock_daily", qualified, {})
-            candidate = dict(mapped.candidate) if mapped.candidate is not None else None
-            report = mapped.report
-            if candidate is not None:
-                apply_derived_fields("stock_daily", candidate)
-                if candidate["symbol"] != requested_symbol or candidate["trading_date"] != requested_date:
-                    report = {
-                        **report,
-                        "records_valid": 0,
-                        "records_rejected": 1,
-                        "errors": report["errors"] + [{"code": "REQUEST_SCOPE_MISMATCH"}],
-                    }
-                    candidate = None
-                else:
-                    candidate["raw"] = payload
+            from src.quality.validators.stock_daily_v1 import validate_payload
+            candidate, report = validate_payload(payload, requested_symbol, requested_date)
             clean.append(candidate)
             reports.append(report)
         errors = [error for report in reports for error in report.get("errors", [])]

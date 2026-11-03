@@ -18,6 +18,14 @@ def build_parser() -> argparse.ArgumentParser:
     master_mode.add_argument("--dry-run", action="store_true")
     master_mode.add_argument("--write", action="store_true")
 
+    quality = sub.add_parser('stock-eod-quality', help='READ ONLY: inspect persisted RAW/CLEAN with Stock Daily V1; no SSI/writes')
+    quality.add_argument('--symbols', nargs='+', required=True)
+    quality_dates = quality.add_mutually_exclusive_group(required=True)
+    quality_dates.add_argument('--date')
+    quality_dates.add_argument('--from', dest='from_date')
+    quality.add_argument('--to', dest='to_date')
+    quality.add_argument('--raw-clean-missing', action='store_true')
+
     index_daily = sub.add_parser("index-eod", help="SSI index daily raw + validated clean ingest only")
     index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")

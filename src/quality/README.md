@@ -1,8 +1,18 @@
 # src/quality
 
+## Stock Daily Data Quality V1 — 3 November 2026
+
+SSI v3 Stock Daily now uses VALID/PARTIAL/REJECTED, field-level NULL quarantine,
+immutable RAW and current/history issue evidence. Owner must apply
+`20261103_stock_daily_quality_v1.sql` before new writers; historical status stays NULL.
+New read-only diagnostic: `python main.py stock-eod-quality --symbols TCB --from 05/03/2026 --to 06/03/2026 --raw-clean-missing`.
+Existing `stock-eod`/`stock-eod-backfill` names remain; no automatic backfill/features.
+[Policy, deployment, verification SQL and scoped rerun](../../docs/STOCK_DAILY_QUALITY_V1.md).
+
+
 Provider-independent validation and completeness; never fabricate candles or run features automatically.
 
-Existing tables, formulas and historical provenance are unchanged. No schema migration or data backfill is required.
+Existing feature formulas and historical provenance are unchanged. Stock Daily V1 requires the migration above; any source-data rerun is explicit.
 
 See the root README and docs/CURRENT_STATE.md for capability status and future adapter requirements.
 

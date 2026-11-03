@@ -1,5 +1,15 @@
 # TradingTPlus CLI — Hướng dẫn nhanh
 
+## Stock Daily Data Quality V1 — 03/11/2026
+
+SSI v3 Stock Daily dùng VALID/PARTIAL/REJECTED, quarantine optional lỗi thành NULL,
+giữ RAW bất biến và log hiện tại/lịch sử. Cần owner apply migration
+`20261103_stock_daily_quality_v1.sql` trước writer mới; status lịch sử giữ NULL.
+Diagnostic chỉ đọc mới: `python main.py stock-eod-quality --symbols TCB --from 05/03/2026 --to 06/03/2026 --raw-clean-missing`.
+Giữ tên `stock-eod`/`stock-eod-backfill`; không tự backfill/features.
+[Policy, triển khai, SQL kiểm tra và rerun đúng scope](STOCK_DAILY_QUALITY_V1.vi.md).
+
+
 ## CLI EOD chuẩn — 28/10/2026
 
 | Lệnh | Hành vi hiện có giữ nguyên |
@@ -20,7 +30,7 @@ PARTIAL vẫn có thể exit 0 theo _status_to_exit hiện có; không đổi po
 Python API daily_run/run_daily_ingest/run_index_daily_ingest/backfill, dataset ID
 stock_daily/index_daily và JSON flow cũ (index-daily, backfill-daily/index-backfill)
 giữ nguyên. Dataset Inspector `stock-daily` không đổi. Stock/index tách riêng;
-không tự tính feature/signal/backtest. Không migration/schema/data/backfill bắt buộc.
+không tự tính feature/signal/backtest. Đổi tên CLI tháng 10 không cần migration; V1 cần migration nêu trên.
 Không chạy ví dụ WRITE để thử tên. Báo cáo tên/alias lịch sử phía dưới đã được
 phần này thay thế.
 

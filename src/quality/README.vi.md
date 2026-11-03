@@ -1,8 +1,18 @@
 # src/quality
 
+## Stock Daily Data Quality V1 — 03/11/2026
+
+SSI v3 Stock Daily dùng VALID/PARTIAL/REJECTED, quarantine optional lỗi thành NULL,
+giữ RAW bất biến và log hiện tại/lịch sử. Cần owner apply migration
+`20261103_stock_daily_quality_v1.sql` trước writer mới; status lịch sử giữ NULL.
+Diagnostic chỉ đọc mới: `python main.py stock-eod-quality --symbols TCB --from 05/03/2026 --to 06/03/2026 --raw-clean-missing`.
+Giữ tên `stock-eod`/`stock-eod-backfill`; không tự backfill/features.
+[Policy, triển khai, SQL kiểm tra và rerun đúng scope](../../docs/STOCK_DAILY_QUALITY_V1.vi.md).
+
+
 Validation và completeness độc lập provider; không tạo candle giả hay tự tính feature.
 
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
+Việc di chuyển code trước đây không đổi schema/công thức/profile/provenance. Stock Daily V1 cần migration nêu trên; rerun dữ liệu luôn tường minh.
 
 Xem README tại root và docs/CURRENT_STATE.md để biết trạng thái capability và điều kiện triển khai adapter mới.
 

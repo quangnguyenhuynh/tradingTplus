@@ -1,5 +1,15 @@
 # TradingTPlus CLI — Quick guide
 
+## Stock Daily Data Quality V1 — 3 November 2026
+
+SSI v3 Stock Daily now uses VALID/PARTIAL/REJECTED, field-level NULL quarantine,
+immutable RAW and current/history issue evidence. Owner must apply
+`20261103_stock_daily_quality_v1.sql` before new writers; historical status stays NULL.
+New read-only diagnostic: `python main.py stock-eod-quality --symbols TCB --from 05/03/2026 --to 06/03/2026 --raw-clean-missing`.
+Existing `stock-eod`/`stock-eod-backfill` names remain; no automatic backfill/features.
+[Policy, deployment, verification SQL and scoped rerun](STOCK_DAILY_QUALITY_V1.md).
+
+
 ## Canonical EOD CLI — 28 October 2026
 
 | Command | Existing behavior retained |
@@ -22,7 +32,7 @@ Internal daily_run/run_daily_ingest/run_index_daily_ingest/backfill imports,
 stock_daily/index_daily dataset IDs and JSON flows (including index-daily,
 backfill-daily/index-backfill) remain unchanged. Inspector `stock-daily` remains.
 Stock/index pipelines stay separate; no automatic feature/signal/backtest.
-No migration/schema/data changes or required backfill. Do not execute WRITE
+The October CLI naming change required no migration; V1 requirements are above. Do not execute WRITE
 examples to verify naming. Historical naming/alias reports below are superseded.
 
 ```bash

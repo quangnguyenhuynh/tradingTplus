@@ -371,6 +371,22 @@ class SupabaseClient:
         # No silent rerouting or unsafe legacy overwrite path.
         raise ValueError('securities retired as a write target; use sync-master-data --dataset symbols after Stage A migration')
 
+    def persist_stock_daily_validation_v1(self, symbol, date, raw_hash, candidate, report):
+        """One RPC transaction; no retry after an ambiguous write response."""
+        response = self.client.rpc('persist_stock_daily_validation_v1', {
+            'p_symbol': symbol, 'p_date': date, 'p_raw_hash': raw_hash,
+            'p_candidate': candidate, 'p_report': {**report, 'processed_at': app_now_iso()},
+        }).execute()
+        result = response.data
+        if getattr(response, 'error', None) or not isinstance(result, dict):
+            raise RuntimeError('Stock Daily V1 RPC response unverified')
+        if (result.get('decision') not in {'VALID', 'PARTIAL', 'REJECTED'}
+                or result.get('clean_rows') != int(result['decision'] != 'REJECTED')
+                or type(result.get('issue_count')) is not int or type(result.get('clean_rows')) is not int
+                or result.get('raw_hash') != raw_hash or result.get('atomic') is not True):
+            raise RuntimeError('Stock Daily V1 RPC acknowledgement mismatch')
+        return result
+
     def upsert_stock_daily(self, records):
         self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
 

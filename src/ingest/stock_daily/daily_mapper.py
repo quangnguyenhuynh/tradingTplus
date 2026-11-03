@@ -8,19 +8,8 @@ from src.ingest.shared.date_utils import trading_date_iso
 
 def map_stock_daily_record(symbol: str, date: str, daily: dict):
     """Map only verified v3 securitiesSummary payloads; no source fallback."""
-    result = map_record("ssi_v3", "stock_daily", {f"summary.{key}": value for key, value in daily.items()}, {})
-    candidate = dict(result.candidate) if result.candidate is not None else None
-    report = result.report
-    if candidate is not None:
-        from src.contracts.derived import apply_derived_fields
-        apply_derived_fields("stock_daily", candidate)
-        if candidate["symbol"] != symbol.upper() or candidate["trading_date"] != trading_date_iso(date):
-            candidate = None
-            report = {**report, "records_valid": 0, "records_rejected": 1,
-                      "errors": report["errors"] + [{"code": "REQUEST_SCOPE_MISMATCH"}]}
-        else:
-            candidate["raw"] = daily
-    return candidate, report
+    from src.quality.validators.stock_daily_v1 import validate_payload
+    return validate_payload(daily, symbol, date)
 
 
 def build_stock_daily_record(symbol: str, date: str, daily: dict) -> dict | None:

@@ -9,6 +9,7 @@ from .transforms import TRANSFORMS, TransformError
 class MappingResult:
     candidate: dict[str, Any] | None
     report: dict[str, Any]
+    partial_candidate: dict[str, Any] | None = None
 
 _MISSING = object()
 def _same(left: Any, right: Any) -> bool: return type(left) is type(right) and left == right
@@ -69,4 +70,4 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
     derived = [field for field, rule in mapping["fields"].items() if rule.get("derived")]
     if derived:
         report["derived_fields"] = derived
-    return MappingResult(None if errors else candidate, report)
+    return MappingResult(None if errors else candidate, report, dict(candidate))

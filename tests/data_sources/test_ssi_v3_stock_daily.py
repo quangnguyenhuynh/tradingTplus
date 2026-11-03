@@ -67,6 +67,9 @@ def test_v3_daily_service_persists_source_and_unchanged_payload():
         def __init__(self): self.raw, self.clean = [], []
         def upsert_raw_daily(self, records): self.raw.extend(records)
         def upsert_stock_daily(self, records): self.clean.extend(records)
+        def persist_stock_daily_validation_v1(self, symbol, date, raw_hash, clean, report):
+            if clean is not None:self.clean.append(clean)
+            return dict(decision=report['decision'],clean_rows=int(clean is not None),issue_count=len(report['issues']))
 
     raw, db = deepcopy(SAMPLE), DB()
     summary = fetch_daily_for_symbol_with_clients(
@@ -84,6 +87,9 @@ def test_v3_stock_daily_rejects_multiple_records_and_service_retains_each_raw():
         def __init__(self): self.raw, self.clean = [], []
         def upsert_raw_daily(self, records): self.raw.extend(records)
         def upsert_stock_daily(self, records): self.clean.extend(records)
+        def persist_stock_daily_validation_v1(self, symbol, date, raw_hash, clean, report):
+            if clean is not None:self.clean.append(clean)
+            return dict(decision=report['decision'],clean_rows=int(clean is not None),issue_count=len(report['issues']))
 
     rows = [deepcopy(SAMPLE), {**deepcopy(SAMPLE), "close": "20200"}]
     adapter = SSIV3Adapter(Client(rows))
