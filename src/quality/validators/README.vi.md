@@ -12,7 +12,7 @@ Giữ tên `stock-eod`/`stock-eod-backfill`; không tự backfill/features.
 
 Validation bản ghi canonical, logging và kiểm tra Phase 0 giới hạn/read-only. Raw thuộc source đã retire không được remap bằng v3.
 
-Không thay đổi schema, công thức, profile hoặc provenance lịch sử. Không cần migration hay backfill do di chuyển code.
+Việc di chuyển code trước đây không đổi schema/công thức/profile/provenance. Stock Daily V1 cần migration nêu trên; rerun dữ liệu luôn tường minh.
 
 Các module:
 

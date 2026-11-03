@@ -22,11 +22,15 @@ def db():
  base=base[base.index('create table if not exists public.stock_daily'):base.index('create table if not exists public.index_daily')]
  c.execute(base.replace('public.',s+'.'))
  c.execute(f'alter table {s}.stock_daily add column source text')
- c.execute(f'''create table {s}.stock_raw_daily(symbol text,trading_date date,source text,data_hash text,payload jsonb,
+ c.execute(f'''create table {s}.stock_raw_daily(symbol text,trading_date date,source text,data_hash text,payload jsonb,created_at timestamptz,
  unique(symbol,trading_date,source,data_hash));
  create table {s}.stock_data_quality_logs(id bigserial primary key,symbol text not null,trading_date date not null,
  timeframe text,check_name text,severity text,status text,issue_count integer,details jsonb,created_at timestamptz,
  unique(symbol,trading_date,check_name));''')
+ # Reproduce the inspected current schema, including both October migrations.
+ for name in ('20261002_promote_stock_daily_ssi_v3.sql','20261002_rename_stock_daily_foreign_remaining_room.sql'):
+  prior=Path('migrations',name).read_text().replace('public.',s+'.').replace("'public'",f"'{s}'")
+  c.execute(prior)
  for role in ('anon','authenticated','service_role'):
   c.execute(f'do $$ begin create role {role}; exception when duplicate_object then null; end $$')
  sql=Path('migrations/20261103_stock_daily_quality_v1.sql').read_text().replace('public.',s+'.')
@@ -37,7 +41,7 @@ def db():
   candidate,report=validate_payload(payload,'SSI','01/10/2026')
   report['processed_at']='2026-11-03T00:00:00+00:00'
   raw=build_raw_daily_record('SSI','01/10/2026',payload)
-  c.execute(f'insert into {s}.stock_raw_daily values(%s,%s,%s,%s,%s) on conflict do nothing',
+  c.execute(f'insert into {s}.stock_raw_daily(symbol,trading_date,source,data_hash,payload) values(%s,%s,%s,%s,%s) on conflict do nothing',
             ('SSI','2026-10-01','ssi_v3',raw['data_hash'],Jsonb(payload)))
   return c.execute(f'select {s}.persist_stock_daily_validation_v1(%s,%s,%s,%s,%s)',
             ('SSI','2026-10-01',raw['data_hash'],Jsonb(candidate),Jsonb(report))).fetchone()[0]
