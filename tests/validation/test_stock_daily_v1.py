@@ -34,7 +34,7 @@ def test_explicit_optional_recovery_only(field,value):
 @pytest.mark.parametrize('change',[
  {'open':None},{'high':'bad'},{'low':-1},{'close':0},{'high':1},
  {'totalMatch':-1},{'totalMatchValue':'invalid'}, {'symbol':'TCB'},
- {'tradingDate':'2026/10/02'},{'foreignRoom':'123'}, {'foreignRoom':'invalid'},
+ {'tradingDate':'2026/10/02'},{'foreignRoom':'123'}, {'foreignRoom':'invalid'}, {'FOREIGNROOM':'invalid'},
 ])
 def test_core_scope_and_alias_conflicts_reject(change):
  clean,report=validate_payload({**SAMPLE,**change},'SSI','01/10/2026')

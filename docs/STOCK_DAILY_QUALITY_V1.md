@@ -134,7 +134,7 @@ python main.py index-eod-backfill --help
 git diff --check
 ```
 
-Local baseline after implementation: 69 passed / 12 skipped focused; 1,284 passed / 22 skipped full suite. No relevant failing test. Twelve new SQL tests require disposable local `TEST_DATABASE_URL`; no local PostgreSQL/Docker daemon was available. Existing CI supplies PostgreSQL 16 to execute atomicity, migration replay, historical NULL, idempotency/resolution, value preservation, downgrade protection, invoker privileges and trigger-skipped-write tests. Final CI result is recorded in the PR. No live SSI verification or production migration/backfill/write was performed. Catalog-only access does not prove production ingest after deployment; the owner must run the scoped checks above.
+Local baseline after implementation: 70 passed / 12 skipped focused; 1,285 passed / 22 skipped full suite. No relevant failing test. Twelve new SQL tests require disposable local `TEST_DATABASE_URL`; no local PostgreSQL/Docker daemon was available. Existing CI supplies PostgreSQL 16 to execute atomicity, migration replay, historical NULL, idempotency/resolution, value preservation, downgrade protection, invoker privileges and trigger-skipped-write tests. Final CI result is recorded in the PR. No live SSI verification or production migration/backfill/write was performed. Catalog-only access does not prove production ingest after deployment; the owner must run the scoped checks above.
 
 ## File inventory
 

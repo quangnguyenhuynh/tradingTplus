@@ -63,7 +63,8 @@ def validate_payload(payload, symbol, date):
     for error in report['errors']:
         field,code=error.get('field'),error['code']
         rule=mapping['fields'].get(field,{})
-        nonempty=[qualified.get(alias) for alias in rule.get('aliases',[]) if qualified.get(alias) not in (None,'')]
+        aliases={alias.casefold() for alias in rule.get('aliases',[])}
+        nonempty=[value for key,value in qualified.items() if key.casefold() in aliases and value not in (None,'')]
         recover = field in OPTIONAL and code in RECOVERABLE and not (code=='TRANSFORM_ERROR' and len(nonempty)>1)
         issues.append(issue(field,code,'SET_NULL' if recover else 'REJECT',error.get('message','')))
         if recover:candidate[field]=None

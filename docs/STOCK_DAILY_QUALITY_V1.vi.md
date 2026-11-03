@@ -133,7 +133,7 @@ python main.py index-eod-backfill --help
 git diff --check
 ```
 
-Baseline local: focused 69 passed/12 skipped; full 1.284 passed/22 skipped. Không còn test liên quan fail. Mười hai test SQL mới cần PostgreSQL local dùng một lần qua TEST_DATABASE_URL; local không có PostgreSQL/Docker daemon. CI hiện có PostgreSQL 16 để kiểm chứng transaction, migration replay, NULL lịch sử, idempotency/resolve, giữ field cũ, bảo vệ downgrade, quyền invoker và trigger bỏ qua write. Kết quả CI cuối ghi trong PR. Chưa kiểm chứng SSI live, chưa migration/backfill/write production. Catalog chỉ đọc không chứng minh ingest production sau deploy; owner phải chạy check đúng scope ở trên.
+Baseline local: focused 70 passed/12 skipped; full 1.285 passed/22 skipped. Không còn test liên quan fail. Mười hai test SQL mới cần PostgreSQL local dùng một lần qua TEST_DATABASE_URL; local không có PostgreSQL/Docker daemon. CI hiện có PostgreSQL 16 để kiểm chứng transaction, migration replay, NULL lịch sử, idempotency/resolve, giữ field cũ, bảo vệ downgrade, quyền invoker và trigger bỏ qua write. Kết quả CI cuối ghi trong PR. Chưa kiểm chứng SSI live, chưa migration/backfill/write production. Catalog chỉ đọc không chứng minh ingest production sau deploy; owner phải chạy check đúng scope ở trên.
 
 ## Danh sách file
 
