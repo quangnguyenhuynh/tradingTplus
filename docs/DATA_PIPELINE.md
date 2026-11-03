@@ -1,5 +1,15 @@
 # Data pipeline
 
+## Stock Daily Data Quality V1 — 3 November 2026
+
+SSI v3 Stock Daily now uses VALID/PARTIAL/REJECTED, field-level NULL quarantine,
+immutable RAW and current/history issue evidence. Owner must apply
+`20261103_stock_daily_quality_v1.sql` before new writers; historical status stays NULL.
+New read-only diagnostic: `python main.py stock-eod-quality --symbols TCB --from 05/03/2026 --to 06/03/2026 --raw-clean-missing`.
+Existing `stock-eod`/`stock-eod-backfill` names remain; no automatic backfill/features.
+[Policy, deployment, verification SQL and scoped rerun](STOCK_DAILY_QUALITY_V1.md).
+
+
 | Capability | Status |
 | --- | --- |
 | SSI v3 Stock Daily / Index Daily | ACTIVE |
@@ -16,7 +26,7 @@ The thin `main.py` entrypoint calls `src.cli`. CLI parsing and source/capability
 
 ## Active ingestion
 
-Stock daily: resolve date and active persisted symbol scope → v3 `securitiesSummary` with existing pagination → preserve exact raw payload/hash/source → canonical mapping → field validation → existing raw/clean persistence. `stock-eod` adds daily completeness only. Daily backfill repeats the daily service over the existing eligible-date rules.
+Stock daily: resolve date and active persisted symbol scope → v3 `securitiesSummary` with existing pagination → preserve exact raw payload/hash/source → canonical mapping and V1 field quarantine → atomic CLEAN/current-issue RPC after immutable RAW persistence. `stock-eod` adds daily completeness only. Daily backfill repeats the daily service over the existing eligible-date rules.
 
 Index daily: resolve persisted active `index_master` scope → v3 `indexSummary` → raw evidence → explicit mapping/validation → existing `index_raw_daily` / `index_daily` writes. No automatic master sync; empty scope reports failure. Preview uses the same v3 adapter without constructing a database client. Index backfill/check remain separate.
 

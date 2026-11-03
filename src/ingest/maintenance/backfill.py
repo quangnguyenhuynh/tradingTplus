@@ -129,6 +129,11 @@ def _run_ingest_backfill(
             status = ingest_summary.get("status") if isinstance(ingest_summary, dict) else None
             if status not in {"OK", "PARTIAL", "FAILED"}:
                 raise ValueError(f"{result_key} returned invalid status: {status!r}")
+            if result_key == 'daily_summary':
+                for error in ingest_summary.get('errors', []):
+                    errors.append({'date': date_text, **(error if isinstance(error, dict) else {'error': str(error)})})
+                if status == 'FAILED' and not ingest_summary.get('errors'):
+                    errors.append({'date': date_text, 'error': 'daily ingest returned FAILED without error details'})
             day_summaries.append(
                 {"flow": day_flow, "date": date_text, result_key: ingest_summary, "status": status}
             )
@@ -153,7 +158,7 @@ def run_daily_backfill_pipeline(
     resolve_source("stock_daily", data_source)
     date_range = _resolve_range(from_date, to_date)
     requested_symbols = normalize_symbol_scope(symbols)
-    return _run_ingest_backfill(
+    result = _run_ingest_backfill(
         flow="backfill-daily",
         day_flow="backfill-daily-day",
         date_range=date_range,
@@ -162,6 +167,10 @@ def run_daily_backfill_pipeline(
         result_key="daily_summary",
         data_source=data_source,
     )
+
+    for key in ('valid_clean_writes','partial_clean_writes','rejected_records','mapping_failures','persistence_failures','validation_issues'):
+        result[key] = sum((day.get('daily_summary') or {}).get(key,0) for day in result['day_summaries'])
+    return result
 
 
 def _intraday_plan(from_date, to_date, symbols, data_source):

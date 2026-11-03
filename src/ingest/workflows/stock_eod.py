@@ -49,6 +49,9 @@ def run_stock_eod_pipeline(date: str | None = None, *, symbols=None, data_source
     failures = validate_pipeline_summary(daily_summary, "daily ingest")
     warnings: list[str] = []
     status = status_from_daily_ingest(completeness, failures, warnings)
+    if daily_summary.get('status') == 'PARTIAL' and status == 'OK':
+        status = 'PARTIAL'
+        warnings.append('Stock Daily V1 persisted partial clean records; inspect quality issues')
     return {"flow": "stock-eod", "date": stock_eod_date,
             **symbol_scope_summary(resolved, requested), "ignored_symbols": ignored,
             "daily_summary": daily_summary, "intraday_summary": None,

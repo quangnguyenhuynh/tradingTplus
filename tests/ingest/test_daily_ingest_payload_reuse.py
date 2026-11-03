@@ -65,6 +65,10 @@ class _DB:
     def upsert_stock_daily(self, records):
         self.stock_daily_records.extend(records)
 
+    def persist_stock_daily_validation_v1(self, symbol, date, raw_hash, clean, report):
+        if clean is not None:self.stock_daily_records.append(clean)
+        return dict(decision=report['decision'],clean_rows=int(clean is not None),issue_count=len(report['issues']))
+
     def upsert_foreign(self, records):
         self.foreign_records.extend(records)
 
@@ -88,7 +92,7 @@ def test_daily_ingest_stores_foreign_fields_only_in_stock_daily(monkeypatch):
 
     summary = daily_mod.run_daily_ingest("18/06/2026")
 
-    assert summary["status"] == "OK"
+    assert summary["status"] == "PARTIAL"
     assert ssi.daily_price_calls == 1
     assert ssi.foreign_calls == 0
     assert db.raw_daily_records[0]["payload"] is payload
@@ -117,7 +121,7 @@ def test_daily_ingest_missing_foreign_fields_does_not_refetch_or_create_foreign(
 
     summary = daily_mod.run_daily_ingest("18/06/2026")
 
-    assert summary["status"] == "OK"
+    assert summary["status"] == "PARTIAL"
     assert ssi.daily_price_calls == 1
     assert ssi.foreign_calls == 0
     assert db.stock_daily_records
@@ -138,7 +142,7 @@ def test_daily_ingest_keeps_valid_ohlcv_when_price_context_is_zero(monkeypatch):
 
     summary = daily_mod.run_daily_ingest("18/06/2026")
 
-    assert summary["status"] == "OK"
+    assert summary["status"] == "PARTIAL"
     assert summary["error_count"] == 0
     assert db.raw_daily_records[0]["payload"] is payload
     assert payload["RefPrice"] == 0
@@ -155,7 +159,7 @@ def test_daily_ingest_keeps_corporate_action_price_limit_warning(monkeypatch):
 
     summary = daily_mod.run_daily_ingest("18/06/2026")
 
-    assert summary["status"] == "OK"
+    assert summary["status"] == "PARTIAL"
     assert summary["error_count"] == 0
     assert db.stock_daily_records
 

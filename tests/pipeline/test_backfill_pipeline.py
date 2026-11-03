@@ -154,3 +154,23 @@ def test_unavailable_backfill_never_starts_daily_or_completeness(monkeypatch, na
     monkeypatch.setattr(pipeline, "check_ingest", fail)
     with pytest.raises(CapabilityUnavailableError):
         getattr(pipeline, name)("10/07/2026", "14/07/2026", symbols=["SSI"])
+
+
+def test_stock_backfill_collects_nested_failures_and_quality_counts(monkeypatch):
+    import src.ingest.maintenance.backfill as module
+    monkeypatch.setattr(module, 'resolve_source', lambda *a, **kw: None)
+    monkeypatch.setattr(module, 'run_daily_ingest', lambda *a, **kw: {
+        'status':'FAILED','symbol_count':1,'errors':[{'symbol':'TCB','error_type':'MISMATCH','error':'CORE_PRICE_INVALID'}],
+        'rejected_records':1,'validation_issues':1})
+    report=module.run_daily_backfill_pipeline('05/03/2026','06/03/2026',symbols=['TCB'])
+    assert report['status']=='FAILED' and report['failed_days']==2
+    assert report['error_count']==2 and len(report['errors'])==2
+    assert report['rejected_records']==2 and report['validation_issues']==2
+
+
+def test_stock_backfill_partial_clean_is_counted_not_failed(monkeypatch):
+    import src.ingest.maintenance.backfill as module
+    monkeypatch.setattr(module, 'resolve_source', lambda *a, **kw: None)
+    monkeypatch.setattr(module, 'run_daily_ingest', lambda *a, **kw: {'status':'PARTIAL','partial_clean_writes':1,'errors':[]})
+    report=module.run_daily_backfill_pipeline('05/03/2026','06/03/2026',symbols=['TCB'])
+    assert report['status']=='PARTIAL' and report['partial_clean_writes']==2 and report['error_count']==0

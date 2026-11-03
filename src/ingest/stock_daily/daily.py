@@ -50,12 +50,16 @@ def run_daily_ingest(
             'status': 'FAILED',
         }
 
+    quality_counts = {k:0 for k in ("valid_clean_writes","partial_clean_writes","rejected_records","mapping_failures","persistence_failures","validation_issues")}
+    per_symbol = []
     total_daily_rows = 0
     errors: list[dict[str, Any]] = []
     error_type_counts = {key: 0 for key in ("NO_DATA", "API_ERROR", "EMPTY_RESPONSE", "MISMATCH")}
     for symbol in active_symbols:
         try:
             summary = fetch_daily_for_symbol_with_clients(ssi, db, symbol, date)
+            per_symbol.append({k:v for k,v in summary.items() if k!='daily_payload'})
+            for key in quality_counts: quality_counts[key] += int(summary.get(key,0))
             total_daily_rows += int(summary.get('daily_rows') or 0)
             if summary.get('status') == 'FAILED':
                 error_type = summary.get('error_type') or 'API_ERROR'
@@ -66,13 +70,14 @@ def run_daily_ingest(
             errors.append({'symbol': symbol, 'error_type': 'API_ERROR', 'error': str(e)})
             print(f"    ❌ {symbol}: {e}")
 
-    status = 'OK' if not errors else 'FAILED' if len(errors) >= len(active_symbols) else 'PARTIAL'
+    status = ('PARTIAL' if quality_counts['partial_clean_writes'] else 'OK') if not errors else 'FAILED' if len(errors) >= len(active_symbols) else 'PARTIAL'
     print(f"\n✅ Hoàn thành daily stock ingest! stock_daily rows: {total_daily_rows}; errors: {len(errors)}")
     print("ℹ️ Intraday ingest and feature engine disabled in daily task.")
     return {
         'date': date,
         'data_source': capability.source,
         **scope_summary,
+        **quality_counts, 'per_symbol': per_symbol,
         'daily_valid_count': total_daily_rows,
         'total_daily_rows': total_daily_rows,
         'total_candles': 0,  # deprecated compatibility key; daily no longer writes intraday candles.
