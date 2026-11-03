@@ -87,6 +87,21 @@ def test_log_failure_rolls_back_clean_but_raw_survives(db):
  assert c.execute(f"select count(*) from {s}.stock_daily where symbol='SSI'").fetchone()==(0,)
  assert c.execute(f'select count(*) from {s}.stock_raw_daily').fetchone()==(1,)
 
+@pytest.mark.parametrize('old_value',['-1','NaN','1.5'])
+def test_invalid_legacy_value_is_quarantined_not_preserved(db,old_value):
+ c,s,call=db
+ c.execute(f"insert into {s}.stock_daily(symbol,trading_date,foreign_remaining_room) values('SSI','2026-10-01',%s)",(old_value,))
+ result=call({**SAMPLE,'remainForeignRoom':None})
+ assert result['decision']=='PARTIAL' and 'foreign_remaining_room' not in result['preserved_fields']
+ assert c.execute(f"select foreign_remaining_room from {s}.stock_daily where symbol='SSI'").fetchone()==(None,)
+
+def test_derived_null_is_not_reported_as_preserved(db):
+ c,s,call=db
+ c.execute(f"insert into {s}.stock_daily(symbol,trading_date,net_foreign_vol) values('SSI','2026-10-01',123)")
+ result=call({**SAMPLE,'totalForeignBuy':None})
+ assert 'net_foreign_vol' not in result['preserved_fields']
+ assert c.execute(f"select net_foreign_vol from {s}.stock_daily where symbol='SSI'").fetchone()==(None,)
+
 def test_rpc_invoker_and_permissions(db):
  c,s,call=db
  row=c.execute("select prosecdef,has_function_privilege('anon',p.oid,'execute'),has_function_privilege('service_role',p.oid,'execute') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=%s and p.proname='persist_stock_daily_validation_v1'",(s,)).fetchone()

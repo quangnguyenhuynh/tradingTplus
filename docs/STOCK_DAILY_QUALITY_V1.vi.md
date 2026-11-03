@@ -31,7 +31,7 @@ Chỉ `BELOW_MINIMUM` và `TRANSFORM_ERROR` không mơ hồ trên allowlist đư
 
 Adapter dùng policy thuần; service lưu RAW bất biến trước rồi gọi `persist_stock_daily_validation_v1` đúng một lần. RPC khóa `(symbol,date)`, merge CLEAN, ghi/resolve log hiện có và readback hai phần trong cùng transaction. SECURITY INVOKER, search_path rỗng, chỉ service_role có execute; giữ nguyên quyền bảng/RLS. Ack sai, thiếu migration, lỗi log hoặc trigger bỏ qua write đều làm processing thất bại. Không tự retry RPC sau response mơ hồ. RAW commit riêng nên có thể tồn tại khi CLEAN chưa có; phải inspect/reconcile trước rerun. HTTP mất ack có thể xảy ra sau commit; CLI báo thất bại thay vì khẳng định thành công.
 
-REJECTED không ghi đè CLEAN. CLEAN đã VALID gặp source PARTIAL sẽ REJECTED với `CLEAN_VALID_DOWNGRADE_BLOCKED`, giữ nguyên row VALID. Với write khác được chấp nhận, NULL mới không xóa field cũ đã có giá trị. `preserved_fields`, action KEEP_EXISTING_FIELD và `previous_clean_raw_hash` giải thích evidence giữ lại; derived tính lại từ input cuối cùng, vẫn truyền NULL. Field giữ lại có thể đến từ RAW trước thay vì payload hiện tại. Hash trước có thể NULL nếu provenance lịch sử không thể truy ngược. Payload mới đủ điều kiện và không issue nâng PARTIAL thành VALID. Giữ `created_at` cũ, cập nhật `updated_at` từ audit time của ứng dụng.
+REJECTED không ghi đè CLEAN. CLEAN đã VALID gặp source PARTIAL sẽ REJECTED với `CLEAN_VALID_DOWNGRADE_BLOCKED`, giữ nguyên row VALID. Với write khác được chấp nhận, NULL mới không xóa input số cũ hợp lệ. Không giữ giá trị legacy sai (âm/không hữu hạn/số lẻ trong field integer); derived luôn tính lại, không đưa vào preserved_fields. `preserved_fields`, action KEEP_EXISTING_FIELD và `previous_clean_raw_hash` giải thích evidence giữ lại; derived tính lại từ input cuối cùng, vẫn truyền NULL. Field giữ lại có thể đến từ RAW trước thay vì payload hiện tại. Hash trước có thể NULL nếu provenance lịch sử không thể truy ngược. Payload mới đủ điều kiện và không issue nâng PARTIAL thành VALID. Giữ `created_at` cũ, cập nhật `updated_at` từ audit time của ứng dụng.
 
 ## Issue hiện tại và lịch sử
 
@@ -133,7 +133,7 @@ python main.py index-eod-backfill --help
 git diff --check
 ```
 
-Baseline local: focused 69 passed/8 skipped; full 1.284 passed/18 skipped. Không còn test liên quan fail. Tám test SQL mới cần PostgreSQL local dùng một lần qua TEST_DATABASE_URL; local không có PostgreSQL/Docker daemon. CI hiện có PostgreSQL 16 để kiểm chứng transaction, migration replay, NULL lịch sử, idempotency/resolve, giữ field cũ, bảo vệ downgrade, quyền invoker và trigger bỏ qua write. Kết quả CI cuối ghi trong PR. Chưa kiểm chứng SSI live, chưa migration/backfill/write production. Catalog chỉ đọc không chứng minh ingest production sau deploy; owner phải chạy check đúng scope ở trên.
+Baseline local: focused 69 passed/12 skipped; full 1.284 passed/22 skipped. Không còn test liên quan fail. Mười hai test SQL mới cần PostgreSQL local dùng một lần qua TEST_DATABASE_URL; local không có PostgreSQL/Docker daemon. CI hiện có PostgreSQL 16 để kiểm chứng transaction, migration replay, NULL lịch sử, idempotency/resolve, giữ field cũ, bảo vệ downgrade, quyền invoker và trigger bỏ qua write. Kết quả CI cuối ghi trong PR. Chưa kiểm chứng SSI live, chưa migration/backfill/write production. Catalog chỉ đọc không chứng minh ingest production sau deploy; owner phải chạy check đúng scope ở trên.
 
 ## Danh sách file
 

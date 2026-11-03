@@ -60,7 +60,14 @@ BEGIN
   ELSE
    merged:=COALESCE(old_row,'{}'::jsonb);
    FOR field IN SELECT jsonb_object_keys(p_candidate) LOOP
-    IF p_candidate->field='null'::jsonb AND old_row->field IS NOT NULL AND old_row->field<>'null'::jsonb THEN
+    -- Only retain independently valid prior numeric inputs. Derived fields are
+    -- always recomputed below and must not be reported as retained evidence.
+    IF p_candidate->field='null'::jsonb AND old_row->field IS NOT NULL AND old_row->field<>'null'::jsonb
+     AND field <> ALL(ARRAY['total_traded_vol','total_traded_value','net_foreign_vol','net_foreign_val'])
+     AND old_row->>field NOT IN ('NaN','Infinity','-Infinity')
+     AND CASE WHEN field IN ('price_change','per_price_change') THEN true
+      WHEN field IN ('ceiling_price','floor_price','ref_price','open_price','highest_price','lowest_price','close_price','average_price','close_price_adjusted') THEN (old_row->>field)::numeric>0
+      ELSE (old_row->>field)::numeric>=0 AND (old_row->>field)::numeric=trunc((old_row->>field)::numeric) END THEN
      preserved:=preserved||to_jsonb(field);
     ELSE
      merged:=jsonb_set(merged,ARRAY[field],p_candidate->field,true);
