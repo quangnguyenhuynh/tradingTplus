@@ -1,4 +1,5 @@
 """Inspector integration using stored payloads and synthetic edge cases, never live APIs."""
+from decimal import Decimal
 import copy
 import json
 import subprocess
@@ -32,7 +33,7 @@ def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_field
     assert set(clean[0]) == set(get_contract("stock_daily")["fields"])
     assert clean[0] == {
         "symbol": "SSI", "trading_date": "2026-09-08", "price_change": 150.0,
-        "per_price_change": .72, "ceiling_price": None, "floor_price": None,
+        "per_price_change": Decimal("0.72"), "ceiling_price": None, "floor_price": None,
         "ref_price": None, "open_price": 20850.0, "highest_price": 21300.0,
         "lowest_price": 20850.0, "close_price": 21000.0,
         "average_price": 21106.0, "foreign_buy_vol_total": 0,
@@ -52,7 +53,7 @@ def test_v3_stock_daily_complete_response_preserves_raw_and_maps_confirmed_field
     assert FIXTURE == before
 
 
-def test_v3_stock_daily_derives_totals_and_net_foreign_as_integers():
+def test_v3_stock_daily_derives_integral_quantities_and_decimal_money():
     row = {
         **FIXTURE["data"][0],
         "tradingDate": "2026/09/30",
@@ -78,7 +79,9 @@ def test_v3_stock_daily_derives_totals_and_net_foreign_as_integers():
         "foreign_sell_val_total", "foreign_remaining_room", "foreign_total_room",
         "total_traded_vol", "total_traded_value", "net_foreign_vol", "net_foreign_val",
     }
-    assert all(type(clean[0][field]) is int for field in integer_fields)
+    money_fields={'total_match_val','total_deal_val','foreign_buy_val_total','foreign_sell_val_total','total_traded_value','net_foreign_val'}
+    assert all(type(clean[0][field]) is int for field in integer_fields-money_fields)
+    assert all(isinstance(clean[0][field],Decimal) for field in money_fields)
     assert set(reports[0]["derived_fields"]) == {
         "total_traded_vol", "total_traded_value", "net_foreign_vol", "net_foreign_val",
     }
@@ -174,7 +177,7 @@ def test_bad_record_outside_sample_still_fails_and_full_json_includes_all(capsys
     body = {"data": [FIXTURE["data"][0], {**FIXTURE["data"][0], "close": "bad"}]}
     assert inspect.print_report("ssi_v3", V3_ENDPOINTS["securities-summary"], PARAMS,
                                 response(body), limit=1, full_json=False) == "FAILED"
-    assert '"close_price": 21000.0' in capsys.readouterr().out
+    assert '"close_price": 21000' in capsys.readouterr().out
     assert inspect.print_report("ssi_v3", V3_ENDPOINTS["securities-summary"], PARAMS,
                                 response(body), limit=1, full_json=True) == "FAILED"
     assert '"close": "bad"' in capsys.readouterr().out

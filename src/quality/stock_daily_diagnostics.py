@@ -54,5 +54,6 @@ def inspect_daily(symbols, start, end=None, *, missing_only=False, client=None):
             historical_failure='UNDETERMINED_RAW_ONLY' if existing is None else None,
             persistence_note='RAW-only replay cannot reconstruct historical HTTP/DB/log failures or multi-record response context'))
     return dict(flow='stock-eod-quality',mode='READ_ONLY',status='OK',records=records,
+                precision_note='Legacy SDK decoding may predecode floats; use daily-numeric-quality for exact RAW/CLEAN precision audit',
                 raw_records=len(raw),clean_records=len(clean),matched_records=len(records),
                 issues_by_field_code=[dict(field=f,code=c,count=n) for (f,c),n in counts.items()])

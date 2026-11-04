@@ -1,5 +1,14 @@
 # Data pipeline
 
+## Exact daily numerics — 4 November 2026
+
+Stock/Index daily now parse original JSON numeric literals with Decimal, keep discrete
+quantities integral, and carry exact JSON text through restricted RPCs to NUMERIC.
+Immutable RAW commits before CLEAN; Stock CLEAN/log remains atomic, Index CLEAN has
+exact readback/retention and explicit warnings. New migration is owner/manual only,
+with no type/data rewrite or automatic backfill/features.
+[Policy and audit](DAILY_NUMERIC_PRECISION.md) · [Tiếng Việt](DAILY_NUMERIC_PRECISION.vi.md).
+
 ## Stock Daily Data Quality V1 — 3 November 2026
 
 SSI v3 Stock Daily now uses VALID/PARTIAL/REJECTED, field-level NULL quarantine,

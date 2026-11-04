@@ -165,6 +165,13 @@ class SSIV3Client:
                     body=json.loads(r.content, parse_float=Decimal,
                                     parse_constant=reject_json_constant,
                                     object_pairs_hook=unique_json_object)
+                elif path in ('/data/securitiesSummary', '/data/indexSummary'):
+                    # Original HTTP bytes preserve exact numeric literals. Production
+                    # responses must provide bytes; injected predecoded test clients
+                    # remain visible as unverified float inputs in mapping reports.
+                    body=json.loads(r.content,parse_float=Decimal,
+                                    parse_constant=reject_json_constant,
+                                    object_pairs_hook=unique_json_object)
                 else:
                     body=r.json()
             except ValueError as exc:

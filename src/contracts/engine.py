@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 from .registry import get_contract, get_mapping
 from .transforms import TRANSFORMS, TransformError
+from decimal import Decimal
+from .numeric import exact_binary
 
 @dataclass(frozen=True)
 class MappingResult:
@@ -12,7 +14,10 @@ class MappingResult:
     partial_candidate: dict[str, Any] | None = None
 
 _MISSING = object()
-def _same(left: Any, right: Any) -> bool: return type(left) is type(right) and left == right
+def _same(left: Any, right: Any) -> bool:
+    if isinstance(left, (int, Decimal)) and not isinstance(left, bool) and isinstance(right, (int, Decimal)) and not isinstance(right, bool):
+        return left == right
+    return type(left) is type(right) and left == right
 
 def map_record(source_id: str, dataset: str, record: dict[str, Any], context: dict[str, Any] | None = None, *, mapping_version: str | None = None, contract_version: str | None = None) -> MappingResult:
     if not isinstance(record, dict): raise TypeError("source record must be a dictionary")
@@ -55,7 +60,8 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
             conflict = {"field": target, "code": "ALIAS_CONFLICT", "source_fields": [item[0] for item in normalized]}; conflicts.append(conflict); errors.append(conflict); candidate[target] = None; continue
         value = normalized[0][1]
         if value is not None and "unit_multiplier" in rule:
-            if isinstance(value, (int, float)) and not isinstance(value, bool): value *= rule["unit_multiplier"]
+            if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+                value = exact_binary(value, rule['unit_multiplier'], 'multiply') if isinstance(value, Decimal) else value * rule['unit_multiplier']
             else: errors.append({"field": target, "code": "INVALID_UNIT_CONVERSION"})
         spec = contract["fields"][target]
         if value is None and not spec["nullable"]: errors.append({"field": target, "code": "NULL_NOT_ALLOWED"})
@@ -65,6 +71,12 @@ def map_record(source_id: str, dataset: str, record: dict[str, Any], context: di
     for field in missing_required: errors.append({"field": field, "code": "MISSING_REQUIRED"})
     report = {"source": source_id, "dataset": dataset, "contract_version": contract["contract_version"], "mapping_version": mapping["mapping_version"], "records_received": 1, "records_valid": 0 if errors else 1, "records_rejected": 1 if errors else 0, "missing_required": missing_required, "missing_optional": missing_optional, "unused_source_fields": [str(key) for key in record if str(key) not in used], "transform_errors": [e for e in errors if e["code"] == "TRANSFORM_ERROR"], "alias_conflicts": conflicts, "contract_errors": [e for e in errors if e["code"] not in {"TRANSFORM_ERROR", "ALIAS_CONFLICT"}], "errors": errors}
     unsupported = {field: rule["reason"] for field, rule in mapping["fields"].items() if rule.get("unsupported")}
+    if source_id == 'ssi_v3' and dataset in ('stock_daily', 'index_daily'):
+        report['predecoded_float_source_fields'] = [str(key) for key, value in record.items() if isinstance(value, float)]
+        float_keys={key.casefold() for key in report['predecoded_float_source_fields']}
+        report['predecoded_float_fields']=[field for field,rule in mapping['fields'].items()
+            if rule.get('transform') in ('decimal','exact_int') and any(alias.casefold() in float_keys for alias in rule.get('aliases',[]))]
+        report['precision_note'] = 'Predecoded float inputs cannot establish original source digits; HTTP daily and exact audit paths parse bytes/text with Decimal'
     if unsupported:
         report["unsupported_fields"] = unsupported
     derived = [field for field, rule in mapping["fields"].items() if rule.get("derived")]

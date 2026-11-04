@@ -28,7 +28,7 @@ def test_invalid_mapping_configuration_is_rejected(mutation, message):
     with pytest.raises(MappingConfigurationError, match=message): validate_mapping("ssi_v3","stock_daily",mapping)
 
 def test_extra_fields_are_filtered_without_mutating_raw():
-    raw={"indexSummary.tradingDate":"25/08/2026","Surprise":7}; before=copy.deepcopy(raw)
+    raw={"indexSummary.tradingDate":"25/08/2026","indexSummary.indexValue":"1000","Surprise":7}; before=copy.deepcopy(raw)
     result=map_record("ssi_v3","index_daily",raw,{"index":"VNINDEX"})
     assert result.candidate and "Surprise" not in result.candidate
     assert result.report["unused_source_fields"] == ["Surprise"] and raw == before

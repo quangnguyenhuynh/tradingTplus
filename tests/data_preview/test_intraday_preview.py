@@ -28,6 +28,7 @@ class Response:
     def __init__(self, body, status=200):
         self.body, self.status_code = body, status
         self.text = 'not json' if isinstance(body, Exception) else json.dumps(body)
+        self.content = self.text.encode()
 
     def json(self):
         if isinstance(self.body, Exception):

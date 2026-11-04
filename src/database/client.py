@@ -373,9 +373,11 @@ class SupabaseClient:
 
     def persist_stock_daily_validation_v1(self, symbol, date, raw_hash, candidate, report):
         """One RPC transaction; no retry after an ambiguous write response."""
-        response = self.client.rpc('persist_stock_daily_validation_v1', {
+        from src.contracts.numeric import exact_json_dumps
+        response = self.client.rpc('persist_stock_daily_numeric_v1', {
             'p_symbol': symbol, 'p_date': date, 'p_raw_hash': raw_hash,
-            'p_candidate': candidate, 'p_report': {**report, 'processed_at': app_now_iso()},
+            'p_candidate_json': exact_json_dumps(candidate),
+            'p_report_json': exact_json_dumps({**report, 'processed_at': app_now_iso()}),
         }).execute()
         result = response.data
         if getattr(response, 'error', None) or not isinstance(result, dict):
@@ -391,7 +393,39 @@ class SupabaseClient:
         self._upsert_in_batches('stock_daily', records, on_conflict='symbol,trading_date')
 
     def upsert_raw_daily(self, records):
-        self._upsert_in_batches('stock_raw_daily', records, on_conflict='symbol,trading_date,source,data_hash')
+        self._persist_daily_raw_numeric('stock_daily', records)
+
+    def _persist_daily_raw_numeric(self, dataset, records):
+        from src.contracts.numeric import exact_json_dumps
+        if not records:return
+        table='stock_raw_daily' if dataset=='stock_daily' else 'index_raw_daily'
+        stamp=app_now_iso()
+        rows=self._stamp_write_timestamps(table,records,stamp)
+        for row in rows:row['fetched_at']=stamp
+        for offset in range(0,len(rows),1000):
+            batch=rows[offset:offset+1000]
+            response=self.client.rpc('persist_daily_raw_numeric_v1',{
+                'p_dataset':dataset,'p_rows_json':exact_json_dumps(batch),
+            }).execute()
+            result=response.data
+            if (getattr(response,'error',None) or not isinstance(result,dict)
+                or type(result.get('rows_verified')) is not int or result['rows_verified']!=len(batch)
+                or result.get('immutable') is not True or result.get('exact') is not True):
+                raise RuntimeError('Daily exact RAW persistence acknowledgement unverified')
+
+    def persist_index_daily_numeric_v1(self, code, date, raw_hash, candidate, report):
+        from src.contracts.numeric import exact_json_dumps
+        response=self.client.rpc('persist_index_daily_numeric_v1',{
+            'p_code':code,'p_date':date,'p_raw_hash':raw_hash,
+            'p_candidate_json':exact_json_dumps(candidate),'p_report_json':exact_json_dumps(report),
+        }).execute()
+        result=response.data
+        if (getattr(response,'error',None) or not isinstance(result,dict)
+            or result.get('decision') not in ('VALID','VALID_WITH_WARNINGS')
+            or type(result.get('clean_rows')) is not int or result['clean_rows']!=1
+            or result.get('raw_hash')!=raw_hash or result.get('exact') is not True):
+            raise RuntimeError('Index exact CLEAN persistence acknowledgement unverified')
+        return result
 
     def upsert_index_master(self, records):
         prepared = self._preserve_master_status('index_master', 'index_code', records)
@@ -408,7 +442,7 @@ class SupabaseClient:
         self._upsert_in_batches('index_daily', records, on_conflict='index_code,trading_date')
 
     def upsert_index_raw_daily(self, records):
-        self._upsert_in_batches('index_raw_daily', records, on_conflict='index_code,trading_date,data_hash')
+        self._persist_daily_raw_numeric('index_daily', records)
 
     def upsert_index_features_daily(self, records):
         """Persist only the dedicated index feature identity."""

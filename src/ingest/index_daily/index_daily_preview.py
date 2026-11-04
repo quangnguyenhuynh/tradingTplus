@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from src.contracts.numeric import exact_json_dumps
 from datetime import date, timedelta
 from typing import Any, Iterable
 
@@ -74,7 +75,7 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
     """Render raw JSON, normalized JSON, or a compact human-readable table."""
     results = preview["results"]
     if raw:
-        return json.dumps(
+        return exact_json_dumps(
             [
                 {
                     "index_code": item["index_code"],
@@ -88,14 +89,12 @@ def render_index_daily_preview(preview: dict[str, Any], *, raw: bool = False, as
             ],
             ensure_ascii=False,
             indent=2,
-            default=str,
         )
     if as_json:
-        return json.dumps(
+        return exact_json_dumps(
             [record for item in results for record in item["records"]],
             ensure_ascii=False,
             indent=2,
-            default=str,
         )
 
     lines = [

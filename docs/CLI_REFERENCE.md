@@ -1,5 +1,19 @@
 # TradingTPlus CLI — Full technical reference
 
+## Exact daily numerics — 4 November 2026
+
+Daily mapping/contract 3.0.0 uses Decimal for money/prices/levels/percentages and
+exact integers for discrete quantities. Stock policy 1.1.0 preserves monetary
+fractions with FRACTIONAL_MONETARY_VALUE/PARTIAL; Index keeps its separate pipeline
+and rejects invalid numerics. Owner must apply **new migration**
+`20261104_daily_numeric_precision.sql`; the applied V1 migration is unchanged.
+No automatic historical rewrite/backfill/features. Read-only diagnostic:
+`python main.py daily-numeric-quality --dataset stock_daily --identifiers TCB --date 12/03/2025`
+(use dataset index_daily/identifiers VNINDEX for Index).
+[Field matrix, transport, audit, SQL/deployment/rollback and owner commands](DAILY_NUMERIC_PRECISION.md).
+This supersedes earlier daily integer-money/float instructions; prior test observations remain historical evidence.
+
+
 ## Stock Daily Data Quality V1 — 3 November 2026
 
 SSI v3 Stock Daily now uses VALID/PARTIAL/REJECTED, field-level NULL quarantine,

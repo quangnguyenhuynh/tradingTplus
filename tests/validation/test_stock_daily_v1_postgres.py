@@ -9,6 +9,7 @@ psycopg=pytest.importorskip('psycopg')
 from psycopg.types.json import Jsonb
 from src.quality.validators.stock_daily_v1 import validate_payload
 from src.ingest.stock_daily.daily_mapper import build_raw_daily_record
+from src.contracts.numeric import exact_json_dumps
 SAMPLE=runpy.run_path('tests/data_sources/test_ssi_v3_stock_daily.py')['SAMPLE']
 
 @pytest.fixture
@@ -36,15 +37,17 @@ def db():
  sql=Path('migrations/20261103_stock_daily_quality_v1.sql').read_text().replace('public.',s+'.')
  c.execute(f"insert into {s}.stock_daily(symbol,trading_date) values('LEGACY','2020-01-01')")
  c.execute(sql);c.execute(sql)
+ numeric_sql=Path('migrations/20261104_daily_numeric_precision.sql').read_text().replace('public.',s+'.')
+ c.execute(numeric_sql);c.execute(numeric_sql)
  assert c.execute(f"select validation_status from {s}.stock_daily where symbol='LEGACY'").fetchone()==(None,)
  def call(payload):
   candidate,report=validate_payload(payload,'SSI','01/10/2026')
   report['processed_at']='2026-11-03T00:00:00+00:00'
   raw=build_raw_daily_record('SSI','01/10/2026',payload)
   c.execute(f'insert into {s}.stock_raw_daily(symbol,trading_date,source,data_hash,payload) values(%s,%s,%s,%s,%s) on conflict do nothing',
-            ('SSI','2026-10-01','ssi_v3',raw['data_hash'],Jsonb(payload)))
+            ('SSI','2026-10-01','ssi_v3',raw['data_hash'],Jsonb(payload,dumps=exact_json_dumps)))
   return c.execute(f'select {s}.persist_stock_daily_validation_v1(%s,%s,%s,%s,%s)',
-            ('SSI','2026-10-01',raw['data_hash'],Jsonb(candidate),Jsonb(report))).fetchone()[0]
+            ('SSI','2026-10-01',raw['data_hash'],Jsonb(candidate,dumps=exact_json_dumps),Jsonb(report,dumps=exact_json_dumps))).fetchone()[0]
  yield c,s,call
  c.execute(f'drop schema {s} cascade');c.close()
 

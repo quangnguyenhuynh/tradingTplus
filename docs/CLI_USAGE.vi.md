@@ -1,5 +1,18 @@
 # TradingTPlus CLI — Hướng dẫn nhanh
 
+## Numeric daily chính xác — 04/11/2026
+
+Daily mapping/contract 3.0.0: tiền/giá/level/phần trăm dùng Decimal, quantity
+rời rạc dùng integer chính xác. Stock policy 1.1.0 giữ phần lẻ tiền với warning
+FRACTIONAL_MONETARY_VALUE/PARTIAL; Index giữ pipeline riêng, reject numeric sai.
+Cần owner apply **migration mới** `20261104_daily_numeric_precision.sql`; không
+sửa migration V1 cũ, không tự rewrite/backfill/features.
+Diagnostic chỉ đọc: `python main.py daily-numeric-quality --dataset stock_daily --identifiers TCB --date 12/03/2025`
+(đổi dataset index_daily/identifiers VNINDEX cho Index).
+[Bảng field, transport, audit, SQL/deploy/rollback và lệnh owner](DAILY_NUMERIC_PRECISION.vi.md).
+Hướng dẫn integer-money/float của daily trước đây được policy này thay thế; các ghi nhận test lịch sử vẫn là evidence tại thời điểm chạy.
+
+
 ## Stock Daily Data Quality V1 — 03/11/2026
 
 SSI v3 Stock Daily dùng VALID/PARTIAL/REJECTED, quarantine optional lỗi thành NULL,

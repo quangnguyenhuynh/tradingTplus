@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -48,7 +49,7 @@ def test_v3_adapter_maps_all_verified_fields_without_scaling_and_preserves_raw()
     clean = result.clean[0]
     assert result.raw[0] == before == V3_PAYLOAD
     assert clean["index_code"] == "VNINDEX"
-    assert clean["index_change"] == 10.02
+    assert clean["index_change"] == Decimal("10.02")
     assert clean["index_change"] != 0.1002
     assert clean["index_change_percentage"] == 0.75
     assert clean["net_foreign_purchase_volume"] == -2
@@ -65,9 +66,9 @@ def test_v3_adapter_maps_all_verified_fields_without_scaling_and_preserves_raw()
 
 
 def test_v3_adapter_keeps_missing_optional_values_null():
-    client = SimpleNamespace(index_summary=lambda *_: SimpleNamespace(items=[{"tradingDate": "2026/08/25"}]))
+    client = SimpleNamespace(index_summary=lambda *_: SimpleNamespace(items=[{"tradingDate": "2026/08/25", "indexValue":"1280.50"}]))
     clean = SSIV3Adapter(client).fetch("index_daily", "VNINDEX", "2026-08-25").clean[0]
-    assert clean["index_value"] is None
+    assert clean["index_value"] == Decimal("1280.50")
     assert clean["total_foreign_buy_value"] is None
 
 
@@ -145,6 +146,9 @@ def test_v3_service_labels_raw_evidence_and_writes_no_features():
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
+        def persist_index_daily_numeric_v1(self,code,date,raw_hash,record,report):
+            self.upsert_index_daily([record])
+            return dict(clean_rows=1,decision=report['decision'],preserved_fields=[])
     summary = fetch_index_daily_with_clients(SSIV3Adapter(client), DB(), "VNINDEX", "25/08/2026")
     assert summary["status"] == "OK"
     assert [name for name, _ in calls] == ["raw", "clean"]
@@ -159,6 +163,9 @@ def test_service_persists_raw_before_rejecting_clean():
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
+        def persist_index_daily_numeric_v1(self,code,date,raw_hash,record,report):
+            self.upsert_index_daily([record])
+            return dict(clean_rows=1,decision=report['decision'],preserved_fields=[])
     summary = fetch_index_daily_with_clients(SSIV3Adapter(SSI()), DB(), "VN30", "25/08/2026")
     assert summary["raw_rows"] == 1 and summary["clean_rows"] == 0
     assert [name for name, _ in calls] == ["raw"]
@@ -171,6 +178,9 @@ def test_valid_response_persists_raw_then_clean_without_downstream_work():
     class DB:
         def upsert_index_raw_daily(self, rows): calls.append(("raw", rows))
         def upsert_index_daily(self, rows): calls.append(("clean", rows))
+        def persist_index_daily_numeric_v1(self,code,date,raw_hash,record,report):
+            self.upsert_index_daily([record])
+            return dict(clean_rows=1,decision=report['decision'],preserved_fields=[])
 
     summary = fetch_index_daily_with_clients(SSIV3Adapter(SSI()), DB(), "VNINDEX", "25/08/2026")
 
@@ -185,7 +195,7 @@ def test_valid_response_persists_raw_then_clean_without_downstream_work():
     assert "created_at" not in calls[0][1][0]["payload"]
 
 
-def test_repository_boundary_sends_complete_batch_with_one_utc_ingestion_timestamp():
+def test_multiple_records_preserve_complete_raw_batch_and_reject_ambiguous_clean():
     """Capture the exact mapper -> persistence -> DatabaseClient input."""
     calls = []
 
@@ -207,7 +217,8 @@ def test_repository_boundary_sends_complete_batch_with_one_utc_ingestion_timesta
     table, rows = calls[0]
     assert table == "index_raw_daily"
     assert rows
-    assert summary["raw_rows"] == summary["clean_rows"] == 2
+    assert summary["raw_rows"] == 2 and summary["clean_rows"] == 0
+    assert summary["status"] == "FAILED" and len(calls)==1
     timestamps = {row["created_at"] for row in rows}
     assert len(timestamps) == 1
     for row in rows:

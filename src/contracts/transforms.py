@@ -184,3 +184,25 @@ def intraday_source_value(value: Any, _context: dict[str, Any]) -> int:
 
 TRANSFORMS['ssi_v3_intraday_timestamp'] = ssi_v3_intraday_timestamp
 TRANSFORMS['intraday_source_value'] = intraday_source_value
+
+
+def to_decimal(value: Any, _context: dict[str, Any]):
+    from .numeric import decimal_number
+    try:
+        return decimal_number(value)
+    except ValueError as exc:
+        raise TransformError(str(exc)) from exc
+
+
+def to_exact_int(value: Any, _context: dict[str, Any]):
+    from .numeric import integer_number
+    try:
+        return integer_number(value)
+    except ValueError as exc:
+        raise TransformError(str(exc)) from exc
+
+
+# Explicit opt-in for daily mappings; existing int/float and intraday behavior
+# stay unchanged for unrelated datasets.
+TRANSFORMS['decimal'] = to_decimal
+TRANSFORMS['exact_int'] = to_exact_int
