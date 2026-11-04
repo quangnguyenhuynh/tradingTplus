@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from typing import Any
+from decimal import Decimal
+from src.contracts.numeric import decimal_number, exact_binary, exact_abs
 
 from src.quality.validators.models import ValidationIssue, ValidationResult
 
-PRICE_TOLERANCE = 1e-6
+PRICE_TOLERANCE = Decimal('0.000001')
 REQUIRED_FIELDS = [
     "symbol", "trading_date", "open_price", "highest_price", "lowest_price",
     "close_price",
@@ -27,13 +29,13 @@ def _missing(value: Any) -> bool:
     return value is None or value == ""
 
 
-def _num(value: Any) -> float | None:
+def _num(value: Any) -> Decimal | None:
     if _missing(value):
         return None
     if isinstance(value, bool):
         return None
     try:
-        return float(value)
+        return decimal_number(value)
     except (TypeError, ValueError):
         return None
 
@@ -47,7 +49,7 @@ def _result(errors: list[ValidationIssue], warnings: list[ValidationIssue]) -> V
 
 
 def _eq(a: float, b: float, tolerance: float) -> bool:
-    return abs(a - b) <= tolerance
+    return exact_abs(exact_binary(a,b,"subtract")) <= decimal_number(tolerance)
 
 
 def validate_daily_record(record: dict) -> ValidationResult:
@@ -63,6 +65,10 @@ def validate_daily_record(record: dict) -> ValidationResult:
         if field not in record or _missing(record.get(field)):
             warnings.append(_issue("DAILY_OPTIONAL_MARKET_FIELD_MISSING", f"Optional market field {field} is missing", "warning", field, record.get(field), "market value when SSI provides it"))
 
+    for field in set(PRICE_FIELDS + NON_NEGATIVE_FIELDS + ['price_change','per_price_change','net_foreign_vol','net_foreign_val']):
+        value=record.get(field)
+        if not _missing(value) and _num(value) is None:
+            errors.append(_issue('DAILY_NON_FINITE_NUMERIC',f'{field} must be finite numeric','error',field,value,'finite number'))
     has_trading = any((_num(record.get(f)) or 0) > 0 for f in OPTIONAL_MARKET_FIELDS)
     for field in PRICE_FIELDS:
         value = _num(record.get(field))
@@ -85,17 +91,17 @@ def validate_daily_record(record: dict) -> ValidationResult:
             errors.append(_issue("DAILY_INVALID_OHLC", "highest_price is below lowest_price", "error", "highest_price", h, f">= {l}"))
 
     floor = _num(record.get("floor_price")); ref = _num(record.get("ref_price")); ceiling = _num(record.get("ceiling_price"))
-    if None not in (floor, ref, ceiling) and not (floor - PRICE_TOLERANCE <= ref <= ceiling + PRICE_TOLERANCE):
+    if None not in (floor, ref, ceiling) and not (exact_binary(floor,PRICE_TOLERANCE,"subtract") <= ref <= exact_binary(ceiling,PRICE_TOLERANCE)):
         warnings.append(_issue("DAILY_INVALID_PRICE_BOUNDS", "ref_price is outside floor_price and ceiling_price; this may reflect a corporate action", "warning", "ref_price", ref, f"{floor} <= ref_price <= {ceiling}"))
     if None not in (floor, ceiling):
         ohlc_values = [value for value in (o, h, l, c) if value is not None]
         corporate_action_candidate = len(ohlc_values) == 4 and (
-            all(value < floor - PRICE_TOLERANCE for value in ohlc_values)
-            or all(value > ceiling + PRICE_TOLERANCE for value in ohlc_values)
+            all(value < exact_binary(floor,PRICE_TOLERANCE,"subtract") for value in ohlc_values)
+            or all(value > exact_binary(ceiling,PRICE_TOLERANCE) for value in ohlc_values)
         )
         for field in ["open_price", "highest_price", "lowest_price", "close_price"]:
             value = _num(record.get(field))
-            if value is not None and not (floor - PRICE_TOLERANCE <= value <= ceiling + PRICE_TOLERANCE):
+            if value is not None and not (exact_binary(floor,PRICE_TOLERANCE,"subtract") <= value <= exact_binary(ceiling,PRICE_TOLERANCE)):
                 issue = _issue(
                     "DAILY_PRICE_OUTSIDE_LIMIT",
                     f"{field} is outside daily price limits" + ("; all OHLC prices are on the same side, which may reflect a corporate action" if corporate_action_candidate else ""),
@@ -109,21 +115,21 @@ def validate_daily_record(record: dict) -> ValidationResult:
     if None not in (c, ref):
         pc = _num(record.get("price_change"))
         if pc is not None:
-            expected = c - ref
-            tol = max(1e-6, abs(ref) * 0.0001)
+            expected = exact_binary(c,ref,"subtract")
+            tol = max(PRICE_TOLERANCE, exact_binary(exact_abs(ref),Decimal("0.0001"),"multiply"))
             if not _eq(pc, expected, tol):
                 warnings.append(_issue("DAILY_PRICE_CHANGE_MISMATCH", "price_change differs from close_price - ref_price", "warning", "price_change", pc, expected))
             pct = _num(record.get("per_price_change"))
             if pct is not None and ref != 0:
-                expected_pct = pc / ref * 100
-                if not _eq(pct, expected_pct, tol):
+                expected_pct = f"{pc} / {ref} * 100"
+                if not _eq(exact_binary(pct,ref,"multiply"), exact_binary(pc,100,"multiply"), exact_binary(tol,exact_abs(ref),"multiply")):
                     warnings.append(_issue("DAILY_PERCENT_CHANGE_MISMATCH", "per_price_change differs from price_change / ref_price * 100", "warning", "per_price_change", pct, expected_pct))
 
     tmv = _num(record.get("total_match_vol")); tdv = _num(record.get("total_deal_vol")); ttv = _num(record.get("total_traded_vol"))
-    if None not in (tmv, tdv, ttv) and not _eq(tmv + tdv, ttv, 1e-6):
-        warnings.append(_issue("DAILY_TOTAL_VOLUME_MISMATCH", "total_traded_vol differs from match plus deal volume", "warning", "total_traded_vol", ttv, tmv + tdv))
+    if None not in (tmv, tdv, ttv) and not _eq(exact_binary(tmv,tdv), ttv, 0):
+        warnings.append(_issue("DAILY_TOTAL_VOLUME_MISMATCH", "total_traded_vol differs from match plus deal volume", "warning", "total_traded_vol", ttv, exact_binary(tmv,tdv)))
     tmval = _num(record.get("total_match_val")); tdval = _num(record.get("total_deal_val")); ttval = _num(record.get("total_traded_value"))
-    if None not in (tmval, tdval, ttval) and not _eq(tmval + tdval, ttval, 1e-6):
-        warnings.append(_issue("DAILY_TOTAL_VALUE_MISMATCH", "total_traded_value differs from match plus deal value", "warning", "total_traded_value", ttval, tmval + tdval))
+    if None not in (tmval, tdval, ttval) and not _eq(exact_binary(tmval,tdval), ttval, 0):
+        warnings.append(_issue("DAILY_TOTAL_VALUE_MISMATCH", "total_traded_value differs from match plus deal value", "warning", "total_traded_value", ttval, exact_binary(tmval,tdval)))
 
     return _result(errors, warnings)

@@ -2,7 +2,7 @@
   "schema_version": "1",
   "datasets": {
     "stock_daily": {
-      "contract_version": "2.0.0",
+      "contract_version": "3.0.0",
       "fields": {
         "symbol": {
           "description": "Canonical stock ticker",
@@ -24,85 +24,97 @@
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "per_price_change": {
           "description": "Unadjusted close percentage change",
           "type": "number",
           "unit": "percent",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "ceiling_price": {
           "description": "Unadjusted session ceiling price; SSI v2 zero placeholder is unknown",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "floor_price": {
           "description": "Unadjusted session floor price; SSI v2 zero placeholder is unknown",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "ref_price": {
           "description": "Unadjusted reference price; SSI v2 zero placeholder is unknown",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "open_price": {
           "description": "Unadjusted open price",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "highest_price": {
           "description": "Unadjusted session high",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "lowest_price": {
           "description": "Unadjusted session low",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "close_price": {
           "description": "Unadjusted close price",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "average_price": {
           "description": "Provider session average price",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "close_price_adjusted": {
           "description": "Corporate-action-adjusted close price",
           "type": "number",
           "unit": "VND/share",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "total_match_vol": {
           "description": "Matched-order volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_match_val": {
           "description": "Provider matched-order value",
@@ -110,15 +122,17 @@
           "unit": "VND",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_deal_vol": {
           "description": "Put-through deal volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_deal_val": {
           "description": "Provider put-through deal value",
@@ -126,15 +140,17 @@
           "unit": "VND",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_traded_vol": {
           "description": "Provider total traded volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_traded_value": {
           "description": "Provider total traded value",
@@ -142,23 +158,26 @@
           "unit": "VND",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "foreign_buy_vol_total": {
           "description": "Foreign buy volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "foreign_sell_vol_total": {
           "description": "Foreign sell volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "foreign_buy_val_total": {
           "description": "Foreign buy value",
@@ -166,7 +185,8 @@
           "unit": "VND",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "foreign_sell_val_total": {
           "description": "Foreign sell value",
@@ -174,69 +194,78 @@
           "unit": "VND",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "foreign_remaining_room": {
           "description": "Remaining foreign ownership room",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "foreign_total_room": {
           "description": "Total foreign ownership room",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "net_foreign_vol": {
           "description": "Provider foreign net volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "discrete_quantity"
         },
         "net_foreign_val": {
           "description": "Provider foreign net value",
           "type": "number",
           "unit": "VND",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "monetary"
         },
         "total_buy_trade": {
           "description": "Number of buy-side trades",
-          "type": "number",
+          "type": "integer",
           "unit": "trades",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_buy_trade_vol": {
           "description": "Buy-side traded volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_sell_trade": {
           "description": "Number of sell-side trades",
-          "type": "number",
+          "type": "integer",
           "unit": "trades",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_sell_trade_vol": {
           "description": "Sell-side traded volume",
-          "type": "number",
+          "type": "integer",
           "unit": "shares",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         }
       }
     },
@@ -336,7 +365,7 @@
       }
     },
     "index_daily": {
-      "contract_version": "2.0.0",
+      "contract_version": "3.0.0",
       "fields": {
         "index_code": {
           "description": "Canonical index identifier supplied by request context",
@@ -357,30 +386,34 @@
           "description": "Closing index level",
           "type": "number",
           "unit": "index points",
-          "required": false,
-          "nullable": true
+          "required": true,
+          "nullable": false,
+          "numeric_semantics": "level_price_percentage"
         },
         "index_change": {
           "description": "Provider index point change; no unit conversion",
           "type": "number",
           "unit": "index points",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "index_change_percentage": {
           "description": "Provider percentage change; stored in provider percent units",
           "type": "number",
           "unit": "percent",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "level_price_percentage"
         },
         "total_trade_volume": {
           "description": "Provider total traded volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_trade_value": {
           "description": "Provider total traded value",
@@ -388,15 +421,17 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_match_volume": {
           "description": "Provider matched volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_match_value": {
           "description": "Provider matched value",
@@ -404,15 +439,17 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_deal_volume": {
           "description": "Provider deal volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_deal_value": {
           "description": "Provider deal value",
@@ -420,55 +457,62 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_advance_stock": {
           "description": "Advancing-stock count",
-          "type": "number",
+          "type": "integer",
           "unit": "stocks",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_ceiling_stock": {
           "description": "Ceiling-stock count",
-          "type": "number",
+          "type": "integer",
           "unit": "stocks",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_decline_stock": {
           "description": "Declining-stock count",
-          "type": "number",
+          "type": "integer",
           "unit": "stocks",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_floor_stock": {
           "description": "Floor-stock count",
-          "type": "number",
+          "type": "integer",
           "unit": "stocks",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_no_change_stock": {
           "description": "Unchanged-stock count",
-          "type": "number",
+          "type": "integer",
           "unit": "stocks",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_prop_buy_volume": {
           "description": "Proprietary buy volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_prop_buy_value": {
           "description": "Proprietary buy value",
@@ -476,15 +520,17 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_prop_sell_volume": {
           "description": "Proprietary sell volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_prop_sell_value": {
           "description": "Proprietary sell value",
@@ -492,15 +538,17 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_foreign_buy_volume": {
           "description": "Foreign buy volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_foreign_buy_value": {
           "description": "Foreign buy value",
@@ -508,15 +556,17 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "total_foreign_sell_volume": {
           "description": "Foreign sell volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "discrete_quantity"
         },
         "total_foreign_sell_value": {
           "description": "Foreign sell value",
@@ -524,21 +574,24 @@
           "unit": "provider value",
           "required": false,
           "nullable": true,
-          "minimum": 0
+          "minimum": 0,
+          "numeric_semantics": "monetary"
         },
         "net_foreign_purchase_volume": {
           "description": "Provider net foreign purchase volume",
-          "type": "number",
+          "type": "integer",
           "unit": "provider volume",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "discrete_quantity"
         },
         "net_foreign_purchase_value": {
           "description": "Provider net foreign purchase value",
           "type": "number",
           "unit": "provider value",
           "required": false,
-          "nullable": true
+          "nullable": true,
+          "numeric_semantics": "monetary"
         }
       }
     },

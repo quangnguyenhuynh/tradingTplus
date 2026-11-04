@@ -39,5 +39,10 @@ def persist_index_raw_daily(db: SupabaseClient, records: Iterable[dict]) -> None
         db.upsert_index_raw_daily(rows)
 
 
-def persist_index_daily(db: SupabaseClient, record: dict) -> None:
-    db.upsert_index_daily([record])
+def persist_index_daily(db: SupabaseClient, record: dict, *, raw_hash=None, report=None):
+    if raw_hash is None:
+        # Existing public helper compatibility; SSI v3 ingest always provides
+        # its immutable RAW reference and uses exact persistence below.
+        db.upsert_index_daily([record])
+        return None
+    return db.persist_index_daily_numeric_v1(record['index_code'],record['trading_date'],raw_hash,record,report)

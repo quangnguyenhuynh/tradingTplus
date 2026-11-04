@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from .numeric import exact_binary
 
 
 STOCK_DAILY_DERIVATIONS = {
@@ -21,7 +22,7 @@ def apply_derived_fields(dataset: str, candidate: dict[str, Any]) -> dict[str, A
         if left is None or right is None:
             candidate[target] = None
         elif operation == "add":
-            candidate[target] = left + right
+            candidate[target] = exact_binary(left, right)
         else:
-            candidate[target] = left - right
+            candidate[target] = exact_binary(left, right, 'subtract')
     return candidate

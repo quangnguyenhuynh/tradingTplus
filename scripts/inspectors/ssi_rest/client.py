@@ -194,7 +194,12 @@ class InspectorClient:
                 body, json_state = None, "empty"
             else:
                 try:
-                    body, json_state = resp.json(), "json"
+                    if url.split('?')[0].rstrip('/').endswith(('/data/securitiesSummary','/data/indexSummary')):
+                        from src.contracts.numeric import exact_json_loads
+                        body=exact_json_loads(raw)
+                    else:
+                        body=resp.json()
+                    json_state='json'
                 except ValueError:
                     body, json_state = None, "non-json"
             return InspectorResponse(

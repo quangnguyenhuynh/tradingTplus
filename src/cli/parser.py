@@ -26,6 +26,14 @@ def build_parser() -> argparse.ArgumentParser:
     quality.add_argument('--to', dest='to_date')
     quality.add_argument('--raw-clean-missing', action='store_true')
 
+    numeric = sub.add_parser('daily-numeric-quality', help='READ ONLY: exact Stock/Index daily RAW/CLEAN precision audit; no SSI/writes')
+    numeric.add_argument('--dataset', choices=('stock_daily','index_daily'), required=True)
+    numeric.add_argument('--identifiers', nargs='+', required=True)
+    numeric_dates=numeric.add_mutually_exclusive_group(required=True)
+    numeric_dates.add_argument('--date')
+    numeric_dates.add_argument('--from', dest='from_date')
+    numeric.add_argument('--to', dest='to_date')
+
     index_daily = sub.add_parser("index-eod", help="SSI index daily raw + validated clean ingest only")
     index_daily.add_argument("date", nargs="?", help="Trading date YYYY-MM-DD or DD/MM/YYYY; defaults to latest weekday on/before today in Vietnam")
     index_daily.add_argument("--indexes", nargs="+", default=None, help="Index codes; omitted means active index_master rows")

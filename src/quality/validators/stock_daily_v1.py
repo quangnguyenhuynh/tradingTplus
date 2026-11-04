@@ -1,15 +1,16 @@
 """Explicit SSI v3 Stock Daily V1 field quarantine; no persistence or network."""
 from copy import deepcopy
-from decimal import Decimal, InvalidOperation
-import math
+from decimal import Decimal
 
 from src.contracts import map_record
 from src.contracts.registry import get_mapping, MappingConfigurationError
 from src.contracts.derived import apply_derived_fields
 from src.contracts.transforms import to_date
+from src.contracts.numeric import is_finite_number
 from .daily_validator import validate_daily_record
 
-POLICY_VERSION = 'stock_daily_validation_v1.0.0'
+POLICY_VERSION = 'stock_daily_validation_v1.1.0'
+MONETARY_INPUTS = ('total_match_val','total_deal_val','foreign_buy_val_total','foreign_sell_val_total')
 CORE = frozenset(('symbol','trading_date','open_price','highest_price','lowest_price','close_price',
                   'total_match_vol','total_match_val'))
 PRICES = ('open_price','highest_price','lowest_price','close_price')
@@ -28,7 +29,7 @@ def validate_payload(payload, symbol, date):
     qualified = {f'summary.{k}':v for k,v in payload.items()} if isinstance(payload,dict) else None
     if qualified is None:
         return None, dict(policy_version=POLICY_VERSION,decision='REJECTED',issues=[issue(None,'INVALID_RECORD','REJECT')],
-                          mapping_version='2.0.0',contract_version='2.0.0',errors=[{'code':'INVALID_RECORD'}])
+                          mapping_version='UNVERIFIED',contract_version='UNVERIFIED',errors=[{'code':'INVALID_RECORD'}])
     try:
         mapped = map_record('ssi_v3','stock_daily',qualified,{})
         mapping=get_mapping('ssi_v3','stock_daily')
@@ -39,26 +40,9 @@ def validate_payload(payload, symbol, date):
     candidate = deepcopy(mapped.partial_candidate)
     report = deepcopy(mapped.report)
     issues=[]
-    # The shared int transform historically passes through float. Recover exact
-    # integral source values locally and reject fractions/alias ambiguity before
-    # field quarantine; do not change transforms for other datasets.
-    for field, rule in mapping['fields'].items():
-        if rule.get('transform') != 'int' or not rule.get('aliases'): continue
-        values=[value for key,value in payload.items()
-                if any(('summary.'+str(key)).casefold()==alias.casefold() for alias in rule['aliases'])
-                and value is not None and value!='']
-        if not values: continue
-        try:
-            parsed=[Decimal(str(value)) for value in values]
-            if any(isinstance(value,bool) for value in values) or any(not n.is_finite() or n!=n.to_integral_value() for n in parsed):
-                raise ValueError('Non-integral value')
-            code='ALIAS_CONFLICT' if any(n!=parsed[0] for n in parsed[1:]) else None
-            if code is None and not any(e.get('field')==field and e['code']=='TRANSFORM_ERROR' for e in report['errors']):
-                candidate[field]=int(parsed[0])
-        except (InvalidOperation,ValueError,OverflowError):
-            code='TRANSFORM_ERROR'
-        if code and not any(e.get('field')==field and e['code']==code for e in report['errors']):
-            report['errors'].append({'field':field,'code':code})
+    for field in report.get('predecoded_float_fields',[]):
+        issues.append(issue(field,'PREDECODED_FLOAT_PRECISION_UNVERIFIED','KEEP_PREDECODED_VALUE',
+            'Input was already float; original source digits cannot be reconstructed',severity='WARNING'))
     mapping_failure_count=len(report['errors'])
     for error in report['errors']:
         field,code=error.get('field'),error['code']
@@ -77,11 +61,11 @@ def validate_payload(payload, symbol, date):
         issues.append(issue(None,'REQUEST_SCOPE_MISMATCH','REJECT'))
     for field in PRICES:
         value=candidate.get(field)
-        if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<=0:
+        if not is_finite_number(value) or value<=0:
             issues.append(issue(field,'CORE_PRICE_INVALID','REJECT'))
     for field in ('total_match_vol','total_match_val'):
         value=candidate.get(field)
-        if value is not None and (isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<0):
+        if value is not None and (not is_finite_number(value) or value<0):
             issues.append(issue(field,'CORE_MATCH_INVALID','REJECT'))
     apply_derived_fields('stock_daily',candidate)
     validation=validate_daily_record(candidate)
@@ -95,8 +79,13 @@ def validate_payload(payload, symbol, date):
         if recover:candidate[v.field]=None
     apply_derived_fields('stock_daily',candidate)
     for field,value in candidate.items():
-        if isinstance(value,float) and not math.isfinite(value):
+        if isinstance(value,Decimal) and not value.is_finite():
             issues.append(issue(field,'NON_FINITE_DERIVED','REJECT'))
+    for field in MONETARY_INPUTS:
+        value=candidate.get(field)
+        if isinstance(value,Decimal) and value.is_finite() and value!=value.to_integral_value():
+            issues.append(issue(field,'FRACTIONAL_MONETARY_VALUE','KEEP_EXACT_DECIMAL',
+                'Finite monetary fraction preserved; source precision semantics remain unverified',severity='WARNING'))
     decision='REJECTED' if any(i['action']=='REJECT' for i in issues) else 'PARTIAL' if issues else 'VALID'
     for i in issues:
         if i['action']=='REJECT' and not any(e.get('code')==i['code'] and e.get('field')==i['field'] for e in report['errors']):

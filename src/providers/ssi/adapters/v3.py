@@ -34,19 +34,13 @@ class SSIV3Adapter:
         clean: list[dict[str, Any] | None] = []
         reports: list[dict[str, Any]] = []
         for payload in payloads:
-            qualified = {f"indexSummary.{key}": value for key, value in payload.items()}
-            mapped = map_record("ssi_v3", dataset, qualified, {"index": identity})
-            candidate = mapped.candidate
-            if candidate is not None and candidate["trading_date"] != _iso_date(date):
-                report = {
-                    **mapped.report,
-                    "records_valid": 0,
-                    "records_rejected": 1,
-                    "errors": mapped.report["errors"] + [{"code": "REQUEST_SCOPE_MISMATCH"}],
-                }
-                candidate = None
-            else:
-                report = mapped.report
+            from src.quality.validators.index_daily_numeric import validate_index_payload
+            candidate, report = validate_index_payload(payload, identity, date)
+            if len(payloads)>1:
+                candidate=None
+                error=dict(field=None,code='MULTIPLE_RECORDS',severity='ERROR',action='REJECT',message='Ambiguous index response')
+                report.update(decision='REJECTED',records_valid=0,records_rejected=1,
+                              issues=report.get('issues',[])+[error],errors=report.get('errors',[])+[{'code':'MULTIPLE_RECORDS'}])
             clean.append(candidate)
             reports.append(report)
         errors = [error for report in reports for error in report.get("errors", [])]
@@ -59,8 +53,8 @@ class SSIV3Adapter:
             {
                 "source": self.source_id,
                 "dataset": dataset,
-                "contract_version": "2.0.0",
-                "mapping_version": "2.0.0",
+                "contract_version": "3.0.0",
+                "mapping_version": "3.0.0",
                 "records_received": len(payloads),
                 "records_valid": sum(item is not None for item in clean),
                 "records_rejected": sum(item is None for item in clean),
@@ -88,8 +82,8 @@ class SSIV3Adapter:
             report = {
                 "source": self.source_id,
                 "dataset": "stock_daily",
-                "contract_version": "2.0.0",
-                "mapping_version": "2.0.0",
+                "contract_version": "3.0.0",
+                "mapping_version": "3.0.0",
                 "records_received": len(payloads),
                 "records_valid": 0,
                 "records_rejected": len(payloads),
@@ -115,8 +109,8 @@ class SSIV3Adapter:
             {
                 "source": self.source_id,
                 "dataset": "stock_daily",
-                "contract_version": "2.0.0",
-                "mapping_version": "2.0.0",
+                "contract_version": "3.0.0",
+                "mapping_version": "3.0.0",
                 "records_received": len(payloads),
                 "records_valid": sum(item is not None for item in clean),
                 "records_rejected": sum(item is None for item in clean),

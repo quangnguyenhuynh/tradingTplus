@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from types import SimpleNamespace
+from src.contracts.numeric import exact_json_loads
 
 import pytest
 
@@ -21,6 +23,13 @@ class _Query:
 class _Postgrest:
     def __init__(self):
         self.calls = []
+
+    def rpc(self,name,params):
+        assert name=='persist_daily_raw_numeric_v1'
+        table='stock_raw_daily' if params['p_dataset']=='stock_daily' else 'index_raw_daily'
+        rows=exact_json_loads(params['p_rows_json'])
+        self.calls.append((table,rows,{'exact_rpc':True}))
+        return SimpleNamespace(execute=lambda:SimpleNamespace(data=dict(rows_verified=len(rows),immutable=True,exact=True)))
 
     def table(self, table):
         parent = self
@@ -88,7 +97,7 @@ def test_index_raw_upsert_replaces_explicit_null_created_at_and_preserves_it_on_
     created_at = insert_call[1][0]["created_at"]
     assert created_at is not None
     assert datetime.fromisoformat(created_at).tzinfo is not None
-    assert insert_call[2]["ignore_duplicates"] is True
+    assert insert_call[2]["exact_rpc"] is True
     assert source["created_at"] is None
 
 
@@ -100,8 +109,7 @@ def test_stock_raw_upsert_is_immutable_and_uses_provider_aware_identity():
     }
     db.upsert_raw_daily([source])
     (insert_call,) = db.client.calls
-    assert insert_call[2]["on_conflict"] == "symbol,trading_date,source,data_hash"
-    assert insert_call[2]["ignore_duplicates"] is True
+    assert insert_call[2]["exact_rpc"] is True
     assert insert_call[1][0]["created_at"] == insert_call[1][0]["fetched_at"]
 
 

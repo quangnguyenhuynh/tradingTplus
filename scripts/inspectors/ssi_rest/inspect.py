@@ -95,7 +95,17 @@ def _safe_url(url: str) -> str:
 
 
 def _print_json(value: Any) -> None:
-    print(json.dumps(redact(value), indent=2, ensure_ascii=False, default=str))
+    from decimal import Decimal
+    from src.contracts.numeric import exact_json_dumps
+    def has_decimal(item):
+        if isinstance(item,Decimal):return True
+        if isinstance(item,dict):return any(has_decimal(v) for v in item.values())
+        if isinstance(item,(list,tuple)):return any(has_decimal(v) for v in item)
+        return False
+    # Exact numeric rendering is opt-in through the new daily Decimal values;
+    # retain the existing renderer for unrelated datasets and legacy diagnostics.
+    print(exact_json_dumps(redact(value),indent=2) if has_decimal(value)
+          else json.dumps(redact(value),indent=2,ensure_ascii=False,default=str))
 
 
 def print_report(source: str, endpoint: Any, params: dict[str, Any], response: Any,

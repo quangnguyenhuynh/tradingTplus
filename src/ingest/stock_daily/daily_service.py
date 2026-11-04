@@ -53,5 +53,5 @@ def fetch_daily_for_symbol_with_clients(ssi, db, symbol, date):
         # RAW may already be committed. RPC failure is never treated as success or
         # automatically retried; its transaction rolls back clean/log together.
         summary.update(status='FAILED',error_type='DB_PERSISTENCE',persistence_failures=1)
-        summary['errors'].append('DB_PERSISTENCE_FAILED_APPLY_20261103_STOCK_DAILY_QUALITY_V1_OR_RECONCILE_RAW')
+        summary['errors'].append('DB_PERSISTENCE_FAILED_APPLY_20261104_DAILY_NUMERIC_PRECISION_OR_RECONCILE_RAW')
     return summary

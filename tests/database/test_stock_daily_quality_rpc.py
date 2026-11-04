@@ -11,7 +11,7 @@ def test_rpc_acknowledgement_checked_without_retry(decision,count):
  db.client=SimpleNamespace(rpc=rpc)
  db._with_retry=lambda *a,**k:pytest.fail('Ambiguous write retry forbidden')
  result=db.persist_stock_daily_validation_v1('TCB','2026-03-05','HASH',None,{'decision':decision})
- assert len(calls)==1 and calls[0][0]=='persist_stock_daily_validation_v1' and result['decision']==decision
+ assert len(calls)==1 and calls[0][0]=='persist_stock_daily_numeric_v1' and result['decision']==decision
 
 @pytest.mark.parametrize('data',[None,{},dict(decision='VALID',clean_rows=0,issue_count=0,raw_hash='HASH',atomic=True),
  dict(decision='VALID',clean_rows=1,issue_count=0,raw_hash='WRONG',atomic=True)])

@@ -1,11 +1,13 @@
 from types import SimpleNamespace
-import pytest, requests
+import pytest, requests, json
 from src.providers.ssi.clients.rest_v3 import SSIV3Client, SSIReadError
 class Session:
  def __init__(self,responses):self.responses=list(responses);self.calls=[]
  def request(self,*a,**kw):self.calls.append((a,kw));r=self.responses.pop(0);return r
 class Resp:
  def __init__(self,status,body):self.status_code=status;self.body=body
+ @property
+ def content(self):return json.dumps(self.body).encode()
  def json(self):return self.body
 
 def test_pagination_envelopes_and_empty_termination():
