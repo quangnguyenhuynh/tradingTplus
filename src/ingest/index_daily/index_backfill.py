@@ -1,7 +1,7 @@
 """Inclusive weekday index daily backfill."""
 from __future__ import annotations
 
-from src.ingest.maintenance.backfill import _base_range_summary, _failure_day, _resolve_range
+from src.ingest.shared.backfill_range import _base_range_summary, _failure_day, _resolve_range
 from src.ingest.index_daily.index_daily import run_index_daily_ingest
 from src.ingest.shared.index_scope import normalize_index_scope
 from src.ingest.shared.date_utils import parse_index_date

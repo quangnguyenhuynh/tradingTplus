@@ -1,5 +1,88 @@
 # Backfill dữ liệu nguồn có guard
 
+## Tổ chức module backfill EOD — 05/11/2026
+
+Refactor chỉ cấu trúc, base dev `6410f7297ab3b62a96c15b63228657c6239967ec` (đã merge PR #191). Trước đây maintenance chứa cả Stock, helper range/report dùng chung và Intraday; Index import ba helper private từ module orchestration đó. Nay bỏ dependency chéo này, giữ nguyên hành vi backfill.
+
+| Trách nhiệm | Module/định nghĩa canonical |
+| --- | --- |
+| Stock EOD backfill | `src/ingest/stock_daily/backfill.py`: `_run_ingest_backfill`, `run_daily_backfill_pipeline` |
+| Index EOD backfill | `src/ingest/index_daily/index_backfill.py`: giữ nguyên `run_index_backfill_pipeline` |
+| Helper range/report dùng chung | `src/ingest/shared/backfill_range.py`: `_BackfillRange`, `_resolve_range`, `_range_status`, `_failure_day`, `_base_range_summary` |
+| Intraday có guard/legacy | `src/ingest/maintenance/backfill.py`: giữ nguyên plan/runner Intraday, combined guard và wrapper deprecated |
+
+Stock runner cùng năm định nghĩa shared được chuyển nguyên văn. Index chỉ đổi import helper. So sánh AST xác nhận mọi định nghĩa maintenance ban đầu (12 định nghĩa ở các vị trí mới) cùng Index runner giữ nguyên thân/signature. Không thêm generic ingest engine hoặc nhân bản helper.
+
+### Compatibility và hành vi giữ nguyên
+
+- `from src.ingest import run_daily_backfill_pipeline` lazy resolve về Stock; Index export vẫn ở domain hiện có.
+- `src.ingest.maintenance.backfill.run_daily_backfill_pipeline` re-export đúng cùng callable Stock, giữ signature cũ. Tên private helper/class và `_run_ingest_backfill` cũ vẫn import được qua re-export.
+- CLI maintenance đã dùng public export nên tự gọi implementation Stock canonical. Không cần sửa parser/handler/tên/options/exit/workflow, không phục hồi alias EOD đã bỏ.
+- Stock giữ source resolution, scope, thứ tự ngày, quality counters, tiếp tục sau exception và nested-error aggregation. Index giữ master scope và summary/error handling riêng. Không đồng nhất các khác biệt contract vốn có.
+- Giữ range inclusive, định dạng ngày cũ, weekend/no-op, future/reversed guards, status và JSON fields. Flow vẫn `backfill-daily`, `index-backfill`, `backfill-intraday`.
+- Intraday vẫn ở maintenance, mặc định DRY_RUN, write tường minh, giới hạn 50 cặp symbol/weekday, pilot/readback/conflict/recovery và không đổi schedule/features. Giữ signature/exception của run_backfill_pipeline và backfill deprecated.
+- Patch test dependency chuyển sang `src.ingest.stock_daily.backfill.run_daily_ingest` / `.resolve_source`, và `src.ingest.shared.backfill_range.validate_not_future`, đúng nơi tra cứu sau move. Patch tại CLI handler không đổi. Custom test ngoài repo patch globals cũ cần cập nhật tương tự; import hàm cũ vẫn hoạt động.
+
+### Cách kiểm chứng
+
+Trước khi chuyển code production, đã chụp 20 JSON output đầy đủ cùng trace gọi dependency từ dev đã audit, dùng provider/ingest giả lập và clock cố định 05/11/2026. Fixture `tests/fixtures/eod_backfill_baseline.json` được so với implementation Stock/Index mới. Các case gồm scope explicit/omitted/empty, mixed status/counter, weekend, tiếp tục sau exception, FAILED thiếu detail, invalid status, future/reversed và thứ tự source preflight. Giữ cả khác biệt aggregation Stock/Index trong baseline.
+
+Test offline chặn HTTP. Test CLI/ingest/Intraday hiện có tiếp tục làm baseline, chỉ đổi lookup patch của Stock. Đã đọc schema/migration dạng file trong repo; refactor không cần SQL hoặc gọi DB/API live. Compile/help chỉ là check local, không phải write smoke. Test PostgreSQL thiếu TEST_DATABASE_URL dùng một lần sẽ ghi skipped, không nhận là passed; CI hiện có PostgreSQL 16 để chạy chúng.
+
+### Tác động DB và dữ liệu
+
+Migration **không**, schema/SQL/contracts **không đổi**, dữ liệu bị ảnh hưởng **không**, historical backfill **không cần**. Không chạy ingest/backfill live, repair/delete/migration, feature/signal/backtest. Yêu cầu triển khai numeric/DQ trước đây là việc riêng, không bị thay đổi.
+
+Bước tiếp theo: review/merge PR cấu trúc qua quy trình release bình thường, không có thao tác dữ liệu cần chạy. Điểm compatibility còn lưu ý là đường monkeypatch dependency nội bộ đã nêu; public imports và hành vi runtime có regression tests bảo vệ.
+
+
+### Lệnh đã chạy và kết quả
+
+```bash
+source .venv/bin/activate
+python -m pytest -q tests/pipeline/test_backfill_ownership.py tests/pipeline/test_backfill_pipeline.py tests/pipeline/test_intraday_backfill.py tests/cli tests/ingest
+python -m pytest -q
+python -m compileall -q main.py src scripts tests
+python main.py stock-eod-backfill --help
+python main.py index-eod-backfill --help
+python main.py stock-intraday-backfill --help
+python main.py stock-eod --help
+python main.py index-eod --help
+git diff --check
+git diff --exit-code 6410f7297ab3b62a96c15b63228657c6239967ec -- schema.sql migrations src/providers src/contracts src/database src/quality src/features .github/workflows src/cli
+```
+
+Focused **624 passed, 3 skipped**; full local **1.370 passed, 44 skipped**. Các skip cần PostgreSQL test URL chưa có, không nhận là đã chạy. Compile/5 CLI help/diff checks pass. So sánh AST xác nhận 12 định nghĩa maintenance gốc và Index runner không đổi; ba thứ tự import trong process mới pass và Index không load maintenance. Repo không có lint config. Kết quả CI PostgreSQL 16 ghi riêng trong PR.
+
+### File đã sửa
+
+- `docs/backfill/README.md`
+- `docs/backfill/README.vi.md`
+- `src/ingest/README.md`
+- `src/ingest/README.vi.md`
+- `src/ingest/__init__.py`
+- `src/ingest/index_daily/README.md`
+- `src/ingest/index_daily/README.vi.md`
+- `src/ingest/index_daily/index_backfill.py`
+- `src/ingest/maintenance/README.md`
+- `src/ingest/maintenance/README.vi.md`
+- `src/ingest/maintenance/backfill.py`
+- `src/ingest/shared/README.md`
+- `src/ingest/shared/README.vi.md`
+- `src/ingest/stock_daily/README.md`
+- `src/ingest/stock_daily/README.vi.md`
+- `tests/pipeline/test_backfill_pipeline.py`
+
+### File tạo mới
+
+- `src/ingest/shared/backfill_range.py`
+- `src/ingest/stock_daily/backfill.py`
+- `tests/fixtures/eod_backfill_baseline.json`
+- `tests/pipeline/test_backfill_ownership.py`
+
+Không xóa file.
+
+
 ## Numeric daily chính xác — 04/11/2026
 
 Daily mapping/contract 3.0.0: tiền/giá/level/phần trăm dùng Decimal, quantity

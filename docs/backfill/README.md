@@ -1,5 +1,88 @@
 # Guarded source-data backfill
 
+## EOD backfill module organization — 5 November 2026
+
+Structure-only refactor based on dev `6410f7297ab3b62a96c15b63228657c6239967ec` (PR #191 merged). Previously Stock orchestration, shared range/report helpers and Intraday lived together in maintenance; Index imported three private helpers from that orchestration module. The dependency and ownership gap is removed without changing backfill behavior.
+
+| Responsibility | Canonical module / definitions |
+| --- | --- |
+| Stock EOD backfill | `src/ingest/stock_daily/backfill.py`: `_run_ingest_backfill`, `run_daily_backfill_pipeline` |
+| Index EOD backfill | `src/ingest/index_daily/index_backfill.py`: unchanged `run_index_backfill_pipeline` |
+| Shared range/report helpers | `src/ingest/shared/backfill_range.py`: `_BackfillRange`, `_resolve_range`, `_range_status`, `_failure_day`, `_base_range_summary` |
+| Guarded Intraday/legacy | `src/ingest/maintenance/backfill.py`: unchanged Intraday plan/runner, combined-backfill guard and deprecated wrapper |
+
+The Stock runner and all five shared definitions moved verbatim. Index changes only its shared-helper import. AST comparison confirms every original maintenance definition (12 across the new locations) and the Index runner retain the same definition bodies/signatures. No new generic ingest engine or duplicate shared implementation.
+
+### Compatibility and unchanged behavior
+
+- `from src.ingest import run_daily_backfill_pipeline` lazily resolves the Stock implementation. The Index lazy export stays in its original domain.
+- `src.ingest.maintenance.backfill.run_daily_backfill_pipeline` is the same callable re-exported from Stock, with the original signature. The old private helper/class names and `_run_ingest_backfill` remain compatibility re-exports.
+- CLI maintenance already imports the public export, so its dispatcher automatically uses the canonical Stock function. Parser, handlers, names, flags, exits and workflows need no changes. Removed EOD aliases are not restored.
+- Stock keeps source resolution, scopes, date ordering, quality counters, exception continuation and nested-error aggregation. Index keeps its own master scope and existing summary/error handling. No normalization of their different output contracts.
+- Inclusive dates, original date formats, weekends/no-op ranges, future/reversed guards, statuses and JSON fields remain unchanged. JSON flows stay `backfill-daily`, `index-backfill` and `backfill-intraday`.
+- Intraday remains in maintenance with default DRY_RUN, explicit write, the 50 symbol/weekday-pair limit, pilot/readback/conflict/recovery handling and no schedule/feature changes. Legacy `run_backfill_pipeline` and deprecated `backfill` signatures/exceptions remain unchanged.
+- Test dependency patches now target `src.ingest.stock_daily.backfill.run_daily_ingest` / `.resolve_source` and `src.ingest.shared.backfill_range.validate_not_future`, where lookup actually occurs. CLI-handler patch boundaries remain unchanged. External custom tests patching the old dependency globals should make the same targeted update; old function imports continue working.
+
+### Verification method
+
+Before production code moved, 20 complete JSON outcomes and dependency-call traces were captured from the audited dev implementation with synthetic providers/ingest and a frozen 2026-11-05 clock. The committed `tests/fixtures/eod_backfill_baseline.json` is compared with the new Stock/Index implementations. Cases cover explicit/omitted/empty scope, mixed statuses/counters, weekends, continuation after exceptions, FAILED without details, invalid status, future/reversed ranges and source-preflight ordering. Existing Stock/Index aggregation differences remain in the baseline deliberately.
+
+Offline tests prohibit HTTP requests. Existing CLI, ingest and Intraday tests remain behavioral baselines; only Stock dependency lookup patches move. Schema/migrations were inspected as repository files; no SQL change or live database/API call is needed by this refactor. Compile/help are local checks, not write smoke tests. PostgreSQL-dependent tests without a disposable TEST_DATABASE_URL are reported skipped, not passed; existing CI runs them against PostgreSQL 16.
+
+### Database and data impact
+
+Migration **none**, schema/SQL/contracts **unchanged**, existing data affected **none**, historical backfill required **no**. No live ingest/backfill, repair, deletion, migration, feature, signal or backtest run. Prior numeric/DQ deployment requirements remain separate and unchanged.
+
+Next step: review/merge the structure-only PR through the normal release process. No data operation is required. Remaining compatibility consideration is the internal dependency monkeypatch path change described above; public imports and runtime behavior are covered by regression tests.
+
+
+### Commands run and results
+
+```bash
+source .venv/bin/activate
+python -m pytest -q tests/pipeline/test_backfill_ownership.py tests/pipeline/test_backfill_pipeline.py tests/pipeline/test_intraday_backfill.py tests/cli tests/ingest
+python -m pytest -q
+python -m compileall -q main.py src scripts tests
+python main.py stock-eod-backfill --help
+python main.py index-eod-backfill --help
+python main.py stock-intraday-backfill --help
+python main.py stock-eod --help
+python main.py index-eod --help
+git diff --check
+git diff --exit-code 6410f7297ab3b62a96c15b63228657c6239967ec -- schema.sql migrations src/providers src/contracts src/database src/quality src/features .github/workflows src/cli
+```
+
+Focused **624 passed, 3 skipped**; full local **1,370 passed, 44 skipped**. Skips require an unavailable disposable PostgreSQL URL and are not claimed passed. Compile/5 CLI help/diff checks passed. AST comparison verifies 12 original maintenance definitions and the Index runner unchanged; three fresh import orders passed and Index does not load maintenance. No repository lint configuration. PostgreSQL 16 CI evidence is recorded separately in the PR.
+
+### Modified files
+
+- `docs/backfill/README.md`
+- `docs/backfill/README.vi.md`
+- `src/ingest/README.md`
+- `src/ingest/README.vi.md`
+- `src/ingest/__init__.py`
+- `src/ingest/index_daily/README.md`
+- `src/ingest/index_daily/README.vi.md`
+- `src/ingest/index_daily/index_backfill.py`
+- `src/ingest/maintenance/README.md`
+- `src/ingest/maintenance/README.vi.md`
+- `src/ingest/maintenance/backfill.py`
+- `src/ingest/shared/README.md`
+- `src/ingest/shared/README.vi.md`
+- `src/ingest/stock_daily/README.md`
+- `src/ingest/stock_daily/README.vi.md`
+- `tests/pipeline/test_backfill_pipeline.py`
+
+### Created files
+
+- `src/ingest/shared/backfill_range.py`
+- `src/ingest/stock_daily/backfill.py`
+- `tests/fixtures/eod_backfill_baseline.json`
+- `tests/pipeline/test_backfill_ownership.py`
+
+No files deleted.
+
+
 ## Exact daily numerics — 4 November 2026
 
 Daily mapping/contract 3.0.0 uses Decimal for money/prices/levels/percentages and
