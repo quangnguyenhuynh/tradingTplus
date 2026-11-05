@@ -1,0 +1,1131 @@
+{
+  "captured_from_dev": "6410f7297ab3b62a96c15b63228657c6239967ec",
+  "note": "Captured before moving code; synthetic ingest/provider stubs and clock frozen to 2026-11-05. Existing Stock/Index aggregation differences are intentional baselines.",
+  "cases": {
+    "stock": {
+      "mixed_explicit": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": "ssi_v3"
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "10/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ],
+              "data_source": "ssi_v3"
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ],
+              "data_source": "ssi_v3"
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ],
+              "data_source": "ssi_v3"
+            }
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "10/07/2026",
+          "to_date": "14/07/2026",
+          "symbol_scope": "EXPLICIT",
+          "requested_symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbol_count": 2,
+          "requested_calendar_days": 5,
+          "processed_days": 3,
+          "skipped_weekend_days": 2,
+          "skipped_weekend_dates": [
+            "11/07/2026",
+            "12/07/2026"
+          ],
+          "ok_days": 1,
+          "partial_days": 1,
+          "failed_days": 1,
+          "error_count": 1,
+          "errors": [
+            {
+              "date": "14/07/2026",
+              "error": "synthetic rejection",
+              "error_type": "MISMATCH"
+            }
+          ],
+          "day_summaries": [
+            {
+              "flow": "backfill-daily-day",
+              "date": "10/07/2026",
+              "daily_summary": {
+                "date": "10/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 2,
+                "partial_clean_writes": 0,
+                "rejected_records": 0,
+                "mapping_failures": 0,
+                "persistence_failures": 0,
+                "validation_issues": 0
+              },
+              "status": "OK"
+            },
+            {
+              "flow": "backfill-daily-day",
+              "date": "13/07/2026",
+              "daily_summary": {
+                "date": "13/07/2026",
+                "status": "PARTIAL",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 0,
+                "partial_clean_writes": 1,
+                "rejected_records": 0,
+                "mapping_failures": 0,
+                "persistence_failures": 0,
+                "validation_issues": 1
+              },
+              "status": "PARTIAL"
+            },
+            {
+              "flow": "backfill-daily-day",
+              "date": "14/07/2026",
+              "daily_summary": {
+                "date": "14/07/2026",
+                "status": "FAILED",
+                "errors": [
+                  {
+                    "error": "synthetic rejection",
+                    "error_type": "MISMATCH"
+                  }
+                ],
+                "error_count": 1,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 0,
+                "partial_clean_writes": 0,
+                "rejected_records": 2,
+                "mapping_failures": 1,
+                "persistence_failures": 0,
+                "validation_issues": 1
+              },
+              "status": "FAILED"
+            }
+          ],
+          "status": "PARTIAL",
+          "valid_clean_writes": 2,
+          "partial_clean_writes": 1,
+          "rejected_records": 2,
+          "mapping_failures": 1,
+          "persistence_failures": 0,
+          "validation_issues": 2
+        }
+      },
+      "omitted_scope": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026"
+            ],
+            "kwargs": {
+              "symbols": null
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026"
+            ],
+            "kwargs": {
+              "symbols": null
+            }
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "13/07/2026",
+          "to_date": "14/07/2026",
+          "symbol_scope": "ALL_ACTIVE",
+          "requested_symbols": null,
+          "symbols": null,
+          "symbol_count": 0,
+          "requested_calendar_days": 2,
+          "processed_days": 2,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 2,
+          "partial_days": 0,
+          "failed_days": 0,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [
+            {
+              "flow": "backfill-daily-day",
+              "date": "13/07/2026",
+              "daily_summary": {
+                "date": "13/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 2,
+                "partial_clean_writes": 0,
+                "rejected_records": 0,
+                "mapping_failures": 0,
+                "persistence_failures": 0,
+                "validation_issues": 0
+              },
+              "status": "OK"
+            },
+            {
+              "flow": "backfill-daily-day",
+              "date": "14/07/2026",
+              "daily_summary": {
+                "date": "14/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 2,
+                "partial_clean_writes": 0,
+                "rejected_records": 0,
+                "mapping_failures": 0,
+                "persistence_failures": 0,
+                "validation_issues": 0
+              },
+              "status": "OK"
+            }
+          ],
+          "status": "OK",
+          "valid_clean_writes": 4,
+          "partial_clean_writes": 0,
+          "rejected_records": 0,
+          "mapping_failures": 0,
+          "persistence_failures": 0,
+          "validation_issues": 0
+        }
+      },
+      "weekend_only": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "11/07/2026",
+          "to_date": "12/07/2026",
+          "symbol_scope": "EXPLICIT",
+          "requested_symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbol_count": 2,
+          "requested_calendar_days": 2,
+          "processed_days": 0,
+          "skipped_weekend_days": 2,
+          "skipped_weekend_dates": [
+            "11/07/2026",
+            "12/07/2026"
+          ],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 0,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [],
+          "status": "OK",
+          "valid_clean_writes": 0,
+          "partial_clean_writes": 0,
+          "rejected_records": 0,
+          "mapping_failures": 0,
+          "persistence_failures": 0,
+          "validation_issues": 0
+        }
+      },
+      "exception_continuation": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ]
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ]
+            }
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "13/07/2026",
+          "to_date": "14/07/2026",
+          "symbol_scope": "EXPLICIT",
+          "requested_symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbol_count": 2,
+          "requested_calendar_days": 2,
+          "processed_days": 2,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 1,
+          "partial_days": 0,
+          "failed_days": 1,
+          "error_count": 1,
+          "errors": [
+            {
+              "date": "13/07/2026",
+              "error": "synthetic source outage"
+            }
+          ],
+          "day_summaries": [
+            {
+              "flow": "backfill-daily-day",
+              "date": "13/07/2026",
+              "status": "FAILED",
+              "error": "synthetic source outage"
+            },
+            {
+              "flow": "backfill-daily-day",
+              "date": "14/07/2026",
+              "daily_summary": {
+                "date": "14/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 2,
+                "partial_clean_writes": 0,
+                "rejected_records": 0,
+                "mapping_failures": 0,
+                "persistence_failures": 0,
+                "validation_issues": 0
+              },
+              "status": "OK"
+            }
+          ],
+          "status": "PARTIAL",
+          "valid_clean_writes": 2,
+          "partial_clean_writes": 0,
+          "rejected_records": 0,
+          "mapping_failures": 0,
+          "persistence_failures": 0,
+          "validation_issues": 0
+        }
+      },
+      "failed_without_details": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ]
+            }
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "13/07/2026",
+          "to_date": "13/07/2026",
+          "symbol_scope": "EXPLICIT",
+          "requested_symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbol_count": 2,
+          "requested_calendar_days": 1,
+          "processed_days": 1,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 1,
+          "error_count": 1,
+          "errors": [
+            {
+              "date": "13/07/2026",
+              "error": "daily ingest returned FAILED without error details"
+            }
+          ],
+          "day_summaries": [
+            {
+              "flow": "backfill-daily-day",
+              "date": "13/07/2026",
+              "daily_summary": {
+                "date": "13/07/2026",
+                "status": "FAILED",
+                "errors": [],
+                "error_count": 0,
+                "symbols": [
+                  "SSI",
+                  "HPG"
+                ],
+                "symbol_count": 2,
+                "valid_clean_writes": 0,
+                "partial_clean_writes": 0,
+                "rejected_records": 2,
+                "mapping_failures": 1,
+                "persistence_failures": 0,
+                "validation_issues": 1
+              },
+              "status": "FAILED"
+            }
+          ],
+          "status": "FAILED",
+          "valid_clean_writes": 0,
+          "partial_clean_writes": 0,
+          "rejected_records": 2,
+          "mapping_failures": 1,
+          "persistence_failures": 0,
+          "validation_issues": 1
+        }
+      },
+      "reversed": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "from_date must be <= to_date"
+        }
+      },
+      "future": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "Date 06/11/2026 is in the future relative to 2026-11-05"
+        }
+      },
+      "empty_scope": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "Explicit symbol scope must contain at least one non-blank symbol"
+        }
+      },
+      "invalid_status": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026"
+            ],
+            "kwargs": {
+              "symbols": [
+                "SSI",
+                "HPG"
+              ]
+            }
+          }
+        ],
+        "result": {
+          "flow": "backfill-daily",
+          "from_date": "13/07/2026",
+          "to_date": "13/07/2026",
+          "symbol_scope": "EXPLICIT",
+          "requested_symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbols": [
+            "SSI",
+            "HPG"
+          ],
+          "symbol_count": 2,
+          "requested_calendar_days": 1,
+          "processed_days": 1,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 1,
+          "error_count": 1,
+          "errors": [
+            {
+              "date": "13/07/2026",
+              "error": "daily_summary returned invalid status: 'UNRECOGNIZED'"
+            }
+          ],
+          "day_summaries": [
+            {
+              "flow": "backfill-daily-day",
+              "date": "13/07/2026",
+              "status": "FAILED",
+              "error": "daily_summary returned invalid status: 'UNRECOGNIZED'"
+            }
+          ],
+          "status": "FAILED",
+          "valid_clean_writes": 0,
+          "partial_clean_writes": 0,
+          "rejected_records": 0,
+          "mapping_failures": 0,
+          "persistence_failures": 0,
+          "validation_issues": 0
+        }
+      },
+      "source_before_range": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "stock_daily",
+            "source": "blocked"
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "synthetic provider unavailable"
+        }
+      }
+    },
+    "index": {
+      "mixed_explicit": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": "ssi_v3"
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "10/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {
+              "data_source": "ssi_v3"
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {
+              "data_source": "ssi_v3"
+            }
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {
+              "data_source": "ssi_v3"
+            }
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "10/07/2026",
+          "to_date": "14/07/2026",
+          "requested_calendar_days": 5,
+          "processed_days": 3,
+          "skipped_weekend_days": 2,
+          "skipped_weekend_dates": [
+            "11/07/2026",
+            "12/07/2026"
+          ],
+          "ok_days": 1,
+          "partial_days": 1,
+          "failed_days": 1,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [
+            {
+              "flow": "index-backfill-day",
+              "date": "10/07/2026",
+              "index_daily_summary": {
+                "date": "10/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 2
+              },
+              "status": "OK"
+            },
+            {
+              "flow": "index-backfill-day",
+              "date": "13/07/2026",
+              "index_daily_summary": {
+                "date": "13/07/2026",
+                "status": "PARTIAL",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 1
+              },
+              "status": "PARTIAL"
+            },
+            {
+              "flow": "index-backfill-day",
+              "date": "14/07/2026",
+              "index_daily_summary": {
+                "date": "14/07/2026",
+                "status": "FAILED",
+                "errors": [
+                  {
+                    "error": "synthetic rejection",
+                    "error_type": "MISMATCH"
+                  }
+                ],
+                "error_count": 1,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 0
+              },
+              "status": "FAILED"
+            }
+          ],
+          "status": "PARTIAL",
+          "index_scope": "EXPLICIT",
+          "requested_indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "omitted_scope": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026",
+              null
+            ],
+            "kwargs": {}
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026",
+              null
+            ],
+            "kwargs": {}
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "13/07/2026",
+          "to_date": "14/07/2026",
+          "requested_calendar_days": 2,
+          "processed_days": 2,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 2,
+          "partial_days": 0,
+          "failed_days": 0,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [
+            {
+              "flow": "index-backfill-day",
+              "date": "13/07/2026",
+              "index_daily_summary": {
+                "date": "13/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "VNINDEX",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 2
+              },
+              "status": "OK"
+            },
+            {
+              "flow": "index-backfill-day",
+              "date": "14/07/2026",
+              "index_daily_summary": {
+                "date": "14/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "VNINDEX",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 2
+              },
+              "status": "OK"
+            }
+          ],
+          "status": "OK",
+          "index_scope": "ALL_ACTIVE",
+          "requested_indexes": null,
+          "indexes": [
+            "VNINDEX",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "weekend_only": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "11/07/2026",
+          "to_date": "12/07/2026",
+          "requested_calendar_days": 2,
+          "processed_days": 0,
+          "skipped_weekend_days": 2,
+          "skipped_weekend_dates": [
+            "11/07/2026",
+            "12/07/2026"
+          ],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 0,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [],
+          "status": "OK",
+          "index_scope": "EXPLICIT",
+          "requested_indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "exception_continuation": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {}
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "14/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {}
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "13/07/2026",
+          "to_date": "14/07/2026",
+          "requested_calendar_days": 2,
+          "processed_days": 2,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 1,
+          "partial_days": 0,
+          "failed_days": 1,
+          "error_count": 1,
+          "errors": [
+            {
+              "date": "13/07/2026",
+              "error": "synthetic source outage"
+            }
+          ],
+          "day_summaries": [
+            {
+              "flow": "index-backfill-day",
+              "date": "13/07/2026",
+              "status": "FAILED",
+              "error": "synthetic source outage"
+            },
+            {
+              "flow": "index-backfill-day",
+              "date": "14/07/2026",
+              "index_daily_summary": {
+                "date": "14/07/2026",
+                "status": "OK",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 2
+              },
+              "status": "OK"
+            }
+          ],
+          "status": "PARTIAL",
+          "index_scope": "EXPLICIT",
+          "requested_indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "failed_without_details": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {}
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "13/07/2026",
+          "to_date": "13/07/2026",
+          "requested_calendar_days": 1,
+          "processed_days": 1,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 1,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [
+            {
+              "flow": "index-backfill-day",
+              "date": "13/07/2026",
+              "index_daily_summary": {
+                "date": "13/07/2026",
+                "status": "FAILED",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 0
+              },
+              "status": "FAILED"
+            }
+          ],
+          "status": "FAILED",
+          "index_scope": "EXPLICIT",
+          "requested_indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "reversed": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "from_date must be <= to_date"
+        }
+      },
+      "future": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "Date 06/11/2026 is in the future relative to 2026-11-05"
+        }
+      },
+      "empty_scope": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "Explicit index scope must contain at least one non-blank index code"
+        }
+      },
+      "invalid_status": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": null
+          },
+          {
+            "kind": "ingest",
+            "args": [
+              "13/07/2026",
+              [
+                "vnindex",
+                "VN30"
+              ]
+            ],
+            "kwargs": {}
+          }
+        ],
+        "result": {
+          "flow": "index-backfill",
+          "from_date": "13/07/2026",
+          "to_date": "13/07/2026",
+          "requested_calendar_days": 1,
+          "processed_days": 1,
+          "skipped_weekend_days": 0,
+          "skipped_weekend_dates": [],
+          "ok_days": 0,
+          "partial_days": 0,
+          "failed_days": 0,
+          "error_count": 0,
+          "errors": [],
+          "day_summaries": [
+            {
+              "flow": "index-backfill-day",
+              "date": "13/07/2026",
+              "index_daily_summary": {
+                "date": "13/07/2026",
+                "status": "UNRECOGNIZED",
+                "errors": [],
+                "error_count": 0,
+                "indexes": [
+                  "vnindex",
+                  "VN30"
+                ],
+                "index_count": 2,
+                "index_daily_count": 0
+              },
+              "status": "UNRECOGNIZED"
+            }
+          ],
+          "status": "FAILED",
+          "index_scope": "EXPLICIT",
+          "requested_indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "indexes": [
+            "vnindex",
+            "VN30"
+          ],
+          "index_count": 2
+        }
+      },
+      "source_before_range": {
+        "events": [
+          {
+            "kind": "resolve_source",
+            "dataset": "index_daily",
+            "source": "blocked"
+          }
+        ],
+        "exception": {
+          "type": "ValueError",
+          "message": "synthetic provider unavailable"
+        }
+      }
+    }
+  }
+}
