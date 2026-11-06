@@ -1,0 +1,90 @@
+name: TradingTPlus Index EOD
+
+on:
+  schedule:
+    # 08:07 Asia/Ho_Chi_Minh = 01:07 UTC, Tuesday-Saturday.
+    # Targets the previous calendar day (Monday-Friday), including Saturday -> Friday.
+    - cron: "7 1 * * 2-6"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional explicit trading date (DD/MM/YYYY or YYYY-MM-DD); blank retains CLI default"
+        required: false
+        type: string
+      indexes:
+        description: "Optional space-separated index codes"
+        required: false
+        type: string
+
+concurrency:
+  group: tradingtplus-index-eod-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  index-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SSI_API_KEY: ${{ secrets.SSI_API_KEY }}
+      SSI_API_SECRET: ${{ secrets.SSI_API_SECRET }}
+      RUN_EVENT: ${{ github.event_name }}
+      DATE_INPUT: ${{ inputs.date }}
+      INDEXES_INPUT: ${{ inputs.indexes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Resolve scheduled Index EOD date (workflow only)
+        id: resolve-date
+        shell: bash
+        run: |
+          python - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import os
+          from datetime import datetime, time, timedelta
+          from zoneinfo import ZoneInfo
+
+          now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+          event = os.environ["RUN_EVENT"]
+          manual = os.environ.get("DATE_INPUT", "").strip()
+          if event == "schedule":
+              slot = datetime.combine(now.date(), time(8, 7), tzinfo=now.tzinfo)
+              delay = (now - slot).total_seconds()
+              # Do not infer a target from a schedule that arrived too late.
+              if now.weekday() not in (1, 2, 3, 4, 5) or not 0 <= delay <= 4 * 3600:
+                  raise SystemExit("Index EOD schedule outside 08:07-12:07 VN Tue-Sat; run manually with --date")
+              target = (now.date() - timedelta(days=1)).strftime("%d/%m/%Y")
+              source = "scheduled_previous_day"
+          else:
+              # Omitted manual date is intentionally passed through to the existing CLI default.
+              target = manual
+              source = "manual" if manual else "cli_default"
+          print(f"runtime_vn={now.isoformat()}")
+          print(f"target_date={target}")
+          print(f"target_source={source}")
+          PY
+
+      - name: Run Index EOD
+        shell: bash
+        env:
+          TARGET_DATE: ${{ steps.resolve-date.outputs.target_date }}
+        run: |
+          echo "target_date=${TARGET_DATE:-CLI_DEFAULT}"
+          cmd=(python main.py index-eod)
+          if [ -n "$TARGET_DATE" ]; then
+            cmd+=("$TARGET_DATE")
+          fi
+          if [ -n "$INDEXES_INPUT" ]; then
+            read -r -a indexes <<< "$INDEXES_INPUT"
+            cmd+=(--indexes "${indexes[@]}")
+          fi
+          "${cmd[@]}"

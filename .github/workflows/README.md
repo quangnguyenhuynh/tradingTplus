@@ -1,15 +1,18 @@
-# .github/workflows — SSI v3
+# GitHub Actions — TradingTPlus
 
-Stock EOD keeps 09:30 UTC Mon–Fri; index EOD keeps 01:30 UTC Tue–Sat. Tests and explicit feature execution remain unchanged. Stock intraday has workflow_dispatch only, emits NOT_IMPLEMENTED and exits 1 without credentials or network/DB access. No scheduled master/streaming jobs exist.
+## Active scheduled EOD workflows
 
-| Capability | Status |
-| --- | --- |
-| SSI v3 Stock Daily / Index Daily | ACTIVE |
-| SSI v3 Stock Intraday ingestion | NOT_IMPLEMENTED |
-| SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
-| SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
-| Stock technical, foreign and index features | ACTIVE |
-| Historical Analog / Screener V1/V2 | RESEARCH_ACTIVE |
-| SSI v2 REST / legacy SignalR connection | RETIRED |
+| Workflow | Vietnam schedule | UTC cron | Explicit target date |
+| --- | --- | --- | --- |
+| `stock-eod-scheduled.yml` | 17:07 Monday–Friday | `7 10 * * 1-5` | The same Vietnam calendar day |
+| `index-eod-scheduled.yml` | 08:07 Tuesday–Saturday | `7 1 * * 2-6` | The previous Vietnam calendar day |
 
-No schema, RPC, conflict-key, migration or production-data changes are part of this restructuring. Historical raw/clean/master/streaming/features and source provenance remain untouched. No migration or backfill is required. Ingest never starts features or research automatically.
+These replace the retired `stock-eod.yml` and `index-eod-v2.yml`. Schedules are in **UTC** and Vietnam is UTC+7 (no daylight saving time). GitHub Actions schedule starts may be delayed. To avoid silently ingesting an unintended session, scheduled runs **fail closed** unless execution starts within four hours of the configured local slot, on its configured weekday. A missed run requires a manual dispatch with an explicit date. There is no automatic catch-up or holiday calendar; an empty SSI response must never create synthetic data.
+
+Scheduled workflows resolve their target dates inside the workflow and always pass an explicit date to `python main.py stock-eod` or `python main.py index-eod`. Manual dispatch with an explicit `date` passes that date unchanged; manual dispatch with a blank date intentionally invokes the existing CLI **without** a date, preserving its original default-date behavior. The ingestion code and `src.ingest.workflows.workflow_dates` are not changed.
+
+**Warning:** These are **one run per pipeline per trading session**, not two retries of the same dataset: Stock EOD runs that afternoon and Index EOD runs the next morning. The schedules assume a Monday–Friday market calendar and do not independently verify holidays, data freshness or completeness. The existing Stock EOD completeness check remains active. A repeat ingestion of the same date must be deliberately initiated; data reconciliation/idempotent update behavior remains governed by existing persistence rules.
+
+Other workflows (`features.yml`, `tests.yml`, `stock-intraday.yml`) are untouched. No features, signals, backtests or index/stock cross-invocation are automatically triggered by the EOD workflows.
+
+No migration, database rewrite or historical backfill is part of this workflow-only change.
