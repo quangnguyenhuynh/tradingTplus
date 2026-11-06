@@ -1,15 +1,18 @@
-# .github/workflows — SSI v3
+# GitHub Actions — TradingTPlus
 
-Stock EOD keeps 09:30 UTC Mon–Fri; index EOD keeps 01:30 UTC Tue–Sat. Tests and explicit feature execution remain unchanged. Stock intraday has workflow_dispatch only, emits NOT_IMPLEMENTED and exits 1 without credentials or network/DB access. No scheduled master/streaming jobs exist.
+## Các workflow EOD đang hoạt động
 
-| Capability | Status |
-| --- | --- |
-| SSI v3 Stock Daily / Index Daily | ACTIVE |
-| SSI v3 Stock Intraday ingestion | NOT_IMPLEMENTED |
-| SSI v3 Master Data synchronization | NOT_IMPLEMENTED |
-| SSI v3 Streaming / Orderbook | NOT_IMPLEMENTED |
-| Stock technical, foreign and index features | ACTIVE |
-| Historical Analog / Screener V1/V2 | RESEARCH_ACTIVE |
-| SSI v2 REST / legacy SignalR connection | RETIRED |
+| Workflow | Lịch giờ Việt Nam | Cron UTC | Ngày dữ liệu được truyền tường minh |
+| --- | --- | --- | --- |
+| `stock-eod-scheduled.yml` | 17:07 thứ Hai–thứ Sáu | `7 10 * * 1-5` | Chính ngày chạy tại Việt Nam |
+| `index-eod-scheduled.yml` | 08:07 thứ Ba–thứ Bảy | `7 1 * * 2-6` | Ngày lịch trước đó tại Việt Nam |
 
-Không thay đổi schema, dữ liệu lịch sử hoặc công thức. Chỉ bật lại ingest intraday/master/streaming sau khi có adapter được kiểm chứng.
+Hai file mới thay thế `stock-eod.yml` và `index-eod-v2.yml` đã nghỉ. GitHub cron dùng **UTC**, Việt Nam UTC+7 và không có DST. GitHub Actions có thể khởi chạy trễ. Để tránh ghi nhầm phiên, job **dừng và báo lỗi** nếu chạy ngoài khoảng 4 giờ kể từ mốc giờ và thứ được cấu hình. Job bị lỡ phải chạy tay bằng workflow_dispatch và nhập ngày tường minh; không tự backfill hoặc dò ngày lễ. SSI trả rỗng không được tạo dữ liệu giả.
+
+Với lịch tự động, workflow tính ngày mục tiêu và truyền ngày tường minh vào `python main.py stock-eod` hoặc `python main.py index-eod`. Chạy thủ công có nhập `date` dùng đúng ngày nhập; chạy thủ công để trống `date` sẽ gọi CLI **không kèm ngày**, vì vậy giữ nguyên hành vi mặc định của code hiện tại. Không sửa code ingest hoặc `src.ingest.workflows.workflow_dates`.
+
+**Lưu ý:** Đây là **mỗi pipeline chạy một lần cho một phiên**, không phải hai lượt retry của cùng một dataset: Stock chạy chiều phiên T, Index chạy sáng ngày kế tiếp. Lịch giả định thị trường giao dịch thứ Hai–thứ Sáu, không tự kiểm tra ngày lễ, SSI đã đủ dữ liệu hay chưa. Stock EOD vẫn chạy completeness hiện có. Khi cần lấy lại cùng phiên, chạy lại có chủ đích theo ngày; quy tắc ghi lại raw/clean giữ nguyên.
+
+Các workflow khác (`features.yml`, `tests.yml`, `stock-intraday.yml`) không thay đổi. Không tự chạy feature/signal/backtest hoặc gọi chéo Stock/Index.
+
+Không migration, không sửa DB và không yêu cầu backfill lịch sử trong thay đổi workflow này.
