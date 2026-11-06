@@ -1,85 +1,78 @@
+"""Workflow-only EOD scheduling; never contacts SSI or Supabase."""
 from datetime import datetime
 from pathlib import Path
+import textwrap
 
-from src.ingest.shared.date_utils import VN_TZ
-from src.ingest.workflows.workflow_dates import resolve_workflow_date
+import pytest
 
-
-def test_stock_eod_workflow_uses_renamed_stock_only_command():
-    text = Path(".github/workflows/stock-eod.yml").read_text()
-    assert "name: TradingTPlus Stock EOD Pipeline" in text
-    assert 'cron: "30 9 * * 1-5"' in text
-    assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
-    assert "  stock-eod:" in text
-    assert "tradingtplus-stock-eod-" in text
-    assert 'cmd=(python main.py stock-eod "$TARGET_DATE")' in text
-    assert "src.ingest.workflows.workflow_dates stock-eod" in text
-    assert "python main.py eod" not in text
-    assert "data_source:" in text
-    assert '!= "auto"' in text
-    assert not Path(".github/workflows/eod.yml").exists()
+WORKFLOWS = Path(".github/workflows")
+STOCK = WORKFLOWS / "stock-eod-scheduled.yml"
+INDEX = WORKFLOWS / "index-eod-scheduled.yml"
 
 
-def test_index_eod_remains_independent():
-    text = Path(".github/workflows/index-eod-v2.yml").read_text()
-    assert "python main.py index-eod" in text
-    assert 'cron: "30 1 * * 2-6"' in text
-    assert '      timezone: "Asia/Ho_Chi_Minh"' not in text
-    assert "src.ingest.workflows.workflow_dates index" in text
-    assert 'cmd=(python main.py index-eod "$TARGET_DATE")' in text
-    for forbidden_command in (
-        "python main.py stock-eod",
-        "python main.py stock-intraday",
-        "python main.py features",
-        "python main.py signals",
-        "python main.py backtest",
-    ):
-        assert forbidden_command not in text
+def test_old_eod_workflows_retired_and_new_crons_correct():
+    assert not (WORKFLOWS / "stock-eod.yml").exists()
+    assert not (WORKFLOWS / "index-eod-v2.yml").exists()
+    stock, index = STOCK.read_text(), INDEX.read_text()
+    assert 'cron: "7 10 * * 1-5"' in stock   # 17:07 Vietnam, Mon-Fri
+    assert 'cron: "7 1 * * 2-6"' in index    # 08:07 Vietnam, Tue-Sat
+    assert 'cmd=(python main.py stock-eod)' in stock
+    assert 'cmd=(python main.py index-eod)' in index
+    assert 'cmd+=("$TARGET_DATE")' in stock
+    assert 'cmd+=("$TARGET_DATE")' in index
+    assert 'if [ -n "$TARGET_DATE" ]; then' in stock
+    assert 'if [ -n "$TARGET_DATE" ]; then' in index
+    assert "src.ingest.workflows.workflow_dates" not in stock + index
+    assert "features-daily" not in stock + index
+    assert 'read -r -a symbols <<< "$SYMBOLS_INPUT"' in stock
+    assert 'read -r -a indexes <<< "$INDEXES_INPUT"' in index
+    assert 'cmd+=(--data-source "$DATA_SOURCE_INPUT")' in stock
 
 
-def test_delayed_stock_schedule_uses_intended_vietnam_slot_date():
-    delayed_runtime = datetime(2026, 10, 6, 1, 46, tzinfo=VN_TZ)
-    result = resolve_workflow_date("stock", "schedule", now=delayed_runtime)
-    assert result.target_date == "05/10/2026"
-    assert result.target_source == "scheduled"
-
-
-def test_stock_manual_date_and_inputs_remain_supported():
-    result = resolve_workflow_date(
-        "stock",
-        "workflow_dispatch",
-        "05/10/2026",
-        now=datetime(2026, 10, 6, 1, 46, tzinfo=VN_TZ),
+def _run_date_resolver(path, now_iso, event, manual, monkeypatch, capsys):
+    """Run the exact inline workflow Python under a deterministic local clock."""
+    yaml = path.read_text()
+    script = yaml.split("python - <<'PY' | tee -a \"$GITHUB_OUTPUT\"", 1)[1].split("\n          PY", 1)[0]
+    code = textwrap.dedent(script)
+    assert 'datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))' in code
+    code = code.replace(
+        'datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))',
+        'datetime.fromisoformat(' + repr(now_iso) + ').replace(tzinfo=ZoneInfo("Asia/Ho_Chi_Minh"))',
     )
-    assert result.target_date == "05/10/2026"
-    assert result.target_source == "manual"
-    text = Path(".github/workflows/stock-eod.yml").read_text()
-    assert 'read -r -a symbols <<< "$SYMBOLS_INPUT"' in text
-    assert 'cmd+=(--data-source "$DATA_SOURCE_INPUT")' in text
+    monkeypatch.setenv("RUN_EVENT", event)
+    monkeypatch.setenv("DATE_INPUT", manual)
+    exec(compile(code, str(path), "exec"), {"__name__": "__main__"})
+    return dict(line.split("=", 1) for line in capsys.readouterr().out.splitlines())
 
 
-def test_index_tuesday_schedule_targets_monday_and_manual_date_wins():
-    tuesday_morning = datetime(2026, 10, 6, 8, 40, tzinfo=VN_TZ)
-    scheduled = resolve_workflow_date("index", "schedule", now=tuesday_morning)
-    manual = resolve_workflow_date(
-        "index", "workflow_dispatch", "02/10/2026", now=tuesday_morning
-    )
-    assert scheduled.target_date == "05/10/2026"
-    assert scheduled.target_source == "scheduled"
-    assert manual.target_date == "02/10/2026"
-    assert manual.target_source == "manual"
-
-    iso_manual = resolve_workflow_date(
-        "index", "workflow_dispatch", "2026-10-02", now=tuesday_morning
-    )
-    assert iso_manual.target_date == "2026-10-02"
+@pytest.mark.parametrize("path,now,target", [
+    (STOCK, "2026-11-05T17:07", "05/11/2026"),
+    (STOCK, "2026-11-06T18:30", "06/11/2026"),
+    (INDEX, "2026-11-06T08:07", "05/11/2026"),
+    (INDEX, "2026-11-07T08:10", "06/11/2026"),
+    (INDEX, "2026-11-10T09:00", "09/11/2026"),
+])
+def test_schedule_targets_intended_session(path, now, target, monkeypatch, capsys):
+    result = _run_date_resolver(path, now, "schedule", "", monkeypatch, capsys)
+    assert result["target_date"] == target
+    assert result["target_source"].startswith("scheduled_")
 
 
-def test_workflows_log_timing_resolution_context():
-    for workflow in ("stock-eod.yml", "index-eod-v2.yml"):
-        text = Path(".github/workflows", workflow).read_text()
-        assert 'echo "event=${{ github.event_name }}"' in text
-        assert 'echo "runtime_vn=${{ steps.resolve-date.outputs.runtime_vn }}"' in text
-        assert 'echo "scheduled_slot_vn=${{ steps.resolve-date.outputs.scheduled_slot_vn }}"' in text
-        assert 'echo "target_date=$TARGET_DATE"' in text
-        assert 'echo "target_source=${{ steps.resolve-date.outputs.target_source }}"' in text
+@pytest.mark.parametrize("path,now", [
+    (STOCK, "2026-11-06T02:00"),  # next-day execution must not select today
+    (STOCK, "2026-11-06T22:00"),  # too-late job
+    (INDEX, "2026-11-06T07:30"),  # early, before intended slot
+    (INDEX, "2026-11-09T08:10"),  # Monday is not a configured Index slot
+    (INDEX, "2026-11-07T13:00"),  # too-late job
+])
+def test_delayed_or_invalid_schedule_blocks(path, now, monkeypatch, capsys):
+    with pytest.raises(SystemExit):
+        _run_date_resolver(path, now, "schedule", "", monkeypatch, capsys)
+
+
+@pytest.mark.parametrize("path", [STOCK, INDEX])
+@pytest.mark.parametrize("date,source", [("", "cli_default"), ("05/11/2026", "manual"), ("2026-11-05", "manual")])
+def test_manual_date_or_original_cli_default(path, date, source, monkeypatch, capsys):
+    result = _run_date_resolver(path, "2026-11-06T02:00", "workflow_dispatch", date, monkeypatch, capsys)
+    assert result["target_date"] == date
+    assert result["target_source"] == source
