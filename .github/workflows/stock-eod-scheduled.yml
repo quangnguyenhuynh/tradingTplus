@@ -1,0 +1,101 @@
+name: TradingTPlus Stock EOD
+
+on:
+  schedule:
+    # 17:07 Asia/Ho_Chi_Minh = 10:07 UTC, Monday-Friday.
+    - cron: "7 10 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional explicit trading date (DD/MM/YYYY or YYYY-MM-DD); blank retains CLI default"
+        required: false
+        type: string
+      symbols:
+        description: "Optional space-separated active stock symbols"
+        required: false
+        type: string
+      data_source:
+        description: "Provider (auto selects default production source)"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - ssi_v3
+
+concurrency:
+  group: tradingtplus-stock-eod-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stock-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SSI_API_KEY: ${{ secrets.SSI_API_KEY }}
+      SSI_API_SECRET: ${{ secrets.SSI_API_SECRET }}
+      RUN_EVENT: ${{ github.event_name }}
+      DATE_INPUT: ${{ inputs.date }}
+      SYMBOLS_INPUT: ${{ inputs.symbols }}
+      DATA_SOURCE_INPUT: ${{ inputs.data_source }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Resolve scheduled Stock EOD date (workflow only)
+        id: resolve-date
+        shell: bash
+        run: |
+          python - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import os
+          from datetime import datetime, time
+          from zoneinfo import ZoneInfo
+
+          now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+          event = os.environ["RUN_EVENT"]
+          manual = os.environ.get("DATE_INPUT", "").strip()
+          if event == "schedule":
+              slot = datetime.combine(now.date(), time(17, 7), tzinfo=now.tzinfo)
+              delay = (now - slot).total_seconds()
+              # A schedule delayed into another day must not silently target the wrong session.
+              if now.weekday() >= 5 or not 0 <= delay <= 4 * 3600:
+                  raise SystemExit("Stock EOD schedule outside 17:07-21:07 VN on a weekday; run manually with --date")
+              target = now.strftime("%d/%m/%Y")
+              source = "scheduled_today"
+          else:
+              # Omitted manual date is intentionally passed through to the existing CLI default.
+              target = manual
+              source = "manual" if manual else "cli_default"
+          print(f"runtime_vn={now.isoformat()}")
+          print(f"target_date={target}")
+          print(f"target_source={source}")
+          PY
+
+      - name: Run Stock EOD
+        shell: bash
+        env:
+          TARGET_DATE: ${{ steps.resolve-date.outputs.target_date }}
+        run: |
+          echo "target_date=${TARGET_DATE:-CLI_DEFAULT}"
+          cmd=(python main.py stock-eod)
+          if [ -n "$TARGET_DATE" ]; then
+            cmd+=("$TARGET_DATE")
+          fi
+          if [ -n "$SYMBOLS_INPUT" ]; then
+            read -r -a symbols <<< "$SYMBOLS_INPUT"
+            cmd+=(--symbols "${symbols[@]}")
+          fi
+          if [ -n "$DATA_SOURCE_INPUT" ] && [ "$DATA_SOURCE_INPUT" != "auto" ]; then
+            cmd+=(--data-source "$DATA_SOURCE_INPUT")
+          fi
+          "${cmd[@]}"
