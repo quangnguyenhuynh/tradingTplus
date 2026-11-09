@@ -58,25 +58,29 @@ jobs:
         run: |
           python - <<'PY' | tee -a "$GITHUB_OUTPUT"
           import os
-          from datetime import datetime, time
+          from datetime import datetime, time, timedelta
           from zoneinfo import ZoneInfo
 
           now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
           event = os.environ["RUN_EVENT"]
           manual = os.environ.get("DATE_INPUT", "").strip()
+          slot = None
           if event == "schedule":
-              slot = datetime.combine(now.date(), time(17, 7), tzinfo=now.tzinfo)
-              delay = (now - slot).total_seconds()
-              # A schedule delayed into another day must not silently target the wrong session.
-              if now.weekday() >= 5 or not 0 <= delay <= 4 * 3600:
-                  raise SystemExit("Stock EOD schedule outside 17:07-21:07 VN on a weekday; run manually with --date")
-              target = now.strftime("%d/%m/%Y")
-              source = "scheduled_today"
+              for days_ago in range(8):
+                  candidate = datetime.combine(now.date() - timedelta(days=days_ago), time(17, 7), tzinfo=now.tzinfo)
+                  if candidate.weekday() < 5 and candidate <= now:
+                      slot = candidate
+                      break
+              if slot is None:
+                  raise SystemExit("No elapsed Stock EOD schedule slot in the past week")
+              target = slot.strftime("%d/%m/%Y")
+              source = "scheduled_latest_elapsed_slot"
           else:
               # Omitted manual date is intentionally passed through to the existing CLI default.
               target = manual
               source = "manual" if manual else "cli_default"
           print(f"runtime_vn={now.isoformat()}")
+          print(f"expected_slot_vn={slot.isoformat() if slot else ''}")
           print(f"target_date={target}")
           print(f"target_source={source}")
           PY
