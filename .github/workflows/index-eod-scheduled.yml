@@ -56,19 +56,23 @@ jobs:
           now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
           event = os.environ["RUN_EVENT"]
           manual = os.environ.get("DATE_INPUT", "").strip()
+          slot = None
           if event == "schedule":
-              slot = datetime.combine(now.date(), time(8, 7), tzinfo=now.tzinfo)
-              delay = (now - slot).total_seconds()
-              # Do not infer a target from a schedule that arrived too late.
-              if now.weekday() not in (1, 2, 3, 4, 5) or not 0 <= delay <= 4 * 3600:
-                  raise SystemExit("Index EOD schedule outside 08:07-12:07 VN Tue-Sat; run manually with --date")
-              target = (now.date() - timedelta(days=1)).strftime("%d/%m/%Y")
-              source = "scheduled_previous_day"
+              for days_ago in range(8):
+                  candidate = datetime.combine(now.date() - timedelta(days=days_ago), time(8, 7), tzinfo=now.tzinfo)
+                  if candidate.weekday() in (1, 2, 3, 4, 5) and candidate <= now:
+                      slot = candidate
+                      break
+              if slot is None:
+                  raise SystemExit("No elapsed Index EOD schedule slot in the past week")
+              target = (slot.date() - timedelta(days=1)).strftime("%d/%m/%Y")
+              source = "scheduled_latest_elapsed_slot"
           else:
               # Omitted manual date is intentionally passed through to the existing CLI default.
               target = manual
               source = "manual" if manual else "cli_default"
           print(f"runtime_vn={now.isoformat()}")
+          print(f"expected_slot_vn={slot.isoformat() if slot else ''}")
           print(f"target_date={target}")
           print(f"target_source={source}")
           PY
