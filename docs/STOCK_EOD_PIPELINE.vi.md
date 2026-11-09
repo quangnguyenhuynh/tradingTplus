@@ -43,7 +43,7 @@ python main.py stock-eod [DD/MM/YYYY] [--symbols SSI HPG]
 
 Khi bỏ ngày, pipeline chọn ngày trong tuần gần nhất tính cả hôm nay theo giờ Việt Nam; fallback lịch này không chứng minh đó là phiên giao dịch. Khi bỏ symbols, scope là `symbols.status='active'`. Symbols explicit được normalize rồi giao với scope daily; mã inactive/unknown được báo trong `ignored_symbols`.
 
-Workflow theo lịch truyền tường minh ngày thứ Hai–thứ Sáu đang chạy tại Việt Nam dưới dạng `DD/MM/YYYY`; nếu job thực thi ngoài khoảng **17:07–21:07 giờ Việt Nam** của ngày trong tuần đúng lịch, job dừng và báo lỗi để tránh chọn nhầm phiên. Chạy thủ công có ngày thì giữ đúng ngày yêu cầu; để trống ngày thì gọi CLI không kèm ngày và giữ nguyên hành vi mặc định cũ. GitHub Actions có thể bắt đầu trễ; slot lỡ cần chạy tay với ngày tường minh.
+Workflow theo lịch truyền tường minh ngày thứ Hai–thứ Sáu đang chạy tại Việt Nam dưới dạng `DD/MM/YYYY`; job dùng **mốc 17:07 thứ Hai–thứ Sáu gần nhất đã qua** theo giờ Việt Nam, kể cả chạy sau nửa đêm hoặc cuối tuần. Log ghi mốc và ngày mục tiêu. Nếu trễ qua mốc lịch kế tiếp, job có thể chọn mốc mới; phiên cũ cần được chạy tay với ngày tường minh. Chạy thủ công có ngày thì giữ đúng ngày yêu cầu; để trống ngày thì gọi CLI không kèm ngày và giữ nguyên hành vi mặc định cũ. GitHub Actions có thể bắt đầu trễ; slot lỡ cần chạy tay với ngày tường minh.
 
 Các stage: resolve scope, nguồn SSI v3 daily đã resolve (`securitiesSummary`; v2 đã retired và không khả dụng), raw `stock_raw_daily`, clean đã validate `stock_daily`, rồi `check_daily_ingest`. Final status chỉ dùng bằng chứng daily. Compatibility key deprecated `intraday_summary` luôn là `null`.
 
