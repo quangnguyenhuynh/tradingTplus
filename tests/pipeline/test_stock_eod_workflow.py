@@ -45,29 +45,32 @@ def _run_date_resolver(path, now_iso, event, manual, monkeypatch, capsys):
     return dict(line.split("=", 1) for line in capsys.readouterr().out.splitlines())
 
 
-@pytest.mark.parametrize("path,now,target", [
-    (STOCK, "2026-11-05T17:07", "05/11/2026"),
-    (STOCK, "2026-11-06T18:30", "06/11/2026"),
-    (INDEX, "2026-11-06T08:07", "05/11/2026"),
-    (INDEX, "2026-11-07T08:10", "06/11/2026"),
-    (INDEX, "2026-11-10T09:00", "09/11/2026"),
+@pytest.mark.parametrize("path,now,target,slot", [
+    (STOCK, "2026-11-05T17:07", "05/11/2026", "2026-11-05T17:07"),
+    (STOCK, "2026-11-06T18:30", "06/11/2026", "2026-11-06T17:07"),
+    (STOCK, "2026-11-07T00:25", "06/11/2026", "2026-11-06T17:07"),
+    (STOCK, "2026-11-08T10:00", "06/11/2026", "2026-11-06T17:07"),
+    (STOCK, "2026-11-09T16:30", "06/11/2026", "2026-11-06T17:07"),
+    (STOCK, "2026-11-09T17:08", "09/11/2026", "2026-11-09T17:07"),
+    (INDEX, "2026-11-06T08:07", "05/11/2026", "2026-11-06T08:07"),
+    (INDEX, "2026-11-07T08:10", "06/11/2026", "2026-11-07T08:07"),
+    (INDEX, "2026-11-08T01:00", "06/11/2026", "2026-11-07T08:07"),
+    (INDEX, "2026-11-10T07:30", "06/11/2026", "2026-11-07T08:07"),
+    (INDEX, "2026-11-10T09:00", "09/11/2026", "2026-11-10T08:07"),
 ])
-def test_schedule_targets_intended_session(path, now, target, monkeypatch, capsys):
+def test_schedule_targets_latest_elapsed_slot(path, now, target, slot, monkeypatch, capsys):
     result = _run_date_resolver(path, now, "schedule", "", monkeypatch, capsys)
     assert result["target_date"] == target
-    assert result["target_source"].startswith("scheduled_")
+    assert result["target_source"] == "scheduled_latest_elapsed_slot"
+    assert result["expected_slot_vn"] == slot + ":00+07:00"
 
 
-@pytest.mark.parametrize("path,now", [
-    (STOCK, "2026-11-06T02:00"),  # next-day execution must not select today
-    (STOCK, "2026-11-06T22:00"),  # too-late job
-    (INDEX, "2026-11-06T07:30"),  # early, before intended slot
-    (INDEX, "2026-11-09T08:10"),  # Monday is not a configured Index slot
-    (INDEX, "2026-11-07T13:00"),  # too-late job
-])
-def test_delayed_or_invalid_schedule_blocks(path, now, monkeypatch, capsys):
-    with pytest.raises(SystemExit):
-        _run_date_resolver(path, now, "schedule", "", monkeypatch, capsys)
+@pytest.mark.parametrize("path", [STOCK, INDEX])
+def test_scheduled_jobs_log_expected_slot(path):
+    text = path.read_text()
+    assert 'print(f"expected_slot_vn=' in text
+    assert 'for days_ago in range(8):' in text
+    assert '4 * 3600' not in text
 
 
 @pytest.mark.parametrize("path", [STOCK, INDEX])
