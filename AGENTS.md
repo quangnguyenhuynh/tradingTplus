@@ -535,3 +535,85 @@ A task is complete only when applicable conditions are met:
 * data impact and risks are documented.
 
 Otherwise report the task as partial or blocked.
+
+## Multi-Agent Orchestration Workflow
+
+### 1. ROLE SEPARATION
+
+Orchestrator:
+
+* Analyze the approved task and existing repository.
+* Break complex tasks into scoped subtasks.
+* Manage dependencies between workers.
+* Avoid unnecessary parallel workers.
+* Never change approved business or trading logic.
+* Coordinate integration and final reporting.
+
+Worker:
+
+* Implement only the assigned subtask.
+* Follow all existing AGENTS.md instructions.
+* Inspect relevant code before implementation.
+* Run relevant tests.
+* Report changes, dependencies and risks.
+
+Reviewer:
+
+* Independently review implementation.
+* Check compliance with AGENTS.md.
+* Verify trading logic and data integrity.
+* Check for regression and look-ahead leakage.
+* Review database and migration risks.
+* Report findings without silently changing code.
+
+### 2. GIT WORKFLOW
+
+* Base all new work on the latest origin/dev.
+* Use an isolated branch and worktree for each task.
+* Never push directly to dev or main.
+* Never force push shared branches.
+* Never delete uncommitted work.
+* Never use destructive Git commands without approval.
+* All integration PRs must target dev.
+* Never merge PRs without explicit user approval.
+
+### 3. MULTI-AGENT COORDINATION
+
+* Define file ownership before parallel implementation.
+* Avoid concurrent changes to the same module.
+* Execute dependent tasks sequentially.
+* Do not create conflicting database migrations.
+* Establish shared contracts before parallel coding.
+* Validate combined changes before final integration.
+* Do not create unnecessary or duplicate tasks.
+
+### 4. DATA AND ENVIRONMENT SAFETY
+
+* For production Supabase, prepare scripts and instructions only; never execute production writes, migrations or backfills.
+* Never execute production migrations automatically.
+* Never expose or commit credentials.
+* Never modify the separate Mac mini test checkout.
+* Never delete or replace existing datasets outside an explicitly approved scope. Idempotent upserts, reruns and backfills are allowed within the approved scope and existing data contracts in isolated test environments; preserve raw payloads and traceability.
+* Use mock data or isolated test environments.
+* Never automatically deploy or restart services.
+
+### 5. APPROVAL REQUIREMENTS
+
+Require explicit user approval before:
+
+* Changing agreed trading logic.
+* Changing database architecture.
+* Executing destructive operations.
+* Merging pull requests.
+* Deploying or restarting services.
+
+A direct user request that clearly defines the action and scope counts as explicit approval for that action within that scope; do not ask again unless the scope changes or material information is missing. Approval applies only to permitted actions and does not authorize agents to execute production writes, migrations or backfills; production work remains limited to preparing scripts and instructions.
+
+### 6. COMPLETION AND REPORTING
+
+* Run relevant tests and review integration risks.
+* Do not claim success when tests fail.
+* Preserve all existing final-report requirements.
+* Report worker assignments and integration status.
+* Include branch, commit and pull request information.
+* Use Vietnamese for user-facing reports.
