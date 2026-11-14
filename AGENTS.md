@@ -589,11 +589,11 @@ Reviewer:
 
 ### 4. DATA AND ENVIRONMENT SAFETY
 
-* Never write to production Supabase.
+* For production Supabase, prepare scripts and instructions only; never execute production writes, migrations or backfills.
 * Never execute production migrations automatically.
 * Never expose or commit credentials.
 * Never modify the separate Mac mini test checkout.
-* Never delete or overwrite existing datasets.
+* Never delete or replace existing datasets outside an explicitly approved scope. Idempotent upserts, reruns and backfills are allowed within the approved scope and existing data contracts in isolated test environments; preserve raw payloads and traceability.
 * Use mock data or isolated test environments.
 * Never automatically deploy or restart services.
 
@@ -604,9 +604,10 @@ Require explicit user approval before:
 * Changing agreed trading logic.
 * Changing database architecture.
 * Executing destructive operations.
-* Running production writes or backfills.
 * Merging pull requests.
 * Deploying or restarting services.
+
+A direct user request that clearly defines the action and scope counts as explicit approval for that action within that scope; do not ask again unless the scope changes or material information is missing. Approval applies only to permitted actions and does not authorize agents to execute production writes, migrations or backfills; production work remains limited to preparing scripts and instructions.
 
 ### 6. COMPLETION AND REPORTING
 
