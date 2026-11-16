@@ -31,6 +31,10 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      DATE_INPUT: ${{ inputs.date }}
+      MODE_INPUT: ${{ inputs.mode }}
+      SYMBOLS_INPUT: ${{ inputs.symbols }}
+      TIMEFRAMES_INPUT: ${{ inputs.timeframes }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,8 +44,74 @@ jobs:
       - name: Run explicit feature pipeline
         shell: bash
         run: |
-          cmd=(python main.py features --mode "${{ inputs.mode }}")
-          if [ -n "${{ inputs.date }}" ]; then cmd+=(--date "${{ inputs.date }}"); fi
-          if [ -n "${{ inputs.symbols }}" ]; then cmd+=(--symbols ${{ inputs.symbols }}); fi
-          if [ -n "${{ inputs.timeframes }}" ]; then cmd+=(--timeframes ${{ inputs.timeframes }}); fi
+          set -euo pipefail
+
+          die() {
+            printf '::error::%s\n' "$1" >&2
+            exit 1
+          }
+
+          is_blank() {
+            [[ $1 != *[![:space:]]* ]]
+          }
+
+          reject_control_chars() {
+            local name=$1 value=$2
+            if [[ $value == *$'\r'* || $value == *$'\n'* ]]; then
+              die "$name input must not contain CR or LF characters"
+            fi
+          }
+
+          reject_option_like_tokens() {
+            local name=$1
+            shift
+            local token
+            for token in "$@"; do
+              if [[ $token == -* ]]; then
+                die "$name input must not contain an option-like token"
+              fi
+            done
+          }
+
+          # Dispatch inputs arrive only as environment data. They are never
+          # interpolated into shell syntax, re-expanded, globbed or executed.
+          DATE_INPUT=${DATE_INPUT:-}
+          MODE_INPUT=${MODE_INPUT:-}
+          SYMBOLS_INPUT=${SYMBOLS_INPUT:-}
+          TIMEFRAMES_INPUT=${TIMEFRAMES_INPUT:-}
+
+          reject_control_chars "mode" "$MODE_INPUT"
+          if is_blank "$MODE_INPUT"; then
+            MODE_INPUT=incremental
+          fi
+          reject_option_like_tokens "mode" "$MODE_INPUT"
+
+          cmd=(python main.py features --mode "$MODE_INPUT")
+
+          reject_control_chars "date" "$DATE_INPUT"
+          if ! is_blank "$DATE_INPUT"; then
+            reject_option_like_tokens "date" "$DATE_INPUT"
+            cmd+=(--date "$DATE_INPUT")
+          fi
+
+          reject_control_chars "symbols" "$SYMBOLS_INPUT"
+          if ! is_blank "$SYMBOLS_INPUT"; then
+            read -r -a symbols <<< "$SYMBOLS_INPUT"
+            if [ "${#symbols[@]}" -eq 0 ]; then
+              die "symbols input did not contain any symbols"
+            fi
+            reject_option_like_tokens "symbols" "${symbols[@]}"
+            cmd+=(--symbols "${symbols[@]}")
+          fi
+
+          reject_control_chars "timeframes" "$TIMEFRAMES_INPUT"
+          if ! is_blank "$TIMEFRAMES_INPUT"; then
+            read -r -a timeframes <<< "$TIMEFRAMES_INPUT"
+            if [ "${#timeframes[@]}" -eq 0 ]; then
+              die "timeframes input did not contain any timeframes"
+            fi
+            reject_option_like_tokens "timeframes" "${timeframes[@]}"
+            cmd+=(--timeframes "${timeframes[@]}")
+          fi
+
           "${cmd[@]}"
