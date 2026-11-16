@@ -21,7 +21,7 @@ from .runtime import (
     date_bounds_for_daily_context,
     fetch_stock_daily_rows,
     fetch_feature_watermark,
-    fetch_intraday_trading_session_window,
+    fetch_intraday_catchup_window,
     fetch_stock_intraday_paginated,
     filter_output_by_time,
     log_feature_run,
@@ -273,7 +273,14 @@ def calculate_intraday_features_for_symbol(
     records_by_timeframe=None,
     warmup_sessions=250,
 ):
-    """Read canonical 1m data and write closed intraday feature rows."""
+    """Read canonical 1m data and write closed intraday feature rows.
+
+    Incremental mode anchors each stream's output at its own watermark
+    (``watermark + 1ns``) and reads 250 sessions of warm-up *before* the earliest
+    output start plus the full catch-up through the target date. All timeframes
+    are computed before any upsert so a read or calculation failure leaves the
+    symbol with zero writes.
+    """
     normalized = normalize_timeframes(
         timeframes or tuple(INTRADAY_TIMEFRAMES)
     )
@@ -282,24 +289,40 @@ def calculate_intraday_features_for_symbol(
 
     db = SupabaseClient()
     target = normalize_target_date(target_date) if mode == "incremental" else None
-    end = None
     filter_start = None
     filter_end = None
+    output_starts = {timeframe: None for timeframe in normalized}
+
     if target is not None:
         filter_start, filter_end, _ = target_utc_bounds(target)
         end = filter_end.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    watermarks = {
-        timeframe: fetch_feature_watermark(db, symbol, timeframe)
-        for timeframe in normalized
-    } if target is not None else {timeframe: None for timeframe in normalized}
-    rows = (
-        fetch_intraday_trading_session_window(
-            db, symbol, end, trading_sessions=warmup_sessions
+        # Preflight (read-only): resolve each stream's watermark and output start.
+        watermarks = {
+            timeframe: fetch_feature_watermark(db, symbol, timeframe)
+            for timeframe in normalized
+        }
+        output_starts = {
+            timeframe: (
+                watermarks[timeframe] + pd.Timedelta(nanoseconds=1)
+                if watermarks[timeframe] is not None
+                else filter_start
+            )
+            for timeframe in normalized
+        }
+        earliest_start = min(output_starts.values())
+        if earliest_start >= filter_end:
+            # Every stream is already caught up through the target day.
+            return 0
+        rows = fetch_intraday_catchup_window(
+            db,
+            symbol,
+            earliest_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            end,
+            trading_sessions=warmup_sessions,
         )
-        if target is not None
-        else fetch_stock_intraday_paginated(db, symbol, order_desc=False)
-    )
+    else:
+        rows = fetch_stock_intraday_paginated(db, symbol, order_desc=False)
+
     if not rows:
         return 0
 
@@ -322,7 +345,8 @@ def calculate_intraday_features_for_symbol(
         .dt.date.nunique()
     )
 
-    total = 0
+    # Compute every timeframe's output before any upsert (preflight).
+    prepared = []
     for timeframe in normalized:
         aggregated = aggregate_timeframe(source, timeframe)
         closed = filter_closed_buckets(aggregated, timeframe, cutoff)
@@ -337,13 +361,13 @@ def calculate_intraday_features_for_symbol(
         )
         output = filter_output_by_time(
             computed,
-            (
-                watermarks[timeframe] + pd.Timedelta(nanoseconds=1)
-                if watermarks[timeframe] is not None
-                else filter_start
-            ),
+            output_starts[timeframe],
             filter_end,
         )
+        prepared.append((timeframe, aggregated, computed, output))
+
+    total = 0
+    for timeframe, aggregated, computed, output in prepared:
         count = upsert_feature_frame(
             db,
             symbol,

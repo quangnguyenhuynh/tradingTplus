@@ -141,3 +141,57 @@ def test_intraday_200_and_250_session_parity_against_full(timeframe):
         absolute <= FLOAT_ABS_TOLERANCE
         for absolute, _relative in evidence[250].values()
     ), evidence[250]
+
+
+@pytest.mark.parametrize("timeframe", ["15m", "60m"])
+def test_intraday_catchup_full_span_parity_against_full(timeframe):
+    """An old watermark (>250-session catch-up) still matches full on the whole
+    output span once warm-up is anchored at the watermark, not the target."""
+    rows, daily = _intraday_fixture(session_count=520)
+    assert len(rows) == 520 * 60
+
+    full = compute_intraday_features(
+        aggregate_timeframe(pd.DataFrame(rows), timeframe),
+        timeframe,
+        pd.DataFrame(daily),
+    )
+
+    watermark_session = 259  # 0-indexed; catch-up below is 260 sessions (> 250)
+    warmup_sessions = 250
+    warmup_first_session = watermark_session + 1 - warmup_sessions
+    assert warmup_first_session >= 0
+    watermark_date = pd.Timestamp(daily[watermark_session]["trading_date"]).date()
+    warmup_first_date = pd.Timestamp(daily[warmup_first_session]["trading_date"]).date()
+
+    bounded_rows = [
+        row
+        for row in rows
+        if pd.Timestamp(row["time"]).tz_convert("Asia/Ho_Chi_Minh").date() >= warmup_first_date
+    ]
+    bounded_daily = [
+        row
+        for row in daily
+        if pd.Timestamp(row["trading_date"]).date() >= warmup_first_date
+    ]
+    incremental = compute_intraday_features(
+        aggregate_timeframe(pd.DataFrame(bounded_rows), timeframe),
+        timeframe,
+        pd.DataFrame(bounded_daily),
+    )
+
+    after_watermark = lambda frame: frame[
+        pd.to_datetime(frame["time"], utc=True)
+        .dt.tz_convert("Asia/Ho_Chi_Minh")
+        .dt.date
+        > watermark_date
+    ]
+    expected = _records(after_watermark(full), timeframe)
+    actual = _records(after_watermark(incremental), timeframe)
+
+    maxima = _compare_all_columns(expected, actual)
+    assert all(
+        absolute <= FLOAT_ABS_TOLERANCE for absolute, _ in maxima.values()
+    ), maxima
+    # The catch-up span exceeds the 250-session warm-up cap by construction.
+    assert len(actual) > 250
+    assert len(bounded_rows) < len(rows)

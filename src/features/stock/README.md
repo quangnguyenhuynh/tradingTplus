@@ -62,10 +62,15 @@ mean rewriting it:
 - `1d` reads up to five years of `stock_daily`, anchored at the watermark (or
   the target date when no watermark exists);
 - `15m` and `60m` read up to the latest 250 observed Vietnam trading dates from
-  `stock_intraday` 1m, ending at the target date; every candle of the oldest
-  selected session is retained even when that session crosses a page boundary;
-- calculation uses the loaded window, but only the new or affected target range
-  is upserted.
+  `stock_intraday` 1m as warm-up, anchored at each stream's watermark (or the
+  target date when no watermark exists), plus the full catch-up range from the
+  earliest watermark through the target date; every candle of the oldest
+  selected warm-up session is retained even when that session crosses a page
+  boundary, and a catch-up older than 250 sessions is read in full instead of
+  being silently truncated to the newest 250 sessions;
+- calculation uses the loaded window, but only the new or affected range after
+  each stream's watermark (or the target date when no watermark exists) is
+  upserted.
 
 PostgREST source readers are safe when the server cap is lower than the requested
 page size: stable ordering is used, offsets advance by rows actually returned,
