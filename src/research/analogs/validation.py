@@ -61,12 +61,18 @@ def _coerce_session(value: Any) -> date | None:
 def _snapshot_data_identity(row: Mapping[str, Any]) -> dict[str, Any]:
     """Semantic, rebuild-stable subset of a snapshot that drives the evidence.
 
-    Excludes persistence-only metadata (``id``, ``config_hash``) and derived
-    lineage fields, so identical market data produces an identical identity
-    while any label/dimension/status change is distinguishable.
+    Includes the eligibility-deciding fields (``symbol``, ``profile_code``,
+    ``version``, ``config_hash``, ``timeframe``, ``checkpoint``, ``status``,
+    ``trading_session``, ``outcomes``) plus ``dimensions``, so a change that
+    alters which candidates are eligible or how they are scored always changes
+    the identity. Persistence-only metadata (``id``) and derived lineage fields
+    are excluded, so identical market data still produces an identical identity.
     """
     return {
         "symbol": row.get("symbol"),
+        "profile_code": row.get("profile_code"),
+        "version": row.get("version"),
+        "config_hash": row.get("config_hash"),
         "timeframe": row.get("timeframe"),
         "checkpoint": row.get("checkpoint"),
         "trading_session": row.get("trading_session"),
