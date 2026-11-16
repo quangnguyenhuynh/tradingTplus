@@ -58,6 +58,49 @@ def _coerce_session(value: Any) -> date | None:
     return None
 
 
+# Semantic outcome fields kept in the data identity; audit/persistence fields
+# (id, snapshot_id, created_at, updated_at, ...) are dropped so a rerun over
+# the same labels with different audit metadata keeps the same identity.
+_OUTCOME_SEMANTIC_FIELDS = (
+    "status",
+    "reason",
+    "unavailable_reason",
+    "target_session",
+    "reference_session",
+    "reference_close",
+    "target_close",
+    "return_ratio",
+)
+_OUTCOME_DATE_FIELDS = ("target_session", "reference_session")
+
+
+def _semantic_outcomes(outcomes: Any) -> Any:
+    """Project outcomes to semantic fields, normalizing session dates to ISO.
+
+    Non-semantic audit metadata is dropped and date/datetime/ISO-string session
+    values are canonicalized, so the identity is stable across rebuilds and
+    representation differences while still changing on any label change.
+    """
+    if not isinstance(outcomes, Mapping):
+        return outcomes
+    projected: dict[Any, Any] = {}
+    for horizon, outcome in outcomes.items():
+        if not isinstance(outcome, Mapping):
+            projected[horizon] = outcome
+            continue
+        item: dict[str, Any] = {}
+        for field in _OUTCOME_SEMANTIC_FIELDS:
+            if field not in outcome:
+                continue
+            value = outcome[field]
+            if field in _OUTCOME_DATE_FIELDS and value is not None:
+                coerced = _coerce_session(value)
+                value = coerced.isoformat() if coerced is not None else None
+            item[field] = value
+        projected[horizon] = item
+    return projected
+
+
 def _snapshot_data_identity(row: Mapping[str, Any]) -> dict[str, Any]:
     """Semantic, rebuild-stable subset of a snapshot that drives the evidence.
 
@@ -65,8 +108,10 @@ def _snapshot_data_identity(row: Mapping[str, Any]) -> dict[str, Any]:
     ``version``, ``config_hash``, ``timeframe``, ``checkpoint``, ``status``,
     ``trading_session``, ``outcomes``) plus ``dimensions``, so a change that
     alters which candidates are eligible or how they are scored always changes
-    the identity. Persistence-only metadata (``id``) and derived lineage fields
-    are excluded, so identical market data still produces an identical identity.
+    the identity. Outcomes are projected to semantic fields (audit metadata
+    dropped), and persistence-only snapshot metadata (``id``) and derived
+    lineage fields are excluded, so identical market data still produces an
+    identical identity.
     """
     return {
         "symbol": row.get("symbol"),
@@ -78,8 +123,45 @@ def _snapshot_data_identity(row: Mapping[str, Any]) -> dict[str, Any]:
         "trading_session": row.get("trading_session"),
         "status": row.get("status"),
         "dimensions": row.get("dimensions"),
-        "outcomes": row.get("outcomes"),
+        "outcomes": _semantic_outcomes(row.get("outcomes")),
     }
+
+
+def _normalize_calibration_snapshots(
+    snapshots: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Calibration-only copy with date-normalized outcome target sessions.
+
+    Converts completed outcome target sessions (date/datetime/ISO string) to
+    date and marks completed outcomes with a missing/invalid target session as
+    status ``"invalid"`` so ``_eligible_candidates`` excludes them without any
+    core matching change and without ``str``/``datetime``/``None`` comparisons
+    raising in the matcher. Non-calibration callers use the original snapshots.
+    """
+    normalized: list[dict[str, Any]] = []
+    for row in snapshots:
+        outcomes = row.get("outcomes")
+        if not isinstance(outcomes, Mapping) or not outcomes:
+            normalized.append(dict(row))
+            continue
+        new_outcomes: dict[Any, Any] = {}
+        for horizon, outcome in outcomes.items():
+            if not isinstance(outcome, Mapping):
+                new_outcomes[horizon] = outcome
+                continue
+            item = dict(outcome)
+            if item.get("status") == "completed":
+                target = _coerce_session(item.get("target_session"))
+                if target is None:
+                    item["status"] = "invalid"
+                    item.pop("target_session", None)
+                else:
+                    item["target_session"] = target
+            new_outcomes[horizon] = item
+        copied = dict(row)
+        copied["outcomes"] = new_outcomes
+        normalized.append(copied)
+    return normalized
 
 
 def calibration_identity(
@@ -160,6 +242,7 @@ def walk_forward(
             raise ValueError("calibration requires a final-test start boundary")
         validate_calibration_boundaries(start, end, final_test_start)
     ordered = sorted(snapshots, key=lambda row: (row["trading_session"], row["symbol"]))
+    working = _normalize_calibration_snapshots(ordered) if is_calibration else ordered
     metrics: dict[int, dict[str, Any]] = {}
     reasons: Counter[str] = Counter()
     by_horizon: defaultdict[int, dict[str, Any]] = defaultdict(
@@ -185,13 +268,13 @@ def walk_forward(
     for horizon in profile.config["horizons"]:
         by_horizon[horizon]
     total_queries = insufficient = eligible_forecasts = 0
-    for current in ordered:
+    for current in working:
         session = current["trading_session"]
         if not (start <= session <= end):
             continue
         total_queries += 1
         result = match_snapshot(
-            current, ordered, profile, production=False, query_cutoff=session
+            current, working, profile, production=False, query_cutoff=session
         )
         if result["status"] != "completed":
             if result["status"] == "insufficient_sample":
@@ -208,41 +291,39 @@ def walk_forward(
                     label_accounting[horizon]["missing"] += 1
                 continue
             status = actual.get("status")
-            if status != "completed":
-                status_key = status.upper() if isinstance(status, str) else "MISSING"
-                reasons[f"CURRENT_OUTCOME_{status_key}_H{horizon}"] += 1
-                reason = actual.get("reason") or actual.get("unavailable_reason")
-                if reason:
-                    reasons[f"CURRENT_OUTCOME_H{horizon}:{reason}"] += 1
-                if is_calibration:
-                    category = {
-                        "MISSING": "missing",
-                        "PENDING": "pending",
-                        "UNAVAILABLE": "unavailable",
-                    }.get(status_key, "unknown")
-                    label_accounting[horizon][category] += 1
-                continue
-            if is_calibration:
-                target_session = _coerce_session(actual.get("target_session"))
-                if target_session is None:
-                    reasons[f"CURRENT_OUTCOME_INVALID_TARGET_SESSION_H{horizon}"] += 1
-                    label_accounting[horizon]["invalid"] += 1
-                    continue
-                if target_session > end:
+            if status == "completed":
+                if is_calibration and actual.get("target_session") > end:
                     reasons[f"CURRENT_OUTCOME_CENSORED_H{horizon}"] += 1
                     label_accounting[horizon]["censored"] += 1
                     continue
-            stats = result["statistics"][str(horizon)]
-            bucket = by_horizon[horizon]
-            bucket["p"].append(stats["positive_probability"])
-            bucket["y"].append(int(actual["return_ratio"] > 0))
-            bucket["base"].append(stats["baseline_probability"])
-            bucket["median_error"].append(
-                abs(stats["median_return"] - actual["return_ratio"])
-            )
-            bucket["years"][session.year] += 1
+                stats = result["statistics"][str(horizon)]
+                bucket = by_horizon[horizon]
+                bucket["p"].append(stats["positive_probability"])
+                bucket["y"].append(int(actual["return_ratio"] > 0))
+                bucket["base"].append(stats["baseline_probability"])
+                bucket["median_error"].append(
+                    abs(stats["median_return"] - actual["return_ratio"])
+                )
+                bucket["years"][session.year] += 1
+                if is_calibration:
+                    label_accounting[horizon]["scored"] += 1
+                continue
+            status_key = status.upper() if isinstance(status, str) else "MISSING"
+            if is_calibration and status_key == "INVALID":
+                reasons[f"CURRENT_OUTCOME_INVALID_TARGET_SESSION_H{horizon}"] += 1
+                label_accounting[horizon]["invalid"] += 1
+                continue
+            reasons[f"CURRENT_OUTCOME_{status_key}_H{horizon}"] += 1
+            reason = actual.get("reason") or actual.get("unavailable_reason")
+            if reason:
+                reasons[f"CURRENT_OUTCOME_H{horizon}:{reason}"] += 1
             if is_calibration:
-                label_accounting[horizon]["scored"] += 1
+                category = {
+                    "MISSING": "missing",
+                    "PENDING": "pending",
+                    "UNAVAILABLE": "unavailable",
+                }.get(status_key, "unknown")
+                label_accounting[horizon][category] += 1
     for horizon, bucket in by_horizon.items():
         calibration = []
         for lower in (0, 0.2, 0.4, 0.6, 0.8):
