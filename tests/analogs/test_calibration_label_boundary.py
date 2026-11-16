@@ -389,6 +389,87 @@ def test_identity_changes_on_label_change_but_stable_for_same_data():
     assert baseline["code_identity"] == changed["code_identity"] == same["code_identity"]
 
 
+def test_identity_changes_when_candidate_eligibility_fields_change():
+    profile = _profile(1)
+    candidates = _candidates(profile)
+    query = _snapshot(profile, 37, TRAINING_END - timedelta(days=2))
+    snapshots = candidates + [query]
+
+    baseline = walk_forward(profile, snapshots, **_calibrate_kwargs())
+    assert baseline["eligible_forecasts"] == 1
+
+    # A config-hash mismatch removes every candidate from eligibility, so the
+    # result changes (0 eligible forecasts); the data identity must change too.
+    mutated = deepcopy(snapshots)
+    for row in mutated[:-1]:
+        row["config_hash"] = "0" * 64
+    changed = walk_forward(profile, mutated, **_calibrate_kwargs())
+    assert changed["eligible_forecasts"] == 0
+    assert changed["data_identity"] != baseline["data_identity"]
+    assert changed["evidence_identity"] != baseline["evidence_identity"]
+
+
+def test_calibration_normalizes_target_sessions_across_consecutive_queries():
+    profile = _profile(1)
+    candidates = _candidates(profile)
+    # Earlier query with ISO/datetime/None target sessions; when it later
+    # becomes a candidate for the next query, the matcher must not raise on
+    # str/datetime/None comparisons and must exclude the invalid horizon.
+    q1 = _snapshot(
+        profile,
+        50,
+        TRAINING_END - timedelta(days=10),
+        outcomes={
+            1: {
+                "status": "completed",
+                "target_session": (TRAINING_END - timedelta(days=9)).isoformat(),
+                "return_ratio": 0.01,
+            },
+            3: {
+                "status": "completed",
+                "target_session": datetime.combine(
+                    TRAINING_END - timedelta(days=7), time(10, 0)
+                ),
+                "return_ratio": 0.03,
+            },
+            5: {"status": "completed", "target_session": None, "return_ratio": 0.05},
+        },
+    )
+    q2 = _snapshot(profile, 51, TRAINING_END - timedelta(days=6))
+    snapshots = candidates + [q1, q2]
+
+    result = walk_forward(profile, snapshots, **_calibrate_kwargs())
+
+    assert result["eligible_forecasts"] == 2
+    assert result["label_accounting"][1]["scored"] == 2
+    assert result["label_accounting"][3]["scored"] == 2
+    assert result["label_accounting"][5]["scored"] == 1
+    assert result["label_accounting"][5]["invalid"] == 1
+
+
+def test_identity_stable_across_audit_metadata_changes():
+    profile = _profile(1)
+    candidates = _candidates(profile)
+    query = _snapshot(profile, 52, TRAINING_END - timedelta(days=2))
+    snapshots = candidates + [query]
+
+    baseline = walk_forward(profile, snapshots, **_calibrate_kwargs())
+
+    # Attach audit/persistence metadata to outcomes; the semantic labels are
+    # unchanged, so the data/evidence identity must stay identical.
+    mutated = deepcopy(snapshots)
+    for row in mutated:
+        for outcome in row.get("outcomes", {}).values():
+            outcome["id"] = f"audit-{row.get('id')}"
+            outcome["snapshot_id"] = row.get("id")
+            outcome["created_at"] = "2026-01-01T00:00:00+00:00"
+            outcome["updated_at"] = "2026-01-02T00:00:00+00:00"
+    changed = walk_forward(profile, mutated, **_calibrate_kwargs())
+
+    assert changed["data_identity"] == baseline["data_identity"]
+    assert changed["evidence_identity"] == baseline["evidence_identity"]
+
+
 def test_non_calibration_output_keeps_legacy_shape_and_scoring():
     profile = _profile(1)
     candidates = _candidates(profile)
