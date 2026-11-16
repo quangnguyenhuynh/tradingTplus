@@ -389,6 +389,26 @@ def test_identity_changes_on_label_change_but_stable_for_same_data():
     assert baseline["code_identity"] == changed["code_identity"] == same["code_identity"]
 
 
+def test_identity_changes_when_candidate_eligibility_fields_change():
+    profile = _profile(1)
+    candidates = _candidates(profile)
+    query = _snapshot(profile, 37, TRAINING_END - timedelta(days=2))
+    snapshots = candidates + [query]
+
+    baseline = walk_forward(profile, snapshots, **_calibrate_kwargs())
+    assert baseline["eligible_forecasts"] == 1
+
+    # A config-hash mismatch removes every candidate from eligibility, so the
+    # result changes (0 eligible forecasts); the data identity must change too.
+    mutated = deepcopy(snapshots)
+    for row in mutated[:-1]:
+        row["config_hash"] = "0" * 64
+    changed = walk_forward(profile, mutated, **_calibrate_kwargs())
+    assert changed["eligible_forecasts"] == 0
+    assert changed["data_identity"] != baseline["data_identity"]
+    assert changed["evidence_identity"] != baseline["evidence_identity"]
+
+
 def test_non_calibration_output_keeps_legacy_shape_and_scoring():
     profile = _profile(1)
     candidates = _candidates(profile)
