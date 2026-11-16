@@ -57,6 +57,24 @@ Random splitting is forbidden. Reports include coverage, insufficient counts,
 Brier/baseline Brier, calibration buckets, lift, median-return error, yearly
 stability, and invalid reasons.
 
+Calibration scoring is STRICT about the training boundary (HA-01): a horizon is
+scored only when its `target_session <= training_end`, `training_end` must be
+strictly before `final_test_start`, and missing/inverted/overlapping boundaries
+fail closed in both the CLI and direct calls before any database access.
+Censoring is per horizon (`target_session > training_end`, including equality
+with `final_test_start`); the query is never dropped and matching is never
+widened. A `completed` outcome with a missing/invalid `target_session` is
+reported as `invalid` and not scored. Per-horizon labels are reported as
+`scored`/`censored`/`pending`/`missing`/`invalid`/`unavailable`, reconcilable
+against eligible matched forecasts. Every calibration route also carries a
+STRICT evaluation-policy marker plus deterministic profile/code/data evidence
+identity. The STRICT marker is an evaluation-policy version, distinct from the
+method/profile identity; the source profile JSON is unchanged by this task.
+Legacy calibration evidence is invalidated and must be rerun, and rerunning
+never returns a used final-test holdout to fresh status. If STRICT changes the
+acceptance criterion of an already-approved method, that is a separate
+version/evidence decision required before any new approval.
+
 `analog_quality` reports sample size, `top_k`, dynamic neighbour radius `d_k`
 (`d30` by default), median and p90 distances, and a walk-forward radius
 percentile. P50/P75/P95 define `good`, `usable`, `weak`, and

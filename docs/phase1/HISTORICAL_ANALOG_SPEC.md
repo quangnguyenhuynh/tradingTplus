@@ -237,6 +237,48 @@ Changing a dimension, bucket, fallback, checkpoint, freshness rule, feature
 formula, entry/cost/outcome model, or acceptance criterion requires a new
 version and new evidence.
 
+### STRICT calibration label boundary (HA-01)
+
+Calibration scoring is STRICT about the training boundary:
+
+- A calibration label for horizon H is scored only when its `target_session` is
+  within the training interval (`target_session <= training_end`).
+- `training_end` must be strictly before `final_test_start`
+  (`training_end < final_test_start`). Missing, inverted (`start > end`), or
+  overlapping boundaries fail closed in both the CLI and direct
+  `walk_forward`/`calibrate` calls before any database access.
+- Censoring is per horizon: only the horizon whose `target_session` exceeds
+  `training_end` is censored. The query is never dropped and candidate matching
+  is never widened. A label at `target_session == final_test_start` is censored
+  too.
+- A `completed` outcome whose `target_session` is missing or invalid (not a
+  date/datetime/ISO string) is never scored; it is reported as `invalid`.
+- Labels are reported per horizon as `scored` / `censored` / `pending` /
+  `missing` / `invalid` / `unavailable`, reconcilable against the number of
+  eligible matched forecasts; not-evaluable queries are reported separately.
+
+Every calibration route (with or without candidate thresholds) also carries a
+STRICT policy marker and a deterministic evidence identity: the training/final
+boundaries, the exact profile identity (code/version/config hash), a
+runtime-safe code identity over the calibration modules, and a deterministic
+data identity over the ordered snapshot/outcome inputs. This distinguishes
+before/after evidence and rebuilds without fabricating a git revision or adding
+schema or dependencies.
+
+The STRICT marker is an **evaluation-policy version marker**, distinct from the
+method/profile identity: it records the calibration-labeling policy that
+produced the evidence, and does not change the profile, dimensions, matching,
+or outcome contracts. This task leaves the source profile JSON unchanged.
+Because the STRICT boundary tightens how calibration labels are scored, legacy
+calibration evidence produced before this policy is invalidated and must be
+rerun under STRICT. Rerunning does not return an already-used final-test
+holdout to a fresh/untouched state.
+
+If the STRICT policy changes the acceptance criterion of an already-approved
+method, that is a separate version/evidence decision to resolve before any new
+approval; it is not implied by keeping the profile version unchanged, and this
+task does not self-modify the profile.
+
 ## 11. Runtime response
 
 Opening the app does not rerun historical validation. Runtime:

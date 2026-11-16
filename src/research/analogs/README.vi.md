@@ -27,6 +27,21 @@ lift. Query, normalization và match/rank được lưu để audit. Calibration
 profile và không phải final evidence. Walk-forward không random split, không cho
 future outlier/outcome lọt vào normalization, match, baseline hoặc calibration bán kính.
 
+Chấm điểm calibration STRICT với biên training (HA-01): một horizon chỉ được chấm
+khi `target_session <= training_end`; `training_end` phải nhỏ hơn nghiêm ngặt
+`final_test_start`; boundary thiếu/đảo/chồng fail-closed ở cả CLI lẫn gọi trực
+tiếp, trước khi chạm database. Censor theo từng horizon (`target_session >
+training_end`, kể cả bằng `final_test_start`); không loại cả query và không nới
+matching. Outcome `completed` thiếu/sai `target_session` báo `invalid`, không chấm.
+Label theo horizon báo `scored`/`censored`/`pending`/`missing`/`invalid`/
+`unavailable`, đối soát được với eligible matched forecasts. Mọi route calibration
+kèm marker evaluation-policy STRICT và profile/code/data evidence identity tất
+định. Marker STRICT là evaluation-policy version, tách biệt với method/profile
+identity; profile JSON nguồn giữ nguyên trong task này. Evidence calibration cũ
+bị vô hiệu, phải rerun, và rerun không đưa final-test holdout đã dùng trở lại
+fresh. Nếu STRICT thay acceptance criterion của method đã approved, đó là quyết
+định version/evidence riêng cần có trước approval mới.
+
 `analog_quality` tách riêng sample size, `top_k`, bán kính động `d_k` (`d30`
 khi mặc định), median, p90 và percentile bán kính walk-forward. P50/P75/P95 tạo
 bucket `good`/`usable`/`weak`/`out_of_distribution`; thiếu calibration trả
