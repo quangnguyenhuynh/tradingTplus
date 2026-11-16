@@ -16,7 +16,7 @@ from .runtime import (
     repository_from_environment,
 )
 from .service import register_profile, review_profile
-from .validation import calibrate, walk_forward
+from .validation import calibrate, validate_calibration_boundaries, walk_forward
 
 
 def parse_date(value: str):
@@ -45,6 +45,15 @@ def run(args: Any, repository: Any | None = None) -> dict[str, Any]:
             "reason_codes": ["EXACT_PROFILE_NOT_APPROVED"],
             "persisted": False,
         }
+    if action == "validate" and getattr(args, "run_type", None) == "calibration":
+        training_start = parse_date(args.from_date)
+        training_end = parse_date(args.to_date)
+        if not args.final_test_start:
+            raise ValueError("calibration requires --final-test-start")
+        final_test_start = parse_date(args.final_test_start)
+        validate_calibration_boundaries(
+            training_start, training_end, final_test_start
+        )
     repository = repository or repository_from_environment()
     if action == "profiles":
         if args.profile_command == "list":

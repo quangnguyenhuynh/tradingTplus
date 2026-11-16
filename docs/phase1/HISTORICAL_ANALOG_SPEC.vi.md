@@ -228,6 +228,44 @@ mua. Đổi dimension, bucket, fallback, checkpoint, freshness, công thức fea
 entry/cost/outcome hoặc acceptance criteria đều phải tăng version và tạo evidence
 mới.
 
+### Boundary label calibration STRICT (HA-01)
+
+Chấm điểm calibration là STRICT với biên training:
+
+- Label calibration của horizon H chỉ được chấm khi `target_session` nằm trong
+  khoảng training (`target_session <= training_end`).
+- `training_end` phải nhỏ hơn nghiêm ngặt `final_test_start`
+  (`training_end < final_test_start`). Boundary thiếu, đảo ngược
+  (`start > end`) hoặc chạm/chồng final-test phải fail-closed ở cả CLI lẫn gọi
+  trực tiếp `walk_forward`/`calibrate`, trước khi truy cập database.
+- Censor theo từng horizon: chỉ horizon có `target_session` vượt `training_end`
+  bị censor. Không loại cả query và không nới rộng candidate matching. Label tại
+  `target_session == final_test_start` cũng bị censor.
+- Outcome `completed` thiếu hoặc `target_session` không hợp lệ (không phải
+  date/datetime/chuỗi ISO) không bao giờ được chấm; báo là `invalid`.
+- Label được báo theo từng horizon là `scored` / `censored` / `pending` /
+  `missing` / `invalid` / `unavailable`, đối soát được với số eligible matched
+  forecasts; query không đánh giá được báo riêng.
+
+Mọi route calibration (có hoặc không candidate threshold) đều kèm marker policy
+STRICT và evidence identity tất định: boundary training/final, identity profile
+chính xác (code/version/config hash), code identity runtime-safe trên các module
+calibration, và data identity tất định trên input snapshot/outcome đã sắp thứ tự.
+Điều này phân biệt được evidence trước/sau và giữa các lần rebuild mà không bịa
+git revision hoặc thêm schema/dependency.
+
+Marker STRICT là **evaluation-policy version marker**, tách biệt với
+method/profile identity: nó ghi chính sách chấm label calibration đã tạo ra
+evidence, không sửa profile, dimension, matching hay hợp đồng outcome. Task này
+giữ nguyên profile JSON nguồn. Vì boundary STRICT thắt chặt cách chấm label,
+evidence calibration cũ tạo trước policy này bị vô hiệu và phải rerun theo STRICT.
+Rerun không đưa final-test holdout đã dùng trở lại trạng thái fresh/chưa đụng.
+
+Nếu policy STRICT làm thay đổi acceptance criterion của một method đã được
+approved, đó là quyết định version/evidence riêng cần giải quyết trước khi có
+approval mới; việc giữ nguyên profile version không đương nhiên hàm ý điều đó,
+và task này không tự sửa profile.
+
 ## 11. Kết quả runtime
 
 User mở app không làm chạy lại historical validation. Runtime:
