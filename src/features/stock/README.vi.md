@@ -61,10 +61,13 @@ biết output mới bắt đầu từ đâu.
 - `1d` đọc tối đa 5 năm từ `stock_daily`, neo tại watermark (hoặc target date
   nếu chưa có watermark);
 - `15m` và `60m` đọc tối đa 250 ngày giao dịch Việt Nam đã quan sát gần nhất từ
-  `stock_intraday` 1m, kết thúc tại target date; mọi candle của phiên cũ nhất
-  được chọn vẫn được lấy đủ dù phiên đó vắt qua page boundary;
-- pipeline tính trên window đã load nhưng chỉ upsert vùng target mới hoặc bị
-  ảnh hưởng.
+  `stock_intraday` 1m làm warm-up, neo tại watermark của từng stream (hoặc
+  target date nếu chưa có watermark), cộng toàn bộ khoảng catch-up từ watermark
+  sớm nhất đến target date; mọi candle của phiên warm-up cũ nhất được chọn vẫn
+  được lấy đủ dù phiên đó vắt qua page boundary, và catch-up cũ hơn 250 phiên
+  vẫn được đọc đủ thay vì bị cắt về 250 phiên gần nhất;
+- pipeline tính trên window đã load nhưng chỉ upsert vùng mới hoặc bị ảnh hưởng
+  sau watermark của từng stream (hoặc target date nếu chưa có watermark).
 
 Reader PostgREST an toàn khi server cap thấp hơn page size yêu cầu: query dùng
 ordering ổn định, offset tăng theo số row thực trả và chỉ trang rỗng (hoặc exact

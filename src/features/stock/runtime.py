@@ -419,6 +419,46 @@ def fetch_intraday_trading_session_window(
     return list(reversed(rows))
 
 
+def fetch_intraday_catchup_window(
+    db: SupabaseClient,
+    symbol: str,
+    output_start_utc: str,
+    end_utc: str,
+    trading_sessions: int = 250,
+    page_size: int = 1000,
+) -> list[dict]:
+    """Read bounded warm-up plus the full catch-up range in one oldest-first pass.
+
+    Anchors the bounded warm-up at ``output_start_utc`` rather than the target
+    boundary, then appends every 1m row in ``[output_start_utc, end_utc)``. The
+    two reads are disjoint by construction (warm-up is strictly ``< output_start_utc``;
+    catch-up is ``>= output_start_utc``), so the result needs no deduplication.
+
+    This keeps the existing warm-up cap (``fetch_intraday_trading_session_window``
+    enforces 200..250 observed sessions) and the existing unbounded paginated
+    reader (``fetch_stock_intraday_paginated`` with no ``limit_total``), so a
+    large catch-up is read in full instead of being silently truncated to the
+    newest 250 sessions. Any pagination/repeated-page failure raises before the
+    caller writes.
+    """
+    warmup = fetch_intraday_trading_session_window(
+        db,
+        symbol,
+        output_start_utc,
+        trading_sessions=trading_sessions,
+        page_size=page_size,
+    )
+    catchup = fetch_stock_intraday_paginated(
+        db,
+        symbol,
+        gte_time=output_start_utc,
+        lt_time=end_utc,
+        order_desc=False,
+        page_size=page_size,
+    )
+    return warmup + catchup
+
+
 def validate_replace_scope(
     symbols,
     timeframes,
